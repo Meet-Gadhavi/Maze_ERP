@@ -1527,11 +1527,6 @@ export default function SalesPage() {
 
             {tab === 'ai-sales' && (
                 <div className="ai-sales-dashboard">
-                    <div className="view-header">
-                        <h2>AI Agent Sales</h2>
-                        <p>Orders pushed from Mazeway Voice and WhatsApp agents</p>
-                    </div>
-
                     <div className="page-toolbar">
                         <div className="search-bar">
                             <Icons.Search size={20} />
