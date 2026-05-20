@@ -1486,11 +1486,25 @@ export default function SettingsPage() {
                                         </div>
                                     )}
 
-                                    {/* Timeline Item: v1.1.2 */}
+                                    {/* Timeline Item: v1.1.3 */}
                                     <div style={{ position: 'relative' }}>
                                         <div style={{ position: 'absolute', left: '-22px', top: '4px', width: '12px', height: '12px', borderRadius: '50%', background: updateState.status === 'available' ? 'var(--text-tertiary)' : 'var(--accent)', border: '2px solid var(--bg-primary)' }}></div>
                                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                            <strong style={{ fontSize: '15px' }}>Version 1.1.2 {updateState.status !== 'available' && '(Latest)'}</strong>
+                                            <strong style={{ fontSize: '15px' }}>Version 1.1.3 {updateState.status !== 'available' && '(Latest)'}</strong>
+                                            <span style={{ fontSize: '11px', color: 'var(--text-tertiary)', background: 'var(--bg-secondary)', padding: '2px 8px', borderRadius: '12px' }}>May 20, 2026</span>
+                                        </div>
+                                        <div style={{ fontSize: '13px', color: 'var(--text-secondary)', marginTop: '8px', lineHeight: 1.6 }}>
+                                            <ul style={{ margin: 0, paddingLeft: '16px' }}>
+                                                <li><strong>Seamless Handshake Connection:</strong> Bypassed OAuth state validation redirects if the parameter is missing/undefined due to redirect URL drops from the external Mazeway dashboard.</li>
+                                            </ul>
+                                        </div>
+                                    </div>
+
+                                    {/* Timeline Item: v1.1.2 */}
+                                    <div style={{ position: 'relative' }}>
+                                        <div style={{ position: 'absolute', left: '-22px', top: '4px', width: '12px', height: '12px', borderRadius: '50%', background: 'var(--text-tertiary)', border: '2px solid var(--bg-primary)' }}></div>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                            <strong style={{ fontSize: '15px' }}>Version 1.1.2</strong>
                                             <span style={{ fontSize: '11px', color: 'var(--text-tertiary)', background: 'var(--bg-secondary)', padding: '2px 8px', borderRadius: '12px' }}>May 20, 2026</span>
                                         </div>
                                         <div style={{ fontSize: '13px', color: 'var(--text-secondary)', marginTop: '8px', lineHeight: 1.6 }}>

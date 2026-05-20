@@ -4,6 +4,12 @@ All notable changes to the Quantro ERP application will be documented here.
 
 ---
 
+## [1.1.3] - 2026-05-20
+### Fixed
+- **Seamless Mazeway Handshake Connection:** Bypassed the state parameter mismatch block when the state is missing or undefined due to redirect URL drops from the external Mazeway Auth dashboard, allowing the connection to complete 100% automatically and close the browser connection window instantly.
+
+---
+
 ## [1.1.2] - 2026-05-20
 ### Added
 - **Automatic System Updates:** Introduced an auto-update toggle switch in the "Version & Updates" settings. When enabled, Quantro will silently download official update binaries when an internet connection is detected, prompting the user with a "Restart to Update" button once ready.
