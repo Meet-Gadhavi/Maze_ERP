@@ -917,32 +917,28 @@ export default function SalesPage() {
                                         </div>
                                         <div className="customer-info">
                                             <span className="customer-name">{c.name}</span>
-                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '4px' }}>
-                                                <span className="customer-details">
-                                                    {c.phone || 'No Phone'}
-                                                </span>
-                                                <div style={{ display: 'flex', gap: '12px' }}>
-                                                    {(() => {
-                                                        const custInvoices = invoices.filter(inv => inv.customer_id === c.id);
-                                                        const totalOutstanding = custInvoices.reduce((sum, inv) => {
-                                                            const effectiveTotal = Math.max(0, (inv.total || 0) - (inv.total_returned_amount || 0));
-                                                            return sum + Math.max(0, effectiveTotal - (inv.paid_amount || 0));
-                                                        }, 0);
-                                                        return totalOutstanding > 0 && (
-                                                            <span style={{ fontSize: 'var(--font-size-xs)', fontWeight: '600', color: 'var(--danger)', background: 'rgba(239, 68, 68, 0.1)', padding: '2px 6px', borderRadius: '4px' }}>
-                                                                Due: ₹{totalOutstanding.toLocaleString('en-IN')}
-                                                            </span>
-                                                        );
-                                                    })()}
-                                                    {Number(c.p_credit_balance || 0) > 0 && (
-                                                        <span style={{ fontSize: 'var(--font-size-xs)', fontWeight: '600', color: 'var(--accent)', background: 'rgba(var(--accent-rgb), 0.1)', padding: '2px 6px', borderRadius: '4px' }}>
-                                                            Credit: ₹{Number(c.p_credit_balance).toLocaleString('en-IN')}
-                                                        </span>
-                                                    )}
-                                                </div>
-                                            </div>
+                                            <span className="customer-details">
+                                                {c.phone || 'No Phone'}
+                                            </span>
                                         </div>
-                                        <div className="customer-action">
+                                        <div className="customer-action" style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                            {(() => {
+                                                const custInvoices = invoices.filter(inv => inv.customer_id === c.id);
+                                                const totalOutstanding = custInvoices.reduce((sum, inv) => {
+                                                    const effectiveTotal = Math.max(0, (inv.total || 0) - (inv.total_returned_amount || 0));
+                                                    return sum + Math.max(0, effectiveTotal - (inv.paid_amount || 0));
+                                                }, 0);
+                                                return totalOutstanding > 0 && (
+                                                    <span style={{ fontSize: 'var(--font-size-xs)', fontWeight: '600', color: 'var(--danger)', background: 'rgba(239, 68, 68, 0.1)', padding: '4px 10px', borderRadius: '20px', whiteSpace: 'nowrap' }}>
+                                                        Due: ₹{totalOutstanding.toLocaleString('en-IN')}
+                                                    </span>
+                                                );
+                                            })()}
+                                            {Number(c.p_credit_balance || 0) > 0 && (
+                                                <span style={{ fontSize: 'var(--font-size-xs)', fontWeight: '600', color: 'var(--accent)', background: 'var(--accent-light)', padding: '4px 10px', borderRadius: '20px', whiteSpace: 'nowrap' }}>
+                                                    Credit: ₹{Number(c.p_credit_balance).toLocaleString('en-IN')}
+                                                </span>
+                                            )}
                                             <Icons.ChevronRight size={20} />
                                         </div>
                                     </div>
