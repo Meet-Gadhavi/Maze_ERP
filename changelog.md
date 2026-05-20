@@ -4,6 +4,12 @@ All notable changes to the Quantro ERP application will be documented here.
 
 ---
 
+## [1.1.0] - 2026-05-20
+### Fixed
+- **Mazeway Handshake Connection:** Restructured authentication callbacks to use robust Express backend handshake routes with automated database sync, fixing empty key states.
+
+---
+
 ## [1.0.9] - 2026-05-20
 ### Added
 - **Ultimate Phone Calling AI Agent:** Integrated voice automation channels inside the Automation tab for real-time automated phone calls and business response triggers.

@@ -49,6 +49,7 @@ export default function SettingsPage() {
     const [message, setMessage] = useState({ type: '', text: '' });
     const [activeTab, setActiveTab] = useState('profile');
     const [showMazewayConnectModal, setShowMazewayConnectModal] = useState(false);
+    const [isConnectingMazeway, setIsConnectingMazeway] = useState(false);
 
     // Data Management States
     const [showExportModal, setShowExportModal] = useState(false);
@@ -188,23 +189,6 @@ export default function SettingsPage() {
     useEffect(() => {
         let isMounted = true;
 
-        api.getSettings()
-            .then(data => {
-                if (isMounted && data) {
-                    setSettings(prev => ({ ...prev, ...data }));
-                    setBackupCycle(data.backup_cycle || 'off');
-                }
-                if (isMounted) setLoading(false);
-            })
-            .catch(err => {
-                console.error('Failed to load settings:', err);
-                if (isMounted) setLoading(false);
-            });
-
-        if (isMounted) fetchBackups();
-
-        return () => { isMounted = false; };
-
         // Mazeway Connection Listener
         const handleMazewayMessage = (event) => {
             const data = event.data;
@@ -233,9 +217,58 @@ export default function SettingsPage() {
                 }, 500);
             }
         };
+
+        api.getSettings()
+            .then(data => {
+                if (isMounted && data) {
+                    setSettings(prev => ({ ...prev, ...data }));
+                    setBackupCycle(data.backup_cycle || 'off');
+                }
+                if (isMounted) setLoading(false);
+            })
+            .catch(err => {
+                console.error('Failed to load settings:', err);
+                if (isMounted) setLoading(false);
+            });
+
+        if (isMounted) fetchBackups();
+
         window.addEventListener('message', handleMazewayMessage);
-        return () => window.removeEventListener('message', handleMazewayMessage);
+
+        return () => {
+            isMounted = false;
+            window.removeEventListener('message', handleMazewayMessage);
+        };
     }, []);
+
+    useEffect(() => {
+        let pollInterval;
+        if (isConnectingMazeway) {
+            console.log('[Mazeway Handshake] Started polling settings for keys...');
+            pollInterval = setInterval(() => {
+                api.getSettings().then(data => {
+                    if (data && data.mazeway_api_key) {
+                        console.log('[Mazeway Handshake] Keys found in DB via polling!', data);
+                        toast.success('Mazeway Cloud Connected Successfully!');
+                        setSettings(prev => ({
+                            ...prev,
+                            mazeway_api_key: data.mazeway_api_key,
+                            mazeway_webhook_url: data.mazeway_webhook_url || '',
+                            mazeway_cloud_enabled: 'true'
+                        }));
+                        setIsConnectingMazeway(false);
+                        setShowMazewayConnectModal(false);
+                    }
+                }).catch(err => console.error('Error polling settings:', err));
+            }, 1500);
+        }
+        return () => {
+            if (pollInterval) {
+                console.log('[Mazeway Handshake] Stopped polling settings.');
+                clearInterval(pollInterval);
+            }
+        };
+    }, [isConnectingMazeway]);
 
     const fetchBackups = async () => {
         try {
@@ -265,7 +298,6 @@ export default function SettingsPage() {
 
     const handleAuthorize = async () => {
         try {
-            setLoading(true);
             const data = await api.getMazewayAuthUrl();
             const authUrl = data?.authUrl;
 
@@ -282,13 +314,11 @@ export default function SettingsPage() {
                 // Fallback for development if window.maze is missing
                 window.open(authUrl, '_blank');
             }
-            setShowMazewayConnectModal(false);
+            setIsConnectingMazeway(true);
         } catch (err) {
             console.error('Authorize failed:', err);
             const errorMsg = err.message || 'Failed to initiate connection. Please check your internet or backend status.';
             toast.error(errorMsg);
-        } finally {
-            setLoading(false);
         }
     };
 
@@ -1412,11 +1442,25 @@ export default function SettingsPage() {
                                         </div>
                                     )}
 
-                                    {/* Timeline Item: v1.0.9 */}
+                                    {/* Timeline Item: v1.1.0 */}
                                     <div style={{ position: 'relative' }}>
                                         <div style={{ position: 'absolute', left: '-22px', top: '4px', width: '12px', height: '12px', borderRadius: '50%', background: updateState.status === 'available' ? 'var(--text-tertiary)' : 'var(--accent)', border: '2px solid var(--bg-primary)' }}></div>
                                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                            <strong style={{ fontSize: '15px' }}>Version 1.0.9 {updateState.status !== 'available' && '(Latest)'}</strong>
+                                            <strong style={{ fontSize: '15px' }}>Version 1.1.0 {updateState.status !== 'available' && '(Latest)'}</strong>
+                                            <span style={{ fontSize: '11px', color: 'var(--text-tertiary)', background: 'var(--bg-secondary)', padding: '2px 8px', borderRadius: '12px' }}>May 20, 2026</span>
+                                        </div>
+                                        <div style={{ fontSize: '13px', color: 'var(--text-secondary)', marginTop: '8px', lineHeight: 1.6 }}>
+                                            <ul style={{ margin: 0, paddingLeft: '16px' }}>
+                                                <li><strong>Mazeway Handshake Fix:</strong> Restructured Mazeway cloud authentication callbacks to use robust Express backend handshake routes with automated database credential sync.</li>
+                                            </ul>
+                                        </div>
+                                    </div>
+
+                                    {/* Timeline Item: v1.0.9 */}
+                                    <div style={{ position: 'relative' }}>
+                                        <div style={{ position: 'absolute', left: '-22px', top: '4px', width: '12px', height: '12px', borderRadius: '50%', background: 'var(--text-tertiary)', border: '2px solid var(--bg-primary)' }}></div>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                            <strong style={{ fontSize: '15px' }}>Version 1.0.9</strong>
                                             <span style={{ fontSize: '11px', color: 'var(--text-tertiary)', background: 'var(--bg-secondary)', padding: '2px 8px', borderRadius: '12px' }}>May 20, 2026</span>
                                         </div>
                                         <div style={{ fontSize: '13px', color: 'var(--text-secondary)', marginTop: '8px', lineHeight: 1.6 }}>
@@ -1689,14 +1733,22 @@ export default function SettingsPage() {
             {/* Mazeway Connect Modal */}
             <Modal
                 open={showMazewayConnectModal}
-                onClose={() => setShowMazewayConnectModal(false)}
-                heading="Authorize Mazeway AI"
+                onClose={() => {
+                    setShowMazewayConnectModal(false);
+                    setIsConnectingMazeway(false);
+                }}
+                heading={isConnectingMazeway ? "Connecting with Mazeway..." : "Authorize Mazeway AI"}
                 size="small"
                 primaryAction={
-                    <SButton variant="primary" onClick={handleAuthorize} fullWidth>Authorize</SButton>
+                    !isConnectingMazeway ? (
+                        <SButton variant="primary" onClick={handleAuthorize} fullWidth>Authorize</SButton>
+                    ) : null
                 }
                 secondaryActions={
-                    <SButton onClick={() => setShowMazewayConnectModal(false)} fullWidth>Cancel</SButton>
+                    <SButton onClick={() => {
+                        setShowMazewayConnectModal(false);
+                        setIsConnectingMazeway(false);
+                    }} fullWidth>Cancel</SButton>
                 }
             >
                 <div style={{ textAlign: 'center', padding: '10px 0' }}>
@@ -1704,15 +1756,32 @@ export default function SettingsPage() {
                         <div style={{ width: '64px', height: '64px', background: '#f6f6f7', borderRadius: '14px', padding: '12px', border: '1px solid #ebebed' }}>
                             <img src="./icons/mazeway.png" alt="Mazeway" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
                         </div>
-                        <Icons.ArrowRight size={24} style={{ color: '#babfc3' }} />
+                        {isConnectingMazeway ? (
+                            <div className="spinner" style={{
+                                width: '24px',
+                                height: '24px',
+                                borderRadius: '50%',
+                                border: '3px solid var(--accent)',
+                                borderTopColor: 'transparent'
+                            }}></div>
+                        ) : (
+                            <Icons.ArrowRight size={24} style={{ color: '#babfc3' }} />
+                        )}
                         <div style={{ width: '64px', height: '64px', background: '#f6f6f7', borderRadius: '14px', padding: '12px', border: '1px solid #ebebed' }}>
                             <img src="./icons/Appicon.ico" alt="Quantro" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
                         </div>
                     </div>
                     
-                    <p style={{ color: '#6d7175', fontSize: '14px', lineHeight: 1.6, marginBottom: '20px' }}>
-                        Login to unlock intelligence with Mazeway AI. This will securely link your ERP for automated sales & support.
-                    </p>
+                    {isConnectingMazeway ? (
+                        <p style={{ color: '#6d7175', fontSize: '14px', lineHeight: 1.6, marginBottom: '20px' }}>
+                            Awaiting authorization from your browser... <br />
+                            Please complete the linking process on the Mazeway page. Once connected, this window will close automatically.
+                        </p>
+                    ) : (
+                        <p style={{ color: '#6d7175', fontSize: '14px', lineHeight: 1.6, marginBottom: '20px' }}>
+                            Login to unlock intelligence with Mazeway AI. This will securely link your ERP for automated sales & support.
+                        </p>
+                    )}
                 </div>
             </Modal>
         </div>

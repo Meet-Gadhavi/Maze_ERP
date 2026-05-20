@@ -101,8 +101,8 @@ router.get('/handshake', async (req, res) => {
         db.run("INSERT OR REPLACE INTO settings (key, value) VALUES ('mazeway_handshake_state', ?)", [state]);
 
         // Construct the Mazeway Auth URL
-        // We use a deep link callback (maze-erp://) which is more reliable for Electron apps
-        const callbackUrl = encodeURIComponent('maze-erp://mazeway-callback');
+        // We use the local Express backend endpoint which is 100% reliable for both dev and prod environments
+        const callbackUrl = encodeURIComponent('http://localhost:3001/api/mazeway/callback');
         const authUrl = `https://mazeway.up.railway.app/connect?callback=${callbackUrl}&state=${state}`;
 
         console.log('[Mazeway Handshake] Generated auth URL');
