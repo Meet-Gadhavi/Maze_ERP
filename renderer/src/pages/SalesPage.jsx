@@ -1569,13 +1569,17 @@ export default function SalesPage() {
                     <div className="ai-orders-grid">
                         {mazewayOrders.length === 0 ? (
                             <div className="empty-state-premium" style={{ gridColumn: '1 / -1' }}>
-                                <Icons.Activity size={48} strokeWidth={1.5} />
+                                <div className="empty-icon-wrapper">
+                                    <Icons.Activity size={40} strokeWidth={1.5} />
+                                </div>
                                 <h3>No AI Orders Yet</h3>
                                 <p>Once your agents start making sales, they will appear here.</p>
                             </div>
                         ) : filteredOrders.length === 0 ? (
                             <div className="empty-state-premium" style={{ gridColumn: '1 / -1' }}>
-                                <Icons.Search size={48} strokeWidth={1.5} />
+                                <div className="empty-icon-wrapper">
+                                    <Icons.Search size={40} strokeWidth={1.5} />
+                                </div>
                                 <h3>No matching orders found</h3>
                                 <p>Try adjusting your search keywords or filter selections.</p>
                             </div>
