@@ -4,19 +4,12 @@ All notable changes to the Quantro ERP application will be documented here.
 
 ---
 
-## [1.2.0] - 2026-05-20
+## [1.1.5] - 2026-05-20
 ### Added
-- **Comprehensive Analytics Dashboard:** Completely rebuilt the Dashboard with 6 full analytics sections — Sales, Inventory, Customers, Payment, AI/Automation, and Financial — each loaded via tabbed navigation.
-  - **Sales Analytics:** Sales trend area chart, Orders vs Revenue dual-axis chart, Top Selling Products leaderboard, Category Sales donut, Peak Selling Hours activity chart, Return/Refund bar chart, and enhanced Recent Transactions table with payment status badges.
-  - **Inventory Analytics:** Inventory Value KPI, Low Stock alert cards with progress bars, Fast vs Slow Moving Products comparison, and Stock Movement In/Out trend chart.
-  - **Customer Analytics:** Top Customers leaderboard with gold/silver/bronze ranks, Customer Growth line chart, Repeat vs New Customers donut, and Invoice Status distribution.
-  - **Payment Analytics:** Outstanding Dues KPI, Payment Method Distribution pie chart, Transactions by Method horizontal bar, and Return/Refund composite chart.
-  - **AI / Automation Analytics:** AI Orders KPI cards (total, revenue, voice, WhatsApp counts), AI vs Manual Orders donut, Channel Distribution (Voice vs WhatsApp) pie, and AI Orders Over Time area chart with a setup CTA for new users.
-  - **Financial Analytics:** Gross Profit Estimate, Total Expenses, Purchase Spend, Net Revenue KPIs, Revenue vs Expenses overlay area chart, Expenses by Category pie, and Purchase vs Sales vs Expenses comparison bar.
-- **Enhanced KPI Row:** Expanded from 4 to 6 clickable KPI cards at the top — Today's Sales, Monthly Revenue, Total Orders, Low Stock, Pending Dues, and AI Orders — all navigating to their respective pages.
-- **Timeframe-Aware Analytics:** All charts and KPIs respect the selected time period (7D / 2M / 6M / 1Y) with smart in-memory caching.
+- **Analytical Changes:** Completely overhauled the Dashboard with 6 new tabbed analytics pages (Sales, Inventory, Customers, Payment, AI/Automation, Financial) and an expanded 3-column KPI summary grid at the top.
+- **Enhanced Visual Layout:** Polished chart styling, removed emojis from moving product headers, and improved card layout spacing.
 ### Fixed
-- **Dashboard Failed to Load:** Resolved a rate-limiter lockout issue where the Express backend blocked localhost requests after 500 API calls, causing the dashboard to fail on reload. The rate limiter now skips all loopback/localhost connections.
+- **Dashboard Failed to Load:** Resolved the rate-limiter block on localhost that occurred during multiple dashboard reloads.
 
 ---
 
