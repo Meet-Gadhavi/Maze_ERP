@@ -42,7 +42,8 @@ export default function SettingsPage() {
         mazeway_cloud_enabled: 'false',
         mazeway_api_key: '',
         mazeway_webhook_url: '',
-        cloud_backups_enabled: 'false'
+        cloud_backups_enabled: 'false',
+        auto_update_enabled: 'false'
     });
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
@@ -101,11 +102,21 @@ export default function SettingsPage() {
                 releaseNotes: info.releaseNotes || 'No release notes provided.'
             }));
             localStorage.setItem('maze_update_available', info.version);
+
+            // Auto update trigger
+            api.getSettings().then(dbSettings => {
+                if (dbSettings.auto_update_enabled === 'true') {
+                    console.log('[Maze ERP] Auto-update is enabled. Triggering background download...');
+                    setUpdateState(prev => ({ ...prev, status: 'downloading', progress: 0 }));
+                    window.maze.updates.download();
+                }
+            }).catch(console.error);
         });
 
         const unsubscribeNotAvailable = window.maze.updates.onNotAvailable(() => {
             setUpdateState(prev => ({ ...prev, status: 'not-available' }));
             localStorage.removeItem('maze_update_available');
+            localStorage.removeItem('maze_update_downloaded');
         });
 
         const unsubscribeProgress = window.maze.updates.onProgress((progressObj) => {
@@ -122,6 +133,7 @@ export default function SettingsPage() {
                 status: 'downloaded',
                 progress: 100
             }));
+            localStorage.setItem('maze_update_downloaded', 'true');
         });
 
         const unsubscribeError = window.maze.updates.onError((err) => {
@@ -152,9 +164,15 @@ export default function SettingsPage() {
                 setUpdateState(prev => ({
                     ...prev,
                     status: 'available',
-                    version: '1.0.8',
-                    releaseNotes: '• Added automated background system database optimization\n• Streamlined inventory multi-attribute SKU generation\n• Integrated beautiful native dialog animations\n• Fixed minor CSS layout alignment on custom thermal templates'
+                    version: '1.1.2',
+                    releaseNotes: '• Added automatic updates toggle options\n• Integrated background silent downloads\n• Streamlined UI layout inside the Create Agent Modal'
                 }));
+                // If auto-update is enabled, trigger mockup download
+                if (settings.auto_update_enabled === 'true') {
+                    setTimeout(() => {
+                        handleDownloadUpdate();
+                    }, 1000);
+                }
             }, 1500);
         }
     };
@@ -173,6 +191,7 @@ export default function SettingsPage() {
                 if (pct >= 100) {
                     clearInterval(interval);
                     setUpdateState(prev => ({ ...prev, status: 'downloaded' }));
+                    localStorage.setItem('maze_update_downloaded', 'true');
                 }
             }, 300);
         }
@@ -1304,6 +1323,31 @@ export default function SettingsPage() {
                                         </SButton>
                                     </div>
 
+                                    {/* Auto-update Toggle Switch */}
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 16px', background: 'var(--bg-primary)', borderRadius: '8px', border: '1px solid var(--border-light)' }}>
+                                        <div>
+                                            <div style={{ fontWeight: 600, fontSize: '14px' }}>Automatic Updates</div>
+                                            <div style={{ fontSize: '12px', color: 'var(--text-tertiary)', marginTop: '2px' }}>Automatically download and prepare updates when connected to the internet</div>
+                                        </div>
+                                        <div 
+                                            className="toggle-switch" 
+                                            onClick={async () => {
+                                                const newValue = settings.auto_update_enabled === 'true' ? 'false' : 'true';
+                                                const updatedSettings = { ...settings, auto_update_enabled: newValue };
+                                                setSettings(updatedSettings);
+                                                try {
+                                                    await api.updateSettings({ auto_update_enabled: newValue });
+                                                    toast.success(newValue === 'true' ? 'Automatic updates enabled' : 'Automatic updates disabled');
+                                                } catch (err) {
+                                                    toast.error('Failed to save auto-update setting: ' + err.message);
+                                                }
+                                            }}
+                                            style={{ cursor: 'pointer' }}
+                                        >
+                                            <div className={`toggle-track ${settings.auto_update_enabled === 'true' ? 'on' : ''}`}></div>
+                                        </div>
+                                    </div>
+
                                     {/* Idle / Initial status */}
                                     {updateState.status === 'idle' && (
                                         <div style={{ fontSize: '13px', color: 'var(--text-tertiary)', borderTop: '1px solid var(--border-light)', paddingTop: '16px' }}>
@@ -1442,11 +1486,26 @@ export default function SettingsPage() {
                                         </div>
                                     )}
 
-                                    {/* Timeline Item: v1.1.1 */}
+                                    {/* Timeline Item: v1.1.2 */}
                                     <div style={{ position: 'relative' }}>
                                         <div style={{ position: 'absolute', left: '-22px', top: '4px', width: '12px', height: '12px', borderRadius: '50%', background: updateState.status === 'available' ? 'var(--text-tertiary)' : 'var(--accent)', border: '2px solid var(--bg-primary)' }}></div>
                                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                            <strong style={{ fontSize: '15px' }}>Version 1.1.1 {updateState.status !== 'available' && '(Latest)'}</strong>
+                                            <strong style={{ fontSize: '15px' }}>Version 1.1.2 {updateState.status !== 'available' && '(Latest)'}</strong>
+                                            <span style={{ fontSize: '11px', color: 'var(--text-tertiary)', background: 'var(--bg-secondary)', padding: '2px 8px', borderRadius: '12px' }}>May 20, 2026</span>
+                                        </div>
+                                        <div style={{ fontSize: '13px', color: 'var(--text-secondary)', marginTop: '8px', lineHeight: 1.6 }}>
+                                            <ul style={{ margin: 0, paddingLeft: '16px' }}>
+                                                <li><strong>Automatic Updates:</strong> Added auto-updates toggle with silent background downloads and automated installation reminders.</li>
+                                                <li><strong>Agent Modal Polish:</strong> Polished Vobiz fields alignment and select dropdown styles inside the Create Agent popup.</li>
+                                            </ul>
+                                        </div>
+                                    </div>
+
+                                    {/* Timeline Item: v1.1.1 */}
+                                    <div style={{ position: 'relative' }}>
+                                        <div style={{ position: 'absolute', left: '-22px', top: '4px', width: '12px', height: '12px', borderRadius: '50%', background: 'var(--text-tertiary)', border: '2px solid var(--bg-primary)' }}></div>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                            <strong style={{ fontSize: '15px' }}>Version 1.1.1</strong>
                                             <span style={{ fontSize: '11px', color: 'var(--text-tertiary)', background: 'var(--bg-secondary)', padding: '2px 8px', borderRadius: '12px' }}>May 20, 2026</span>
                                         </div>
                                         <div style={{ fontSize: '13px', color: 'var(--text-secondary)', marginTop: '8px', lineHeight: 1.6 }}>

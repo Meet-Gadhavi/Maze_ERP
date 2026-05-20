@@ -752,7 +752,7 @@ export default function AutomationPage() {
                                     </div>
                                 </>
                             ) : (
-                                <div className="vobiz-form scroll-y pr-8" style={{ maxHeight: '400px' }}>
+                                <div className="vobiz-form pr-8">
                                     <h4 className="size-14 fw-600 text-primary mb-16 flex align-center gap-8">
                                         <Icons.Download size={18} />
                                         Import SIP Trunk

@@ -26,6 +26,7 @@ export default function DashboardPage() {
     const [showDailyReport, setShowDailyReport] = useState(false);
     const [settings, setSettings] = useState({});
     const [newVersion, setNewVersion] = useState(null);
+    const [isDownloaded, setIsDownloaded] = useState(localStorage.getItem('maze_update_downloaded') === 'true');
 
     useEffect(() => {
         api.getSettings().then(setSettings).catch(console.error);
@@ -46,17 +47,33 @@ export default function DashboardPage() {
         const unsubscribeAvailable = window.maze.updates.onAvailable((info) => {
             setNewVersion(info.version);
             localStorage.setItem('maze_update_available', info.version);
+            
+            // Check if auto-update is enabled
+            api.getSettings().then(dbSettings => {
+                if (dbSettings.auto_update_enabled === 'true') {
+                    console.log('[Maze ERP] Auto-update enabled. Downloading update in background...');
+                    window.maze.updates.download();
+                }
+            }).catch(console.error);
         });
 
         const unsubscribeNotAvailable = window.maze.updates.onNotAvailable(() => {
             setNewVersion(null);
+            setIsDownloaded(false);
             localStorage.removeItem('maze_update_available');
+            localStorage.removeItem('maze_update_downloaded');
+        });
+
+        const unsubscribeDownloaded = window.maze.updates.onDownloaded((info) => {
+            setIsDownloaded(true);
+            localStorage.setItem('maze_update_downloaded', 'true');
         });
 
         return () => {
             clearTimeout(timeoutId);
             unsubscribeAvailable();
             unsubscribeNotAvailable();
+            unsubscribeDownloaded();
         };
     }, []);
 
@@ -127,7 +144,9 @@ export default function DashboardPage() {
         <div className="dashboard-container">
             {newVersion && (
                 <div className="update-banner" style={{
-                    background: 'linear-gradient(135deg, #0071E3 0%, #0056b3 100%)',
+                    background: isDownloaded 
+                        ? 'linear-gradient(135deg, #30D158 0%, #1c9e3e 100%)'
+                        : 'linear-gradient(135deg, #0071E3 0%, #0056b3 100%)',
                     color: '#fff',
                     padding: '14px 20px',
                     borderRadius: '12px',
@@ -140,12 +159,16 @@ export default function DashboardPage() {
                 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                         <div style={{ width: '32px', height: '32px', background: 'rgba(255,255,255,0.15)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                            <Icons.Zap size={18} color="#fff" />
+                            {isDownloaded ? <Icons.Check size={18} color="#fff" /> : <Icons.Zap size={18} color="#fff" />}
                         </div>
                         <div>
-                            <strong style={{ fontSize: '14px' }}>System Update Available!</strong>
+                            <strong style={{ fontSize: '14px' }}>
+                                {isDownloaded ? 'System Update Ready!' : 'System Update Available!'}
+                            </strong>
                             <span style={{ fontSize: '13px', marginLeft: '8px', opacity: 0.9 }}>
-                                Quantro v{newVersion} is ready to install.
+                                {isDownloaded 
+                                    ? `Quantro v${newVersion} has been downloaded. Restart to apply updates.` 
+                                    : `Quantro v${newVersion} is ready to install.`}
                             </span>
                         </div>
                     </div>
@@ -154,7 +177,7 @@ export default function DashboardPage() {
                         variant="secondary"
                         style={{ 
                             background: '#fff', 
-                            color: '#0071E3', 
+                            color: isDownloaded ? '#30D158' : '#0071E3', 
                             border: 'none', 
                             fontSize: '12px', 
                             fontWeight: 700,
@@ -163,11 +186,15 @@ export default function DashboardPage() {
                             cursor: 'pointer'
                         }}
                         onClick={() => {
-                            localStorage.setItem('settings_active_tab', 'updates');
-                            navigate('/settings');
+                            if (isDownloaded && window.maze && window.maze.updates) {
+                                window.maze.updates.install();
+                            } else {
+                                localStorage.setItem('settings_active_tab', 'updates');
+                                navigate('/settings');
+                            }
                         }}
                     >
-                        Install Update
+                        {isDownloaded ? 'Restart to Update' : 'Install Update'}
                     </SButton>
                 </div>
             )}

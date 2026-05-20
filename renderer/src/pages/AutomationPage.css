@@ -970,4 +970,226 @@
         border-bottom: 1px solid var(--border);
         padding-bottom: 20px;
     }
+
+    .form-grid {
+        grid-template-columns: 1fr !important;
+    }
+}
+
+/* ===== Form Layout & Premium Inputs (Own Provider Setup) ===== */
+.form-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    margin-bottom: 20px;
+}
+
+.form-group {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.form-group label {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    margin-bottom: 2px;
+}
+
+/* Styled inputs for professional look */
+.form-control {
+    width: 100%;
+    padding: 10px 14px;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    background: var(--bg-primary, #fff);
+    font-size: 14px;
+    color: var(--text-primary);
+    outline: none;
+    transition: all 0.2s ease-in-out;
+    box-sizing: border-box;
+}
+
+.form-control::placeholder {
+    color: var(--text-tertiary);
+    opacity: 0.8;
+}
+
+.form-control:hover {
+    border-color: var(--border-strong);
+}
+
+.form-control:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px rgba(0, 113, 227, 0.12);
+    background: #fff;
+}
+
+/* Custom styles for SIP elements */
+.vobiz-form h4 {
+    font-size: 13px;
+    font-weight: 700;
+    margin-top: 24px;
+    margin-bottom: 12px;
+    border-bottom: 1px solid var(--border-light);
+    padding-bottom: 6px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+.vobiz-form h4:first-of-type {
+    margin-top: 0;
+}
+
+/* Tutorial and static server cards */
+.bg-primary-subtle {
+    background: rgba(0, 113, 227, 0.05) !important;
+    border: 1px solid rgba(0, 113, 227, 0.12) !important;
+}
+
+.bg-accent-subtle {
+    background: rgba(124, 77, 255, 0.06) !important;
+    border: 1px solid rgba(124, 77, 255, 0.12) !important;
+}
+
+.border-primary-light {
+    border-color: rgba(0, 113, 227, 0.15) !important;
+}
+
+.border-accent-light {
+    border-color: rgba(124, 77, 255, 0.15) !important;
+}
+
+.rounded-12 {
+    border-radius: 12px;
+}
+
+.p-16 {
+    padding: 16px;
+}
+
+.mb-16 {
+    margin-bottom: 16px;
+}
+
+.mb-24 {
+    margin-bottom: 24px;
+}
+
+.pr-8 {
+    padding-right: 8px;
+}
+
+/* Utility Helper Classes */
+.block {
+    display: block !important;
+}
+
+.mb-8 {
+    margin-bottom: 8px !important;
+}
+
+.mb-12 {
+    margin-bottom: 12px !important;
+}
+
+.mr-8 {
+    margin-right: 8px !important;
+}
+
+.ml-8 {
+    margin-left: 8px !important;
+}
+
+.p-24 {
+    padding: 24px !important;
+}
+
+.size-11 {
+    font-size: 11px !important;
+}
+
+.size-12 {
+    font-size: 12px !important;
+}
+
+.size-13 {
+    font-size: 13px !important;
+}
+
+.size-14 {
+    font-size: 14px !important;
+}
+
+.size-16 {
+    font-size: 16px !important;
+}
+
+.size-18 {
+    font-size: 18px !important;
+}
+
+.size-24 {
+    font-size: 24px !important;
+}
+
+.fw-700 {
+    font-weight: 700 !important;
+}
+
+.text-center {
+    text-align: center !important;
+}
+
+.text-accent {
+    color: var(--accent) !important;
+}
+
+.text-primary {
+    color: var(--text-primary) !important;
+}
+
+.text-warning {
+    color: var(--warning) !important;
+}
+
+.bg-surface-subtle {
+    background: var(--bg-soft) !important;
+}
+
+.border-dashed {
+    border: 1px dashed var(--border-strong) !important;
+}
+
+.rounded-16 {
+    border-radius: 16px !important;
+}
+
+.rounded-full {
+    border-radius: 9999px !important;
+}
+
+.align-center {
+    align-items: center !important;
+}
+
+.justify-center {
+    justify-content: center !important;
+}
+
+.mx-auto {
+    margin-left: auto !important;
+    margin-right: auto !important;
+}
+
+.gap-24 {
+    gap: 24px !important;
+}
+
+.flex-column {
+    display: flex !important;
+    flex-direction: column !important;
 }

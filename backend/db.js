@@ -33,7 +33,8 @@ const SETTINGS_KEYS = {
   MAZEWAY_CLOUD_ENABLED: 'mazeway_cloud_enabled',
   MAZEWAY_API_KEY: 'mazeway_api_key',
   MAZEWAY_WEBHOOK_URL: 'mazeway_webhook_url',
-  CLOUD_BACKUPS_ENABLED: 'cloud_backups_enabled'
+  CLOUD_BACKUPS_ENABLED: 'cloud_backups_enabled',
+  AUTO_UPDATE_ENABLED: 'auto_update_enabled'
 };
 
 // In production, store database in %APPDATA%/Quantro/ (set by main.js).
@@ -323,7 +324,8 @@ ready = (async () => {
         [SETTINGS_KEYS.ACCOUNT_HOLDER_NAME, ''],
         [SETTINGS_KEYS.UPI_ID, ''],
         [SETTINGS_KEYS.DECLARATION, 'We declare that this invoice shows the actual price of the goods described and that all particulars are true and correct.'],
-        [SETTINGS_KEYS.TERMS_AND_CONDITIONS, '1. Goods once sold will not be taken back.\n2. Interest @18% will be charged if payment is not made within due date.\n3. Subject to local jurisdiction.']
+        [SETTINGS_KEYS.TERMS_AND_CONDITIONS, '1. Goods once sold will not be taken back.\n2. Interest @18% will be charged if payment is not made within due date.\n3. Subject to local jurisdiction.'],
+        [SETTINGS_KEYS.AUTO_UPDATE_ENABLED, 'false']
       ];
       defaultSettings.forEach(([key, value]) => {
         db.run('INSERT INTO settings (key, value) VALUES (?, ?)', [key, value]);
@@ -336,7 +338,7 @@ ready = (async () => {
         SETTINGS_KEYS.ENABLE_GST_PER_ITEM, SETTINGS_KEYS.ENABLE_DISCOUNT_PER_ITEM, SETTINGS_KEYS.ENABLE_SKU,
         SETTINGS_KEYS.ENABLE_BATCH_SYSTEM, SETTINGS_KEYS.REQUIRE_BATCH_NUMBER, SETTINGS_KEYS.ENABLE_EXPIRY_TRACKING,
         SETTINGS_KEYS.AUTO_BATCH_SELECTION_METHOD, SETTINGS_KEYS.EXPIRY_ALERT_DAYS, SETTINGS_KEYS.ALLOW_NEGATIVE_BATCH_STOCK,
-        SETTINGS_KEYS.CLOUD_BACKUPS_ENABLED
+        SETTINGS_KEYS.CLOUD_BACKUPS_ENABLED, SETTINGS_KEYS.AUTO_UPDATE_ENABLED
       ];
       keys.forEach(k => {
         let defaultValue = '';
@@ -347,6 +349,7 @@ ready = (async () => {
         else if (k === SETTINGS_KEYS.MAZEWAY_CLOUD_ENABLED) defaultValue = 'false';
         else if (k === SETTINGS_KEYS.MAZEWAY_API_KEY) defaultValue = '';
         else if (k === SETTINGS_KEYS.MAZEWAY_WEBHOOK_URL) defaultValue = '';
+        else if (k === SETTINGS_KEYS.AUTO_UPDATE_ENABLED) defaultValue = 'false';
         else if (k.startsWith('enable_') || k.startsWith('require_') || k.startsWith('allow_')) defaultValue = 'false';
         
         db.run('INSERT OR IGNORE INTO settings (key, value) VALUES (?, ?)', [k, defaultValue]);

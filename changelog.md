@@ -4,6 +4,13 @@ All notable changes to the Quantro ERP application will be documented here.
 
 ---
 
+## [1.1.2] - 2026-05-20
+### Added
+- **Automatic System Updates:** Introduced an auto-update toggle switch in the "Version & Updates" settings. When enabled, Quantro will silently download official update binaries when an internet connection is detected, prompting the user with a "Restart to Update" button once ready.
+- **Agent Modal Layout Polish:** Polished grid alignments and resolved absolute select element overflow issues within the "Own Provider" settings inside the Create Agent popup.
+
+---
+
 ## [1.1.1] - 2026-05-20
 ### Fixed
 - **Mazeway Handshake Resiliency:** Implemented detailed validation diagnostics and a secure browser-based link bypass option for state/token mismatches during external OAuth loops.
