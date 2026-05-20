@@ -17,10 +17,15 @@ app.use(helmet()); // C003: Helmet Security Headers
 // C002: Rate Limiting
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 500, // Limit each IP to 500 requests per `window` (here, per 15 minutes)
+  max: 10000, // Significantly higher limit for local desktop use
   standardHeaders: true,
   legacyHeaders: false,
-  message: { error: 'Too many requests, please try again later.' }
+  message: { error: 'Too many requests, please try again later.' },
+  skip: (req) => {
+    // Skip rate limiting for local loopback connections since this is a desktop app
+    const ip = req.ip || '';
+    return ip.includes('127.0.0.1') || ip.includes('::1') || ip.includes('localhost') || ip === '::ffff:127.0.0.1';
+  }
 });
 app.use(limiter);
 
