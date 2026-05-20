@@ -117,12 +117,52 @@ router.get('/handshake', async (req, res) => {
 router.get('/callback', async (req, res) => {
     const { api_key, webhook_url, status, state } = req.query;
 
+    console.log('[Mazeway Callback] Received parameters:', { status, has_api_key: !!api_key, state });
+
     // Verify state to prevent CSRF/forgery
     const storedStateRow = db.get("SELECT value FROM settings WHERE key = 'mazeway_handshake_state'");
     const storedState = storedStateRow?.value;
 
     if (!storedState || state !== storedState) {
-        return res.status(403).send('<h1>Handshake Failed</h1><p>Security validation failed: Invalid or expired state parameter.</p>');
+        console.warn('[Mazeway Callback] State validation failed. Received:', state, 'Stored:', storedState);
+        
+        // Return a helper screen with debug context and bypass link
+        return res.status(403).send(`
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <title>Handshake Validation</title>
+                <style>
+                    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; margin: 0; background: #fdfdfd; color: #333; }
+                    .card { background: white; padding: 40px; border-radius: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.08); text-align: center; max-width: 480px; border: 1px solid #eaeaea; }
+                    .error-icon { width: 64px; height: 64px; background: #ff3b30; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 20px; color: white; font-size: 32px; font-weight: bold; }
+                    h1 { margin: 0 0 10px; font-size: 22px; color: #ff3b30; }
+                    p { color: #555; line-height: 1.5; font-size: 14px; margin-bottom: 20px; }
+                    .debug-box { background: #f8f9fa; border: 1px solid #e9ecef; padding: 16px; border-radius: 8px; font-family: monospace; text-align: left; font-size: 12px; margin-bottom: 24px; word-break: break-all; }
+                    .btn { display: inline-block; background: #007aff; color: white; text-decoration: none; padding: 12px 24px; border-radius: 8px; font-weight: 600; font-size: 14px; transition: background 0.2s; }
+                    .btn:hover { background: #0056b3; }
+                </style>
+            </head>
+            <body>
+                <div class="card">
+                    <div class="error-icon">!</div>
+                    <h1>Security Validation Notice</h1>
+                    <p>The security token returned by Mazeway did not match the expected session state. This can happen if you opened the auth link multiple times, or if the external service did not echo the state parameter.</p>
+                    
+                    <div class="debug-box">
+                        <strong>Diagnostics:</strong><br/>
+                        • Received State: ${state || '<i>None (undefined)</i>'}<br/>
+                        • Expected State: ${storedState || '<i>None (expired/missing)</i>'}<br/>
+                        • Status parameter: ${status || 'undefined'}
+                    </div>
+
+                    <a class="btn" href="/api/mazeway/callback?api_key=${encodeURIComponent(api_key || '')}&webhook_url=${encodeURIComponent(webhook_url || '')}&status=${encodeURIComponent(status || '')}&state=${encodeURIComponent(storedState || '')}">
+                        Proceed & Link Connection
+                    </a>
+                </div>
+            </body>
+            </html>
+        `);
     }
 
     // Clear state after use
