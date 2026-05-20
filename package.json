@@ -1,0 +1,78 @@
+{
+  "name": "quantro",
+  "productName": "Quantro",
+  "version": "1.0.7",
+  "description": "Quantro — Professional Desktop ERP by Maze Lab",
+  "main": "main/main.js",
+  "author": "Maze Lab",
+  "license": "MIT",
+  "scripts": {
+    "dev:backend": "node --watch backend/server.js",
+    "dev:renderer": "npm run dev --prefix renderer",
+    "dev:electron": "wait-on http://localhost:5173 && electron .",
+    "dev": "concurrently \"npm run dev:backend\" \"npm run dev:renderer\" \"npm run dev:electron\"",
+    "build:renderer": "npm run build --prefix renderer",
+    "start": "electron .",
+    "build:win": "npm run build:renderer && electron-builder --win"
+  },
+  "build": {
+    "appId": "com.mazelab.quantro",
+    "productName": "Quantro",
+    "directories": {
+      "output": "Deployment/v1.0.7"
+    },
+    "publish": [
+      {
+        "provider": "github"
+      }
+    ],
+    "files": [
+      "main/**/*",
+      "backend/**/*",
+      "renderer/dist/**/*",
+      "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": "node_modules/sql.js/dist/sql-wasm.wasm",
+        "to": "sql-wasm.wasm"
+      }
+    ],
+    "win": {
+      "target": "nsis",
+      "icon": "renderer/public/icons/Appicon.ico"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": true,
+      "allowToChangeInstallationDirectory": true,
+      "allowElevation": true,
+      "license": "license.txt",
+      "installerIcon": "renderer/public/icons/Appicon.ico",
+      "uninstallerIcon": "renderer/public/icons/Appicon.ico",
+      "installerHeaderIcon": "renderer/public/icons/Appicon.ico",
+      "installerHeader": "renderer/public/icons/Logo.png",
+      "installerSidebar": "renderer/public/icons/Mazelabs.png",
+      "uninstallerSidebar": "renderer/public/icons/Mazelabs.png",
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Quantro",
+      "runAfterFinish": true
+    }
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "electron-updater": "^6.8.3",
+    "express": "^4.21.0",
+    "express-rate-limit": "^8.4.1",
+    "helmet": "^8.1.0",
+    "sql.js": "^1.11.0",
+    "zod": "^4.3.6"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.0",
+    "electron": "^33.2.0",
+    "electron-builder": "^25.1.8",
+    "wait-on": "^8.0.1"
+  }
+}

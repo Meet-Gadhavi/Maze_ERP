@@ -1,0 +1,29 @@
+MAZELAB — MAZE POS / QUANTRO — TERMS AND CONDITIONS
+
+By installing and using Maze POS (hereinafter referred to as "the Software"), developed by Mazelab, you agree to be bound by the following Terms and Conditions.
+
+1. SCOPE OF SERVICE
+Maze POS is a point-of-sale and business management software provided to you "as is". Mazelab grants you a non-exclusive, non-transferable license to use the Software for your legitimate business operations.
+
+2. DATA PRIVACY & LOCAL STORAGE
+- 100% LOCAL DATA: You acknowledge that all business data (including but not limited to inventory, sales records, customer details, and invoices) is stored EXCLUSIVELY on your local device's hard drive.
+- NO CLOUD SYNC: Mazelab does not host, upload, or have access to any of your data. Your data never leaves your device unless you manually move it.
+- NO TRACKING: Mazelab does not collect or track any personal or business information through the Software.
+
+3. RESPONSIBILITY FOR DATA & BACKUPS
+- USER RESPONSIBILITY: You are solely responsible for managing and protecting your data. This includes ensuring your device is secure and functioning.
+- BACKUP MANAGEMENT: While the Software includes automated local backup features, you are responsible for monitoring these backups and storing copies in a separate, safe location (e.g., an external drive or cloud storage).
+- DISCLAIMER OF LIABILITY: Mazelab shall NOT be liable for any data loss, data corruption, or inability to recover data, regardless of the cause (including hardware failure, software bugs, or accidental deletion).
+
+4. USER RIGHTS & RESTRICTIONS
+- You may not reverse engineer, decompile, disassemble, or attempt to derive the source code of the Software.
+- You may not sell, rent, lease, or sublicense the Software to any third party without explicit written consent from Mazelab.
+
+5. LIMITATION OF LIABILITY
+To the maximum extent permitted by law, Mazelab shall not be liable for any direct, indirect, incidental, or consequential damages (including loss of profits or business interruption) arising out of the use or inability to use the Software.
+
+6. ACCEPTANCE
+Clicking "I Agree" or proceeding with the installation signifies your full acceptance of these terms. If you do not agree to these terms, you must click "Cancel" and refrain from installing or using the Software.
+
+Built with care by Mazelab.
+For support, please contact your account manager.

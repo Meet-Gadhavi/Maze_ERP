@@ -1,0 +1,26 @@
+# Dependencies
+node_modules/
+renderer/node_modules/
+
+# Production builds and packaging output
+Deployment/
+renderer/dist/
+
+# Local databases and backups
+data/Live/
+data/Backups/
+*.sqlite
+*.db
+
+# Logs and system files
+*.log
+.DS_Store
+Thumbs.db
+.env
+.env.local
+node_modules
+
+# Secrets & Credentials
+Public/client_secret_*.json
+credentials.json
+

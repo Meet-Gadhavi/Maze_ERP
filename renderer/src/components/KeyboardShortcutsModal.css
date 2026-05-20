@@ -1,0 +1,145 @@
+/* ==========================================
+   Keyboard Shortcuts Modal
+   ========================================== */
+
+.shortcuts-modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: var(--bg-modal-overlay, rgba(0, 0, 0, 0.4));
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 2000; /* Above everything */
+    animation: fadeIn 0.15s ease;
+    backdrop-filter: blur(4px);
+}
+
+.shortcuts-modal {
+    background: var(--bg-card, #fff);
+    border-radius: var(--radius-lg, 12px);
+    box-shadow: var(--shadow-modal, 0 8px 30px rgba(0,0,0,0.12));
+    width: 100%;
+    max-width: 550px;
+    max-height: 85vh;
+    display: flex;
+    flex-direction: column;
+    animation: slideUp 0.2s ease;
+    overflow: hidden;
+}
+
+.shortcuts-modal-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 20px 24px;
+    border-bottom: 1px solid var(--border-light, #eaecf0);
+    background: var(--bg-primary, #fff);
+    flex-shrink: 0;
+}
+
+.shortcuts-modal-header h2 {
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: var(--text-primary, #111827);
+    margin: 0;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.shortcuts-modal-close {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--bg-secondary, #f3f4f6);
+    color: var(--text-secondary, #6b7280);
+    border: none;
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.shortcuts-modal-close:hover {
+    background: var(--border-light, #e5e7eb);
+    color: var(--text-primary, #111827);
+}
+
+.shortcuts-modal-content {
+    padding: 24px;
+    overflow-y: auto;
+    flex: 1;
+    background: var(--bg-soft, #fafafa);
+}
+
+.shortcuts-group {
+    margin-bottom: 24px;
+}
+
+.shortcuts-group:last-child {
+    margin-bottom: 0;
+}
+
+.shortcuts-group h3 {
+    font-size: 0.85rem;
+    font-weight: 700;
+    color: var(--text-secondary, #6b7280);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 12px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--border-light, #eaecf0);
+}
+
+.shortcut-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 12px;
+    background: var(--bg-card, #fff);
+    border-radius: 8px;
+    margin-bottom: 8px;
+    border: 1px solid var(--border-light, #eaecf0);
+    transition: background 0.15s ease;
+}
+
+.shortcut-item:hover {
+    background: var(--bg-primary, #f9fafb);
+}
+
+.shortcut-desc {
+    font-size: 0.95rem;
+    font-weight: 500;
+    color: var(--text-primary, #111827);
+}
+
+.shortcut-keys {
+    display: flex;
+    gap: 6px;
+}
+
+.shortcut-keys kbd {
+    background: var(--bg-secondary, #f3f4f6);
+    color: var(--text-primary, #111827);
+    border: 1px solid var(--border-strong, #d1d5db);
+    border-radius: 6px;
+    padding: 4px 8px;
+    font-size: 0.8rem;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+    font-weight: 600;
+    box-shadow: 0 2px 0 var(--border-strong, #d1d5db);
+    display: inline-block;
+    min-width: 24px;
+    text-align: center;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+@keyframes slideUp {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+}

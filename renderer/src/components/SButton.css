@@ -1,0 +1,12 @@
+.s-button-content {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    width: 100%;
+}
+
+/* Ensure the web component takes up space if styled via parent */
+s-button {
+    display: inline-block;
+}

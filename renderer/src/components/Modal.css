@@ -1,0 +1,119 @@
+.maze-modal-overlay {
+    position: fixed;
+    inset: 0;
+    background-color: rgba(0, 0, 0, 0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 100000;
+    backdrop-filter: blur(2px);
+    animation: mazeModalOverlayFadeIn 0.2s ease-out;
+}
+
+@keyframes mazeModalOverlayFadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+.maze-modal {
+    background: #ffffff;
+    border-radius: 12px;
+    box-shadow: 0 0 0 1px rgba(63, 63, 68, 0.05), 0 1px 3px 0 rgba(63, 63, 68, 0.15), 0 12px 24px 0 rgba(63, 63, 68, 0.2);
+    display: flex;
+    flex-direction: column;
+    max-height: calc(100% - 64px);
+    width: calc(100% - 64px);
+    overflow: hidden;
+    animation: mazeModalSlideUp 0.3s cubic-bezier(0.19, 1, 0.22, 1);
+}
+
+@keyframes mazeModalSlideUp {
+    from { transform: translateY(20px); opacity: 0; }
+    to { transform: translateY(0); opacity: 1; }
+}
+
+/* Sizes */
+.maze-modal--size-small { max-width: 400px; }
+.maze-modal--size-small-100 { max-width: 400px; width: 100%; }
+.maze-modal--size-base { max-width: 620px; }
+.maze-modal--size-large { max-width: 900px; }
+.maze-modal--size-large-100 { max-width: 900px; width: 100%; }
+
+.maze-modal-header {
+    padding: 16px 20px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border-bottom: 1px solid #ebebed;
+}
+
+.maze-modal-heading {
+    font-size: 1.25rem;
+    font-weight: 600;
+    line-height: 1.5;
+    color: #202223;
+    margin: 0;
+}
+
+.maze-modal-close-button {
+    background: none;
+    border: none;
+    padding: 8px;
+    margin: -8px;
+    cursor: pointer;
+    border-radius: 4px;
+    color: #5c5f62;
+    transition: background 0.2s ease;
+}
+
+.maze-modal-close-button:hover {
+    background: rgba(0, 0, 0, 0.05);
+    color: #202223;
+}
+
+.maze-modal-close-icon {
+    width: 20px;
+    height: 20px;
+    fill: currentColor;
+}
+
+.maze-modal-content {
+    padding: 20px;
+    overflow-y: auto;
+    flex: 1;
+}
+
+.maze-modal--padding-none .maze-modal-content {
+    padding: 0;
+}
+
+.maze-modal-footer {
+    padding: 16px 20px;
+    border-top: 1px solid #ebebed;
+    background-color: #f6f6f7;
+}
+
+.maze-modal-footer-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+}
+
+.maze-modal-secondary-actions {
+    display: flex;
+    gap: 8px;
+}
+
+.maze-modal-primary-action {
+    display: flex;
+}
+
+/* Critical variant (confirm) */
+.maze-modal--critical .maze-modal-header {
+    border-bottom-color: #fdada8;
+    background-color: #fff1f0;
+}
+
+.maze-modal--critical .maze-modal-heading {
+    color: #d82c0d;
+}
