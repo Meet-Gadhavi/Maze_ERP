@@ -19,7 +19,7 @@
     "appId": "com.mazelab.quantro",
     "productName": "Quantro",
     "directories": {
-      "output": "Deployment/v1.1.4"
+      "output": "Deployment/v1.1.5"
     },
     "publish": [
       {
