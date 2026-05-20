@@ -499,7 +499,7 @@ export default function AutomationPage() {
             <div className="page-header">
                 <div>
                     <h1>Automation</h1>
-                    <p>Orchestrate your AI Voice and WhatsApp sales force</p>
+                    <p className="text-secondary">Orchestrate your AI Voice and WhatsApp sales force</p>
                     <div className="sync-meta-row">
                         <span className="sync-meta-label">Last Synced with Mazeway:</span>
                         <span className="sync-meta-value">{lastSyncedAt ? new Date(lastSyncedAt).toLocaleString('en-IN') : 'Never'}</span>

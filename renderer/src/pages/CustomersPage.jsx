@@ -145,7 +145,10 @@ export default function CustomersPage() {
     return (
         <div className="customers-page">
             <div className="page-header">
-                <h1>Customers</h1>
+                <div>
+                    <h1>Customers</h1>
+                    <p className="text-secondary">Manage customer profiles, contact directories, and credits</p>
+                </div>
                 <SButton variant="primary" onClick={openAdd} aria-label="Add customer">
                     Add Customer
                 </SButton>

@@ -16,6 +16,23 @@ const DEFAULT_PAYMENT_METHOD = 'Cash';
 export default function SalesPage() {
     const [tab, setTab] = useState('new');
     const [mazewayOrders, setMazewayOrders] = useState([]);
+    const [aiSearch, setAiSearch] = useState('');
+    const [aiChannelFilter, setAiChannelFilter] = useState('All');
+    const [aiStatusFilter, setAiStatusFilter] = useState('All');
+
+    const filteredOrders = useMemo(() => {
+        return (mazewayOrders || []).filter(order => {
+            const matchesSearch = !aiSearch || 
+                (order.customer_name && order.customer_name.toLowerCase().includes(aiSearch.toLowerCase())) ||
+                (order.customer_phone && order.customer_phone.includes(aiSearch));
+            
+            const matchesChannel = aiChannelFilter === 'All' || order.type === aiChannelFilter;
+            const matchesStatus = aiStatusFilter === 'All' || order.status === aiStatusFilter;
+            
+            return matchesSearch && matchesChannel && matchesStatus;
+        });
+    }, [mazewayOrders, aiSearch, aiChannelFilter, aiStatusFilter]);
+
     const [customers, setCustomers] = useState([]);
     const [products, setProducts] = useState([]);
     const [invoices, setInvoices] = useState([]);
@@ -828,7 +845,10 @@ export default function SalesPage() {
     return (
         <div>
             <div className="page-header">
-                <h1>Sales</h1>
+                <div>
+                    <h1>Sales</h1>
+                    <p className="text-secondary">Create standard invoices, track customer purchase history, and manage AI sales</p>
+                </div>
             </div>
 
             <div className="tabs">
@@ -1512,6 +1532,40 @@ export default function SalesPage() {
                         <p>Orders pushed from Mazeway Voice and WhatsApp agents</p>
                     </div>
 
+                    <div className="page-toolbar">
+                        <div className="search-bar">
+                            <Icons.Search size={20} />
+                            <input
+                                placeholder="Search AI orders by customer name or phone…"
+                                value={aiSearch}
+                                onChange={e => setAiSearch(e.target.value)}
+                            />
+                        </div>
+                        <div className="page-toolbar-actions">
+                            <span style={{ fontSize: 'var(--font-size-xs)', fontWeight: '600', color: 'var(--text-secondary)' }}>CHANNEL:</span>
+                            <CustomSelect
+                                value={aiChannelFilter}
+                                onChange={val => setAiChannelFilter(val)}
+                                options={[
+                                    { value: 'All', label: 'All Channels' },
+                                    { value: 'Voice', label: 'Voice Agent' },
+                                    { value: 'WhatsApp', label: 'WhatsApp Agent' }
+                                ]}
+                            />
+                            <span style={{ fontSize: 'var(--font-size-xs)', fontWeight: '600', color: 'var(--text-secondary)', marginLeft: '12px' }}>STATUS:</span>
+                            <CustomSelect
+                                value={aiStatusFilter}
+                                onChange={val => setAiStatusFilter(val)}
+                                options={[
+                                    { value: 'All', label: 'All Status' },
+                                    { value: 'NEW', label: 'Pending Confirmation' },
+                                    { value: 'CONFIRMED', label: 'Confirmed' },
+                                    { value: 'REJECTED', label: 'Rejected' }
+                                ]}
+                            />
+                        </div>
+                    </div>
+
                     <div className="ai-orders-grid">
                         {mazewayOrders.length === 0 ? (
                             <div className="empty-state-premium" style={{ gridColumn: '1 / -1' }}>
@@ -1519,8 +1573,14 @@ export default function SalesPage() {
                                 <h3>No AI Orders Yet</h3>
                                 <p>Once your agents start making sales, they will appear here.</p>
                             </div>
+                        ) : filteredOrders.length === 0 ? (
+                            <div className="empty-state-premium" style={{ gridColumn: '1 / -1' }}>
+                                <Icons.Search size={48} strokeWidth={1.5} />
+                                <h3>No matching orders found</h3>
+                                <p>Try adjusting your search keywords or filter selections.</p>
+                            </div>
                         ) : (
-                            mazewayOrders.map(order => (
+                            filteredOrders.map(order => (
                                 <div key={order.id} className={`ai-order-card glass ${order.status.toLowerCase()}`}>
                                     <div className="order-badge">
                                         {order.type === 'Voice' ? <Icons.Smartphone size={14} /> : <Icons.MessageSquare size={14} />}

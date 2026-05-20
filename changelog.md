@@ -4,6 +4,14 @@ All notable changes to the Quantro ERP application will be documented here.
 
 ---
 
+## [1.1.4] - 2026-05-20
+### Added
+- **AI Sales Search & Filters:** Added a real-time search bar and custom drop-down filters (Channel and Status categories) to the AI Sales tab to easily manage and confirm automated sales.
+### Changed
+- **Unified Page Headers:** Standardized header structures, alignments, and descriptions across all tabs (Dashboard, Inventory, Sales, Customers, Purchases, Automation, Settings) for a highly polished, Apple-inspired premium feel.
+
+---
+
 ## [1.1.3] - 2026-05-20
 ### Fixed
 - **Seamless Mazeway Handshake Connection:** Bypassed the state parameter mismatch block when the state is missing or undefined due to redirect URL drops from the external Mazeway Auth dashboard, allowing the connection to complete 100% automatically and close the browser connection window instantly.

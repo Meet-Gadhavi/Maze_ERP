@@ -8,11 +8,6 @@
     align-items: center;
 }
 
-.page-header p {
-    color: var(--text-tertiary);
-    font-size: 14px;
-    margin: 4px 0 0;
-}
 
 .sync-meta-row {
     margin-top: 8px;

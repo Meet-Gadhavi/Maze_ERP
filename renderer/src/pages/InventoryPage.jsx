@@ -481,7 +481,10 @@ export default function InventoryPage() {
     return (
         <div className="inventory-page">
             <div className="page-header">
-                <h1>Inventory ({inventoryCountLabel})</h1>
+                <div>
+                    <h1>Inventory ({inventoryCountLabel})</h1>
+                    <p className="text-secondary">Track warehouse stock, batches, variants, and product categories</p>
+                </div>
                 <div className="header-actions">
                     <s-button onClick={() => setShowCatModal(true)} aria-label="Create category">
                         Create Category
