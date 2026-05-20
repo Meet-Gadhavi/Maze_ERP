@@ -25,7 +25,8 @@
       {
         "provider": "github",
         "owner": "Meet-Gadhavi",
-        "repo": "Maze_ERP"
+        "repo": "Maze_ERP",
+        "releaseType": "release"
       }
     ],
     "files": [
