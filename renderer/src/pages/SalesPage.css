@@ -850,7 +850,9 @@
 
 /* AI Sales Dashboard */
 .ai-sales-dashboard {
-    padding: 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
 }
 
 .ai-orders-grid {
