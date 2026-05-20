@@ -4,6 +4,12 @@ All notable changes to the Quantro ERP application will be documented here.
 
 ---
 
+## [1.1.6] - 2026-05-20
+### Fixed
+- **Local Data & Backup Paths Display:** Exposed absolute backend paths to the settings page so users can see exactly where their data is stored inside AppData/Roaming rather than showing generic relative paths.
+
+---
+
 ## [1.1.5] - 2026-05-20
 ### Added
 - **Analytical Changes:** Completely overhauled the Dashboard with 6 new tabbed analytics pages (Sales, Inventory, Customers, Payment, AI/Automation, Financial) and an expanded 3-column KPI summary grid at the top.

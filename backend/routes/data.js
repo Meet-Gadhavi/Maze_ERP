@@ -218,4 +218,17 @@ router.get('/backup-content', (req, res) => {
     }
 });
 
+// GET /api/data/paths
+router.get('/paths', (req, res) => {
+    try {
+        const { dbDir } = require('../db');
+        res.json({
+            dbDir: dbDir || path.join(process.env.MAZE_USER_DATA || path.join(__dirname, '..', 'data'), 'Live'),
+            backupDir: backupUtil.backupDir
+        });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
 module.exports = router;

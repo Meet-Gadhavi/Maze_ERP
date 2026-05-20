@@ -65,6 +65,7 @@ export default function SettingsPage() {
 
     const [backupList, setBackupList] = useState([]);
     const [backupCycle, setBackupCycle] = useState('off');
+    const [dataPaths, setDataPaths] = useState({ dbDir: 'data/Live', backupDir: 'data/Backups' });
 
     // Barcode Test Mode States
     const [testScannerMode, setTestScannerMode] = useState(false);
@@ -249,6 +250,14 @@ export default function SettingsPage() {
                 console.error('Failed to load settings:', err);
                 if (isMounted) setLoading(false);
             });
+
+        api.getDataPaths()
+            .then(paths => {
+                if (isMounted && paths) {
+                    setDataPaths(paths);
+                }
+            })
+            .catch(err => console.error('Failed to load data paths:', err));
 
         if (isMounted) fetchBackups();
 
@@ -858,7 +867,7 @@ export default function SettingsPage() {
                                         Local-First
                                     </div>
                                 </div>
-                                <p className="section-desc">Manage your business information. Your data is stored locally in <span className="path-highlight">data/Live</span> and backups in <span className="path-highlight">data/Backups</span>.</p>
+                                <p className="section-desc">Manage your business information. Your data is stored locally in <span className="path-highlight" style={{ wordBreak: 'break-all' }}>{dataPaths.dbDir}</span> and backups in <span className="path-highlight" style={{ wordBreak: 'break-all' }}>{dataPaths.backupDir}</span>.</p>
                                 <div className="data-actions-grid">
                                     <div className="data-action-card" onClick={() => setShowExportModal(true)}>
                                         <div className="action-icon export"><Icons.Download size={24} /></div>

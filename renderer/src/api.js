@@ -136,6 +136,7 @@ const api = {
     importData: (data) => request('/data/import', { method: 'POST', body: { data } }),
     deleteDataByCategory: (categories) => request('/data/delete', { method: 'POST', body: { categories } }),
     getBackups: () => request('/data/backups'),
+    getDataPaths: () => request('/data/paths'),
     updateBackupCycle: (cycle) => request('/data/backup-cycle', { method: 'POST', body: { cycle } }),
     backupNow: () => request('/data/backup-now', { method: 'POST' }),
     restoreBackup: (filename) => request('/data/restore-backup', { method: 'POST', body: { filename } }),

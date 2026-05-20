@@ -797,4 +797,4 @@ function transaction(cb) {
   }
 }
 
-module.exports = { ready, all, get, run, persist, transaction };
+module.exports = { ready, all, get, run, persist, transaction, dbDir };

@@ -73,4 +73,4 @@ function deleteBackup(filename) {
     return false;
 }
 
-module.exports = { runBackup, getBackups, getBackupContent, deleteBackup };
+module.exports = { runBackup, getBackups, getBackupContent, deleteBackup, backupDir };
