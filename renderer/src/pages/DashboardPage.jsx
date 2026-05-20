@@ -506,7 +506,7 @@ export default function DashboardPage() {
                             {!data.fastMoving?.length && !data.slowMoving?.length ? <EmptyChart icon="BarChart2" message="No movement data" /> : (
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
                                     <div>
-                                        <p style={{ margin: '0 0 8px', fontSize: '12px', fontWeight: 600, color: 'var(--success)' }}>🚀 Fast Moving</p>
+                                        <p style={{ margin: '0 0 8px', fontSize: '12px', fontWeight: 600, color: 'var(--success)' }}>Fast Moving</p>
                                         {(data.fastMoving || []).map((p, i) => (
                                             <div key={i} className="top-product-item">
                                                 <div className="tp-rank" style={{ background: 'rgba(48,209,88,0.1)', color: 'var(--success)' }}>{i + 1}</div>
@@ -516,7 +516,7 @@ export default function DashboardPage() {
                                         ))}
                                     </div>
                                     <div>
-                                        <p style={{ margin: '0 0 8px', fontSize: '12px', fontWeight: 600, color: 'var(--warning)' }}>🐢 Slow Moving</p>
+                                        <p style={{ margin: '0 0 8px', fontSize: '12px', fontWeight: 600, color: 'var(--warning)' }}>Slow Moving</p>
                                         {(data.slowMoving || []).map((p, i) => (
                                             <div key={i} className="top-product-item">
                                                 <div className="tp-rank" style={{ background: 'var(--warning-bg)', color: 'var(--warning)' }}>{i + 1}</div>
