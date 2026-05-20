@@ -17,7 +17,7 @@ router.get('/', async (req, res, next) => {
         // ─────────────────────────────────────────────
         // KPI CARDS (top row)
         // ─────────────────────────────────────────────
-        const totalProducts = db.get('SELECT COUNT(*) AS count FROM products WHERE is_active != 0 OR is_active IS NULL').count;
+        const totalProducts = db.get('SELECT COUNT(*) AS count FROM products').count;
         const totalCustomers = db.get('SELECT COUNT(*) AS count FROM customers').count;
 
         const today = new Date().toISOString().slice(0, 10);
@@ -106,12 +106,13 @@ router.get('/', async (req, res, next) => {
 
         // 5. Category Sales (by revenue in period)
         const categorySales = db.all(`
-            SELECT ii.category AS name, COALESCE(SUM(ii.total), 0) AS value
+            SELECT p.category AS name, COALESCE(SUM(ii.total), 0) AS value
             FROM invoice_items ii
             JOIN invoices inv ON ii.invoice_id = inv.id
+            LEFT JOIN products p ON ii.product_id = p.id
             WHERE inv.date >= date('now', 'localtime', ${rangeSql})
-              AND ii.category IS NOT NULL AND ii.category != ''
-            GROUP BY ii.category
+              AND p.category IS NOT NULL AND p.category != ''
+            GROUP BY p.category
             ORDER BY value DESC
         `);
 
@@ -191,7 +192,6 @@ router.get('/', async (req, res, next) => {
             LEFT JOIN invoice_items ii ON ii.product_id = p.id
             LEFT JOIN invoices inv ON ii.invoice_id = inv.id
                 AND inv.date >= date('now', 'localtime', ${rangeSql})
-            WHERE p.is_active != 0 OR p.is_active IS NULL
             GROUP BY p.id
             ORDER BY sold ASC
             LIMIT 5
