@@ -239,8 +239,8 @@ ready = (async () => {
       if (!columns.includes('total_returned_amount')) {
         db.run('ALTER TABLE invoices ADD COLUMN total_returned_amount REAL NOT NULL DEFAULT 0');
       }
-      if (columns.includes('return_type')) {
-        // Just checking if we reached here
+      if (!columns.includes('return_type')) {
+        db.run('ALTER TABLE invoices ADD COLUMN return_type TEXT DEFAULT NULL');
       }
       if (!columns.includes('p_credit_amount')) {
         db.run('ALTER TABLE invoices ADD COLUMN p_credit_amount REAL NOT NULL DEFAULT 0');

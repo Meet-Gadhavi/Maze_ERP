@@ -804,17 +804,18 @@ router.put('/:id/payment', async (req, res, next) => {
             'UPDATE invoices SET paid_amount = ?, payment_status = ?, financial_status = ?, fulfillment_status = ? WHERE id = ?',
             [finalPaid, newStatus, newFinancialStatus, newFulfillmentStatus, invoiceId]
         );
+        }); // End transaction
 
-        let updated;
-        updated = db.get(`
+        const updated = db.get(`
             SELECT i.*, c.name AS customer_name
             FROM invoices i
             LEFT JOIN customers c ON i.customer_id = c.id
             WHERE i.id = ?
         `, [invoiceId]);
 
-        updated.items = db.all('SELECT * FROM invoice_items WHERE invoice_id = ?', [invoiceId]);
-        }); // End transaction
+        if (updated) {
+            updated.items = db.all('SELECT * FROM invoice_items WHERE invoice_id = ?', [invoiceId]);
+        }
 
         res.json(updated);
         } catch (txnErr) {
@@ -838,6 +839,10 @@ router.post('/:id/fulfill', async (req, res, next) => {
         }
 
         let resultObj;
+        let newGrandTotal;
+        let invoiceDeliveryStatus;
+        let fulfillmentStatus;
+        let newPaymentStatus;
         try {
         db.transaction(() => {
         const invoice = db.get('SELECT * FROM invoices WHERE id = ?', [invoiceId]);
@@ -938,16 +943,16 @@ router.post('/:id/fulfill', async (req, res, next) => {
         const discountAmount = newSubtotal * (invoice.discount_rate / 100);
         const afterDiscount = newSubtotal - discountAmount;
         const gstAmount = afterDiscount * (invoice.gst_rate / 100);
-        const newGrandTotal = afterDiscount + gstAmount;
+        newGrandTotal = afterDiscount + gstAmount;
 
         // Delivery Status
         const statuses = refreshedItems.map(i => i.delivery_status);
-        let invoiceDeliveryStatus = 'Delivered';
+        invoiceDeliveryStatus = 'Delivered';
         if (statuses.every(s => s === 'Delivered')) invoiceDeliveryStatus = 'Delivered';
         else if (statuses.every(s => s === 'Pending')) invoiceDeliveryStatus = 'Pending';
         else invoiceDeliveryStatus = 'Partial';
 
-        let fulfillmentStatus = invoiceDeliveryStatus === 'Delivered' ? 'COMPLETED' : 'PENDING_PRODUCT';
+        fulfillmentStatus = invoiceDeliveryStatus === 'Delivered' ? 'COMPLETED' : 'PENDING_PRODUCT';
         let isPendingProduct = invoiceDeliveryStatus === 'Delivered' ? 0 : 1;
 
         // Payment logic
@@ -955,7 +960,7 @@ router.post('/:id/fulfill', async (req, res, next) => {
         const effectiveTotal = Math.max(0, newGrandTotal - returnedAmount);
         const paidAmount = Number(invoice.paid_amount || 0);
 
-        let newPaymentStatus = 'PAID';
+        newPaymentStatus = 'PAID';
         if (paidAmount === 0) newPaymentStatus = 'UNPAID';
         else if (paidAmount < effectiveTotal) newPaymentStatus = 'PARTIAL';
         else newPaymentStatus = 'PAID';
@@ -980,6 +985,7 @@ router.post('/:id/process-advance', async (req, res, next) => {
         await db.ready;
         const invoiceId = Number(req.params.id);
         let resultObj;
+        let newPaymentStatus;
         try {
         db.transaction(() => {
         const invoice = db.get('SELECT * FROM invoices WHERE id = ?', [invoiceId]);
@@ -1059,7 +1065,7 @@ router.post('/:id/process-advance', async (req, res, next) => {
         const returnedAmount = Number(invoice.total_returned_amount || 0);
         const effectiveTotal = Math.max(0, total - returnedAmount);
 
-        let newPaymentStatus = 'PAID';
+        newPaymentStatus = 'PAID';
         if (paidAmount === 0) newPaymentStatus = 'UNPAID';
         else if (paidAmount < effectiveTotal) newPaymentStatus = 'PARTIAL';
         else newPaymentStatus = 'PAID';

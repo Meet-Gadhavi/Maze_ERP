@@ -1686,15 +1686,40 @@ export default function InventoryPage() {
                     }
                 }}
             >
-                <div className="flex flex-col items-center text-center p-12">
-                    <div className="p-12 bg-warning-light color-warning rounded-full mb-16">
-                        <Icons.AlertTriangle size={32} />
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', padding: '16px 8px' }}>
+                    <div style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        width: '56px',
+                        height: '56px',
+                        backgroundColor: 'var(--warning-bg)',
+                        color: 'var(--warning)',
+                        borderRadius: '50%',
+                        marginBottom: '16px'
+                    }}>
+                        <Icons.AlertTriangle size={28} />
                     </div>
-                    <p className="size-15 fw-500 mb-8">Confirm Deletion</p>
-                    <p className="text-secondary size-13">
-                        Are you sure you want to delete <strong>{deleteCatName}</strong>?
-                        <br />Only categories with no products can be deleted.
+                    <p style={{ fontSize: 'var(--font-size-md)', fontWeight: '600', marginBottom: '8px', color: 'var(--text-primary)' }}>
+                        Confirm Deletion
                     </p>
+                    <p style={{ color: 'var(--text-secondary)', fontSize: 'var(--font-size-sm)', lineHeight: '1.5', margin: '0 0 16px 0' }}>
+                        Are you sure you want to delete the category <strong>{deleteCatName}</strong>?
+                    </p>
+                    <div style={{
+                        backgroundColor: 'var(--bg-soft)',
+                        border: '1px solid var(--border)',
+                        borderRadius: 'var(--radius-sm)',
+                        padding: '10px 12px',
+                        fontSize: 'var(--font-size-xs)',
+                        color: 'var(--text-secondary)',
+                        textAlign: 'left',
+                        width: '100%',
+                        boxSizing: 'border-box'
+                    }}>
+                        <strong style={{ color: 'var(--warning)', display: 'block', marginBottom: '4px' }}>⚠️ System Restriction</strong>
+                        Only categories with no products can be deleted. If this category is currently assigned to any products, the deletion will be blocked.
+                    </div>
                 </div>
                 
                 <s-button slot="secondary-actions" onClick={() => setDeleteCatName(null)}>Cancel</s-button>

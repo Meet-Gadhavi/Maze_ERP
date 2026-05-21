@@ -421,10 +421,12 @@ router.get('/', async (req, res, next) => {
         const estimatedProfit = (() => {
             try {
                 return db.get(`
-                    SELECT COALESCE(SUM((ii.price - COALESCE(ii.cost_price, p.cost_price, 0)) * ii.quantity), 0) AS profit
+                    SELECT COALESCE(SUM((ii.price - COALESCE(pb.cost_price, pv.cost_price, p.cost_price, 0)) * ii.quantity), 0) AS profit
                     FROM invoice_items ii
                     JOIN invoices inv ON ii.invoice_id = inv.id
                     LEFT JOIN products p ON ii.product_id = p.id
+                    LEFT JOIN product_variants pv ON ii.variant_id = pv.id
+                    LEFT JOIN product_batches pb ON ii.batch_id = pb.id
                     WHERE inv.date >= date('now', 'localtime', ${rangeSql})
                 `).profit;
             } catch (e) { return 0; }

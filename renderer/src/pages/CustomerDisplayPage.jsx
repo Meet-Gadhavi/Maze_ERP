@@ -80,6 +80,11 @@ export default function CustomerDisplayPage() {
                             <div key={idx} className="display-item compact">
                                 <div className="item-main-info">
                                     <h4>{item.name}</h4>
+                                    {item.subcategory_name && (
+                                        <span style={{ fontSize: '11px', color: 'var(--text-secondary)', display: 'block', marginBottom: '2px' }}>
+                                            {item.subcategory_name}
+                                        </span>
+                                    )}
                                     <p>{item.quantity} {item.unit || ''} × {formatCurrency(item.price)}</p>
                                 </div>
                                 <div className="item-total-price">

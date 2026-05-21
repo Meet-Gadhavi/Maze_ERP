@@ -363,6 +363,7 @@ export default function SalesPage() {
                     product_id: productId,
                     variant_id: variantId,
                     name: variant ? `${product.name} - ${variant.name}` : product.name,
+                    subcategory_name: product.subcategory_name || '',
                     price: isFree ? 0 : price,
                     original_price: price,
                     quantity: 1,
@@ -392,6 +393,146 @@ export default function SalesPage() {
         setVariantModalProduct(null);
     }
 
+    async function addMultipleToCart(productsList) {
+        // Only keep products with positive stock (stock_quantity > 0)
+        const candidateProducts = productsList.filter(p => p.stock_quantity > 0);
+        if (candidateProducts.length === 0) {
+            toast.error("No in-stock products to add in this group!");
+            return;
+        }
+
+        const toastId = toast.loading(`Adding ${candidateProducts.length} items to cart...`);
+
+        try {
+            // Fetch variants and batches in parallel
+            const [allVariantsRes, allBatchesRes] = await Promise.all([
+                Promise.all(candidateProducts.map(async (p) => {
+                    try {
+                        const vars = await api.getVariants(p.id);
+                        return { productId: p.id, variants: vars || [] };
+                    } catch {
+                        return { productId: p.id, variants: [] };
+                    }
+                })),
+                settings.enable_batch_system === 'true'
+                    ? Promise.all(candidateProducts.map(async (p) => {
+                          try {
+                              const b = await api.getProductBatches(p.id);
+                              return { productId: p.id, batches: b || [] };
+                          } catch {
+                              return { productId: p.id, batches: [] };
+                          }
+                      }))
+                    : Promise.resolve(candidateProducts.map(p => ({ productId: p.id, batches: [] })))
+            ]);
+
+            const variantsMap = new Map(allVariantsRes.map(v => [v.productId, v.variants]));
+            const batchesMap = new Map(allBatchesRes.map(b => [b.productId, b.batches]));
+
+            let newCart = [...cart];
+
+            for (const product of candidateProducts) {
+                const variants = variantsMap.get(product.id) || [];
+                const batches = batchesMap.get(product.id) || [];
+                const isFifo = settings.auto_batch_selection_method === 'FIFO' && batches.length > 0;
+
+                let selectedVariant = null;
+                let price = Number(product.selling_price);
+                let availableStock = Number(product.stock_quantity);
+
+                if (variants.length > 0) {
+                    const inStockVar = variants.find(v => v.stock_quantity > 0);
+                    if (inStockVar) {
+                        selectedVariant = inStockVar;
+                        price = Number(inStockVar.selling_price);
+                        availableStock = Number(inStockVar.stock_quantity);
+                    } else {
+                        if (settings.flexible_inventory === 'false') {
+                            continue;
+                        }
+                        selectedVariant = variants[0];
+                        price = Number(variants[0].selling_price);
+                        availableStock = Number(variants[0].stock_quantity);
+                    }
+                }
+
+                const productId = product.id;
+                const variantId = selectedVariant ? selectedVariant.id : null;
+                const isFree = false;
+
+                const existingItems = newCart.filter(c =>
+                    c.product_id === productId &&
+                    c.variant_id === variantId &&
+                    !c.is_free
+                );
+                let currentQty = existingItems.reduce((sum, item) => sum + item.quantity, 0);
+                let newQty = currentQty + 1;
+
+                if (settings.flexible_inventory === 'false' && newQty > availableStock) {
+                    continue;
+                }
+
+                if (isFifo) {
+                    newCart = newCart.filter(c => !(c.product_id === productId && c.variant_id === variantId && !c.is_free));
+                    const newSplits = calculateFifoSplits(product, selectedVariant, isFree, newQty, batches, price);
+                    newSplits.forEach(s => {
+                        s.subcategory_name = product.subcategory_name || '';
+                    });
+                    newCart.push(...newSplits);
+                } else {
+                    const baseIndex = newCart.findIndex(c =>
+                        c.product_id === productId &&
+                        c.variant_id === variantId &&
+                        !c.is_free &&
+                        !c.batch_id
+                    );
+
+                    if (baseIndex > -1) {
+                        newCart[baseIndex] = {
+                            ...newCart[baseIndex],
+                            quantity: newQty,
+                            total: newQty * price
+                        };
+                    } else {
+                        newCart.push({
+                            cartRowId: Date.now().toString() + Math.random().toString(),
+                            product_id: productId,
+                            variant_id: variantId,
+                            name: selectedVariant ? `${product.name} - ${selectedVariant.name}` : product.name,
+                            subcategory_name: product.subcategory_name || '',
+                            price: price,
+                            original_price: price,
+                            quantity: 1,
+                            total: price,
+                            maxStock: availableStock,
+                            unit: product.unit || 'PCS',
+                            baseUnit: product.unit || 'PCS',
+                            secondaryUnit: product.secondary_unit || null,
+                            conversionFactor: product.conversion_factor || 1,
+                            allowDecimal: !!product.allow_decimal,
+                            is_free: isFree,
+                            gst_rate: 0,
+                            discount_rate: 0,
+                            track_batches: settings.enable_batch_system === 'true',
+                            batch_id: batches.length === 1 ? batches[0].id : '',
+                            available_batches: batches,
+                            track_serials: !!product.track_serials,
+                            serials: []
+                        });
+                    }
+                }
+            }
+
+            setCart(newCart);
+            toast.success(`Successfully added items to cart`, { id: toastId });
+            setCartPulse(true);
+            setTimeout(() => setCartPulse(false), 500);
+        } catch (err) {
+            console.error('Failed batch addition to cart', err);
+            toast.error(`Error adding items to cart: ${err.message || err}`, { id: toastId });
+        }
+    }
+
     function calculateFifoSplits(product, variant, isFree, totalQty, batches, price) {
         const splits = [];
         let qtyToFulfill = totalQty;
@@ -414,6 +555,7 @@ export default function SalesPage() {
                     product_id: product.id,
                     variant_id: variant ? variant.id : null,
                     name: variant ? `${product.name} - ${variant.name}` : product.name,
+                    subcategory_name: product.subcategory_name || '',
                     price: isFree ? 0 : price,
                     original_price: price,
                     quantity: takeQty,
@@ -444,6 +586,7 @@ export default function SalesPage() {
                 product_id: product.id,
                 variant_id: variant ? variant.id : null,
                 name: variant ? `${product.name} - ${variant.name}` : product.name,
+                subcategory_name: product.subcategory_name || '',
                 price: isFree ? 0 : price,
                 original_price: price,
                 quantity: qtyToFulfill,
@@ -507,7 +650,7 @@ export default function SalesPage() {
             const product = products.find(p => p.id === item.product_id); // Basic mock for product
             if (!product) return;
 
-            const newSplits = calculateFifoSplits({ id: item.product_id, name: product.name, unit: item.baseUnit, secondary_unit: item.secondaryUnit, conversion_factor: item.conversionFactor, allow_decimal: item.allowDecimal, stock_quantity: item.maxStock }, item.variant_id ? { id: item.variant_id, name: item.name.split(' - ')[1], stock_quantity: item.maxStock } : null, item.is_free, totalQtyForGroup, item.available_batches, item.original_price);
+            const newSplits = calculateFifoSplits({ id: item.product_id, name: product.name, subcategory_name: item.subcategory_name, unit: item.baseUnit, secondary_unit: item.secondaryUnit, conversion_factor: item.conversionFactor, allow_decimal: item.allowDecimal, stock_quantity: item.maxStock }, item.variant_id ? { id: item.variant_id, name: item.name.split(' - ')[1], stock_quantity: item.maxStock } : null, item.is_free, totalQtyForGroup, item.available_batches, item.original_price);
 
             // Carry over any custom GST/Discount that they might have manually changed (simplification: apply to all splits)
             newSplits.forEach(s => {
@@ -647,7 +790,7 @@ export default function SalesPage() {
         if (settings.auto_batch_selection_method === 'FIFO' && itemTemplate.available_batches?.length > 0) {
             const otherItems = cart.filter(c => c.product_id !== product.id || !!c.is_free || c.variant_id);
             const newSplits = calculateFifoSplits(
-                { id: product.id, name: product.name, unit: itemTemplate.baseUnit, secondary_unit: itemTemplate.secondaryUnit, conversion_factor: itemTemplate.conversionFactor, allow_decimal: itemTemplate.allowDecimal, stock_quantity: itemTemplate.maxStock },
+                { id: product.id, name: product.name, subcategory_name: product.subcategory_name, unit: itemTemplate.baseUnit, secondary_unit: itemTemplate.secondaryUnit, conversion_factor: itemTemplate.conversionFactor, allow_decimal: itemTemplate.allowDecimal, stock_quantity: itemTemplate.maxStock },
                 null, false, validQty, itemTemplate.available_batches, itemTemplate.original_price
             );
             newSplits.forEach(s => { s.gst_rate = itemTemplate.gst_rate; s.discount_rate = itemTemplate.discount_rate; });
@@ -666,11 +809,19 @@ export default function SalesPage() {
     ), [products, productSearch]);
 
     const categorizedProducts = useMemo(() => {
-        const cats = Array.from(new Set(allFiltered.map(p => p.category || 'General')));
-        return cats.reduce((acc, cat) => {
-            acc[cat] = allFiltered.filter(p => (p.category || 'General') === cat) || [];
-            return acc;
-        }, {});
+        const result = {};
+        for (const p of allFiltered) {
+            const cat = p.category || 'General';
+            const subcat = p.subcategory_name || 'General';
+            if (!result[cat]) {
+                result[cat] = {};
+            }
+            if (!result[cat][subcat]) {
+                result[cat][subcat] = [];
+            }
+            result[cat][subcat].push(p);
+        }
+        return result;
     }, [allFiltered]);
 
     // Derive category list so it's available in JSX (was accidentally inside the closure)
@@ -1086,63 +1237,102 @@ export default function SalesPage() {
                                 </div>
 
                                 <div className="categorized-product-picker">
-                                    {categories.map(cat => (
-                                        <div key={cat} className="category-group">
-                                            <h4 className="category-title">{cat}</h4>
-                                            <div className="category-products">
-                                                {categorizedProducts[cat].map(p => {
-                                                    const cartItemInfo = cart.filter(c => c.product_id === p.id && !c.is_free && !c.variant_id);
-                                                    const totalQty = cartItemInfo.reduce((sum, c) => sum + c.quantity, 0);
-                                                    const firstItem = cartItemInfo[0];
-                                                    return (
-                                                        <div key={p.id} className={`product-picker-item ${p.stock_quantity <= 0 ? 'unavailable' : ''}`}>
-                                                            <div className="p-main">
-                                                                <span className="p-name">{p.name}</span>
-                                                                <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                                                                    <span className="p-stock">In Stock: {p.stock_quantity}</span>
-                                                                    {settings.enable_sku === 'true' && p.product_code && (
-                                                                        <span style={{ fontSize: '10px', color: 'var(--text-tertiary)', background: 'var(--bg-primary)', padding: '1px 4px', borderRadius: '3px', border: '1px solid var(--border-light)' }}>
-                                                                            Code: {p.product_code}
-                                                                        </span>
-                                                                    )}
-                                                                </div>
-                                                            </div>
-                                                            <div className="p-side">
-                                                                <span className="p-price">₹{Number(p.selling_price).toLocaleString('en-IN')}</span>
+                                    {categories.map(cat => {
+                                        const subcatsMap = categorizedProducts[cat] || {};
+                                        const subcatNames = Object.keys(subcatsMap);
+                                        const allProductsInCat = subcatNames.flatMap(sub => subcatsMap[sub]);
 
-                                                                {firstItem ? (
-                                                                    <div className="p-qty-control">
-                                                                        <button onClick={() => {
-                                                                            if (totalQty > 1) {
-                                                                                updateProductTotalQty(p, totalQty - 1);
-                                                                            } else {
-                                                                                updateProductTotalQty(p, 0);
-                                                                            }
-                                                                        }}>-</button>
-                                                                        <input
-                                                                            className="p-qty-num"
-                                                                            type="number"
-                                                                            step={firstItem.allowDecimal ? "0.01" : "1"}
-                                                                            value={totalQty}
-                                                                            onChange={e => updateProductTotalQty(p, parseFloat(e.target.value) || 0)}
-                                                                            style={{ width: '50px', border: 'none', background: 'transparent', textAlign: 'center', fontSize: 'inherit', color: 'inherit', fontWeight: 'inherit' }}
-                                                                        />
-                                                                        <button
-                                                                            onClick={() => updateProductTotalQty(p, totalQty + 1)}
-                                                                        >+</button>
-                                                                    </div>
-                                                                ) : (
-                                                                    <button className="p-add-icon" onClick={() => addToCart(p)} title="Add to Cart">
-                                                                        <Icons.Plus size={14} strokeWidth={3} />
-                                                                    </button>
-                                                                )}
+                                        return (
+                                            <div key={cat} className="category-group" style={{ marginBottom: '24px' }}>
+                                                <h4
+                                                    className="category-title"
+                                                    style={{ cursor: 'pointer', userSelect: 'none' }}
+                                                    onDoubleClick={() => addMultipleToCart(allProductsInCat)}
+                                                    title="Double-click to add all in-stock items in this category"
+                                                >
+                                                    {cat} <span style={{ fontSize: '10px', color: 'var(--text-tertiary)', textTransform: 'none', marginLeft: '6px' }}>(Double-click to add all)</span>
+                                                </h4>
+                                                {subcatNames.map(subcat => {
+                                                    const productsInSub = subcatsMap[subcat] || [];
+                                                    return (
+                                                        <div key={subcat} className="subcategory-group" style={{ marginLeft: '8px', marginBottom: '16px' }}>
+                                                            <h5
+                                                                className="subcategory-title"
+                                                                style={{
+                                                                    fontSize: '11px',
+                                                                    fontWeight: '600',
+                                                                    color: 'var(--text-secondary)',
+                                                                    padding: '4px 14px 4px 6px',
+                                                                    marginBottom: '8px',
+                                                                    marginTop: '4px',
+                                                                    display: 'inline-block',
+                                                                    borderLeft: '2px solid var(--accent)',
+                                                                    cursor: 'pointer',
+                                                                    userSelect: 'none'
+                                                                }}
+                                                                onDoubleClick={() => addMultipleToCart(productsInSub)}
+                                                                title="Double-click to add all in-stock items in this subcategory"
+                                                            >
+                                                                {subcat} <span style={{ fontSize: '9px', color: 'var(--text-tertiary)', fontWeight: 'normal', marginLeft: '4px' }}>(Double-click to add)</span>
+                                                            </h5>
+                                                            <div className="category-products">
+                                                                {productsInSub.map(p => {
+                                                                    const cartItemInfo = cart.filter(c => c.product_id === p.id && !c.is_free && !c.variant_id);
+                                                                    const totalQty = cartItemInfo.reduce((sum, c) => sum + c.quantity, 0);
+                                                                    const firstItem = cartItemInfo[0];
+                                                                    return (
+                                                                        <div key={p.id} className={`product-picker-item ${p.stock_quantity <= 0 ? 'unavailable' : ''}`}>
+                                                                            <div className="p-main">
+                                                                                <span className="p-name">{p.name}</span>
+                                                                                <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                                                                                    <span className="p-stock">In Stock: {p.stock_quantity}</span>
+                                                                                    {settings.enable_sku === 'true' && p.product_code && (
+                                                                                        <span style={{ fontSize: '10px', color: 'var(--text-tertiary)', background: 'var(--bg-primary)', padding: '1px 4px', borderRadius: '3px', border: '1px solid var(--border-light)' }}>
+                                                                                            Code: {p.product_code}
+                                                                                        </span>
+                                                                                    )}
+                                                                                </div>
+                                                                            </div>
+                                                                            <div className="p-side">
+                                                                                <span className="p-price">₹{Number(p.selling_price).toLocaleString('en-IN')}</span>
+
+                                                                                {firstItem ? (
+                                                                                    <div className="p-qty-control">
+                                                                                        <button onClick={() => {
+                                                                                            if (totalQty > 1) {
+                                                                                                updateProductTotalQty(p, totalQty - 1);
+                                                                                            } else {
+                                                                                                updateProductTotalQty(p, 0);
+                                                                                            }
+                                                                                        }}>-</button>
+                                                                                        <input
+                                                                                            className="p-qty-num"
+                                                                                            type="number"
+                                                                                            step={firstItem.allowDecimal ? "0.01" : "1"}
+                                                                                            value={totalQty}
+                                                                                            onChange={e => updateProductTotalQty(p, parseFloat(e.target.value) || 0)}
+                                                                                            style={{ width: '50px', border: 'none', background: 'transparent', textAlign: 'center', fontSize: 'inherit', color: 'inherit', fontWeight: 'inherit' }}
+                                                                                        />
+                                                                                        <button
+                                                                                            onClick={() => updateProductTotalQty(p, totalQty + 1)}
+                                                                                        >+</button>
+                                                                                    </div>
+                                                                                ) : (
+                                                                                    <button className="p-add-icon" onClick={() => addToCart(p)} title="Add to Cart">
+                                                                                        <Icons.Plus size={14} strokeWidth={3} />
+                                                                                    </button>
+                                                                                )}
+                                                                            </div>
+                                                                        </div>
+                                                                    );
+                                                                })}
                                                             </div>
                                                         </div>
                                                     );
                                                 })}
                                             </div>
-                                        </div>
-                                    ))}
+                                        );
+                                    })}
                                 </div>
 
                                 <div style={{ marginTop: '20px', borderTop: '1px solid var(--border)', paddingTop: '20px' }}>
@@ -1228,6 +1418,11 @@ export default function SalesPage() {
                                                 <tr key={item.cartRowId} style={{ borderTop: '1px solid var(--border-light)' }}>
                                                     <td style={{ padding: '10px 0' }}>
                                                         <div style={{ fontWeight: 600 }}>{item.name}</div>
+                                                        {item.subcategory_name && (
+                                                            <div style={{ fontSize: '10px', color: 'var(--text-secondary)', marginTop: '2px' }}>
+                                                                Subcategory: {item.subcategory_name}
+                                                            </div>
+                                                        )}
                                                         {item.track_serials && (
                                                             <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 4 }}>
                                                                 <span style={{ fontSize: '0.85em', fontWeight: 600, color: (item.serials || []).length === item.quantity ? 'var(--success)' : 'var(--danger)' }}>
@@ -2256,7 +2451,7 @@ export default function SalesPage() {
                                             type="number"
                                             className="modal-qty-input"
                                             min="0"
-                                            max={Math.min(item.pending_qty, stock)}
+                                            max={item.pending_qty}
                                             value={fulfillmentQtys[item.product_id] || 0}
                                             onChange={e => {
                                                 const val = e.target.value;

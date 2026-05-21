@@ -235,6 +235,11 @@ export default function PurchasePage() {
             }
         }
 
+        const actualPaidAmount = 
+            paymentStatus === 'Paid' 
+                ? totals.grandTotal 
+                : (paymentStatus === 'Unpaid' ? 0 : Number(paidAmount || 0));
+
         const payload = {
             supplier_id: parseInt(selectedSupplier),
             bill_number: billNumber,
@@ -242,7 +247,7 @@ export default function PurchasePage() {
             due_date: dueDate,
             items: cart,
             payment_status: paymentStatus,
-            paid_amount: paidAmount
+            paid_amount: actualPaidAmount
         };
 
         const promise = api.createPurchase(payload);
@@ -253,6 +258,8 @@ export default function PurchasePage() {
                 setCart([]);
                 setBillNumber('');
                 setSelectedSupplier('');
+                setPaymentStatus('Unpaid');
+                setPaidAmount(0);
                 setActiveTab('history');
                 return 'Purchase bill saved successfully';
             },
@@ -1031,7 +1038,7 @@ export default function PurchasePage() {
                                     ]}
                                 />
                             </FormGroup>
-                            <SButton variant="primary" submit style={{ width: '100%', marginTop: '8px' }}>
+                            <SButton variant="primary" type="submit" style={{ width: '100%', marginTop: '8px' }}>
                                 Record Expense
                             </SButton>
                         </form>
