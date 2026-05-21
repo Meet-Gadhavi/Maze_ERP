@@ -19,7 +19,7 @@ if (process.defaultApp) {
 }
 
 // Set the application name for taskbar, window title, and app metadata.
-app.setName('Maze ERP');
+app.setName('Quantro');
 
 const isDev = !app.isPackaged;
 
@@ -215,7 +215,7 @@ function createWindow() {
         height: 800,
         minWidth: 1024,
         minHeight: 680,
-        title: 'Maze ERP',
+        title: 'Quantro',
         icon: iconPath,
         backgroundColor: '#F5F5F7',
         webPreferences: {

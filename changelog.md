@@ -4,6 +4,14 @@ All notable changes to the Quantro ERP application will be documented here.
 
 ---
 
+## [1.1.8] - 2026-05-21
+### Changed
+- **Global Rebranding and Icon Update:** Replaced all legacy application icons (`Appicon.ico`, `Mazelabs.png`, `Mazelab.png`) with the new custom Quantro logo across the taskbar, titlebar header, settings page, customer display, and installer panels.
+- **Window Title Branding:** Renamed window title metadata from "Maze ERP" to "Quantro" for titlebar consistency.
+- **Sidebar Identity Polish:** Updated sidebar branding constants to fully reflect "Quantro" identity.
+
+---
+
 ## [1.1.7] - 2026-05-21
 ### Added
 - **Advanced Serial/IMEI Tracking for Sales:** Implemented interactive serial number selection for the POS / Sales module. Added validation on sales flow to match cart quantities, client-side filters, and barcode scanning support with automatic quantity adjustment.
