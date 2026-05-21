@@ -4,16 +4,22 @@ All notable changes to the Quantro ERP application will be documented here.
 
 ---
 
+## [2.0.1] - 2026-05-21
+### Added
+- **Double-Click POS Batch Add:** Implemented double-click events on Category and Subcategory headers in the POS to automatically add all in-stock products under the category/subcategory to the cart.
+- **Checkout Cart Subcategories:** Displayed the subcategory name below the product name in both the checkout cart in Sales Page and the Customer Display cart.
+### Fixed
+- **SQLite Return Schema Migration:** Added automatic database migration for `return_type` column to resolve return transaction failures.
+
+---
+
 ## [2.0.0] - 2026-05-21
 ### Added
 - **Subcategory Customer Distribution (Inventory Dashboard):** Added a new pie chart and category selector to analyze customer distributions across subcategories.
-- **Double-Click POS Batch Add:** Implemented double-click events on Category and Subcategory headers in the POS to automatically add all in-stock products under the category/subcategory to the cart.
-- **Checkout Cart Subcategories:** Displayed the subcategory name below the product name in both the checkout cart in Sales Page and the Customer Display cart.
 ### Fixed
 - **Gross Profit (Est.) Dashboard Card:** Fixed database calculation query by joining product variants and batches to resolve cost prices accurately.
 - **Payment Confirmation Dialog:** Resolved a scoping ReferenceError in sales confirmation route.
 - **Category Deletion Modal:** Polished confirmation messages and warning styling.
-- **SQLite Return Schema Migration:** Added automatic database migration for `return_type` column to resolve return transaction failures.
 
 ---
 
