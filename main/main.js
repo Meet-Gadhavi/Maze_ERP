@@ -24,8 +24,22 @@ app.setName('Maze ERP');
 const isDev = !app.isPackaged;
 
 if (!isDev) {
-    // Packaged: use the system-standard writable %APPDATA%/Maze ERP/ directory to avoid C:/Program Files permission crashes
-    process.env.MAZE_USER_DATA = app.getPath('userData');
+    // Packaged: try to create and write to a 'data' folder in the installation root directory
+    const rootDataPath = path.join(path.dirname(process.execPath), 'data');
+    try {
+        if (!fs.existsSync(rootDataPath)) {
+            fs.mkdirSync(rootDataPath, { recursive: true });
+        }
+        const testFile = path.join(rootDataPath, '.write_test');
+        fs.writeFileSync(testFile, 'test');
+        fs.unlinkSync(testFile);
+        
+        // It is writable! Use the installation directory data folder
+        process.env.MAZE_USER_DATA = rootDataPath;
+    } catch (e) {
+        // Fall back to system userData directory to avoid Program Files permission crashes
+        process.env.MAZE_USER_DATA = app.getPath('userData');
+    }
 } else {
     // Dev: use the project root/data for data
     process.env.MAZE_USER_DATA = path.join(__dirname, '..', 'data');

@@ -15,7 +15,7 @@ const ALLOWED_SETTINGS_KEYS = new Set([
     'low_stock_threshold', 'flexible_inventory', 'enable_quick_sale',
     'enable_barcode_scanner', 'enable_customer_display', 'enable_cash_drawer',
     'mazeway_cloud_enabled', 'mazeway_api_key', 'mazeway_webhook_url', 'cloud_backups_enabled',
-    'auto_push_to_ai', 'auto_update_enabled'
+    'auto_push_to_ai', 'auto_update_enabled', 'default_currency', 'invoice_language'
 ]);
 
 // GET /api/settings

@@ -77,6 +77,7 @@ const api = {
     getStockMovements: (productId) => request(`/products/${productId}/movements`),
     adjustStock: (productId, data) => request(`/products/${productId}/adjust`, { method: 'POST', body: data }),
     getProductBatches: (productId) => request(`/products/${productId}/batches`),
+    getProductSerials: (productId) => request(`/products/${productId}/serials`),
 
     // Invoices
     getInvoices: () => request('/invoices'),
@@ -100,8 +101,22 @@ const api = {
     getCustomerPurchases: (id) => request(`/customers/${id}/purchases`),
 
     // Settings
-    getSettings: () => request('/settings'),
-    updateSettings: (data) => request('/settings', { method: 'POST', body: data }),
+    getSettings: async () => {
+        const settings = await request('/settings');
+        if (settings) {
+            localStorage.setItem('maze_currency', settings.default_currency || 'INR');
+            localStorage.setItem('maze_language', settings.invoice_language || 'en');
+        }
+        return settings;
+    },
+    updateSettings: async (data) => {
+        const settings = await request('/settings', { method: 'POST', body: data });
+        if (settings) {
+            localStorage.setItem('maze_currency', settings.default_currency || 'INR');
+            localStorage.setItem('maze_language', settings.invoice_language || 'en');
+        }
+        return settings;
+    },
 
     // Suppliers
     getSuppliers: (params = {}) => {

@@ -7,11 +7,21 @@
  * @param {number|string} amount 
  * @returns {string}
  */
+const localeMap = {
+    INR: 'en-IN',
+    USD: 'en-US',
+    EUR: 'de-DE',
+    GBP: 'en-GB',
+    AED: 'en-AE'
+};
+
 export const formatCurrency = (amount) => {
     const num = Number(amount) || 0;
-    return new Intl.NumberFormat('en-IN', {
+    const currency = localStorage.getItem('maze_currency') || 'INR';
+    const locale = localeMap[currency] || 'en-IN';
+    return new Intl.NumberFormat(locale, {
         style: 'currency',
-        currency: 'INR',
+        currency: currency,
         minimumFractionDigits: 2,
         maximumFractionDigits: 2
     }).format(num);
@@ -79,13 +89,24 @@ export const validateCustomer = (customer) => {
 };
 
 /**
- * Converts a number to Indian Rupee amount in words.
+ * Converts a number to amount in words.
  * @param {number} amount 
  * @returns {string}
  */
+const currencyUnitMap = {
+    INR: { major: 'Rupees', minor: 'Paise' },
+    USD: { major: 'Dollars', minor: 'Cents' },
+    EUR: { major: 'Euros', minor: 'Cents' },
+    GBP: { major: 'Pounds', minor: 'Pence' },
+    AED: { major: 'Dirhams', minor: 'Fils' }
+};
+
 export const amountToWords = (amount) => {
     const a = Number(amount) || 0;
-    if (a === 0) return 'Zero Rupees only';
+    const currency = localStorage.getItem('maze_currency') || 'INR';
+    const units = currencyUnitMap[currency] || { major: 'Rupees', minor: 'Paise' };
+
+    if (a === 0) return `Zero ${units.major} only`;
 
     const single = ['', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine'];
     const double = ['Ten', 'Eleven', 'Twelve', 'Thirteen', 'Fourteen', 'Fifteen', 'Sixteen', 'Seventeen', 'Eighteen', 'Nineteen'];
@@ -128,9 +149,9 @@ export const amountToWords = (amount) => {
         res.push(formatTowsDigits(n));
     }
 
-    let finalStr = res.join(' ') + ' Rupees';
+    let finalStr = res.join(' ') + ' ' + units.major;
     if (paise > 0) {
-        finalStr += ' and ' + formatTowsDigits(paise) + ' Paise';
+        finalStr += ' and ' + formatTowsDigits(paise) + ' ' + units.minor;
     }
     return finalStr + ' only';
 };

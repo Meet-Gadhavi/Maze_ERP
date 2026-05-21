@@ -7,6 +7,171 @@ import Modal from './Modal';
 import SButton from './SButton';
 import './InvoicePreviewModal.css';
 
+const translations = {
+    en: {
+        taxInvoice: 'TAX INVOICE',
+        invoice: 'INVOICE',
+        billNo: 'Bill No',
+        invoiceNo: 'Invoice No',
+        date: 'Date',
+        billTo: 'Bill To',
+        customer: 'Customer',
+        phone: 'Phone',
+        email: 'Email',
+        gstin: 'GSTIN',
+        state: 'State',
+        paymentStatus: 'Payment Status',
+        fulfillmentStatus: 'Fulfillment Status',
+        item: 'Item',
+        productName: 'Product Name',
+        sku: 'SKU',
+        qty: 'Qty',
+        unit: 'Unit',
+        price: 'Price',
+        gst: 'GST',
+        disc: 'Disc',
+        total: 'Total',
+        subtotal: 'Subtotal',
+        discount: 'Discount',
+        grandTotal: 'Grand Total',
+        effectiveTotal: 'Effective Total',
+        received: 'Received',
+        balance: 'Balance',
+        amountInWords: 'Amount In Words',
+        paymentHistory: 'Payment History',
+        totalPaid: 'Total Paid',
+        outstandingDue: 'Outstanding Due',
+        bankDetails: 'Bank Details',
+        bankName: 'Bank Name',
+        accountNo: 'Account No',
+        ifscCode: 'IFSC Code',
+        accountHolder: 'Account Holder',
+        upiId: 'UPI ID',
+        termsAndConditions: 'Terms & Conditions',
+        authorizedSignatory: 'Authorized Signatory',
+        thankYou: 'THANK YOU! VISIT AGAIN',
+        scanToPay: 'SCAN TO PAY',
+        taxSummary: 'Tax Summary',
+        taxableAmount: 'Taxable Amount',
+        totalTax: 'Total Tax',
+        hsnSac: 'HSN/ SAC',
+        rate: 'Rate',
+        amt: 'Amt',
+        pCreditUsed: 'P-Credit Used',
+        netAmount: 'NET AMOUNT',
+        shipped: 'Shipped',
+        shipping: 'Shipping'
+    },
+    hi: {
+        taxInvoice: 'कर बीजक (TAX INVOICE)',
+        invoice: 'बीजक (INVOICE)',
+        billNo: 'विधेयक संख्या',
+        invoiceNo: 'बीजक संख्या',
+        date: 'दिनांक',
+        billTo: 'सेवा में',
+        customer: 'ग्राहक',
+        phone: 'फ़ोन',
+        email: 'ईमेल',
+        gstin: 'जीएसटी संख्या',
+        state: 'राज्य',
+        paymentStatus: 'भुगतान की स्थिति',
+        fulfillmentStatus: 'पूर्ति की स्थिति',
+        item: 'वस्तु',
+        productName: 'उत्पाद का नाम',
+        sku: 'एसकेयू (SKU)',
+        qty: 'मात्रा',
+        unit: 'इकाई',
+        price: 'दर',
+        gst: 'जीएसटी',
+        disc: 'छूट',
+        total: 'कुल',
+        subtotal: 'उप-कुल',
+        discount: 'छूट',
+        grandTotal: 'कुल योग',
+        effectiveTotal: 'प्रभावी योग',
+        received: 'प्राप्त राशि',
+        balance: 'शेष राशि',
+        amountInWords: 'शब्दों में राशि',
+        paymentHistory: 'भुगतान इतिहास',
+        totalPaid: 'कुल भुगतान',
+        outstandingDue: 'कुल बकाया',
+        bankDetails: 'बैंक विवरण',
+        bankName: 'बैंक का नाम',
+        accountNo: 'खाता संख्या',
+        ifscCode: 'आईएफएससी कोड',
+        accountHolder: 'खाता धारक',
+        upiId: 'यूपीआई आईडी',
+        termsAndConditions: 'नियम और शर्तें',
+        authorizedSignatory: 'अधिकृत हस्ताक्षरकर्ता',
+        thankYou: 'धन्यवाद! दोबारा पधारें',
+        scanToPay: 'भुगतान के लिए स्कैन करें',
+        taxSummary: 'कर विवरण',
+        taxableAmount: 'कर योग्य राशि',
+        totalTax: 'कुल कर',
+        hsnSac: 'एचएसएन / एसएससी',
+        rate: 'दर',
+        amt: 'राशि',
+        pCreditUsed: 'पी-क्रेडिट का उपयोग',
+        netAmount: 'कुल देय राशि',
+        shipped: 'भेजा गया',
+        shipping: 'शिपिंग प्रभार'
+    },
+    gu: {
+        taxInvoice: 'ટેક્સ ઇન્વોઇસ (TAX INVOICE)',
+        invoice: 'ઇન્વોઇસ (INVOICE)',
+        billNo: 'બિલ નંબર',
+        invoiceNo: 'ઇન્વોઇસ નંબર',
+        date: 'તારીખ',
+        billTo: 'ગ્રાહક વિગત',
+        customer: 'ગ્રાહક',
+        phone: 'ફોન',
+        email: 'ઇમેઇલ',
+        gstin: 'જીએસટી નંબર',
+        state: 'રાજ્ય',
+        paymentStatus: 'ચુકવણી સ્થિતિ',
+        fulfillmentStatus: 'વિતરણ સ્થિતિ',
+        item: 'વસ્તુ',
+        productName: 'વસ્તુનું નામ',
+        sku: 'એસકેયુ (SKU)',
+        qty: 'જથ્થો',
+        unit: 'એકમ',
+        price: 'ભાવ',
+        gst: 'જીએસટી',
+        disc: 'ડિસ્કાઉન્ટ',
+        total: 'કુલ',
+        subtotal: 'પેટા સરવાળો',
+        discount: 'વળતર',
+        grandTotal: 'કુલ સરવાળો',
+        effectiveTotal: 'અસરકારક સરવાળો',
+        received: 'મળેલ રકમ',
+        balance: 'બાકી રકમ',
+        amountInWords: 'શબ્દોમાં રકમ',
+        paymentHistory: 'ચુકવણી ઇતિહાસ',
+        totalPaid: 'કુલ ચુકવણી',
+        outstandingDue: 'કુલ બાકી રકમ',
+        bankDetails: 'બેંક વિગતો',
+        bankName: 'બેંક નામ',
+        accountNo: 'ખાતા નંબર',
+        ifscCode: 'આઈએફએસસી કોડ',
+        accountHolder: 'ખાતા ધારક',
+        upiId: 'યુપીઆઈ આઈડી',
+        termsAndConditions: 'નિયમો અને શરતો',
+        authorizedSignatory: 'અધિકૃત સહી',
+        thankYou: 'આભાર! ફરી પધારજો',
+        scanToPay: 'ચુકવણી માટે સ્કેન કરો',
+        taxSummary: 'ટેક્સ વિગત',
+        taxableAmount: 'કરપાત્ર રકમ',
+        totalTax: 'કુલ ટેક્સ',
+        hsnSac: 'એચએસએન / એસએસી',
+        rate: 'દર',
+        amt: 'રકમ',
+        pCreditUsed: 'પી-ક્રેડિટ નો વપરાશ',
+        netAmount: 'કુલ ચૂકવવાપાત્ર રકમ',
+        shipped: 'મોકલેલ',
+        shipping: 'શિપિંગ ચાર્જ'
+    }
+};
+
 export default function InvoicePreviewModal({ invoice, onClose }) {
     const [settings, setSettings] = useState(null);
     const contentRef = useRef(null);
@@ -111,6 +276,9 @@ export default function InvoicePreviewModal({ invoice, onClose }) {
     }
 
     const invoiceNumber = `INV-${String(invoice.id).padStart(4, '0')}`;
+    const lang = settings?.invoice_language || localStorage.getItem('maze_language') || 'en';
+    const t = translations[lang] || translations.en;
+
     const totalQty = (invoice.items || []).reduce((s, i) => s + i.quantity, 0);
     const originalTotal = Number(invoice.total || 0);
     const returnedAmount = Number(invoice.total_returned_amount || 0);
@@ -172,15 +340,15 @@ export default function InvoicePreviewModal({ invoice, onClose }) {
                         {settings?.address && <p className="address">{settings.address}</p>}
                         {(settings?.phone || settings?.email) && (
                             <p className="contact">
-                                {settings.phone && <span>Ph: {settings.phone}</span>}
-                                {settings.email && <span> | E: {settings.email}</span>}
+                                {settings.phone && <span>{t.phone}: {settings.phone}</span>}
+                                {settings.email && <span> | {t.email}: {settings.email}</span>}
                             </p>
                         )}
-                        {settings?.gstin && <p className="gstin">GSTIN: {settings.gstin}</p>}
+                        {settings?.gstin && <p className="gstin">{t.gstin}: {settings.gstin}</p>}
                     </div>
                 </div>
                 <div className="invoice-meta">
-                    <div className="inv-title">TAX INVOICE</div>
+                    <div className="inv-title">{t.taxInvoice}</div>
                     <div className="inv-number">{invoiceNumber}</div>
                     <div className="inv-date">{invoice.date || '—'}</div>
                 </div>
@@ -188,9 +356,9 @@ export default function InvoicePreviewModal({ invoice, onClose }) {
 
             <div className="invoice-customer">
                 <div>
-                    <div className="ic-label">Bill To</div>
+                    <div className="ic-label">{t.billTo}</div>
                     <div className="ic-name">{displayName}</div>
-                    {invoice.customer_gstin && <div style={{ fontSize: '10px', color: 'var(--text-secondary)', marginTop: '2px' }}>GSTIN: {invoice.customer_gstin}</div>}
+                    {invoice.customer_gstin && <div style={{ fontSize: '10px', color: 'var(--text-secondary)', marginTop: '2px' }}>{t.gstin}: {invoice.customer_gstin}</div>}
                 </div>
                 <div className="invoice-status-section" style={{ display: 'flex', flexDirection: 'row', gap: '10px', alignItems: 'center', justifyContent: 'flex-end', flexWrap: 'wrap' }}>
                     <span className={`payment-status-badge badge-${(invoice.fulfillment_status || 'CONFIRMED').toLowerCase().replace(/_/g, '-')}`}>
@@ -214,14 +382,14 @@ export default function InvoicePreviewModal({ invoice, onClose }) {
                 <thead>
                     <tr>
                         <th>#</th>
-                        <th>Product Name (Variant)</th>
-                        {settings?.enable_sku === 'true' && <th>SKU</th>}
-                        <th className="col-qty">Qty</th>
-                        <th className="col-qty">Unit</th>
-                        <th className="col-price">Price</th>
-                        {settings?.enable_gst_per_item === 'true' && <th className="col-qty">GST</th>}
-                        {settings?.enable_discount_per_item === 'true' && <th className="col-qty">Disc</th>}
-                        <th style={{ textAlign: 'right' }}>Total</th>
+                        <th>{t.productName}</th>
+                        {settings?.enable_sku === 'true' && <th>{t.sku}</th>}
+                        <th className="col-qty">{t.qty}</th>
+                        <th className="col-qty">{t.unit}</th>
+                        <th className="col-price">{t.price}</th>
+                        {settings?.enable_gst_per_item === 'true' && <th className="col-qty">{t.gst}</th>}
+                        {settings?.enable_discount_per_item === 'true' && <th className="col-qty">{t.disc}</th>}
+                        <th style={{ textAlign: 'right' }}>{t.total}</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -241,7 +409,7 @@ export default function InvoicePreviewModal({ invoice, onClose }) {
                             )}
                             <td className="item-qty">{item.qty_delivered || item.quantity}</td>
                             <td className="item-qty" style={{ fontWeight: 400 }}>{item.unit || 'PCS'}</td>
-                            <td className="item-price">₹{Number(item.price).toLocaleString('en-IN')}</td>
+                            <td className="item-price">{formatCurrency(item.price)}</td>
                             {settings?.enable_gst_per_item === 'true' && (
                                 <td className="item-qty" style={{ color: 'var(--text-secondary)' }}>
                                     {item.item_gst_rate ? `${item.item_gst_rate}%` : '—'}
@@ -252,7 +420,7 @@ export default function InvoicePreviewModal({ invoice, onClose }) {
                                     {item.item_discount_rate ? `${item.item_discount_rate}%` : '—'}
                                 </td>
                             )}
-                            <td style={{ textAlign: 'right', fontWeight: 400 }}>₹{Number(item.total).toLocaleString('en-IN')}</td>
+                            <td style={{ textAlign: 'right', fontWeight: 400 }}>{formatCurrency(item.total)}</td>
                         </tr>
                     ))}
                 </tbody>
@@ -260,12 +428,12 @@ export default function InvoicePreviewModal({ invoice, onClose }) {
 
             <div className="invoice-footer-layout">
                 <div className="invoice-payment-breakdown" style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                    <div style={{ fontSize: '10px', color: 'var(--text-tertiary)', textTransform: 'uppercase', marginBottom: '4px', borderBottom: '1px solid var(--border-light)', paddingBottom: '2px' }}>Payment History</div>
+                    <div style={{ fontSize: '10px', color: 'var(--text-tertiary)', textTransform: 'uppercase', marginBottom: '4px', borderBottom: '1px solid var(--border-light)', paddingBottom: '2px' }}>{t.paymentHistory}</div>
                     {invoice.payments && invoice.payments.length > 0 ? (
                         invoice.payments.map((p, i) => (
                             <div key={i} className="breakdown-item" style={{ fontSize: '11px', display: 'flex', justifyContent: 'space-between' }}>
                                 <span className="label" style={{ fontWeight: 400 }}>{p.method} {p.transaction_id ? `(${p.transaction_id})` : ''}</span>
-                                <span className="value">₹{Number(p.amount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+                                <span className="value">{formatCurrency(p.amount)}</span>
                             </div>
                         ))
                     ) : (
@@ -274,43 +442,43 @@ export default function InvoicePreviewModal({ invoice, onClose }) {
                     
                     {Number(invoice.p_credit_amount || 0) > 0 && (
                         <div className="breakdown-item" style={{ marginTop: '4px', borderTop: '1px dashed var(--border)', paddingTop: '4px' }}>
-                            <span className="label">P-Credit Used</span>
-                            <span className="value" style={{ color: 'var(--accent)' }}>₹{Number(invoice.p_credit_amount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+                            <span className="label">{t.pCreditUsed}</span>
+                            <span className="value" style={{ color: 'var(--accent)' }}>{formatCurrency(invoice.p_credit_amount)}</span>
                         </div>
                     )}
                     <div className="breakdown-item" style={{ borderTop: '1px solid var(--border)', paddingTop: '4px', marginTop: '4px' }}>
-                        <span className="label" style={{ fontWeight: 600 }}>Total Paid</span>
-                        <span className="value text-success" style={{ fontWeight: 600 }}>₹{paidAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+                        <span className="label" style={{ fontWeight: 600 }}>{t.totalPaid}</span>
+                        <span className="value text-success" style={{ fontWeight: 600 }}>{formatCurrency(paidAmount)}</span>
                     </div>
                     <div className="breakdown-item">
-                        <span className="label" style={{ fontWeight: 600 }}>Outstanding Due</span>
+                        <span className="label" style={{ fontWeight: 600 }}>{t.outstandingDue}</span>
                         <span className={`value ${effectiveDue > 0 ? 'text-danger' : 'text-success'}`} style={{ fontWeight: 600 }}>
-                            ₹{effectiveDue.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                            {formatCurrency(effectiveDue)}
                         </span>
                     </div>
                 </div>
 
                 <div className="invoice-totals-box">
                     <div className="invoice-totals-row">
-                        <span>Subtotal</span>
-                        <span>₹{subtotal.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+                        <span>{t.subtotal}</span>
+                        <span>{formatCurrency(subtotal)}</span>
                     </div>
                     {discountAmount > 0 && (
                         <div className="invoice-totals-row discount">
-                            <span>Discount ({dRate.toFixed(1)}%)</span>
-                            <span>-₹{discountAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+                            <span>{t.discount} ({dRate.toFixed(1)}%)</span>
+                            <span>-{formatCurrency(discountAmount)}</span>
                         </div>
                     )}
                     {gstAmount > 0 && (
                         <div className="invoice-totals-row">
-                            <span>GST ({gRate.toFixed(1)}%)</span>
-                            <span>+₹{gstAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+                            <span>{t.gst} ({gRate.toFixed(1)}%)</span>
+                            <span>+{formatCurrency(gstAmount)}</span>
                         </div>
                     )}
                     <div className="invoice-totals-divider"></div>
                     <div className="invoice-totals-row grand-total">
-                        <span>{returnedAmount > 0 ? 'Effective Total' : 'Grand Total'}</span>
-                        <span className="total-amount">₹{(effectiveTotal || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+                        <span>{returnedAmount > 0 ? t.effectiveTotal : t.grandTotal}</span>
+                        <span className="total-amount">{formatCurrency(effectiveTotal)}</span>
                     </div>
                 </div>
             </div>
@@ -326,28 +494,28 @@ export default function InvoicePreviewModal({ invoice, onClose }) {
                 <div className="company-details-section">
                     <h1>{settings?.company_name?.toUpperCase()}</h1>
                     <p>{settings?.address}</p>
-                    <p>Phone: {settings?.phone} | Email: {settings?.email}</p>
-                    <p>GSTIN: <strong>{settings?.gstin}</strong> | State: <strong>{settings?.default_place_of_supply || '—'}</strong></p>
+                    <p>{t.phone}: {settings?.phone} | {t.email}: {settings?.email}</p>
+                    <p>{t.gstin}: <strong>{settings?.gstin}</strong> | {t.state}: <strong>{settings?.default_place_of_supply || '—'}</strong></p>
                 </div>
             </div>
 
             <div className="formal-info-grid">
                 <div className="info-box bill-to">
-                    <div className="box-label">Bill To:</div>
+                    <div className="box-label">{t.billTo}:</div>
                     <div className="box-content">
                         <strong>{displayName?.toUpperCase()}</strong>
                         {invoice.customer_address && <p>{invoice.customer_address}</p>}
-                        {invoice.customer_phone && <p>Contact No: {invoice.customer_phone}</p>}
-                        {invoice.customer_gstin && <p>GSTIN Number: {invoice.customer_gstin}</p>}
-                        <p>State: {invoice.customer_state || settings?.default_place_of_supply || '—'}</p>
+                        {invoice.customer_phone && <p>{t.phone}: {invoice.customer_phone}</p>}
+                        {invoice.customer_gstin && <p>{t.gstin}: {invoice.customer_gstin}</p>}
+                        <p>{t.state}: {invoice.customer_state || settings?.default_place_of_supply || '—'}</p>
                     </div>
                 </div>
                 <div className="info-box invoice-details">
-                    <div className="box-label">Invoice Details:</div>
+                    <div className="box-label">{t.invoiceNo}:</div>
                     <div className="box-content">
-                        <div className="detail-row"><span>No:</span> <strong>{invoiceNumber}</strong></div>
-                        <div className="detail-row"><span>Date:</span> <strong>{invoice.date}</strong></div>
-                        <div className="detail-row"><span>Place of Supply:</span> <strong>{invoice.customer_state || settings?.default_place_of_supply || '—'}</strong></div>
+                        <div className="detail-row"><span>{t.invoiceNo}:</span> <strong>{invoiceNumber}</strong></div>
+                        <div className="detail-row"><span>{t.date}:</span> <strong>{invoice.date}</strong></div>
+                        <div className="detail-row"><span>{t.state}:</span> <strong>{invoice.customer_state || settings?.default_place_of_supply || '—'}</strong></div>
                     </div>
                 </div>
             </div>
@@ -366,13 +534,13 @@ export default function InvoicePreviewModal({ invoice, onClose }) {
                 <thead>
                     <tr>
                         <th className="col-idx">#</th>
-                        <th className="col-name">Item name</th>
-                        <th className="col-hsn">HSN/ SAC</th>
-                        <th className="col-qty">QUE.</th>
-                        <th className="col-unit">Unit</th>
-                        <th className="col-price">Price/ Unit (₹)</th>
-                        <th className="col-gst">GST(₹)</th>
-                        <th className="col-amount">Amount(₹)</th>
+                        <th className="col-name">{t.productName}</th>
+                        <th className="col-hsn">{t.hsnSac}</th>
+                        <th className="col-qty">{t.qty}</th>
+                        <th className="col-unit">{t.unit}</th>
+                        <th className="col-price">{t.price}</th>
+                        <th className="col-gst">{t.gst}</th>
+                        <th className="col-amount">{t.total}</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -383,25 +551,25 @@ export default function InvoicePreviewModal({ invoice, onClose }) {
                             <td className="col-hsn">{item.hsn_sac || item.product_hsn || '—'}</td>
                             <td className="col-qty">{item.quantity}</td>
                             <td className="col-unit">{item.unit || 'Pcs'}</td>
-                            <td className="col-price text-right">{Number(item.price).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
+                            <td className="col-price text-right">{formatCurrency(item.price)}</td>
                             <td className="col-gst text-right">
                                 {item.item_gst_rate > 0 ? (
                                     <>
-                                        {((Number(item.price) * Number(item.quantity) * (1 - (item.item_discount_rate || 0) / 100)) * (item.item_gst_rate / 100)).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                                        {formatCurrency((Number(item.price) * Number(item.quantity) * (1 - (item.item_discount_rate || 0) / 100)) * (item.item_gst_rate / 100))}
                                         <br /><span className="gst-small">({item.item_gst_rate}%)</span>
                                     </>
                                 ) : '—'}
                             </td>
-                            <td className="col-amount text-right">{Number(item.total).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
+                            <td className="col-amount text-right">{formatCurrency(item.total)}</td>
                         </tr>
                     ))}
                     <tr className="total-row-main">
-                        <td colSpan="3" className="text-right total-label">Total</td>
+                        <td colSpan="3" className="text-right total-label">{t.total}</td>
                         <td className="col-qty">{totalQty}</td>
                         <td className="col-unit"></td>
                         <td className="col-price"></td>
-                        <td className="col-gst text-right">{taxSummary.reduce((s, t) => s + t.igst_amount, 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
-                        <td className="col-amount text-right">{calculatedTotal.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
+                        <td className="col-gst text-right">{formatCurrency(taxSummary.reduce((s, t) => s + t.igst_amount, 0))}</td>
+                        <td className="col-amount text-right">{formatCurrency(calculatedTotal)}</td>
                     </tr>
                 </tbody>
             </table>
@@ -409,20 +577,20 @@ export default function InvoicePreviewModal({ invoice, onClose }) {
             <div className="formal-bottom-section">
                 <div className="left-column">
                     <div className="tax-summary-box">
-                        <div className="box-label">Tax Summary:</div>
+                        <div className="box-label">{t.taxSummary}:</div>
                         <table className="tax-table">
                             <thead>
                                 <tr>
-                                    <th>HSN/ SAC</th>
-                                    <th>Taxable amount (₹)</th>
+                                    <th>{t.hsnSac}</th>
+                                    <th>{t.taxableAmount}</th>
                                     <th colSpan="2">IGST</th>
-                                    <th>Total Tax(₹)</th>
+                                    <th>{t.totalTax}</th>
                                 </tr>
                                 <tr className="sub-head">
                                     <th></th>
                                     <th></th>
-                                    <th>Rate (%)</th>
-                                    <th>Amt (₹)</th>
+                                    <th>{t.rate} (%)</th>
+                                    <th>{t.amt}</th>
                                     <th></th>
                                 </tr>
                             </thead>
@@ -430,36 +598,36 @@ export default function InvoicePreviewModal({ invoice, onClose }) {
                                 {taxSummary.map((tax, i) => (
                                     <tr key={i}>
                                         <td>{tax.hsn}</td>
-                                        <td>{tax.taxable_amount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
+                                        <td>{formatCurrency(tax.taxable_amount)}</td>
                                         <td>{tax.igst_rate}</td>
-                                        <td>{tax.igst_amount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
-                                        <td>{tax.total_tax.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
+                                        <td>{formatCurrency(tax.igst_amount)}</td>
+                                        <td>{formatCurrency(tax.total_tax)}</td>
                                     </tr>
                                 ))}
                                 <tr className="total-tax-row">
                                     <td>TOTAL</td>
-                                    <td>{taxSummary.reduce((s, t) => s + t.taxable_amount, 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
+                                    <td>{formatCurrency(taxSummary.reduce((s, t) => s + t.taxable_amount, 0))}</td>
                                     <td></td>
-                                    <td>{taxSummary.reduce((s, t) => s + t.igst_amount, 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
-                                    <td>{taxSummary.reduce((s, t) => s + t.total_tax, 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
+                                    <td>{formatCurrency(taxSummary.reduce((s, t) => s + t.igst_amount, 0))}</td>
+                                    <td>{formatCurrency(taxSummary.reduce((s, t) => s + t.total_tax, 0))}</td>
                                 </tr>
                             </tbody>
                         </table>
                     </div>
 
                     <div className="payment-mode-box">
-                        <div className="box-label">Payment Mode:</div>
+                        <div className="box-label">{t.paymentHistory}:</div>
                         <div className="box-content">{paymentMethodDisplay}</div>
                     </div>
 
                     <div className="payment-mode-box" style={{ borderTop: 'none', marginTop: '-1px' }}>
-                        <div className="box-label">Payment Breakdown:</div>
+                        <div className="box-label">{t.paymentHistory} {t.totalPaid}:</div>
                         <div className="box-content" style={{ fontSize: '10px' }}>
                             {invoice.payments && invoice.payments.length > 0 ? (
                                 invoice.payments.map((p, i) => (
                                     <div key={i} style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '2px' }}>
                                         <span>{p.method} {p.transaction_id ? `(${p.transaction_id})` : ''}</span>
-                                        <span>₹{Number(p.amount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+                                        <span>{formatCurrency(p.amount)}</span>
                                     </div>
                                 ))
                             ) : (
@@ -470,13 +638,13 @@ export default function InvoicePreviewModal({ invoice, onClose }) {
 
                     <div className="bank-details-box-formal" style={{ display: 'flex', gap: '15px', borderTop: '1px solid #334155' }}>
                         <div style={{ flex: 1 }}>
-                            <div className="box-label">Bank Details:</div>
+                            <div className="box-label">{t.bankDetails}:</div>
                             <div className="box-content">
-                                <p>Name: <strong>{settings?.bank_name}</strong></p>
-                                <p>Account No.: <strong>{settings?.account_number}</strong></p>
-                                <p>IFSC code: <strong>{settings?.ifsc_code}</strong></p>
-                                <p>Account Holder's Name: <strong>{settings?.account_holder_name}</strong></p>
-                                {settings?.upi_id && <p>UPI ID: <strong>{settings?.upi_id}</strong></p>}
+                                <p>{t.bankName}: <strong>{settings?.bank_name}</strong></p>
+                                <p>{t.accountNo}: <strong>{settings?.account_number}</strong></p>
+                                <p>{t.ifscCode}: <strong>{settings?.ifsc_code}</strong></p>
+                                <p>{t.accountHolder}: <strong>{settings?.account_holder_name}</strong></p>
+                                {settings?.upi_id && <p>{t.upiId}: <strong>{settings?.upi_id}</strong></p>}
                             </div>
                         </div>
                         {settings?.payment_qr_url && (
@@ -489,21 +657,21 @@ export default function InvoicePreviewModal({ invoice, onClose }) {
 
                 <div className="right-column">
                     <div className="summary-totals-box">
-                        <div className="summary-row"><span>Sub Total</span><span>:</span><span>₹ {subtotal.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span></div>
-                        <div className="summary-row"><span>Shipping</span><span>:</span><span>₹ {Number(invoice.shipping_amount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span></div>
-                        <div className="summary-row total"><span>Total</span><span>:</span><span>₹ {effectiveTotal.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span></div>
+                        <div className="summary-row"><span>{t.subtotal}</span><span>:</span><span>{formatCurrency(subtotal)}</span></div>
+                        <div className="summary-row"><span>{t.shipping}</span><span>:</span><span>{formatCurrency(invoice.shipping_amount || 0)}</span></div>
+                        <div className="summary-row total"><span>{t.total}</span><span>:</span><span>{formatCurrency(effectiveTotal)}</span></div>
                         <div className="summary-row words">
-                            <span>Invoice Amount In Words :</span>
+                            <span>{t.amountInWords} :</span>
                             <p>{amountToWords(effectiveTotal)}</p>
                         </div>
-                        <div className="summary-row"><span>Received</span><span>:</span><span>₹ {paidAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span></div>
-                        <div className="summary-row"><span>Balance</span><span>:</span><span>₹ {effectiveDue.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span></div>
+                        <div className="summary-row"><span>{t.received}</span><span>:</span><span>{formatCurrency(paidAmount)}</span></div>
+                        <div className="summary-row"><span>{t.balance}</span><span>:</span><span>{formatCurrency(effectiveDue)}</span></div>
                     </div>
                 </div>
             </div>
 
             <div className="formal-terms-box">
-                <div className="box-label">Terms And Conditions:</div>
+                <div className="box-label">{t.termsAndConditions}:</div>
                 <div className="box-content">
                     <p>Thanks for doing business with us!</p>
                     <pre style={{ whiteSpace: 'pre-wrap', fontFamily: 'inherit', margin: 0, fontSize: '10px' }}>{settings?.terms_and_conditions}</pre>
@@ -515,7 +683,7 @@ export default function InvoicePreviewModal({ invoice, onClose }) {
                     <div className="box-label">For {settings?.company_name?.toUpperCase()}:</div>
                     <div className="sign-area-centered">
                         <div className="sign-placeholder-boxed"></div>
-                        <p>Authorized Signatory</p>
+                        <p>{t.authorizedSignatory}</p>
                     </div>
                 </div>
             </div>
@@ -528,16 +696,16 @@ export default function InvoicePreviewModal({ invoice, onClose }) {
                 {settings?.logo_url && <img src={settings.logo_url} alt="Logo" className="pos-logo" />}
                 <h2 className="pos-company-name">{settings?.company_name?.toUpperCase() || 'MAZE ERP'}</h2>
                 {settings?.address && <p className="pos-address">{settings.address}</p>}
-                <p className="pos-contact">Ph: {settings?.phone}</p>
-                {settings?.gstin && <p className="pos-gstin">GSTIN: {settings.gstin}</p>}
+                <p className="pos-contact">{t.phone}: {settings?.phone}</p>
+                {settings?.gstin && <p className="pos-gstin">{t.gstin}: {settings.gstin}</p>}
             </div>
 
             <div className="pos-divider-dashed"></div>
 
             <div className="pos-meta">
-                <div className="row"><span>Bill No: {invoiceNumber}</span></div>
-                <div className="row"><span>Date: {invoice.date}</span></div>
-                <div className="row"><span>Customer: {displayName}</span></div>
+                <div className="row"><span>{t.billNo}: {invoiceNumber}</span></div>
+                <div className="row"><span>{t.date}: {invoice.date}</span></div>
+                <div className="row"><span>{t.customer}: {displayName}</span></div>
             </div>
 
             <div className="pos-divider-solid"></div>
@@ -545,10 +713,10 @@ export default function InvoicePreviewModal({ invoice, onClose }) {
             <table className="pos-items-table">
                 <thead>
                     <tr>
-                        <th className="text-left">ITEM</th>
-                        <th className="text-center">QTY</th>
-                        <th className="text-right">PRICE</th>
-                        <th className="text-right">TOTAL</th>
+                        <th className="text-left">{t.item}</th>
+                        <th className="text-center">{t.qty}</th>
+                        <th className="text-right">{t.price}</th>
+                        <th className="text-right">{t.total}</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -557,8 +725,8 @@ export default function InvoicePreviewModal({ invoice, onClose }) {
                             <td className="text-left" colSpan="4">
                                 <div style={{ marginBottom: '2px' }}>{item.product_name} {item.variant_name ? `(${item.variant_name})` : ''}</div>
                                 <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '10px', color: '#444' }}>
-                                    <span>{item.quantity} {item.unit || 'PCS'} x {Number(item.price).toLocaleString('en-IN')}</span>
-                                    <span>₹{Number(item.total).toLocaleString('en-IN')}</span>
+                                    <span>{item.quantity} {item.unit || 'PCS'} x {formatCurrency(item.price)}</span>
+                                    <span>{formatCurrency(item.total)}</span>
                                 </div>
                             </td>
                         </tr>
@@ -570,46 +738,46 @@ export default function InvoicePreviewModal({ invoice, onClose }) {
 
             <div className="pos-totals">
                 <div className="total-row">
-                    <span>Subtotal</span>
-                    <span>₹{subtotal.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+                    <span>{t.subtotal}</span>
+                    <span>{formatCurrency(subtotal)}</span>
                 </div>
                 {discountAmount > 0 && (
                     <div className="total-row">
-                        <span>Discount ({dRate.toFixed(1)}%)</span>
-                        <span>-₹{discountAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+                        <span>{t.discount} ({dRate.toFixed(1)}%)</span>
+                        <span>-{formatCurrency(discountAmount)}</span>
                     </div>
                 )}
                 {gstAmount > 0 && (
                     <div className="total-row">
-                        <span>GST ({gRate.toFixed(1)}%)</span>
-                        <span>+₹{gstAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+                        <span>{t.gst} ({gRate.toFixed(1)}%)</span>
+                        <span>+{formatCurrency(gstAmount)}</span>
                     </div>
                 )}
                 <div className="pos-divider-dashed"></div>
                 <div className="grand-total-row">
-                    <span>NET AMOUNT</span>
-                    <span className="amount">₹{effectiveTotal.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+                    <span>{t.netAmount}</span>
+                    <span className="amount">{formatCurrency(effectiveTotal)}</span>
                 </div>
                 <div className="pos-divider-dashed"></div>
                 
                 <div className="payment-info">
-                    <div style={{ fontSize: '10px', fontWeight: 'bold', marginBottom: '4px' }}>PAYMENT BREAKDOWN</div>
+                    <div style={{ fontSize: '10px', fontWeight: 'bold', marginBottom: '4px' }}>{t.paymentHistory}</div>
                     {invoice.payments && invoice.payments.length > 0 ? (
                         invoice.payments.map((p, i) => (
                             <div key={i} className="row">
                                 <span>{p.method}:</span> 
-                                <span>₹{Number(p.amount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+                                <span>{formatCurrency(p.amount)}</span>
                             </div>
                         ))
                     ) : (
-                        <div className="row"><span>{invoice.payment_method || 'CASH'}:</span> <span>₹{paidAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span></div>
+                        <div className="row"><span>{invoice.payment_method || 'CASH'}:</span> <span>{formatCurrency(paidAmount)}</span></div>
                     )}
                     {Number(invoice.p_credit_amount || 0) > 0 && (
-                        <div className="row"><span>P-CREDIT:</span> <span>₹{Number(invoice.p_credit_amount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span></div>
+                        <div className="row"><span>{t.pCreditUsed}:</span> <span>{formatCurrency(invoice.p_credit_amount)}</span></div>
                     )}
                     <div className="pos-divider-dashed" style={{ margin: '4px 0' }}></div>
-                    <div className="row" style={{ fontWeight: 'bold' }}><span>TOTAL PAID:</span> <span>₹{paidAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span></div>
-                    {effectiveDue > 0 && <div className="row" style={{ fontWeight: 'bold', color: '#000' }}><span>BALANCE DUE:</span> <span>₹{effectiveDue.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span></div>}
+                    <div className="row" style={{ fontWeight: 'bold' }}><span>{t.totalPaid}:</span> <span>{formatCurrency(paidAmount)}</span></div>
+                    {effectiveDue > 0 && <div className="row" style={{ fontWeight: 'bold', color: '#000' }}><span>{t.outstandingDue}:</span> <span>{formatCurrency(effectiveDue)}</span></div>}
                 </div>
             </div>
 
@@ -617,21 +785,21 @@ export default function InvoicePreviewModal({ invoice, onClose }) {
                 <>
                     <div className="pos-divider-dashed"></div>
                     <div className="pos-tax-summary">
-                        <div style={{ fontSize: '10px', fontWeight: 'bold', marginBottom: '4px' }}>TAX SUMMARY</div>
+                        <div style={{ fontSize: '10px', fontWeight: 'bold', marginBottom: '4px' }}>{t.taxSummary}</div>
                         <table style={{ width: '100%', fontSize: '9px' }}>
                             <thead>
                                 <tr>
-                                    <th className="text-left">RATE</th>
-                                    <th className="text-right">TAXABLE</th>
-                                    <th className="text-right">TAX</th>
+                                    <th className="text-left">{t.rate}</th>
+                                    <th className="text-right">{t.taxableAmount}</th>
+                                    <th className="text-right">{t.gst}</th>
                                 </tr>
                             </thead>
                             <tbody>
-                                {taxSummary.map((t, idx) => (
+                                {taxSummary.map((tItem, idx) => (
                                     <tr key={idx}>
-                                        <td className="text-left">{t.igst_rate}%</td>
-                                        <td className="text-right">₹{t.taxable_amount.toFixed(2)}</td>
-                                        <td className="text-right">₹{t.total_tax.toFixed(2)}</td>
+                                        <td className="text-left">{tItem.igst_rate}%</td>
+                                        <td className="text-right">{formatCurrency(tItem.taxable_amount)}</td>
+                                        <td className="text-right">{formatCurrency(tItem.total_tax)}</td>
                                     </tr>
                                 ))}
                             </tbody>
@@ -644,13 +812,13 @@ export default function InvoicePreviewModal({ invoice, onClose }) {
             
             <div className="pos-footer-note">
                 {settings?.declaration && <p className="pos-declaration">{settings.declaration}</p>}
-                <p className="thank-you">THANK YOU! VISIT AGAIN</p>
+                <p className="thank-you">{t.thankYou}</p>
                 
                 {settings?.payment_qr_url && (
                     <div className="pos-qr-container" style={{ flexDirection: 'column', alignItems: 'center' }}>
                         <img src={settings.payment_qr_url} alt="Payment QR" />
                         <div style={{ textAlign: 'center', marginTop: '6px' }}>
-                            <div style={{ fontSize: '10px', fontWeight: 'bold' }}>SCAN TO PAY</div>
+                            <div style={{ fontSize: '10px', fontWeight: 'bold' }}>{t.scanToPay}</div>
                             {settings.upi_id && <div style={{ fontSize: '9px', marginTop: '2px' }}>({settings.upi_id})</div>}
                         </div>
                     </div>
@@ -746,12 +914,12 @@ export default function InvoicePreviewModal({ invoice, onClose }) {
                 <div className="header">
                     <div>
                         <div className="store-name">{settings?.company_name || 'Mazeweb'}</div>
-                        {settings?.phone && <p style={{ fontSize: '11px', color: '#64748b' }}>{settings.phone}</p>}
-                        {settings?.email && <p style={{ fontSize: '11px', color: '#64748b' }}>{settings.email}</p>}
-                        {settings?.gstin && <p style={{ fontSize: '11px', color: '#64748b' }}>GSTIN: {settings.gstin}</p>}
+                        {settings?.phone && <p style={{ fontSize: '11px', color: '#64748b' }}>{t.phone}: {settings.phone}</p>}
+                        {settings?.email && <p style={{ fontSize: '11px', color: '#64748b' }}>{t.email}: {settings.email}</p>}
+                        {settings?.gstin && <p style={{ fontSize: '11px', color: '#64748b' }}>{t.gstin}: {settings.gstin}</p>}
                     </div>
                     <div>
-                        <div className="invoice-title">INVOICE</div>
+                        <div className="invoice-title">{t.invoice}</div>
                         <div className="invoice-meta">{invoiceNumber}</div>
                         <div className="invoice-meta">{invoice.date || '—'}</div>
                     </div>
@@ -759,18 +927,18 @@ export default function InvoicePreviewModal({ invoice, onClose }) {
 
                 <div className="two-col section">
                     <div>
-                        <div className="section-title">Billed To</div>
+                        <div className="section-title">{t.billTo}</div>
                         <p><strong>{displayName}</strong></p>
                         {invoice.customer_email && <p>{invoice.customer_email}</p>}
                         {invoice.customer_phone && <p>{invoice.customer_phone}</p>}
-                        {invoice.customer_gstin && <p>GSTIN: {invoice.customer_gstin}</p>}
+                        {invoice.customer_gstin && <p>{t.gstin}: {invoice.customer_gstin}</p>}
                     </div>
                     <div>
                         <div className="section-title">Shipping Address</div>
                         <p>{invoice.customer_address || '—'}</p>
                     </div>
                     <div>
-                        <div className="section-title">Payment Status</div>
+                        <div className="section-title">{t.paymentStatus}</div>
                         <span className={`badge ${
                             invoice.financial_status === 'PAID' ? 'badge-paid' :
                             invoice.financial_status === 'PARTIAL' ? 'badge-partial' :
@@ -787,10 +955,10 @@ export default function InvoicePreviewModal({ invoice, onClose }) {
                         <thead>
                             <tr>
                                 <th>#</th>
-                                <th>Product</th>
-                                <th>Unit Price</th>
-                                <th>Qty</th>
-                                <th>Total</th>
+                                <th>{t.productName}</th>
+                                <th>{t.price}</th>
+                                <th>{t.qty}</th>
+                                <th>{t.total}</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -802,9 +970,9 @@ export default function InvoicePreviewModal({ invoice, onClose }) {
                                         {item.variant_name ? ` (${item.variant_name})` : ''}
                                         {item.is_free ? <span style={{ marginLeft: 8, fontSize: '0.8em', color: '#166534', background: '#dcfce7', padding: '2px 6px', borderRadius: '4px' }}>FREE</span> : ''}
                                     </td>
-                                    <td>₹{Number(item.price).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
+                                    <td>{formatCurrency(item.price)}</td>
                                     <td>{item.quantity} {item.unit || 'PCS'}</td>
-                                    <td>₹{Number(item.total).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
+                                    <td>{formatCurrency(item.total)}</td>
                                 </tr>
                             ))}
                         </tbody>
@@ -812,30 +980,30 @@ export default function InvoicePreviewModal({ invoice, onClose }) {
 
                     <div className="totals">
                         <div className="totals-row">
-                            <span>Subtotal</span>
-                            <span>₹{subtotal.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+                            <span>{t.subtotal}</span>
+                            <span>{formatCurrency(subtotal)}</span>
                         </div>
                         {discountAmount > 0 && (
                             <div className="totals-row">
-                                <span>Discount ({dRate.toFixed(1)}%)</span>
-                                <span>-₹{discountAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+                                <span>{t.discount} ({dRate.toFixed(1)}%)</span>
+                                <span>-{formatCurrency(discountAmount)}</span>
                             </div>
                         )}
                         {gstAmount > 0 && (
                             <div className="totals-row">
-                                <span>GST ({gRate.toFixed(1)}%)</span>
-                                <span>+₹{gstAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+                                <span>{t.gst} ({gRate.toFixed(1)}%)</span>
+                                <span>+{formatCurrency(gstAmount)}</span>
                             </div>
                         )}
                         
                         <div className="totals-row total">
-                            <span>Grand Total</span>
-                            <span>₹{effectiveTotal.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+                            <span>{t.grandTotal}</span>
+                            <span>{formatCurrency(effectiveTotal)}</span>
                         </div>
                         {effectiveDue > 0 && (
                             <div className="totals-row" style={{ color: '#991b1b', fontWeight: 600 }}>
-                                <span>Balance Due</span>
-                                <span>₹{effectiveDue.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+                                <span>{t.outstandingDue}</span>
+                                <span>{formatCurrency(effectiveDue)}</span>
                             </div>
                         )}
                     </div>

@@ -286,7 +286,7 @@ router.get('/:id', async (req, res, next) => {
 router.post('/', async (req, res, next) => {
     try {
         await db.ready;
-        const { name, category, subcategory_id, brand_id, tags, cost_price, selling_price, stock_quantity, product_code, unit, secondary_unit, conversion_factor, allow_decimal, conversion_rate, min_stock_level, max_stock_level, track_batches } = req.body;
+        const { name, category, subcategory_id, brand_id, tags, cost_price, selling_price, stock_quantity, product_code, unit, secondary_unit, conversion_factor, allow_decimal, conversion_rate, min_stock_level, max_stock_level, track_batches, track_serials } = req.body;
         if (!name) return res.status(400).json({ error: 'Product name is required' });
 
         // M006: Check for duplicate product (by product_code if provided, else by name+category)
@@ -299,8 +299,8 @@ router.post('/', async (req, res, next) => {
         }
 
         const result = db.run(
-            `INSERT INTO products (name, category, subcategory_id, brand_id, tags, cost_price, selling_price, stock_quantity, product_code, unit, secondary_unit, conversion_factor, allow_decimal, conversion_rate, min_stock_level, max_stock_level, track_batches) 
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            `INSERT INTO products (name, category, subcategory_id, brand_id, tags, cost_price, selling_price, stock_quantity, product_code, unit, secondary_unit, conversion_factor, allow_decimal, conversion_rate, min_stock_level, max_stock_level, track_batches, track_serials) 
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
             [
                 name,
                 category || 'General',
@@ -318,7 +318,8 @@ router.post('/', async (req, res, next) => {
                 conversion_rate || 1,
                 min_stock_level !== undefined ? min_stock_level : 5,
                 max_stock_level || 0,
-                track_batches ? 1 : 0
+                track_batches ? 1 : 0,
+                track_serials ? 1 : 0
             ]
         );
 
@@ -342,7 +343,7 @@ router.post('/', async (req, res, next) => {
 router.put('/:id', async (req, res, next) => {
     try {
         await db.ready;
-        const { name, category, subcategory_id, brand_id, tags, cost_price, selling_price, stock_quantity, product_code, unit, secondary_unit, conversion_factor, allow_decimal, conversion_rate, min_stock_level, max_stock_level, track_batches } = req.body;
+        const { name, category, subcategory_id, brand_id, tags, cost_price, selling_price, stock_quantity, product_code, unit, secondary_unit, conversion_factor, allow_decimal, conversion_rate, min_stock_level, max_stock_level, track_batches, track_serials } = req.body;
         let product;
         try {
         db.transaction(() => {
@@ -355,7 +356,7 @@ router.put('/:id', async (req, res, next) => {
         }
 
         db.run(
-            `UPDATE products SET name = ?, category = ?, subcategory_id = ?, brand_id = ?, tags = ?, cost_price = ?, selling_price = ?, stock_quantity = ?, product_code = ?, unit = ?, secondary_unit = ?, conversion_factor = ?, allow_decimal = ?, conversion_rate = ?, min_stock_level = ?, max_stock_level = ?, track_batches = ? WHERE id = ?`,
+            `UPDATE products SET name = ?, category = ?, subcategory_id = ?, brand_id = ?, tags = ?, cost_price = ?, selling_price = ?, stock_quantity = ?, product_code = ?, unit = ?, secondary_unit = ?, conversion_factor = ?, allow_decimal = ?, conversion_rate = ?, min_stock_level = ?, max_stock_level = ?, track_batches = ?, track_serials = ? WHERE id = ?`,
             [
                 name ?? existing.name,
                 category ?? existing.category,
@@ -374,6 +375,7 @@ router.put('/:id', async (req, res, next) => {
                 min_stock_level !== undefined ? min_stock_level : existing.min_stock_level,
                 max_stock_level !== undefined ? max_stock_level : existing.max_stock_level,
                 (track_batches !== undefined) ? (track_batches ? 1 : 0) : existing.track_batches,
+                (track_serials !== undefined) ? (track_serials ? 1 : 0) : existing.track_serials,
                 Number(req.params.id)
             ]
         );
@@ -518,6 +520,25 @@ router.delete('/variants/:id', async (req, res, next) => {
         await db.ready;
         db.run('DELETE FROM product_variants WHERE id = ?', [Number(req.params.id)]);
         res.json({ success: true });
+    } catch (err) {
+        next(err);
+    }
+});
+
+// GET /api/products/:id/serials
+router.get('/:id/serials', async (req, res, next) => {
+    try {
+        await db.ready;
+        const { status } = req.query;
+        let query = "SELECT * FROM product_serials WHERE product_id = ?";
+        const params = [Number(req.params.id)];
+        if (status) {
+            query += " AND status = ?";
+            params.push(status);
+        }
+        query += " ORDER BY serial_number ASC";
+        const serials = db.all(query, params);
+        res.json(serials);
     } catch (err) {
         next(err);
     }

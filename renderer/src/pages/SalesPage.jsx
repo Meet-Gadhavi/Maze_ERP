@@ -87,6 +87,14 @@ export default function SalesPage() {
     const [batchModalItem, setBatchModalItem] = useState(null);
     const [showBatchModal, setShowBatchModal] = useState(false);
 
+    // Serial/IMEI Selection Modal States
+    const [showSerialSelectModal, setShowSerialSelectModal] = useState(false);
+    const [serialSelectCartRowId, setSerialSelectCartRowId] = useState(null);
+    const [availableSerials, setAvailableSerials] = useState([]);
+    const [selectedSerials, setSelectedSerials] = useState([]);
+    const [serialSelectLoading, setSerialSelectLoading] = useState(false);
+    const [serialSearchQuery, setSerialSearchQuery] = useState('');
+
     const [settings, setSettings] = useState({});
 
     useEffect(() => {
@@ -369,7 +377,9 @@ export default function SalesPage() {
                     discount_rate: 0,
                     track_batches: settings.enable_batch_system === 'true',
                     batch_id: batches.length === 1 ? batches[0].id : '',
-                    available_batches: batches
+                    available_batches: batches,
+                    track_serials: !!product.track_serials,
+                    serials: []
                 }]);
             }
         }
@@ -418,7 +428,9 @@ export default function SalesPage() {
                     discount_rate: 0,
                     track_batches: true,
                     batch_id: batch.id,
-                    available_batches: batches
+                    available_batches: batches,
+                    track_serials: !!product.track_serials,
+                    serials: []
                 });
             }
         }
@@ -446,7 +458,9 @@ export default function SalesPage() {
                 discount_rate: 0,
                 track_batches: true,
                 batch_id: '', // Unassigned
-                available_batches: batches
+                available_batches: batches,
+                track_serials: !!product.track_serials,
+                serials: []
             });
         }
 
@@ -510,6 +524,87 @@ export default function SalesPage() {
             ));
         }
     }
+
+    const openSerialSelectModal = async (cartRowId) => {
+        const item = cart.find(c => c.cartRowId === cartRowId);
+        if (!item) return;
+        setSerialSelectCartRowId(cartRowId);
+        setSelectedSerials(item.serials || []);
+        setSerialSelectLoading(true);
+        setShowSerialSelectModal(true);
+        setSerialSearchQuery('');
+        try {
+            const allSerials = await api.getProductSerials(item.product_id);
+            // Include already selected serials for this row (if any) plus any available ones in the system
+            const alreadySelected = new Set(item.serials || []);
+            const filtered = (allSerials || []).filter(s => s.status === 'Available' || alreadySelected.has(s.serial_number));
+            setAvailableSerials(filtered);
+        } catch (err) {
+            toast.error("Failed to load serial numbers: " + err.message);
+        } finally {
+            setSerialSelectLoading(false);
+        }
+    };
+
+    const toggleSerialSelection = (serialNumber) => {
+        if (selectedSerials.includes(serialNumber)) {
+            setSelectedSerials(selectedSerials.filter(s => s !== serialNumber));
+        } else {
+            // Check if we already reached the quantity limit
+            const item = cart.find(c => c.cartRowId === serialSelectCartRowId);
+            if (item && selectedSerials.length >= item.quantity) {
+                toast.error(`You can only select up to ${item.quantity} serial number(s). Increase quantity in cart first.`);
+                return;
+            }
+            setSelectedSerials([...selectedSerials, serialNumber]);
+        }
+    };
+
+    const saveSelectedSerials = () => {
+        const item = cart.find(c => c.cartRowId === serialSelectCartRowId);
+        if (!item) return;
+        if (selectedSerials.length !== item.quantity) {
+            toast.error(`Please select exactly ${item.quantity} serial number(s) (currently selected: ${selectedSerials.length})`);
+            return;
+        }
+        setCart(cart.map(c => c.cartRowId === serialSelectCartRowId ? { ...c, serials: selectedSerials } : c));
+        setShowSerialSelectModal(false);
+        toast.success("Serial numbers updated");
+    };
+
+    const handleScanSerialInput = (e) => {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            const code = e.target.value.trim().toUpperCase();
+            if (!code) return;
+            
+            // Find matching serial
+            const match = availableSerials.find(s => s.serial_number.toUpperCase() === code);
+            if (!match) {
+                toast.error(`Serial number "${code}" is not available for this product.`);
+                return;
+            }
+            
+            if (selectedSerials.map(s => s.toUpperCase()).includes(code)) {
+                toast.error(`Serial number "${code}" is already selected.`);
+                e.target.value = '';
+                return;
+            }
+            
+            const item = cart.find(c => c.cartRowId === serialSelectCartRowId);
+            if (item && selectedSerials.length >= item.quantity) {
+                // Automatically increase quantity
+                const newQty = item.quantity + 1;
+                setCart(cart.map(c => c.cartRowId === serialSelectCartRowId ? { ...c, quantity: newQty } : c));
+                setSelectedSerials([...selectedSerials, match.serial_number]);
+                toast.success(`Selected "${match.serial_number}" (Quantity increased to ${newQty})`);
+            } else {
+                setSelectedSerials([...selectedSerials, match.serial_number]);
+                toast.success(`Selected "${match.serial_number}"`);
+            }
+            e.target.value = '';
+        }
+    };
 
     function toggleUnit(cartRowId) {
         setCart(cart.map(c => {
@@ -621,6 +716,18 @@ export default function SalesPage() {
         if (e && e.preventDefault) e.preventDefault();
         if (cart.length === 0) return;
 
+        if (!isAdvance) {
+            for (const item of cart) {
+                if (item.track_serials) {
+                    const serials = item.serials || [];
+                    if (serials.length !== item.quantity) {
+                        toast.error(`Product "${item.name}" requires exactly ${item.quantity} serial number(s). You have selected ${serials.length}.`);
+                        return;
+                    }
+                }
+            }
+        }
+
         const isQuickSale = options.isQuickSale || false;
         const currentSelectedCustomer = selectedCustomer ? parseInt(selectedCustomer) : null;
 
@@ -639,7 +746,8 @@ export default function SalesPage() {
                 price: Number(c.price || 0),
                 item_gst_rate: Number(c.gst_rate || 0),
                 item_discount_rate: Number(c.discount_rate || 0),
-                batch_id: c.batch_id ? Number(c.batch_id) : null
+                batch_id: c.batch_id ? Number(c.batch_id) : null,
+                serials: c.serials || []
             })),
             payment_status: isAdvance ? 'ADVANCE' : (isQuickSale ? 'PAID' : paymentStatus),
             payments: options.paymentsOverride ? options.paymentsOverride : ((paymentStatus === 'UNPAID' && !isAdvance) ? [] : (isAdvance ? [{ method: paymentMethod, amount: Number(advanceAmount || 0) }] : payments.filter(p => Number(p.amount) > 0).map(p => ({
@@ -1114,6 +1222,20 @@ export default function SalesPage() {
                                                 <tr key={item.cartRowId} style={{ borderTop: '1px solid var(--border-light)' }}>
                                                     <td style={{ padding: '10px 0' }}>
                                                         <div style={{ fontWeight: 600 }}>{item.name}</div>
+                                                        {item.track_serials && (
+                                                            <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 4 }}>
+                                                                <span style={{ fontSize: '0.85em', fontWeight: 600, color: (item.serials || []).length === item.quantity ? 'var(--success)' : 'var(--danger)' }}>
+                                                                    Serials ({(item.serials || []).length} of {item.quantity})
+                                                                </span>
+                                                                <SButton 
+                                                                    variant="secondary" 
+                                                                    style={{ padding: '2px 6px', fontSize: '10px', height: '22px' }}
+                                                                    onClick={() => openSerialSelectModal(item.cartRowId)}
+                                                                >
+                                                                    Select Serials
+                                                                </SButton>
+                                                            </div>
+                                                        )}
                                                     </td>
                                                     {settings.enable_sku === 'true' && (
                                                         <td style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>
@@ -2308,6 +2430,139 @@ export default function SalesPage() {
                         )}
                     </tbody>
                 </table>
+            </Modal>
+
+            <Modal
+                open={showSerialSelectModal}
+                onClose={() => { setShowSerialSelectModal(false); setSerialSelectCartRowId(null); }}
+                heading="Select Serial/IMEI Numbers"
+                size="medium"
+                primaryAction={
+                    <SButton variant="primary" onClick={saveSelectedSerials}>Save & Apply</SButton>
+                }
+                secondaryAction={
+                    <SButton onClick={() => { setShowSerialSelectModal(false); setSerialSelectCartRowId(null); }}>Cancel</SButton>
+                }
+            >
+                {serialSelectLoading ? (
+                    <div style={{ display: 'flex', justifyContent: 'center', padding: '30px' }}>
+                        <div className="spinner" style={{ borderTopColor: 'var(--accent)', width: '30px', height: '30px' }}></div>
+                    </div>
+                ) : (
+                    <div>
+                        {/* Scan Serial Input Section */}
+                        <div style={{ marginBottom: '16px' }}>
+                            <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '6px' }}>
+                                Scan Serial / IMEI Barcode:
+                            </label>
+                            <input
+                                type="text"
+                                placeholder="Scan or type serial number and press Enter..."
+                                onKeyDown={handleScanSerialInput}
+                                style={{
+                                    width: '100%',
+                                    padding: '10px 12px',
+                                    border: '1px solid var(--border)',
+                                    borderRadius: '6px',
+                                    fontSize: '14px',
+                                    outline: 'none',
+                                    background: 'var(--bg-secondary)',
+                                    color: 'var(--text-primary)'
+                                }}
+                                autoFocus
+                            />
+                        </div>
+
+                        {/* Search Query Filter */}
+                        <div style={{ marginBottom: '16px' }}>
+                            <input
+                                type="text"
+                                placeholder="Search serial numbers..."
+                                value={serialSearchQuery}
+                                onChange={(e) => setSerialSearchQuery(e.target.value)}
+                                style={{
+                                    width: '100%',
+                                    padding: '8px 12px',
+                                    border: '1px solid var(--border)',
+                                    borderRadius: '6px',
+                                    fontSize: '13px',
+                                    outline: 'none',
+                                    background: 'var(--bg-secondary)',
+                                    color: 'var(--text-primary)'
+                                }}
+                            />
+                        </div>
+
+                        {/* Items Selection Counters */}
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px', fontSize: '13px', fontWeight: 600 }}>
+                            <span style={{ color: 'var(--text-secondary)' }}>Available Serials:</span>
+                            <span style={{ color: selectedSerials.length === (cart.find(c => c.cartRowId === serialSelectCartRowId)?.quantity || 0) ? 'var(--success)' : 'var(--danger)' }}>
+                                Selected: {selectedSerials.length} of {cart.find(c => c.cartRowId === serialSelectCartRowId)?.quantity || 0}
+                            </span>
+                        </div>
+
+                        {/* Checklist Section */}
+                        <div style={{
+                            maxHeight: '250px',
+                            overflowY: 'auto',
+                            border: '1px solid var(--border-light)',
+                            borderRadius: '8px',
+                            background: 'var(--bg-secondary)'
+                        }}>
+                            {availableSerials.filter(s => 
+                                s.serial_number.toLowerCase().includes(serialSearchQuery.toLowerCase())
+                            ).length === 0 ? (
+                                <div style={{ padding: '24px', textAlign: 'center', color: 'var(--text-tertiary)', fontStyle: 'italic', fontSize: '13px' }}>
+                                    No serial numbers match your search or are available.
+                                </div>
+                            ) : (
+                                availableSerials.filter(s => 
+                                    s.serial_number.toLowerCase().includes(serialSearchQuery.toLowerCase())
+                                ).map((serial) => {
+                                    const isChecked = selectedSerials.includes(serial.serial_number);
+                                    return (
+                                        <label
+                                            key={serial.id}
+                                            style={{
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                gap: '12px',
+                                                padding: '12px 16px',
+                                                borderBottom: '1px solid var(--border-light)',
+                                                cursor: 'pointer',
+                                                userSelect: 'none',
+                                                transition: 'background 0.15s ease',
+                                                background: isChecked ? 'rgba(var(--accent-rgb), 0.04)' : 'transparent',
+                                                fontSize: '13px',
+                                                color: 'var(--text-primary)'
+                                            }}
+                                        >
+                                            <input
+                                                type="checkbox"
+                                                checked={isChecked}
+                                                onChange={() => toggleSerialSelection(serial.serial_number)}
+                                                style={{
+                                                    width: '16px',
+                                                    height: '16px',
+                                                    accentColor: 'var(--accent)',
+                                                    cursor: 'pointer'
+                                                }}
+                                            />
+                                            <div style={{ flex: 1 }}>
+                                                <div style={{ fontWeight: 600 }}>{serial.serial_number}</div>
+                                                {serial.status !== 'Available' && (
+                                                    <span style={{ fontSize: '10px', color: 'var(--accent)', fontWeight: 600 }}>
+                                                        (Selected for this item)
+                                                    </span>
+                                                )}
+                                            </div>
+                                        </label>
+                                    );
+                                })
+                            )}
+                        </div>
+                    </div>
+                )}
             </Modal>
         </div>
     );

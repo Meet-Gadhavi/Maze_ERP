@@ -62,6 +62,21 @@ export default function InventoryPage() {
     const [adjustNotes, setAdjustNotes] = useState('');
     const [historyModalProduct, setHistoryModalProduct] = useState(null);
     const [stockHistory, setStockHistory] = useState([]);
+    const [productSerials, setProductSerials] = useState([]);
+    const [loadingSerials, setLoadingSerials] = useState(false);
+
+    async function loadSerials(productId) {
+        try {
+            setLoadingSerials(true);
+            const data = await api.getProductSerials(productId);
+            setProductSerials(data);
+        } catch (err) {
+            console.error('Failed to load serials', err);
+            toast.error('Failed to load serial numbers');
+        } finally {
+            setLoadingSerials(false);
+        }
+    }
 
     // Delete confirm
     const [deleteId, setDeleteId] = useState(null);
@@ -163,7 +178,8 @@ export default function InventoryPage() {
             conversion_rate: product.conversion_rate || 1,
             min_stock_level: product.min_stock_level ?? 5,
             max_stock_level: product.max_stock_level ?? 0,
-            track_batches: !!product.track_batches
+            track_batches: !!product.track_batches,
+            track_serials: !!product.track_serials
         });
         setTempVariants([]);
         setVariantForm({ name: '', sku: '', selling_price: '', cost_price: '', stock_quantity: 0 });
@@ -229,7 +245,8 @@ export default function InventoryPage() {
             conversion_rate: parseFloat(form.conversion_rate) || 1,
             min_stock_level: parseFloat(form.min_stock_level) || 0,
             max_stock_level: parseFloat(form.max_stock_level) || 0,
-            track_batches: form.track_batches
+            track_batches: form.track_batches,
+            track_serials: form.track_serials
         };
 
         setSaving(true);
@@ -1058,10 +1075,13 @@ export default function InventoryPage() {
                 <div className="modal-tabs" style={{ marginBottom: 20 }}>
                     <button className={`modal-tab ${activeModalTab === 'basic' ? 'active' : ''}`} onClick={() => setActiveModalTab('basic')}>Basic Details</button>
                     <button className={`modal-tab ${activeModalTab === 'variants' ? 'active' : ''}`} onClick={() => setActiveModalTab('variants')}>Variants & SKUs</button>
+                    {editingProduct && form.track_serials && (
+                        <button className={`modal-tab ${activeModalTab === 'serials' ? 'active' : ''}`} onClick={() => { setActiveModalTab('serials'); loadSerials(editingProduct.id); }}>Serial/IMEI Numbers</button>
+                    )}
                 </div>
 
                 <div className="modal-body-scroll" style={{ maxHeight: '65vh', overflowY: 'auto', paddingRight: 20 }}>
-                    {activeModalTab === 'basic' ? (
+                    {activeModalTab === 'basic' && (
                         <>
                             {/* - Section 1: Identity — */}
                             <div className="modal-section-title">Product Identity</div>
@@ -1224,6 +1244,17 @@ export default function InventoryPage() {
                                         <small>Assigns batch numbers and expiry tracking for this product</small>
                                     </div>
                                 </label>
+                                <label className="option-row">
+                                    <input
+                                        type="checkbox"
+                                        checked={form.track_serials}
+                                        onChange={e => setForm({ ...form, track_serials: e.target.checked })}
+                                    />
+                                    <div className="option-row-label">
+                                        <span>Track Serial / IMEI Numbers</span>
+                                        <small>Track unique individual serial numbers for this product</small>
+                                    </div>
+                                </label>
                             </div>
 
                             {editingProduct && pendingOrders.length > 0 && (
@@ -1253,7 +1284,8 @@ export default function InventoryPage() {
                                 </div>
                             )}
                         </>
-                    ) : (
+                    )}
+                    {activeModalTab === 'variants' && (
                         <div className="variants-section">
                             <div className="p-20 bg-secondary rounded-8 mb-24">
                                 <h4 className="size-14 fw-600 mb-16">Quick Add Variant</h4>
@@ -1414,6 +1446,53 @@ export default function InventoryPage() {
                                     </tbody>
                                 </table>
                             </div>
+                        </div>
+                    )}
+
+                    {activeModalTab === 'serials' && (
+                        <div>
+                            <div className="modal-section-title">Serial / IMEI Tracking List</div>
+                            {loadingSerials ? (
+                                <div style={{ padding: '20px 0', textAlign: 'center', color: 'var(--text-secondary)' }}>Loading serial numbers...</div>
+                            ) : productSerials.length === 0 ? (
+                                <div style={{ padding: '30px', textAlign: 'center', color: 'var(--text-tertiary)', border: '1px dashed var(--border)', borderRadius: '12px' }}>
+                                    No serial numbers registered yet. Purchase stock or add inventory to register serials.
+                                </div>
+                            ) : (
+                                <div style={{ maxHeight: '400px', overflowY: 'auto' }}>
+                                    <table className="compact-table w-full text-sm">
+                                        <thead>
+                                            <tr className="border-b" style={{ paddingBottom: '8px' }}>
+                                                <th className="text-left" style={{ padding: '8px' }}>Serial / IMEI Number</th>
+                                                <th className="text-left" style={{ padding: '8px' }}>Status</th>
+                                                <th className="text-left" style={{ padding: '8px' }}>Created Date</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {productSerials.map((s, idx) => (
+                                                <tr key={s.id || idx} className="border-b hover:bg-tinted">
+                                                    <td style={{ padding: '8px', fontWeight: 500 }}>{s.serial_number}</td>
+                                                    <td style={{ padding: '8px' }}>
+                                                        <span className={`badge ${s.status === 'Available' ? 'badge-success' : s.status === 'Sold' ? 'badge-info' : 'badge-warning'}`} style={{
+                                                            padding: '2px 8px',
+                                                            borderRadius: '12px',
+                                                            fontSize: '11px',
+                                                            fontWeight: '600',
+                                                            background: s.status === 'Available' ? 'rgba(52, 199, 89, 0.1)' : s.status === 'Sold' ? 'rgba(0, 122, 255, 0.1)' : 'rgba(255, 149, 0, 0.1)',
+                                                            color: s.status === 'Available' ? 'var(--success)' : s.status === 'Sold' ? 'var(--accent)' : 'var(--warning-text, #b25e00)'
+                                                        }}>
+                                                            {s.status}
+                                                        </span>
+                                                    </td>
+                                                    <td style={{ padding: '8px', color: 'var(--text-secondary)', fontSize: '12px' }}>
+                                                        {s.created_at ? formatDate(s.created_at) : '—'}
+                                                    </td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            )}
                         </div>
                     )}
                 </div>

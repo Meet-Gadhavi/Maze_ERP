@@ -27,9 +27,9 @@ Quantro (Maze ERP) is a **high-performance multi-store and multi-user applicatio
 | Daily Cash Report (Z-Report) | ✅ Complete | Shift reconciliation with discrepancy tracking |
 | **Multi-Store Cloud Sync** | ❌ Missing | Centralized dashboard for multiple locations |
 | **Omnichannel Integration** | ❌ Missing | Sync with Shopify, WooCommerce, Base44 |
-| **Employee Commissions** | ❌ Missing | Per-sale tracking for staff incentives |
-| **Advanced Serial/IMEI Tracking**| ❌ Missing | Required for electronics/high-value retail |
-| **Multi-Currency Support** | ❌ Missing | International sales compliance |
+| **Employee Commissions** | ❌ Missing | Per-sale tracking for staff incentives | NOT NOW
+| **Advanced Serial/IMEI Tracking**| ✅ Missing | Required for electronics/high-value retail |
+| **Multi-Currency Support** | ✅ Missing | International sales compliance |
 
 ### 🟡 MODULE 2: CRM (Customer Relationship) - 40% Complete
 
@@ -43,7 +43,7 @@ Quantro (Maze ERP) is a **high-performance multi-store and multi-user applicatio
 | SMS/Email Marketing | ❌ Missing | No campaign management |
 | Birthday/Anniversary Reminders | ❌ Missing | No automated greetings |
 | Customer Communication Log | ❌ Missing | No interaction history |
-| Credit Limit Management | ❌ Missing | No credit controls |
+| Credit Limit Management | ❌ Missing | No credit controls | Global/Particular as each customer 
 | Customer Portal | ❌ Missing | No self-service access |
 
 ### 🟡 MODULE 3: Inventory/Stock Management - 70% Complete

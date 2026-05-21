@@ -43,7 +43,9 @@ export default function SettingsPage() {
         mazeway_api_key: '',
         mazeway_webhook_url: '',
         cloud_backups_enabled: 'false',
-        auto_update_enabled: 'false'
+        auto_update_enabled: 'false',
+        default_currency: 'INR',
+        invoice_language: 'en'
     });
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
@@ -803,6 +805,42 @@ export default function SettingsPage() {
                                                 <div style={{ fontSize: '12px', color: 'var(--text-tertiary)', marginTop: '4px' }}>{style.desc}</div>
                                             </div>
                                         ))}
+                                    </div>
+                                </div>
+
+                                <div className="settings-divider" style={{ margin: '30px 0 20px 0', borderTop: '1px solid var(--border-light)' }}></div>
+
+                                <h3 style={{ marginBottom: '20px' }}>Localization & Currency</h3>
+                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '20px' }}>
+                                    <div className="form-group">
+                                        <label>Invoice Language</label>
+                                        <div style={{ marginTop: '8px' }}>
+                                            <CustomSelect 
+                                                value={settings.invoice_language || 'en'} 
+                                                onChange={(val) => setSettings({ ...settings, invoice_language: val })} 
+                                                options={[
+                                                    { value: 'en', label: 'English' },
+                                                    { value: 'hi', label: 'Hindi (हिन्दी)' },
+                                                    { value: 'gu', label: 'Gujarati (ગુજરાતી)' }
+                                                ]}
+                                            />
+                                        </div>
+                                    </div>
+                                    <div className="form-group">
+                                        <label>Default Currency</label>
+                                        <div style={{ marginTop: '8px' }}>
+                                            <CustomSelect 
+                                                value={settings.default_currency || 'INR'} 
+                                                onChange={(val) => setSettings({ ...settings, default_currency: val })} 
+                                                options={[
+                                                    { value: 'INR', label: 'Indian Rupee (₹)' },
+                                                    { value: 'USD', label: 'US Dollar ($)' },
+                                                    { value: 'EUR', label: 'Euro (€)' },
+                                                    { value: 'GBP', label: 'British Pound (£)' },
+                                                    { value: 'AED', label: 'UAE Dirham (د.إ)' }
+                                                ]}
+                                            />
+                                        </div>
                                     </div>
                                 </div>
                             </div>

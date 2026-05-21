@@ -121,3 +121,11 @@ Once uploading is finished, the files are stored as a secure **Draft** that is h
 
 > [!TIP]
 > The moment you click **Publish release**, your packaged client applications will instantly detect the update (v1.0.7), trigger the gorgeous in-app Dashboard notification banner, and let users download and install the update seamlessly with a single click!
+
+Solution 1: Server-Side Licensing (Recommended & Easiest)
+Since you already have Mazeway connection and handshake capabilities in Quantro, you can handle access control on the server:
+
+Make it so that when the app starts, it prompts the user to log in or enter a License Key.
+The app sends this key/user token to your server (Mazeway) to verify if they have paid.
+If they haven't paid, the app locks itself.
+Why this works: Even if someone downloads the latest .exe installer from your public GitHub Releases page, they cannot use the app because they don't have a paid account to log in.

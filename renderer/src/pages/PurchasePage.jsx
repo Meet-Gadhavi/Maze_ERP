@@ -42,6 +42,11 @@ export default function PurchasePage() {
     const [showProductModal, setShowProductModal] = useState(false);
     const [newProductForm, setNewProductForm] = useState({ name: '', category: 'General', purchase_price: 0, selling_price: 0, product_code: '', unit: 'PCS' });
 
+    // Serial/IMEI modal states for purchases
+    const [showSerialModal, setShowSerialModal] = useState(false);
+    const [currentCartIndex, setCurrentCartIndex] = useState(null);
+    const [serialInputText, setSerialInputText] = useState('');
+
     // Expense Form States
     const [expenseForm, setExpenseForm] = useState(EMPTY_EXPENSE);
     const [expenseSearch, setExpenseSearch] = useState('');
@@ -110,7 +115,9 @@ export default function PurchasePage() {
             is_new_product: false,
             track_batches: !!product.track_batches,
             batch_number: '',
-            expiry_date: ''
+            expiry_date: '',
+            track_serials: !!product.track_serials,
+            serials: []
         }]);
         setProductSearch('');
         setCartPulse(true);
@@ -134,6 +141,8 @@ export default function PurchasePage() {
             track_batches: false,
             batch_number: '',
             expiry_date: '',
+            track_serials: false,
+            serials: [],
             tempId
         }]);
         setShowProductModal(false);
@@ -151,6 +160,31 @@ export default function PurchasePage() {
 
     const removeFromCart = (index) => {
         setCart(cart.filter((_, i) => i !== index));
+    };
+
+    const openSerialInputModal = (index) => {
+        const item = cart[index];
+        setCurrentCartIndex(index);
+        setSerialInputText((item.serials || []).join('\n'));
+        setShowSerialModal(true);
+    };
+
+    const saveSerials = () => {
+        if (currentCartIndex === null) return;
+        const rawSerials = serialInputText
+            .split(/[\n,]+/)
+            .map(s => s.trim())
+            .filter(Boolean);
+
+        // Check duplicates in user input
+        const duplicates = rawSerials.filter((item, idx) => rawSerials.indexOf(item) !== idx);
+        if (duplicates.length > 0) {
+            return toast.error(`Duplicate serial numbers found in your input: ${[...new Set(duplicates)].join(', ')}`);
+        }
+
+        updateCartItem(currentCartIndex, 'serials', rawSerials);
+        setShowSerialModal(false);
+        toast.success(`${rawSerials.length} serial number(s) saved`);
     };
 
     const calculateTotals = () => {
@@ -188,6 +222,15 @@ export default function PurchasePage() {
                     if (settings.enable_expiry_tracking === 'true' && !item.expiry_date) {
                         return toast.error(`Expiry date is required for ${item.product_name} (Batch: ${item.batch_number || 'N/A'})`);
                     }
+                }
+            }
+        }
+
+        for (const item of cart) {
+            if (item.track_serials) {
+                const serials = item.serials || [];
+                if (serials.length !== item.quantity) {
+                    return toast.error(`Product "${item.product_name}" requires exactly ${item.quantity} serial number(s). You have entered ${serials.length}.`);
                 }
             }
         }
@@ -402,6 +445,20 @@ export default function PurchasePage() {
                                                     {settings.enable_expiry_tracking === 'true' && (
                                                         <input type="date" value={item.expiry_date || ''} onChange={(e) => updateCartItem(idx, 'expiry_date', e.target.value)} style={{ width: '50%', padding: '2px 4px', fontSize: '0.8em', border: '1px solid var(--border)', borderRadius: '4px' }} />
                                                     )}
+                                                </div>
+                                            )}
+                                            {item.track_serials && (
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 4 }}>
+                                                    <span style={{ fontSize: '0.8em', fontWeight: 600, color: (item.serials || []).length === item.quantity ? 'var(--success)' : 'var(--danger)' }}>
+                                                        Serials ({(item.serials || []).length} of {item.quantity})
+                                                    </span>
+                                                    <s-button 
+                                                        variant="secondary" 
+                                                        style={{ padding: '2px 6px', fontSize: '10px', height: '22px' }}
+                                                        onClick={() => openSerialInputModal(idx)}
+                                                    >
+                                                        Enter Serials
+                                                    </s-button>
                                                 </div>
                                             )}
                                         </td>
@@ -1249,6 +1306,48 @@ export default function PurchasePage() {
                             This action is permanent and cannot be undone. Suppliers with existing purchase records cannot be deleted.
                         </p>
                     </div>
+                </div>
+            </Modal>
+
+            <Modal
+                open={showSerialModal}
+                onClose={() => setShowSerialModal(false)}
+                heading={`Enter Serial / IMEI Numbers for ${currentCartIndex !== null ? cart[currentCartIndex]?.product_name : ''}`}
+                primaryAction={
+                    <SButton variant="primary" onClick={saveSerials}>Save Serials</SButton>
+                }
+                secondaryAction={
+                    <SButton onClick={() => setShowSerialModal(false)}>Cancel</SButton>
+                }
+            >
+                <div style={{ marginBottom: 20 }}>
+                    <p style={{ fontSize: '0.9em', color: 'var(--text-secondary)', marginBottom: 12 }}>
+                        Please enter unique serial or IMEI numbers for this product. Enter each serial number on a new line or separate them with commas.
+                    </p>
+                    {currentCartIndex !== null && (
+                        <div style={{ padding: '8px 12px', background: 'rgba(0, 113, 227, 0.05)', color: 'var(--accent)', borderRadius: '6px', fontSize: '0.9em', fontWeight: 600, marginBottom: 16 }}>
+                            Required: {cart[currentCartIndex]?.quantity} serials | Entered: {serialInputText.split(/[\n,]+/).map(s => s.trim()).filter(Boolean).length}
+                        </div>
+                    )}
+                    <FormGroup label="Serial Numbers / IMEI">
+                        <textarea
+                            className="form-control"
+                            rows={8}
+                            value={serialInputText}
+                            onChange={(e) => setSerialInputText(e.target.value)}
+                            placeholder="e.g.&#10;SN987654321&#10;SN987654322&#10;SN987654323"
+                            style={{ 
+                                fontFamily: 'monospace', 
+                                fontSize: '1.1em', 
+                                width: '100%', 
+                                border: '1px solid var(--border)', 
+                                borderRadius: '8px', 
+                                padding: '10px', 
+                                background: 'var(--bg-main)', 
+                                color: 'var(--text-primary)' 
+                            }}
+                        />
+                    </FormGroup>
                 </div>
             </Modal>
         </div>

@@ -4,7 +4,7 @@
 
 export const APP_NAME = 'Quantro';
 export const APP_COMPANY = 'Maze ERP';
-export const APP_VERSION = '1.1.4';
+export const APP_VERSION = '1.1.6';
 export const PURCHASES_LABEL = 'Purchases';
 
 export const EMPTY_PRODUCT = {
@@ -24,7 +24,8 @@ export const EMPTY_PRODUCT = {
     conversion_rate: 1,
     min_stock_level: 5,
     max_stock_level: 0,
-    track_batches: false
+    track_batches: false,
+    track_serials: false
 };
 
 export const EMPTY_CUSTOMER = {

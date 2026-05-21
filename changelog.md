@@ -4,7 +4,9 @@ All notable changes to the Quantro ERP application will be documented here.
 
 ---
 
-## [1.1.6] - 2026-05-20
+## [1.1.6] - 2026-05-21
+### Added
+- **Advanced Serial/IMEI Tracking for Sales:** Implemented interactive serial number selection for the POS / Sales module. Added validation on sales flow to match cart quantities, client-side filters, and barcode scanning support with automatic quantity adjustment.
 ### Fixed
 - **Local Data & Backup Paths Display:** Exposed absolute backend paths to the settings page so users can see exactly where their data is stored inside AppData/Roaming rather than showing generic relative paths.
 

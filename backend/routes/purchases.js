@@ -172,6 +172,33 @@ router.post('/', async (req, res, next) => {
                         db.run('UPDATE purchase_items SET batch_id = ? WHERE id = ?', [batchId, pItemId]);
                     }
 
+                    if (product.track_serials) {
+                        const serials = item.serials || [];
+                        if (serials.length !== qty) {
+                            res.status(400).json({ error: `Product "${product.name}" requires exactly ${qty} serial number(s) (received: ${serials.length})` });
+                            const err = new Error('Abort'); err.apiResponse = true; throw err;
+                        }
+                        const uniqueSerials = new Set(serials.map(s => s.trim().toUpperCase()));
+                        if (uniqueSerials.size !== serials.length) {
+                            res.status(400).json({ error: `Duplicate serial numbers entered for product "${product.name}"` });
+                            const err = new Error('Abort'); err.apiResponse = true; throw err;
+                        }
+                        for (const sn of serials) {
+                            const trimmedSn = sn.trim().toUpperCase();
+                            const existingSerial = db.get('SELECT id FROM product_serials WHERE product_id = ? AND UPPER(serial_number) = ?', [productId, trimmedSn]);
+                            if (existingSerial) {
+                                res.status(400).json({ error: `Serial number "${sn}" already exists for product "${product.name}"` });
+                                const err = new Error('Abort'); err.apiResponse = true; throw err;
+                            }
+                        }
+                        for (const sn of serials) {
+                            db.run(
+                                'INSERT INTO product_serials (product_id, serial_number, status, purchase_id, purchase_item_id) VALUES (?, ?, ?, ?, ?)',
+                                [productId, sn.trim().toUpperCase(), 'Available', purchaseId, pItemId]
+                            );
+                        }
+                    }
+
                     db.run(
                         'INSERT INTO stock_movements (product_id, type, quantity, reference_type, reference_id, batch_id, notes) VALUES (?, ?, ?, ?, ?, ?, ?)',
                         [productId, 'IN', qty, 'Purchase', purchaseId, batchId, 'Purchase Receipt']
@@ -295,6 +322,34 @@ router.post('/:id/return', async (req, res, next) => {
         let totalReturnAmount = 0;
 
         for (const ret of returns) {
+            const product = db.get('SELECT * FROM products WHERE id = ?', [ret.product_id]);
+            if (product && product.track_serials) {
+                const serialsToReturn = ret.serials || [];
+                const expectedQty = Number(ret.quantity);
+                if (serialsToReturn.length !== expectedQty) {
+                    return res.status(400).json({ error: `Please provide exactly ${expectedQty} serial number(s) to return for product "${product.name}"` });
+                }
+                for (const sn of serialsToReturn) {
+                    const trimmedSn = sn.trim().toUpperCase();
+                    const serialRecord = db.get(
+                        "SELECT id, status FROM product_serials WHERE product_id = ? AND UPPER(serial_number) = ? AND purchase_id = ?",
+                        [ret.product_id, trimmedSn, purchaseId]
+                    );
+                    if (!serialRecord) {
+                        return res.status(400).json({ error: `Serial number "${sn}" was not purchased in this receipt for "${product.name}"` });
+                    }
+                    if (serialRecord.status === 'Sold') {
+                        return res.status(400).json({ error: `Serial number "${sn}" has already been sold and cannot be returned to supplier` });
+                    }
+                }
+                for (const sn of serialsToReturn) {
+                    db.run(
+                        "UPDATE product_serials SET status = 'Returned_To_Supplier' WHERE product_id = ? AND UPPER(serial_number) = ? AND purchase_id = ?",
+                        [ret.product_id, sn.trim().toUpperCase(), purchaseId]
+                    );
+                }
+            }
+
             const productItems = db.all(
                 'SELECT * FROM purchase_items WHERE purchase_id = ? AND product_id = ?',
                 [purchaseId, ret.product_id]

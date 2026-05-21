@@ -13,7 +13,8 @@ const invoiceItemSchema = z.object({
     is_free: z.boolean().optional(),
     item_gst_rate: z.number().min(0).optional(),
     item_discount_rate: z.number().min(0).optional(),
-    batch_id: z.number().int().positive().nullable().optional()
+    batch_id: z.number().int().positive().nullable().optional(),
+    serials: z.array(z.string()).optional()
 });
 
 const invoiceSchema = z.object({
@@ -49,11 +50,21 @@ router.get('/', async (_req, res, next) => {
       ORDER BY i.created_at DESC
     `);
 
-        const result = invoices.map(inv => ({
-            ...inv,
-            items: db.all('SELECT * FROM invoice_items WHERE invoice_id = ?', [inv.id]),
-            payments: db.all('SELECT * FROM invoice_payments WHERE invoice_id = ? ORDER BY payment_date DESC', [inv.id])
-        }));
+        const result = invoices.map(inv => {
+            const items = db.all('SELECT * FROM invoice_items WHERE invoice_id = ?', [inv.id]);
+            const payments = db.all('SELECT * FROM invoice_payments WHERE invoice_id = ? ORDER BY payment_date DESC', [inv.id]);
+            const serials = db.all('SELECT * FROM product_serials WHERE invoice_id = ?', [inv.id]);
+            
+            items.forEach(item => {
+                item.serials = serials.filter(s => s.invoice_item_id === item.id).map(s => s.serial_number);
+            });
+
+            return {
+                ...inv,
+                items,
+                payments
+            };
+        });
 
         res.json(result);
     } catch (err) {
@@ -122,6 +133,12 @@ router.get('/:id', async (req, res, next) => {
             LEFT JOIN products p ON ii.product_id = p.id
             WHERE ii.invoice_id = ?
         `, [invoice.id]);
+        
+        const serials = db.all('SELECT * FROM product_serials WHERE invoice_id = ?', [invoice.id]);
+        invoice.items.forEach(item => {
+            item.serials = serials.filter(s => s.invoice_item_id === item.id).map(s => s.serial_number);
+        });
+
         invoice.payments = db.all('SELECT * FROM invoice_payments WHERE invoice_id = ? ORDER BY payment_date DESC', [invoice.id]);
         res.json(invoice);
     } catch (err) {
@@ -285,6 +302,34 @@ router.post('/', async (req, res, next) => {
                 }
             }
 
+            if (product.track_serials && !is_advance && deliveredQty > 0) {
+                const serials = item.serials || [];
+                if (serials.length !== deliveredQty) {
+                    res.status(400).json({ error: `Product "${product.name}" requires exactly ${deliveredQty} serial number(s) (received: ${serials.length})` });
+                    const err = new Error('Abort'); err.apiResponse = true; throw err;
+                }
+                const uniqueSerials = new Set(serials.map(s => s.trim().toUpperCase()));
+                if (uniqueSerials.size !== serials.length) {
+                    res.status(400).json({ error: `Duplicate serial numbers entered for product "${product.name}"` });
+                    const err = new Error('Abort'); err.apiResponse = true; throw err;
+                }
+                for (const sn of serials) {
+                    const trimmedSn = sn.trim().toUpperCase();
+                    const serialRecord = db.get(
+                        "SELECT id, status FROM product_serials WHERE product_id = ? AND UPPER(serial_number) = ?",
+                        [product.id, trimmedSn]
+                    );
+                    if (!serialRecord) {
+                        res.status(400).json({ error: `Serial number "${sn}" is not registered in the system for product "${product.name}"` });
+                        const err = new Error('Abort'); err.apiResponse = true; throw err;
+                    }
+                    if (serialRecord.status !== 'Available') {
+                        res.status(400).json({ error: `Serial number "${sn}" is not available (current status: ${serialRecord.status})` });
+                        const err = new Error('Abort'); err.apiResponse = true; throw err;
+                    }
+                }
+            }
+
             const itemGstRate = Number(item.item_gst_rate || 0);
             const itemDiscountRate = Number(item.item_discount_rate || 0);
             const variantName = variant ? variant.name : '';
@@ -297,10 +342,21 @@ router.post('/', async (req, res, next) => {
             const withGst = afterDisk + (afterDisk * (itemGstRate / 100));
             subtotal += withGst;
 
-            db.run(
+            const itemRes = db.run(
                 'INSERT INTO invoice_items (invoice_id, product_id, product_name, quantity, unit, price, total, qty_requested, qty_delivered, delivery_status, pending_qty, is_free, original_price, promo_expense, variant_id, variant_name, item_gst_rate, item_discount_rate, batch_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
                 [invoiceId, product.id, product.name, requestedQty, unit, price, lineTotal, requestedQty, deliveredQty, status, pendingQty, isFree ? 1 : 0, originalPrice, promoExpense, variantId, variantName, itemGstRate, itemDiscountRate, item.batch_id || null]
             );
+            const invoiceItemId = itemRes.lastInsertRowid;
+
+            if (product.track_serials && !is_advance && deliveredQty > 0) {
+                const serials = item.serials || [];
+                for (const sn of serials) {
+                    db.run(
+                        "UPDATE product_serials SET status = 'Sold', invoice_id = ?, invoice_item_id = ? WHERE product_id = ? AND UPPER(serial_number) = ?",
+                        [invoiceId, invoiceItemId, product.id, sn.trim().toUpperCase()]
+                    );
+                }
+            }
 
             if (!is_advance && reduceBy > 0) {
                 if (variant) {
@@ -471,6 +527,37 @@ router.post('/:id/return', async (req, res, next) => {
         let totalReturnAmount = 0;
 
         for (const ret of returns) {
+            const product = db.get('SELECT * FROM products WHERE id = ?', [ret.product_id]);
+            if (product && product.track_serials) {
+                const serialsToReturn = ret.serials || [];
+                const expectedQty = Number(ret.quantity);
+                if (serialsToReturn.length !== expectedQty) {
+                    res.status(400).json({ error: `Please provide exactly ${expectedQty} serial number(s) to return for product "${product.name}"` });
+                    const err = new Error('Abort'); err.apiResponse = true; throw err;
+                }
+                for (const sn of serialsToReturn) {
+                    const trimmedSn = sn.trim().toUpperCase();
+                    const serialRecord = db.get(
+                        "SELECT id, status FROM product_serials WHERE product_id = ? AND UPPER(serial_number) = ? AND invoice_id = ?",
+                        [ret.product_id, trimmedSn, invoiceId]
+                    );
+                    if (!serialRecord) {
+                        res.status(400).json({ error: `Serial number "${sn}" was not sold in this invoice for "${product.name}"` });
+                        const err = new Error('Abort'); err.apiResponse = true; throw err;
+                    }
+                    if (serialRecord.status !== 'Sold') {
+                        res.status(400).json({ error: `Serial number "${sn}" is not in 'Sold' status (current status: ${serialRecord.status})` });
+                        const err = new Error('Abort'); err.apiResponse = true; throw err;
+                    }
+                }
+                for (const sn of serialsToReturn) {
+                    db.run(
+                        "UPDATE product_serials SET status = 'Available', invoice_id = NULL, invoice_item_id = NULL WHERE product_id = ? AND UPPER(serial_number) = ? AND invoice_id = ?",
+                        [ret.product_id, sn.trim().toUpperCase(), invoiceId]
+                    );
+                }
+            }
+
             const productItems = originalItems.filter(i => i.product_id === ret.product_id);
             if (productItems.length === 0) {
                 res.status(400).json({ error: `Product ${ret.product_id} was not in this invoice` });
@@ -762,6 +849,41 @@ router.post('/:id/fulfill', async (req, res, next) => {
 
             const product = db.get('SELECT * FROM products WHERE id = ?', [f.product_id]);
             const deliverQty = Number(f.deliver_qty);
+
+            if (product && product.track_serials && deliverQty > 0) {
+                const serials = f.serials || [];
+                if (serials.length !== deliverQty) {
+                    res.status(400).json({ error: `Product "${product.name}" requires exactly ${deliverQty} serial number(s) (received: ${serials.length})` });
+                    const err = new Error('Abort'); err.apiResponse = true; throw err;
+                }
+                const uniqueSerials = new Set(serials.map(s => s.trim().toUpperCase()));
+                if (uniqueSerials.size !== serials.length) {
+                    res.status(400).json({ error: `Duplicate serial numbers entered for product "${product.name}"` });
+                    const err = new Error('Abort'); err.apiResponse = true; throw err;
+                }
+                for (const sn of serials) {
+                    const trimmedSn = sn.trim().toUpperCase();
+                    const serialRecord = db.get(
+                        "SELECT id, status FROM product_serials WHERE product_id = ? AND UPPER(serial_number) = ?",
+                        [product.id, trimmedSn]
+                    );
+                    if (!serialRecord) {
+                        res.status(400).json({ error: `Serial number "${sn}" is not registered in the system for product "${product.name}"` });
+                        const err = new Error('Abort'); err.apiResponse = true; throw err;
+                    }
+                    if (serialRecord.status !== 'Available') {
+                        res.status(400).json({ error: `Serial number "${sn}" is not available (current status: ${serialRecord.status})` });
+                        const err = new Error('Abort'); err.apiResponse = true; throw err;
+                    }
+                }
+                // Save serials
+                for (const sn of serials) {
+                    db.run(
+                        "UPDATE product_serials SET status = 'Sold', invoice_id = ?, invoice_item_id = ? WHERE product_id = ? AND UPPER(serial_number) = ?",
+                        [invoiceId, item.id, product.id, sn.trim().toUpperCase()]
+                    );
+                }
+            }
 
             if (deliverQty > item.pending_qty) {
                 return res.status(400).json({ error: `Cannot deliver more than pending for ${item.product_name}` });
