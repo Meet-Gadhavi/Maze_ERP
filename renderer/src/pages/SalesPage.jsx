@@ -63,6 +63,7 @@ export default function SalesPage() {
     const [paymentMethod, setPaymentMethod] = useState(DEFAULT_PAYMENT_METHOD); 
     const [payments, setPayments] = useState([{ method: DEFAULT_PAYMENT_METHOD, amount: '', transaction_id: '' }]);
     const [paymentFilter, setPaymentFilter] = useState('All');
+    const [categoryFilter, setCategoryFilter] = useState('All');
     const [updatingPaymentInvoice, setUpdatingPaymentInvoice] = useState(null);
     const [newPaymentAmount, setNewPaymentAmount] = useState('');
     const [usePCreditInPayment, setUsePCreditInPayment] = useState(false);
@@ -674,6 +675,11 @@ export default function SalesPage() {
 
     // Derive category list so it's available in JSX (was accidentally inside the closure)
     const categories = useMemo(() => Object.keys(categorizedProducts), [categorizedProducts]);
+
+    const historyCategories = useMemo(() => {
+        const cats = Array.from(new Set((products || []).map(p => p.category || 'General')));
+        return ['All', ...cats.filter(Boolean).sort()];
+    }, [products]);
 
     const filteredCustomers = useMemo(() => (customers || []).filter(c =>
         (c.name && c.name.toLowerCase().includes(customerSearch.toLowerCase())) ||
@@ -1751,7 +1757,16 @@ export default function SalesPage() {
                             />
                         </div>
                         <div className="page-toolbar-actions">
-                            <span style={{ fontSize: 'var(--font-size-xs)', fontWeight: '600', color: 'var(--text-tertiary)' }}>STATUS:</span>
+                            <span style={{ fontSize: 'var(--font-size-xs)', fontWeight: '600', color: 'var(--text-tertiary)' }}>CATEGORY:</span>
+                            <CustomSelect
+                                value={categoryFilter}
+                                onChange={val => setCategoryFilter(val)}
+                                options={historyCategories.map(cat => ({
+                                    value: cat,
+                                    label: cat === 'All' ? 'All Categories' : cat
+                                }))}
+                            />
+                            <span style={{ fontSize: 'var(--font-size-xs)', fontWeight: '600', color: 'var(--text-tertiary)', marginLeft: '8px' }}>STATUS:</span>
                             <CustomSelect
                                 value={paymentFilter}
                                 onChange={val => setPaymentFilter(val)}
@@ -1799,7 +1814,8 @@ export default function SalesPage() {
                                             const custName = (inv.customer_name || 'Walk-in').toLowerCase();
                                             const matchesSearch = invId.includes(searchLower) || custName.includes(searchLower);
                                             const matchesFilter = paymentFilter === 'All' || inv.payment_status === paymentFilter;
-                                            return matchesSearch && matchesFilter;
+                                            const matchesCategory = categoryFilter === 'All' || (inv.items && inv.items.some(item => (item.category || 'General') === categoryFilter));
+                                            return matchesSearch && matchesFilter && matchesCategory;
                                         })
                                         .map(inv => {
                                             const originalTotal = Number(inv.total || 0);

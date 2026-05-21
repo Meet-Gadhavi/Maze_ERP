@@ -4,11 +4,20 @@ All notable changes to the Quantro ERP application will be documented here.
 
 ---
 
+## [1.1.9] - 2026-05-21
+### Added
+- **Subcategory Selling Analytics:** Integrated a new Subcategory Selling Analytics pie chart card to the Inventory Dashboard tab. It lists unique customer counts per subcategory dynamically filtered by a parent category selector.
+
+---
+
 ## [1.1.8] - 2026-05-21
+### Added
+- **Category-wise Selling Analytics:** Added unique customer count per product category in the Dashboard inventory tab.
+- **Category Filter Dropdown:** Integrated a category-based filter in the Sales History toolbar.
 ### Changed
 - **Global Rebranding and Icon Update:** Replaced all legacy application icons (`Appicon.ico`, `Mazelabs.png`, `Mazelab.png`) with the new custom Quantro logo across the taskbar, titlebar header, settings page, customer display, and installer panels.
 - **Window Title Branding:** Renamed window title metadata from "Maze ERP" to "Quantro" for titlebar consistency.
-- **Sidebar Identity Polish:** Updated sidebar branding constants to fully reflect "Quantro" identity.
+- **Sidebar Subtext:** Updated sidebar subtext to display "Maze ERP" under the "Quantro" brand name.
 
 ---
 

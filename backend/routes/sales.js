@@ -51,7 +51,12 @@ router.get('/', async (_req, res, next) => {
     `);
 
         const result = invoices.map(inv => {
-            const items = db.all('SELECT * FROM invoice_items WHERE invoice_id = ?', [inv.id]);
+            const items = db.all(`
+                SELECT ii.*, p.category 
+                FROM invoice_items ii
+                LEFT JOIN products p ON ii.product_id = p.id
+                WHERE ii.invoice_id = ?
+            `, [inv.id]);
             const payments = db.all('SELECT * FROM invoice_payments WHERE invoice_id = ? ORDER BY payment_date DESC', [inv.id]);
             const serials = db.all('SELECT * FROM product_serials WHERE invoice_id = ?', [inv.id]);
             

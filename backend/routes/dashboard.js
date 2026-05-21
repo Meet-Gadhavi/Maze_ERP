@@ -217,6 +217,34 @@ router.get('/', async (req, res, next) => {
             } catch (e) { return []; }
         })();
 
+        // 12b. Category-wise Selling (customer counts per category in period)
+        const categoryCustomerCount = db.all(`
+            SELECT p.category AS name, 
+                   COUNT(DISTINCT COALESCE(inv.customer_id, NULLIF(inv.walk_in_name, ''), 'walk-in-' || inv.id)) AS customer_count
+            FROM invoice_items ii
+            JOIN invoices inv ON ii.invoice_id = inv.id
+            LEFT JOIN products p ON ii.product_id = p.id
+            WHERE inv.date >= date('now', 'localtime', ${rangeSql})
+              AND p.category IS NOT NULL AND p.category != ''
+            GROUP BY p.category
+            ORDER BY customer_count DESC
+        `);
+
+        // 12c. Subcategory-wise Selling (customer counts per subcategory in period)
+        const subcategoryCustomerCount = db.all(`
+            SELECT p.category AS category_name,
+                   COALESCE(sc.name, 'Uncategorized') AS name, 
+                   COUNT(DISTINCT COALESCE(inv.customer_id, NULLIF(inv.walk_in_name, ''), 'walk-in-' || inv.id)) AS customer_count
+            FROM invoice_items ii
+            JOIN invoices inv ON ii.invoice_id = inv.id
+            LEFT JOIN products p ON ii.product_id = p.id
+            LEFT JOIN sub_categories sc ON p.subcategory_id = sc.id
+            WHERE inv.date >= date('now', 'localtime', ${rangeSql})
+              AND p.category IS NOT NULL AND p.category != ''
+            GROUP BY p.category, COALESCE(sc.name, 'Uncategorized')
+            ORDER BY customer_count DESC
+        `);
+
         // ─────────────────────────────────────────────
         // CUSTOMER ANALYTICS
         // ─────────────────────────────────────────────
@@ -482,6 +510,8 @@ router.get('/', async (req, res, next) => {
             fastMoving,
             slowMoving,
             stockMovementTrend,
+            categoryCustomerCount,
+            subcategoryCustomerCount,
 
             // Customers
             topCustomers,

@@ -11,6 +11,7 @@ import {
 } from 'recharts';
 import DailyReportModal from '../components/DailyReportModal';
 import SButton from '../components/SButton';
+import CustomSelect from '../components/CustomSelect';
 
 const CHART_COLORS = ['#0071E3', '#30D158', '#FF9F0A', '#FF3B30', '#5856D6', '#AF52DE', '#FF6B35', '#00C7BE'];
 const TIMEFRAME_LABELS = {
@@ -44,7 +45,7 @@ function EmptyChart({ icon = 'BarChart2', message = 'No data for this period' })
     );
 }
 
-function ChartCard({ title, subtitle, children, style }) {
+function ChartCard({ title, subtitle, children, style, action }) {
     return (
         <div className="chart-card" style={style}>
             <div className="chart-header">
@@ -52,6 +53,7 @@ function ChartCard({ title, subtitle, children, style }) {
                     <h3>{title}</h3>
                     {subtitle && <p className="chart-subtitle">{subtitle}</p>}
                 </div>
+                {action && <div className="chart-action">{action}</div>}
             </div>
             <div className="chart-body">{children}</div>
         </div>
@@ -77,6 +79,7 @@ export default function DashboardPage() {
     const [data, setData] = useState(null);
     const [loading, setLoading] = useState(true);
     const [timeframe, setTimeframe] = useState('7days');
+    const [selectedSubcatCategory, setSelectedSubcatCategory] = useState('');
     const cacheRef = useRef({});
     const navigate = useNavigate();
     const [showDailyReport, setShowDailyReport] = useState(false);
@@ -156,6 +159,17 @@ export default function DashboardPage() {
             <SButton variant="primary" onClick={() => { cacheRef.current = {}; loadDashboard(); }}>Retry</SButton>
         </div>
     );
+
+    const subcatCategories = Array.from(new Set(data?.categoryCustomerCount?.map(c => c.name).filter(Boolean) || []));
+    const activeSubcatCategory = selectedSubcatCategory || subcatCategories[0] || '';
+    const subcatOptions = subcatCategories.map(cat => ({ value: cat, label: cat }));
+
+    const filteredSubcategories = (data?.subcategoryCustomerCount || [])
+        .filter(item => item.category_name === activeSubcatCategory)
+        .map(item => ({
+            name: item.name || 'Uncategorized',
+            value: item.customer_count
+        }));
 
     const fmt = (n) => `₹${Number(n || 0).toLocaleString('en-IN')}`;
 
@@ -530,32 +544,93 @@ export default function DashboardPage() {
                         </ChartCard>
                     </div>
 
-                    {/* Stock Movement Trend */}
-                    <ChartCard title="Stock Movement Trend" subtitle="Inventory in vs out over period">
-                        {!data.stockMovementTrend?.some(d => d.stock_in > 0 || d.stock_out > 0) ? <EmptyChart icon="ArrowUpDown" message="No stock movements recorded" /> : (
-                            <ResponsiveContainer width="100%" height={240}>
-                                <AreaChart data={data.stockMovementTrend}>
-                                    <defs>
-                                        <linearGradient id="gradIn" x1="0" y1="0" x2="0" y2="1">
-                                            <stop offset="5%" stopColor="#30D158" stopOpacity={0.15} />
-                                            <stop offset="95%" stopColor="#30D158" stopOpacity={0} />
-                                        </linearGradient>
-                                        <linearGradient id="gradOut" x1="0" y1="0" x2="0" y2="1">
-                                            <stop offset="5%" stopColor="#FF3B30" stopOpacity={0.15} />
-                                            <stop offset="95%" stopColor="#FF3B30" stopOpacity={0} />
-                                        </linearGradient>
-                                    </defs>
-                                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
-                                    <XAxis dataKey="date" axisLine={false} tickLine={false} tick={chartStyle.axisTickStyle} tickFormatter={formatDateShort} />
-                                    <YAxis axisLine={false} tickLine={false} tick={chartStyle.axisTickStyle} />
-                                    <Tooltip contentStyle={chartStyle.contentStyle} labelFormatter={formatDate} />
-                                    <Area type="monotone" dataKey="stock_in" stroke="#30D158" strokeWidth={2} fill="url(#gradIn)" name="Stock IN" />
-                                    <Area type="monotone" dataKey="stock_out" stroke="#FF3B30" strokeWidth={2} fill="url(#gradOut)" name="Stock OUT" />
-                                    <Legend />
-                                </AreaChart>
-                            </ResponsiveContainer>
-                        )}
-                    </ChartCard>
+                    {/* Stock Movement Trend (Wide) */}
+                    <div className="analytics-grid-2" style={{ marginTop: '24px' }}>
+                        <div style={{ gridColumn: 'span 2' }}>
+                            <ChartCard title="Stock Movement Trend" subtitle="Inventory in vs out over period">
+                                {!data.stockMovementTrend?.some(d => d.stock_in > 0 || d.stock_out > 0) ? <EmptyChart icon="ArrowUpDown" message="No stock movements recorded" /> : (
+                                    <ResponsiveContainer width="100%" height={240}>
+                                        <AreaChart data={data.stockMovementTrend}>
+                                            <defs>
+                                                <linearGradient id="gradIn" x1="0" y1="0" x2="0" y2="1">
+                                                    <stop offset="5%" stopColor="#30D158" stopOpacity={0.15} />
+                                                    <stop offset="95%" stopColor="#30D158" stopOpacity={0} />
+                                                </linearGradient>
+                                                <linearGradient id="gradOut" x1="0" y1="0" x2="0" y2="1">
+                                                    <stop offset="5%" stopColor="#FF3B30" stopOpacity={0.15} />
+                                                    <stop offset="95%" stopColor="#FF3B30" stopOpacity={0} />
+                                                </linearGradient>
+                                            </defs>
+                                            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
+                                            <XAxis dataKey="date" axisLine={false} tickLine={false} tick={chartStyle.axisTickStyle} tickFormatter={formatDateShort} />
+                                            <YAxis axisLine={false} tickLine={false} tick={chartStyle.axisTickStyle} />
+                                            <Tooltip contentStyle={chartStyle.contentStyle} labelFormatter={formatDate} />
+                                            <Area type="monotone" dataKey="stock_in" stroke="#30D158" strokeWidth={2} fill="url(#gradIn)" name="Stock IN" />
+                                            <Area type="monotone" dataKey="stock_out" stroke="#FF3B30" strokeWidth={2} fill="url(#gradOut)" name="Stock OUT" />
+                                            <Legend />
+                                        </AreaChart>
+                                    </ResponsiveContainer>
+                                )}
+                            </ChartCard>
+                        </div>
+                    </div>
+
+                    {/* Category-wise & Subcategory Selling (Side-by-side) */}
+                    <div className="analytics-grid-2" style={{ marginTop: '24px' }}>
+                        <ChartCard title="Category-wise Selling" subtitle="Unique customers buying from each category">
+                            {!data.categoryCustomerCount?.length ? <EmptyChart icon="Tag" message="No sales data for this period" /> : (
+                                <ResponsiveContainer width="100%" height={240}>
+                                    <BarChart data={data.categoryCustomerCount.map(c => ({ name: c.name || 'Uncategorized', customer_count: c.customer_count }))} layout="vertical">
+                                        <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#f0f0f0" />
+                                        <XAxis type="number" axisLine={false} tickLine={false} tick={chartStyle.axisTickStyle} allowDecimals={false} />
+                                        <YAxis type="category" dataKey="name" axisLine={false} tickLine={false} tick={chartStyle.axisTickStyle} width={100} />
+                                        <Tooltip contentStyle={chartStyle.contentStyle} formatter={(value) => [value, 'Customers']} />
+                                        <Bar dataKey="customer_count" fill="#AF52DE" radius={[0, 6, 6, 0]} name="Unique Customers" />
+                                    </BarChart>
+                                </ResponsiveContainer>
+                            )}
+                        </ChartCard>
+
+                        <ChartCard 
+                            title="Subcategory Selling Analytics" 
+                            subtitle="Unique customers per subcategory"
+                            action={
+                                subcatOptions.length > 0 && (
+                                    <div style={{ width: '160px' }}>
+                                        <CustomSelect
+                                            value={activeSubcatCategory}
+                                            options={subcatOptions}
+                                            onChange={(val) => setSelectedSubcatCategory(val)}
+                                        />
+                                    </div>
+                                )
+                            }
+                        >
+                            {!filteredSubcategories.length ? (
+                                <EmptyChart icon="PieChart" message="No subcategory sales in this category" />
+                            ) : (
+                                <ResponsiveContainer width="100%" height={240}>
+                                    <PieChart>
+                                        <Pie 
+                                            data={filteredSubcategories} 
+                                            cx="50%" 
+                                            cy="50%" 
+                                            innerRadius={55} 
+                                            outerRadius={80} 
+                                            paddingAngle={4} 
+                                            dataKey="value"
+                                        >
+                                            {filteredSubcategories.map((_, i) => (
+                                                <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />
+                                            ))}
+                                        </Pie>
+                                        <Tooltip contentStyle={chartStyle.contentStyle} formatter={(value) => [value, 'Customers']} />
+                                        <Legend verticalAlign="bottom" height={36} iconType="circle" iconSize={8} />
+                                    </PieChart>
+                                </ResponsiveContainer>
+                            )}
+                        </ChartCard>
+                    </div>
                 </div>
             )}
 
