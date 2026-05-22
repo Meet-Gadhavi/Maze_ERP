@@ -19,22 +19,55 @@ export default function CustomersPage() {
     const [sortBy, setSortBy] = useState('Newest First');
     const [filterCredit, setFilterCredit] = useState('All');
 
-    // Modal
+    // Settings for Tier Discounts
+    const [settings, setSettings] = useState({
+        tier_a_discount: '10',
+        tier_b_discount: '5',
+        tier_c_discount: '0'
+    });
+
+    // Settings Modal
+    const [showSettingsModal, setShowSettingsModal] = useState(false);
+    const [editingTier, setEditingTier] = useState(null); // 'A', 'B', 'C'
+    const [editingTierDiscount, setEditingTierDiscount] = useState('');
+    const [savingSettings, setSavingSettings] = useState(false);
+
+    // Modal for Add/Edit
     const [showModal, setShowModal] = useState(false);
     const [editingCustomer, setEditingCustomer] = useState(null);
     const [form, setForm] = useState(EMPTY_CUSTOMER);
     const [saving, setSaving] = useState(false);
 
-    // M020: Pagination state
+    // Pagination state
     const [currentPage, setCurrentPage] = useState(1);
     const PAGE_SIZE = 50;
 
     // Delete
     const [deleteId, setDeleteId] = useState(null);
 
-    // Purchase history
+    // Customer Activity/History Modal
     const [historyCustomer, setHistoryCustomer] = useState(null);
+    const [activeTab, setActiveTab] = useState('purchases'); // 'purchases' or 'communication'
     const [purchases, setPurchases] = useState([]);
+    const [logs, setLogs] = useState([]);
+    const [loadingLogs, setLoadingLogs] = useState(false);
+    const [logForm, setLogForm] = useState({ type: 'Call', notes: '' });
+    const [savingLog, setSavingLog] = useState(false);
+
+    const loadSettings = useCallback(async () => {
+        try {
+            const s = await api.getSettings();
+            if (s) {
+                setSettings({
+                    tier_a_discount: s.tier_a_discount ?? '10',
+                    tier_b_discount: s.tier_b_discount ?? '5',
+                    tier_c_discount: s.tier_c_discount ?? '0'
+                });
+            }
+        } catch (err) {
+            console.error('Failed to load settings', err);
+        }
+    }, []);
 
     const loadCustomers = useCallback(async () => {
         try {
@@ -51,7 +84,8 @@ export default function CustomersPage() {
 
     useEffect(() => {
         loadCustomers();
-    }, [loadCustomers]);
+        loadSettings();
+    }, [loadCustomers, loadSettings]);
 
     function openAdd() {
         setEditingCustomer(null);
@@ -61,7 +95,15 @@ export default function CustomersPage() {
 
     function openEdit(customer) {
         setEditingCustomer(customer);
-        setForm({ name: customer.name, phone: customer.phone, email: customer.email || '', address: customer.address, gstin: customer.gstin || '' });
+        setForm({
+            name: customer.name,
+            phone: customer.phone,
+            email: customer.email || '',
+            address: customer.address,
+            gstin: customer.gstin || '',
+            tier: customer.tier || 'C',
+            credit_limit: customer.credit_limit || 0
+        });
         setShowModal(true);
     }
 
@@ -74,7 +116,9 @@ export default function CustomersPage() {
             phone: form.phone.trim(),
             email: form.email.trim(),
             address: form.address.trim(),
-            gstin: form.gstin.trim()
+            gstin: form.gstin.trim(),
+            tier: form.tier || 'C',
+            credit_limit: Number(form.credit_limit || 0)
         };
 
         const promise = editingCustomer 
@@ -110,14 +154,88 @@ export default function CustomersPage() {
         });
     }
 
+    // Settings / Tier Discounts management
+    function openEditTier(tier) {
+        setEditingTier(tier);
+        const key = `tier_${tier.toLowerCase()}_discount`;
+        setEditingTierDiscount(settings[key] || '0');
+        setShowSettingsModal(true);
+    }
+
+    async function handleSaveTierDiscount() {
+        const pct = parseFloat(editingTierDiscount);
+        if (isNaN(pct) || pct < 0 || pct > 100) {
+            return toast.error('Discount percentage must be between 0 and 100');
+        }
+        setSavingSettings(true);
+        const key = `tier_${editingTier.toLowerCase()}_discount`;
+        try {
+            await api.updateSettings({ [key]: String(pct) });
+            toast.success(`Tier ${editingTier} discount updated successfully`);
+            setSettings(prev => ({ ...prev, [key]: String(pct) }));
+            setShowSettingsModal(false);
+        } catch (err) {
+            toast.error(err.message || 'Failed to save setting');
+        } finally {
+            setSavingSettings(false);
+        }
+    }
+
+    // CRM activity logs management
+    const loadLogs = async (customerId) => {
+        setLoadingLogs(true);
+        try {
+            const data = await api.getCustomerCommunicationLogs(customerId);
+            setLogs(data || []);
+        } catch (err) {
+            console.error('Failed to load communication logs', err);
+            setLogs([]);
+        } finally {
+            setLoadingLogs(false);
+        }
+    };
+
     async function viewHistory(customer) {
         setHistoryCustomer(customer);
+        setActiveTab('purchases');
+        setLogForm({ type: 'Call', notes: '' });
         try {
             const data = await api.getCustomerPurchases(customer.id);
-            setPurchases(data);
+            setPurchases(data || []);
         } catch (err) {
             console.error(err);
             setPurchases([]);
+        }
+        loadLogs(customer.id);
+    }
+
+    async function handleAddLog() {
+        if (!logForm.notes.trim()) {
+            return toast.error('Notes cannot be empty');
+        }
+        setSavingLog(true);
+        try {
+            await api.createCustomerCommunicationLog(historyCustomer.id, {
+                type: logForm.type,
+                notes: logForm.notes.trim()
+            });
+            toast.success('Activity logged successfully');
+            setLogForm({ ...logForm, notes: '' });
+            loadLogs(historyCustomer.id);
+        } catch (err) {
+            toast.error(err.message || 'Failed to log activity');
+        } finally {
+            setSavingLog(false);
+        }
+    }
+
+    async function handleDeleteLog(logId) {
+        try {
+            await api.deleteCustomerCommunicationLog(historyCustomer.id, logId);
+            toast.success('Log deleted successfully');
+            loadLogs(historyCustomer.id);
+        } catch (err) {
+            toast.error(err.message || 'Failed to delete log');
         }
     }
 
@@ -152,6 +270,45 @@ export default function CustomersPage() {
                 <SButton variant="primary" onClick={openAdd} aria-label="Add customer">
                     Add Customer
                 </SButton>
+            </div>
+
+            {/* Tier Configuration Strip */}
+            <div className="tier-strip">
+                <div className="tier-strip-header">
+                    <span className="tier-strip-title">Tier Configuration & Default Auto-Discounts</span>
+                </div>
+                <div className="tier-strip-grid">
+                    <div className="tier-strip-card">
+                        <div className="tier-strip-card-top">
+                            <span className="tier-badge tier-a">Tier A</span>
+                            <button className="tier-card-settings-btn" onClick={() => openEditTier('A')} title="Edit Tier A Discount">
+                                <Icons.Settings size={14} />
+                            </button>
+                        </div>
+                        <span className="tier-strip-value">{settings.tier_a_discount}%</span>
+                        <span className="tier-strip-desc">Default discount applied automatically at checkout</span>
+                    </div>
+                    <div className="tier-strip-card">
+                        <div className="tier-strip-card-top">
+                            <span className="tier-badge tier-b">Tier B</span>
+                            <button className="tier-card-settings-btn" onClick={() => openEditTier('B')} title="Edit Tier B Discount">
+                                <Icons.Settings size={14} />
+                            </button>
+                        </div>
+                        <span className="tier-strip-value">{settings.tier_b_discount}%</span>
+                        <span className="tier-strip-desc">Default discount applied automatically at checkout</span>
+                    </div>
+                    <div className="tier-strip-card">
+                        <div className="tier-strip-card-top">
+                            <span className="tier-badge tier-c">Tier C</span>
+                            <button className="tier-card-settings-btn" onClick={() => openEditTier('C')} title="Edit Tier C Discount">
+                                <Icons.Settings size={14} />
+                            </button>
+                        </div>
+                        <span className="tier-strip-value">{settings.tier_c_discount}%</span>
+                        <span className="tier-strip-desc">Default discount applied automatically at checkout</span>
+                    </div>
+                </div>
             </div>
 
             <div className="page-toolbar">
@@ -210,6 +367,9 @@ export default function CustomersPage() {
                             <tr>
                                 <th>Name</th>
                                 <th>Phone</th>
+                                <th>Tier</th>
+                                <th>Credit Limit</th>
+                                <th>P-Credit Balance</th>
                                 <th>GSTIN</th>
                                 <th>Address</th>
                                 <th>Joined</th>
@@ -217,28 +377,40 @@ export default function CustomersPage() {
                             </tr>
                         </thead>
                         <tbody>
-                            {paginatedCustomers.map(c => (
-                                <tr key={c.id}>
-                                    <td className="fw-600">{c.name}</td>
-                                    <td className="text-secondary">{c.phone || '—'}</td>
-                                    <td className="text-secondary">{c.gstin || 'Not Provided'}</td>
-                                    <td className="text-secondary">{c.address || '—'}</td>
-                                    <td className="text-secondary">{formatDate(c.created_at)}</td>
-                                    <td className="text-right">
-                                        <div className="customer-actions">
-                                            <SButton variant="secondary" size="small" onClick={() => viewHistory(c)} title="Purchase History">
-                                                History
-                                            </SButton>
-                                            <SButton variant="secondary" size="small" onClick={() => openEdit(c)} title="Edit">
-                                                Edit
-                                            </SButton>
-                                            <SButton variant="secondary" size="small" onClick={() => setDeleteId(c.id)} title="Delete" style={{ color: 'var(--danger)' }}>
-                                                Delete
-                                            </SButton>
-                                        </div>
-                                    </td>
-                                </tr>
-                            ))}
+                            {paginatedCustomers.map(c => {
+                                const isNegativeCredit = Number(c.p_credit_balance || 0) < 0;
+                                return (
+                                    <tr key={c.id}>
+                                        <td className="fw-600">{c.name}</td>
+                                        <td className="text-secondary">{c.phone || '—'}</td>
+                                        <td>
+                                            <span className={`tier-badge tier-${(c.tier || 'C').toLowerCase()}`}>
+                                                Tier {c.tier || 'C'}
+                                            </span>
+                                        </td>
+                                        <td className="text-secondary">₹{Number(c.credit_limit || 0).toLocaleString('en-IN')}</td>
+                                        <td className="fw-600" style={{ color: isNegativeCredit ? 'var(--danger)' : 'inherit' }}>
+                                            ₹{Number(c.p_credit_balance || 0).toLocaleString('en-IN')}
+                                        </td>
+                                        <td className="text-secondary">{c.gstin || 'Not Provided'}</td>
+                                        <td className="text-secondary">{c.address || '—'}</td>
+                                        <td className="text-secondary">{formatDate(c.created_at)}</td>
+                                        <td className="text-right">
+                                            <div className="customer-actions">
+                                                <SButton variant="secondary" size="small" onClick={() => viewHistory(c)} title="Details & CRM History">
+                                                    Activity
+                                                </SButton>
+                                                <SButton variant="secondary" size="small" onClick={() => openEdit(c)} title="Edit">
+                                                    Edit
+                                                </SButton>
+                                                <SButton variant="secondary" size="small" onClick={() => setDeleteId(c.id)} title="Delete" style={{ color: 'var(--danger)' }}>
+                                                    Delete
+                                                </SButton>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                );
+                            })}
                         </tbody>
                     </table>
                     {totalPages > 1 && (
@@ -260,6 +432,7 @@ export default function CustomersPage() {
                 )}
             </div>
 
+            {/* Save/Add Customer Modal */}
             <Modal 
                 open={showModal} 
                 onClose={() => setShowModal(false)} 
@@ -300,6 +473,29 @@ export default function CustomersPage() {
                             />
                         </FormGroup>
                     </div>
+                    <div className="grid-2 gap-16">
+                        <FormGroup label="Customer Tier">
+                            <CustomSelect 
+                                value={form.tier} 
+                                onChange={value => setForm({ ...form, tier: value })} 
+                                options={[
+                                    { value: 'A', label: 'Tier A' },
+                                    { value: 'B', label: 'Tier B' },
+                                    { value: 'C', label: 'Tier C' }
+                                ]}
+                            />
+                        </FormGroup>
+                        <FormGroup label="Credit Limit (₹)">
+                            <Input 
+                                type="number"
+                                min="0"
+                                step="any"
+                                value={form.credit_limit} 
+                                onChange={e => setForm({ ...form, credit_limit: e.target.value === '' ? '' : Number(e.target.value) })} 
+                                placeholder="e.g. 5000" 
+                            />
+                        </FormGroup>
+                    </div>
                     <FormGroup label="GST Number (Optional)">
                         <Input 
                             value={form.gstin} 
@@ -319,6 +515,7 @@ export default function CustomersPage() {
                 </div>
             </Modal>
 
+            {/* Delete Customer Modal */}
             <Modal
                 open={!!deleteId}
                 onClose={() => setDeleteId(null)}
@@ -345,42 +542,191 @@ export default function CustomersPage() {
                 </div>
             </Modal>
 
+            {/* Manage Tier Settings Modal */}
             <Modal
+                open={showSettingsModal}
+                onClose={() => setShowSettingsModal(false)}
+                heading={`Manage Tier ${editingTier} Discount`}
+                size="small"
+                primaryAction={
+                    <SButton variant="primary" onClick={handleSaveTierDiscount} loading={savingSettings} disabled={savingSettings}>
+                        Save Changes
+                    </SButton>
+                }
+                secondaryActions={
+                    <SButton onClick={() => setShowSettingsModal(false)}>Cancel</SButton>
+                }
+            >
+                <div className="flex-column gap-16">
+                    <FormGroup label="Default Discount Percentage (%)" required>
+                        <Input 
+                            type="number"
+                            min="0"
+                            max="100"
+                            step="any"
+                            value={editingTierDiscount} 
+                            onChange={e => setEditingTierDiscount(e.target.value)} 
+                            placeholder="e.g. 10" 
+                            autoFocus 
+                        />
+                    </FormGroup>
+                    <p className="text-secondary" style={{ fontSize: '12.5px', lineHeight: 1.4 }}>
+                        This discount rate will be automatically applied at checkout when a customer of Tier {editingTier} is selected at the sales point.
+                    </p>
+                </div>
+            </Modal>
+
+            {/* Customer Details & History Tabbed Modal */}
+            <Modal
+                id="customer-history-modal"
                 open={!!historyCustomer}
                 onClose={() => setHistoryCustomer(null)}
-                heading={`Purchases — ${historyCustomer?.name}`}
+                heading={`Customer Details — ${historyCustomer?.name}`}
                 size="large"
                 secondaryActions={
                     <SButton onClick={() => setHistoryCustomer(null)}>Close</SButton>
                 }
             >
-                <div className="card" style={{ border: 'none', boxShadow: 'none' }}>
-                    {purchases.length === 0 ? (
-                        <div className="empty-state">
-                            <Icons.ShoppingCart size={32} />
-                            <p>No purchase history found</p>
+                <div>
+                    <div className="crm-modal-tabs">
+                        <button 
+                            className={`crm-tab-btn ${activeTab === 'purchases' ? 'active' : ''}`}
+                            onClick={() => setActiveTab('purchases')}
+                        >
+                            <Icons.ShoppingCart size={16} />
+                            Purchase History
+                        </button>
+                        <button 
+                            className={`crm-tab-btn ${activeTab === 'communication' ? 'active' : ''}`}
+                            onClick={() => setActiveTab('communication')}
+                        >
+                            <Icons.MessageSquare size={16} />
+                            Communication Logs
+                        </button>
+                    </div>
+
+                    {activeTab === 'purchases' ? (
+                        <div className="card" style={{ border: 'none', boxShadow: 'none', padding: 0 }}>
+                            {purchases.length === 0 ? (
+                                <div className="empty-state">
+                                    <Icons.ShoppingCart size={32} />
+                                    <p>No purchase history found</p>
+                                </div>
+                            ) : (
+                                <table className="premium-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Invoice #</th>
+                                            <th>Items</th>
+                                            <th className="text-right">Total</th>
+                                            <th className="text-right">Date</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {purchases.map(inv => (
+                                            <tr key={inv.id}>
+                                                <td className="fw-600">INV-{String(inv.id).padStart(4, '0')}</td>
+                                                <td className="text-secondary">{inv.items?.length || 0} Products</td>
+                                                <td className="fw-600 text-right">₹{Number(inv.total).toLocaleString('en-IN')}</td>
+                                                <td className="text-secondary text-right">{formatDate(inv.date)}</td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            )}
                         </div>
                     ) : (
-                        <table className="premium-table">
-                            <thead>
-                                <tr>
-                                    <th>Invoice #</th>
-                                    <th>Items</th>
-                                    <th className="text-right">Total</th>
-                                    <th className="text-right">Date</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {purchases.map(inv => (
-                                    <tr key={inv.id}>
-                                        <td className="fw-600">INV-{String(inv.id).padStart(4, '0')}</td>
-                                        <td className="text-secondary">{inv.items?.length || 0} Products</td>
-                                        <td className="fw-600 text-right">₹{Number(inv.total).toLocaleString('en-IN')}</td>
-                                        <td className="text-secondary text-right">{formatDate(inv.date)}</td>
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
+                        <div>
+                            {/* Log new activity form */}
+                            <div className="log-activity-form">
+                                <h4>Log Customer Interaction</h4>
+                                <div className="log-activity-row">
+                                    <div className="log-activity-type">
+                                        <CustomSelect 
+                                            value={logForm.type}
+                                            onChange={type => setLogForm({ ...logForm, type })}
+                                            options={[
+                                                { value: 'Call', label: <span className="select-icon-label"><Icons.Phone size={14} /> Call</span> },
+                                                { value: 'Email', label: <span className="select-icon-label"><Icons.Mail size={14} /> Email</span> },
+                                                { value: 'SMS', label: <span className="select-icon-label"><Icons.MessageSquare size={14} /> SMS</span> },
+                                                { value: 'Meeting', label: <span className="select-icon-label"><Icons.Users size={14} /> Meeting</span> },
+                                                { value: 'Other', label: <span className="select-icon-label"><Icons.Info size={14} /> Other</span> }
+                                            ]}
+                                        />
+                                    </div>
+                                    <div className="log-activity-notes">
+                                        <Input 
+                                            value={logForm.notes}
+                                            onChange={e => setLogForm({ ...logForm, notes: e.target.value })}
+                                            placeholder="Type interaction notes (e.g. 'Discussed credit terms and catalog')..."
+                                            onKeyDown={e => {
+                                                if (e.key === 'Enter') handleAddLog();
+                                            }}
+                                        />
+                                    </div>
+                                    <SButton variant="primary" onClick={handleAddLog} loading={savingLog} disabled={savingLog}>
+                                        Log
+                                    </SButton>
+                                </div>
+                            </div>
+
+                            {/* Timeline list */}
+                            <div className="communications-timeline">
+                                {loadingLogs ? (
+                                    <div className="loading" style={{ padding: 20 }}>Loading history…</div>
+                                ) : logs.length === 0 ? (
+                                    <div className="empty-state" style={{ padding: 20 }}>
+                                        <Icons.MessageSquare size={32} />
+                                        <p>No communication logs found. Record a call or email above to begin tracking.</p>
+                                    </div>
+                                ) : (
+                                    <div className="timeline-items">
+                                        {logs.map(log => {
+                                            let typeIcon = <Icons.Info size={16} />;
+                                            let badgeClass = 'timeline-badge-other';
+                                            if (log.type === 'Call') {
+                                                typeIcon = <Icons.Phone size={16} />;
+                                                badgeClass = 'timeline-badge-call';
+                                            } else if (log.type === 'Email') {
+                                                typeIcon = <Icons.Mail size={16} />;
+                                                badgeClass = 'timeline-badge-email';
+                                            } else if (log.type === 'SMS') {
+                                                typeIcon = <Icons.MessageSquare size={16} />;
+                                                badgeClass = 'timeline-badge-sms';
+                                            } else if (log.type === 'Meeting') {
+                                                typeIcon = <Icons.Users size={16} />;
+                                                badgeClass = 'timeline-badge-meeting';
+                                            }
+                                            return (
+                                                <div className="timeline-item" key={log.id}>
+                                                    <div className={`timeline-badge ${badgeClass}`}>
+                                                        {typeIcon}
+                                                    </div>
+                                                    <div className="timeline-body">
+                                                        <div className="timeline-header">
+                                                            <span className="log-type-tag">{log.type}</span>
+                                                            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                                                                <span className="log-date">{formatDate(log.date)}</span>
+                                                                <button 
+                                                                    className="delete-log-btn"
+                                                                    onClick={() => handleDeleteLog(log.id)}
+                                                                    title="Delete log"
+                                                                >
+                                                                    <Icons.Delete size={14} />
+                                                                </button>
+                                                            </div>
+                                                        </div>
+                                                        <div className="timeline-notes">
+                                                            {log.notes}
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                )}
+                            </div>
+                        </div>
                     )}
                 </div>
             </Modal>

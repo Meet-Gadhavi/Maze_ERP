@@ -336,7 +336,7 @@ export default function DashboardPage() {
                                         <YAxis yAxisId="left" axisLine={false} tickLine={false} tick={chartStyle.axisTickStyle} tickFormatter={v => `₹${v}`} width={60} />
                                         <YAxis yAxisId="right" orientation="right" axisLine={false} tickLine={false} tick={chartStyle.axisTickStyle} />
                                         <Tooltip contentStyle={chartStyle.contentStyle} formatter={(v, name) => name === 'revenue' ? [fmt(v), 'Revenue'] : [v, 'Orders']} labelFormatter={formatDate} />
-                                        <Bar yAxisId="right" dataKey="orders" fill="rgba(0,113,227,0.15)" radius={[4, 4, 0, 0]} name="orders" />
+                                        <Bar yAxisId="right" dataKey="orders" fill="rgba(0,113,227,0.15)" radius={[4, 4, 0, 0]} activeBar={{ fill: 'rgba(0, 113, 227, 0.4)', radius: [4, 4, 0, 0] }} name="orders" />
                                         <Line yAxisId="left" type="monotone" dataKey="revenue" stroke="#0071E3" strokeWidth={2.5} dot={false} name="revenue" />
                                     </ComposedChart>
                                 </ResponsiveContainer>

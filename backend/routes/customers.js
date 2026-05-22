@@ -9,7 +9,9 @@ const customerSchema = z.object({
     phone: z.string().regex(/^\+?[0-9\s\-()]{7,20}$/, "Invalid phone format").optional().or(z.literal('')),
     email: z.string().email("Invalid email format").optional().or(z.literal('')),
     address: z.string().max(500).optional().or(z.literal('')),
-    gstin: z.string().max(20).optional().or(z.literal(''))
+    gstin: z.string().max(20).optional().or(z.literal('')),
+    tier: z.enum(['A', 'B', 'C']).default('C'),
+    credit_limit: z.number().min(0).default(0)
 });
 
 /**
@@ -23,7 +25,9 @@ function buildCustomerFields(body, existing = {}) {
         phone: (body.phone ?? existing.phone ?? '').trim(),
         email: (body.email ?? existing.email ?? '').trim(),
         address: (body.address ?? existing.address ?? '').trim(),
-        gstin: (body.gstin ?? existing.gstin ?? '').trim()
+        gstin: (body.gstin ?? existing.gstin ?? '').trim(),
+        tier: body.tier ?? existing.tier ?? 'C',
+        credit_limit: Number(body.credit_limit ?? existing.credit_limit ?? 0)
     });
 
     return validated;
@@ -90,8 +94,8 @@ router.post('/', async (req, res, next) => {
         if (!fields.name) return res.status(400).json({ error: 'Customer name is required' });
 
         const result = db.run(
-            'INSERT INTO customers (name, phone, email, address, gstin) VALUES (?, ?, ?, ?, ?)',
-            [fields.name, fields.phone, fields.email, fields.address, fields.gstin]
+            'INSERT INTO customers (name, phone, email, address, gstin, tier, credit_limit) VALUES (?, ?, ?, ?, ?, ?, ?)',
+            [fields.name, fields.phone, fields.email, fields.address, fields.gstin, fields.tier, fields.credit_limit]
         );
 
         const customer = db.get('SELECT * FROM customers WHERE id = ?', [result.lastInsertRowid]);
@@ -115,8 +119,8 @@ router.put('/:id', async (req, res, next) => {
         if (!fields.name) return res.status(400).json({ error: 'Customer name is required' });
 
         db.run(
-            'UPDATE customers SET name = ?, phone = ?, email = ?, address = ?, gstin = ? WHERE id = ?',
-            [fields.name, fields.phone, fields.email, fields.address, fields.gstin, Number(req.params.id)]
+            'UPDATE customers SET name = ?, phone = ?, email = ?, address = ?, gstin = ?, tier = ?, credit_limit = ? WHERE id = ?',
+            [fields.name, fields.phone, fields.email, fields.address, fields.gstin, fields.tier, fields.credit_limit, Number(req.params.id)]
         );
 
         const customer = db.get('SELECT * FROM customers WHERE id = ?', [Number(req.params.id)]);
@@ -138,6 +142,74 @@ router.delete('/:id', async (req, res, next) => {
 
         db.run('DELETE FROM customers WHERE id = ?', [Number(req.params.id)]);
         res.json({ message: 'Customer deleted', id: Number(req.params.id) });
+    } catch (err) {
+        next(err);
+    }
+});
+
+// GET /api/customers/:id/communication-logs
+router.get('/:id/communication-logs', async (req, res, next) => {
+    try {
+        await db.ready;
+        const logs = db.all(
+            'SELECT * FROM customer_communication_logs WHERE customer_id = ? ORDER BY date DESC, id DESC',
+            [Number(req.params.id)]
+        );
+        res.json(logs);
+    } catch (err) {
+        next(err);
+    }
+});
+
+// POST /api/customers/:id/communication-logs
+router.post('/:id/communication-logs', async (req, res, next) => {
+    try {
+        await db.ready;
+        const customerId = Number(req.params.id);
+        const customer = db.get('SELECT id FROM customers WHERE id = ?', [customerId]);
+        if (!customer) return res.status(404).json({ error: 'Customer not found' });
+
+        const logSchema = z.object({
+            type: z.enum(['Call', 'Email', 'SMS', 'Meeting', 'Other']),
+            notes: z.string().min(1, "Notes are required"),
+            date: z.string().optional()
+        });
+
+        const validated = logSchema.parse(req.body);
+        
+        let result;
+        if (validated.date) {
+            result = db.run(
+                'INSERT INTO customer_communication_logs (customer_id, type, notes, date) VALUES (?, ?, ?, ?)',
+                [customerId, validated.type, validated.notes, validated.date]
+            );
+        } else {
+            result = db.run(
+                'INSERT INTO customer_communication_logs (customer_id, type, notes) VALUES (?, ?, ?)',
+                [customerId, validated.type, validated.notes]
+            );
+        }
+
+        const log = db.get('SELECT * FROM customer_communication_logs WHERE id = ?', [result.lastInsertRowid]);
+        res.status(201).json(log);
+    } catch (err) {
+        if (err instanceof z.ZodError) {
+            return res.status(400).json({ error: 'Validation failed', details: err.errors });
+        }
+        next(err);
+    }
+});
+
+// DELETE /api/customers/:id/communication-logs/:logId
+router.delete('/:id/communication-logs/:logId', async (req, res, next) => {
+    try {
+        await db.ready;
+        const logId = Number(req.params.logId);
+        const existing = db.get('SELECT id FROM customer_communication_logs WHERE id = ? AND customer_id = ?', [logId, Number(req.params.id)]);
+        if (!existing) return res.status(404).json({ error: 'Communication log not found' });
+
+        db.run('DELETE FROM customer_communication_logs WHERE id = ?', [logId]);
+        res.json({ message: 'Communication log deleted', id: logId });
     } catch (err) {
         next(err);
     }

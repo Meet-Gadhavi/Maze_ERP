@@ -1055,7 +1055,7 @@ export default function SettingsPage() {
                                     <div className="section-header-row">
                                         <div className="section-title-group">
                                             <div className="section-icon cloud" style={{ background: 'transparent', width: '40px', height: '40px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                                <img src="/mazeway.png" style={{ width: '32px', height: '32px', objectFit: 'contain' }} alt="Mazeway" />
+                                                <img src="./icons/mazeway.png" style={{ width: '32px', height: '32px', objectFit: 'contain' }} alt="Mazeway" />
                                             </div>
                                             <div>
                                                 <h4 style={{ fontSize: '1.1rem', fontWeight: 700 }}>Cloud Storage Backups</h4>

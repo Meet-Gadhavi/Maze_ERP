@@ -100,8 +100,16 @@ export default function Modal({
         };
 
         return (
-            <div style={fallbackStyles} onClick={(e) => e.target === e.currentTarget && onClose && onClose()}>
-                <div style={modalStyles}>
+            <div 
+                style={fallbackStyles} 
+                onClick={(e) => e.target === e.currentTarget && onClose && onClose()}
+                className="maze-modal-fallback-overlay"
+            >
+                <div 
+                    style={modalStyles} 
+                    id={modalId} 
+                    className={`maze-modal-fallback-content maze-modal-fallback--size-${size}`}
+                >
                     <h2 style={{ margin: '0 0 16px 0', fontSize: '20px', fontWeight: 600 }}>{modalHeading}</h2>
                     <div style={{ marginBottom: '20px' }}>{children}</div>
                     <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end' }}>

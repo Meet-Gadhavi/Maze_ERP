@@ -1127,7 +1127,7 @@ export default function InventoryPage() {
                                                 onChange={val => setForm({ ...form, subcategory_id: val })}
                                                 options={[
                                                     { value: '', label: 'None' },
-                                                    ...subcategories.filter(sc => form.category === 'All' || sc.category_id === categories.findIndex(c => c === form.category) + 1).map(sc => ({ value: sc.id, label: sc.name }))
+                                                    ...subcategories.filter(sc => form.category === 'All' || sc.category_name === form.category).map(sc => ({ value: sc.id, label: sc.name }))
                                                 ]}
                                             />
                                         </div>
@@ -1576,7 +1576,7 @@ export default function InventoryPage() {
                         <s-button slot="primary-action" variant="primary" onClick={async () => {
                             if (!newSubCatName.trim()) return;
                             const catId = categories.findIndex(c => c === form.category) + 1;
-                            try { const r = await api.createSubcategory({ name: newSubCatName.trim(), category_id: catId }); const subs = await api.getSubcategories(); setSubcategories(subs); setForm(f => ({ ...f, subcategory_id: r.id })); setNewSubCatName(''); setShowSubCatModal(false); toast.success('Sub-category created'); } catch(err) { toast.error(err.message); }
+                            try { const r = await api.createSubcategory({ name: newSubCatName.trim(), category_id: catId, category_name: form.category }); const subs = await api.getSubcategories(); setSubcategories(subs); setForm(f => ({ ...f, subcategory_id: r.id })); setNewSubCatName(''); setShowSubCatModal(false); toast.success('Sub-category created'); } catch(err) { toast.error(err.message); }
                         }}>Create</s-button>
                     </s-modal>
                     )}
@@ -1816,7 +1816,7 @@ export default function InventoryPage() {
                             onKeyDown={e => {
                                 if (e.key === 'Enter' && newSubCatName.trim()) {
                                     const catId = categories.findIndex(c => c === manageSubCatForCategory) + 1;
-                                    const promise = api.createSubcategory({ name: newSubCatName.trim(), category_id: catId });
+                                    const promise = api.createSubcategory({ name: newSubCatName.trim(), category_id: catId, category_name: manageSubCatForCategory });
                                     toast.promise(promise, {
                                         loading: `Creating...`,
                                         success: () => {
@@ -1833,7 +1833,7 @@ export default function InventoryPage() {
                     <s-button variant="primary" onClick={async () => {
                         if (newSubCatName.trim()) {
                             const catId = categories.findIndex(c => c === manageSubCatForCategory) + 1;
-                            const promise = api.createSubcategory({ name: newSubCatName.trim(), category_id: catId });
+                            const promise = api.createSubcategory({ name: newSubCatName.trim(), category_id: catId, category_name: manageSubCatForCategory });
                             toast.promise(promise, {
                                 loading: `Creating...`,
                                 success: () => {
@@ -1841,10 +1841,10 @@ export default function InventoryPage() {
                                     setNewSubCatName('');
                                     return 'Created';
                                 },
-                                error: (err) => err.message || 'Failed'
-                            });
-                        }
-                    }}>Add</s-button>
+                                        error: (err) => err.message || 'Failed'
+                                    });
+                                }
+                            }}>Add</s-button>
                 </div>
 
                 <div className="premium-table-wrap" style={{ maxHeight: '40vh' }}>
@@ -1856,10 +1856,10 @@ export default function InventoryPage() {
                             </tr>
                         </thead>
                         <tbody>
-                            {subcategories.filter(sc => sc.category_id === categories.findIndex(c => c === manageSubCatForCategory) + 1).length === 0 ? (
+                            {subcategories.filter(sc => sc.category_name === manageSubCatForCategory).length === 0 ? (
                                 <tr><td colSpan="2" className="text-center p-16 text-secondary italic">No sub-categories found</td></tr>
                             ) : (
-                                subcategories.filter(sc => sc.category_id === categories.findIndex(c => c === manageSubCatForCategory) + 1).map(sc => (
+                                subcategories.filter(sc => sc.category_name === manageSubCatForCategory).map(sc => (
                                     <tr key={sc.id}>
                                         <td>
                                             {editingSubCatId === sc.id ? (

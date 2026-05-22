@@ -9,7 +9,8 @@ import {
     Check, Menu, Layers, LogOut, Cloud, Scan, Wifi, Minus,
     Banknote, Smartphone, Command, Monitor, Cpu, MessageSquare,
     Zap, Pause, Play, Database, Archive, ShieldCheck, Lock, ArrowUp,
-    PieChart, CloudLightning, BarChart2, ShoppingBag, UserPlus, ArrowUpDown, Tag
+    PieChart, CloudLightning, BarChart2, ShoppingBag, UserPlus, ArrowUpDown, Tag,
+    Phone, Mail
 } from 'lucide-react';
 
 const DashboardCustomIcon = ({ size = 20, stroke = 'currentColor', strokeWidth = 1.18632, ...props }) => (
@@ -45,7 +46,8 @@ export const Icons = {
     Check, Menu, Layers, LogOut, Cloud, Scan, Wifi, Minus,
     Banknote, Smartphone, Command, Monitor, Cpu, MessageSquare,
     Zap, Pause, Play, Database, Archive, ShieldCheck, Lock, ArrowUp,
-    PieChart, CloudLightning, BarChart2, ShoppingBag, UserPlus, ArrowUpDown, Tag
+    PieChart, CloudLightning, BarChart2, ShoppingBag, UserPlus, ArrowUpDown, Tag,
+    Phone, Mail
 };
 
 export default Icons;

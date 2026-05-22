@@ -36,7 +36,10 @@ const SETTINGS_KEYS = {
   CLOUD_BACKUPS_ENABLED: 'cloud_backups_enabled',
   AUTO_UPDATE_ENABLED: 'auto_update_enabled',
   DEFAULT_CURRENCY: 'default_currency',
-  INVOICE_LANGUAGE: 'invoice_language'
+  INVOICE_LANGUAGE: 'invoice_language',
+  TIER_A_DISCOUNT: 'tier_a_discount',
+  TIER_B_DISCOUNT: 'tier_b_discount',
+  TIER_C_DISCOUNT: 'tier_c_discount'
 };
 
 // In production, store database in %APPDATA%/Quantro/ (set by main.js).
@@ -172,6 +175,8 @@ ready = (async () => {
       address     TEXT    NOT NULL DEFAULT '',
       gstin       TEXT    DEFAULT '',
       p_credit_balance REAL NOT NULL DEFAULT 0,
+      tier        TEXT    NOT NULL DEFAULT 'C',
+      credit_limit REAL   NOT NULL DEFAULT 0,
       created_at  TEXT    NOT NULL DEFAULT (datetime('now','localtime'))
     )
   `);
@@ -190,10 +195,27 @@ ready = (async () => {
       if (!columns.includes('p_credit_balance')) {
         db.run('ALTER TABLE customers ADD COLUMN p_credit_balance REAL NOT NULL DEFAULT 0');
       }
+      if (!columns.includes('tier')) {
+        db.run("ALTER TABLE customers ADD COLUMN tier TEXT NOT NULL DEFAULT 'C'");
+      }
+      if (!columns.includes('credit_limit')) {
+        db.run('ALTER TABLE customers ADD COLUMN credit_limit REAL NOT NULL DEFAULT 0');
+      }
     }
   } catch (err) {
     console.error('Migration failed', err);
   }
+
+  db.run(`
+    CREATE TABLE IF NOT EXISTS customer_communication_logs (
+      id          INTEGER PRIMARY KEY AUTOINCREMENT,
+      customer_id INTEGER NOT NULL,
+      type        TEXT    NOT NULL, -- 'Call', 'Email', 'SMS', 'Meeting', 'Other'
+      notes       TEXT    NOT NULL DEFAULT '',
+      date        TEXT    NOT NULL DEFAULT (datetime('now','localtime')),
+      FOREIGN KEY(customer_id) REFERENCES customers(id) ON DELETE CASCADE
+    )
+  `);
 
   db.run(`
     CREATE TABLE IF NOT EXISTS invoices (
@@ -332,7 +354,10 @@ ready = (async () => {
         [SETTINGS_KEYS.TERMS_AND_CONDITIONS, '1. Goods once sold will not be taken back.\n2. Interest @18% will be charged if payment is not made within due date.\n3. Subject to local jurisdiction.'],
         [SETTINGS_KEYS.AUTO_UPDATE_ENABLED, 'false'],
         [SETTINGS_KEYS.DEFAULT_CURRENCY, 'INR'],
-        [SETTINGS_KEYS.INVOICE_LANGUAGE, 'en']
+        [SETTINGS_KEYS.INVOICE_LANGUAGE, 'en'],
+        [SETTINGS_KEYS.TIER_A_DISCOUNT, '10'],
+        [SETTINGS_KEYS.TIER_B_DISCOUNT, '5'],
+        [SETTINGS_KEYS.TIER_C_DISCOUNT, '0']
       ];
       defaultSettings.forEach(([key, value]) => {
         db.run('INSERT INTO settings (key, value) VALUES (?, ?)', [key, value]);
@@ -345,7 +370,8 @@ ready = (async () => {
         SETTINGS_KEYS.ENABLE_GST_PER_ITEM, SETTINGS_KEYS.ENABLE_DISCOUNT_PER_ITEM, SETTINGS_KEYS.ENABLE_SKU,
         SETTINGS_KEYS.ENABLE_BATCH_SYSTEM, SETTINGS_KEYS.REQUIRE_BATCH_NUMBER, SETTINGS_KEYS.ENABLE_EXPIRY_TRACKING,
         SETTINGS_KEYS.AUTO_BATCH_SELECTION_METHOD, SETTINGS_KEYS.EXPIRY_ALERT_DAYS, SETTINGS_KEYS.ALLOW_NEGATIVE_BATCH_STOCK,
-        SETTINGS_KEYS.CLOUD_BACKUPS_ENABLED, SETTINGS_KEYS.AUTO_UPDATE_ENABLED, SETTINGS_KEYS.DEFAULT_CURRENCY, SETTINGS_KEYS.INVOICE_LANGUAGE
+        SETTINGS_KEYS.CLOUD_BACKUPS_ENABLED, SETTINGS_KEYS.AUTO_UPDATE_ENABLED, SETTINGS_KEYS.DEFAULT_CURRENCY, SETTINGS_KEYS.INVOICE_LANGUAGE,
+        SETTINGS_KEYS.TIER_A_DISCOUNT, SETTINGS_KEYS.TIER_B_DISCOUNT, SETTINGS_KEYS.TIER_C_DISCOUNT
       ];
       keys.forEach(k => {
         let defaultValue = '';
@@ -359,6 +385,9 @@ ready = (async () => {
         else if (k === SETTINGS_KEYS.AUTO_UPDATE_ENABLED) defaultValue = 'false';
         else if (k === SETTINGS_KEYS.DEFAULT_CURRENCY) defaultValue = 'INR';
         else if (k === SETTINGS_KEYS.INVOICE_LANGUAGE) defaultValue = 'en';
+        else if (k === SETTINGS_KEYS.TIER_A_DISCOUNT) defaultValue = '10';
+        else if (k === SETTINGS_KEYS.TIER_B_DISCOUNT) defaultValue = '5';
+        else if (k === SETTINGS_KEYS.TIER_C_DISCOUNT) defaultValue = '0';
         else if (k.startsWith('enable_') || k.startsWith('require_') || k.startsWith('allow_')) defaultValue = 'false';
         
         db.run('INSERT OR IGNORE INTO settings (key, value) VALUES (?, ?)', [k, defaultValue]);
@@ -401,6 +430,38 @@ ready = (async () => {
       UNIQUE(name, category_id)
     )
   `);
+
+  // Heal orphaned subcategories: if a subcategory's category_id does not exist in categories table,
+  // we try to associate it with the correct category.
+  try {
+    const orphaned = all(`
+      SELECT sc.* FROM sub_categories sc 
+      LEFT JOIN categories c ON sc.category_id = c.id 
+      WHERE c.id IS NULL
+    `);
+    for (const sc of orphaned) {
+      // Find products using this subcategory to see what category name they belong to
+      const prod = get('SELECT category FROM products WHERE subcategory_id = ? LIMIT 1', [sc.id]);
+      let targetCatId = null;
+      if (prod && prod.category) {
+        const cat = get('SELECT id FROM categories WHERE name = ?', [prod.category]);
+        if (cat) targetCatId = cat.id;
+      }
+      
+      // If no product is found, fall back to first category in database or General
+      if (!targetCatId) {
+        const firstCat = get("SELECT id FROM categories ORDER BY id LIMIT 1");
+        if (firstCat) targetCatId = firstCat.id;
+      }
+      
+      if (targetCatId) {
+        console.log(`Healing subcategory "${sc.name}" (ID: ${sc.id}) by setting category_id to ${targetCatId}`);
+        run('UPDATE sub_categories SET category_id = ? WHERE id = ?', [targetCatId, sc.id]);
+      }
+    }
+  } catch (err) {
+    console.error('Failed to heal subcategories:', err);
+  }
 
   db.run(`
     CREATE TABLE IF NOT EXISTS brands (

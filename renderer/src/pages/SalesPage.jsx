@@ -107,6 +107,30 @@ export default function SalesPage() {
         if (tab === 'ai-sales') loadMazewayOrders();
     }, [tab]);
 
+    const handleSelectCustomer = (customer) => {
+        if (!customer) {
+            setSelectedCustomer('');
+            setDiscountRate(0);
+            setDiscountEnabled(false);
+            setStep('products');
+            setPaymentStatus('PAID');
+        } else {
+            setSelectedCustomer(String(customer.id));
+            setStep('products');
+            const tier = customer.tier || 'C';
+            const discountKey = `tier_${tier.toLowerCase()}_discount`;
+            const pct = parseFloat(settings[discountKey] ?? '0');
+            if (pct > 0) {
+                setDiscountRate(pct);
+                setDiscountEnabled(true);
+                toast.success(`Tier ${tier} Customer: Auto-applied default ${pct}% discount`);
+            } else {
+                setDiscountRate(0);
+                setDiscountEnabled(false);
+            }
+        }
+    };
+
     async function loadMazewayOrders() {
         try {
             const data = await api.getMazewayOrders();
@@ -394,40 +418,55 @@ export default function SalesPage() {
     }
 
     async function addMultipleToCart(productsList) {
-        // Only keep products with positive stock (stock_quantity > 0)
-        const candidateProducts = productsList.filter(p => p.stock_quantity > 0);
-        if (candidateProducts.length === 0) {
-            toast.error("No in-stock products to add in this group!");
+        if (!productsList || productsList.length === 0) {
+            toast.error("No products to add!");
             return;
         }
 
-        const toastId = toast.loading(`Adding ${candidateProducts.length} items to cart...`);
+        const toastId = toast.loading("Checking stock and variants...");
 
         try {
-            // Fetch variants and batches in parallel
-            const [allVariantsRes, allBatchesRes] = await Promise.all([
-                Promise.all(candidateProducts.map(async (p) => {
-                    try {
-                        const vars = await api.getVariants(p.id);
-                        return { productId: p.id, variants: vars || [] };
-                    } catch {
-                        return { productId: p.id, variants: [] };
-                    }
-                })),
-                settings.enable_batch_system === 'true'
-                    ? Promise.all(candidateProducts.map(async (p) => {
-                          try {
-                              const b = await api.getProductBatches(p.id);
-                              return { productId: p.id, batches: b || [] };
-                          } catch {
-                              return { productId: p.id, batches: [] };
-                          }
-                      }))
-                    : Promise.resolve(candidateProducts.map(p => ({ productId: p.id, batches: [] })))
-            ]);
-
+            // 1. Fetch variants for all products in the list
+            const allVariantsRes = await Promise.all(productsList.map(async (p) => {
+                try {
+                    const vars = await api.getVariants(p.id);
+                    return { productId: p.id, variants: vars || [] };
+                } catch {
+                    return { productId: p.id, variants: [] };
+                }
+            }));
             const variantsMap = new Map(allVariantsRes.map(v => [v.productId, v.variants]));
-            const batchesMap = new Map(allBatchesRes.map(b => [b.productId, b.batches]));
+
+            // 2. Identify candidate products that are in stock (or have in-stock variants)
+            const candidateProducts = productsList.filter(p => {
+                const hasInStockProduct = p.stock_quantity > 0;
+                if (hasInStockProduct) return true;
+                const vars = variantsMap.get(p.id) || [];
+                return vars.some(v => v.stock_quantity > 0);
+            });
+
+            if (candidateProducts.length === 0) {
+                toast.dismiss(toastId);
+                toast.error("No in-stock products to add in this group!");
+                return;
+            }
+
+            // Update toast message
+            toast.loading(`Adding ${candidateProducts.length} items to cart...`, { id: toastId });
+
+            // 3. Fetch batches for the candidate products if batch system is enabled
+            let batchesMap = new Map();
+            if (settings.enable_batch_system === 'true') {
+                const allBatchesRes = await Promise.all(candidateProducts.map(async (p) => {
+                    try {
+                        const b = await api.getProductBatches(p.id);
+                        return { productId: p.id, batches: b || [] };
+                    } catch {
+                        return { productId: p.id, batches: [] };
+                    }
+                }));
+                batchesMap = new Map(allBatchesRes.map(b => [b.productId, b.batches]));
+            }
 
             let newCart = [...cart];
 
@@ -812,7 +851,7 @@ export default function SalesPage() {
         const result = {};
         for (const p of allFiltered) {
             const cat = p.category || 'General';
-            const subcat = p.subcategory_name || 'General';
+            const subcat = p.subcategory_name || 'Uncategorized';
             if (!result[cat]) {
                 result[cat] = {};
             }
@@ -926,6 +965,7 @@ export default function SalesPage() {
             setCart([]);
             setGstEnabled(false);
             setDiscountEnabled(false);
+            setDiscountRate(0);
             setSelectedCustomer('');
             setWalkInName('');
             setWalkInPhone('');
@@ -1162,7 +1202,7 @@ export default function SalesPage() {
                             </div>
 
                             <div className="customer-list-grid">
-                                <div className="customer-card walk-in" onClick={() => { setSelectedCustomer(''); setStep('products'); setPaymentStatus('PAID'); }}>
+                                <div className="customer-card walk-in" onClick={() => handleSelectCustomer(null)}>
                                     <div className="customer-icon">
                                         <Icons.Users size={24} />
                                     </div>
@@ -1176,7 +1216,7 @@ export default function SalesPage() {
                                 </div>
 
                                 {filteredCustomers.map(c => (
-                                    <div key={c.id} className="customer-card" onClick={() => { setSelectedCustomer(String(c.id)); setStep('products'); }}>
+                                    <div key={c.id} className="customer-card" onClick={() => handleSelectCustomer(c)}>
                                         <div className="customer-icon">
                                             <Icons.User size={24} />
                                         </div>
@@ -1255,25 +1295,46 @@ export default function SalesPage() {
                                                 {subcatNames.map(subcat => {
                                                     const productsInSub = subcatsMap[subcat] || [];
                                                     return (
-                                                        <div key={subcat} className="subcategory-group" style={{ marginLeft: '8px', marginBottom: '16px' }}>
+                                                        <div key={subcat} className="subcategory-group" style={{ marginBottom: '16px' }}>
                                                             <h5
                                                                 className="subcategory-title"
                                                                 style={{
+                                                                    display: 'flex',
+                                                                    alignItems: 'center',
+                                                                    gap: '6px',
                                                                     fontSize: '11px',
-                                                                    fontWeight: '600',
-                                                                    color: 'var(--text-secondary)',
-                                                                    padding: '4px 14px 4px 6px',
-                                                                    marginBottom: '8px',
-                                                                    marginTop: '4px',
-                                                                    display: 'inline-block',
-                                                                    borderLeft: '2px solid var(--accent)',
+                                                                    fontWeight: '700',
+                                                                    color: 'var(--accent)',
+                                                                    textTransform: 'uppercase',
+                                                                    letterSpacing: '0.03em',
+                                                                    padding: '8px 14px',
+                                                                    background: 'var(--bg-card)',
+                                                                    borderRadius: 'var(--radius-sm)',
+                                                                    border: '1px solid var(--border-light)',
+                                                                    marginBottom: '10px',
+                                                                    marginTop: '8px',
                                                                     cursor: 'pointer',
-                                                                    userSelect: 'none'
+                                                                    userSelect: 'none',
+                                                                    transition: 'all 0.2s ease',
+                                                                    width: '100%',
+                                                                    boxSizing: 'border-box'
                                                                 }}
                                                                 onDoubleClick={() => addMultipleToCart(productsInSub)}
                                                                 title="Double-click to add all in-stock items in this subcategory"
+                                                                onMouseEnter={(e) => {
+                                                                    e.currentTarget.style.background = 'var(--accent-light)';
+                                                                    e.currentTarget.style.transform = 'translateX(2px)';
+                                                                }}
+                                                                onMouseLeave={(e) => {
+                                                                    e.currentTarget.style.background = 'var(--bg-card)';
+                                                                    e.currentTarget.style.transform = 'none';
+                                                                }}
                                                             >
-                                                                {subcat} <span style={{ fontSize: '9px', color: 'var(--text-tertiary)', fontWeight: 'normal', marginLeft: '4px' }}>(Double-click to add)</span>
+                                                                <Icons.ChevronRight size={12} strokeWidth={3} />
+                                                                {subcat}
+                                                                <span style={{ fontSize: '9px', color: 'var(--text-tertiary)', fontWeight: 'normal', textTransform: 'none', marginLeft: '6px' }}>
+                                                                    (Double-click to add)
+                                                                </span>
                                                             </h5>
                                                             <div className="category-products">
                                                                 {productsInSub.map(p => {
@@ -1738,21 +1799,21 @@ export default function SalesPage() {
                                                     <div key={idx} style={{ background: 'var(--bg-card)', padding: '8px', borderRadius: '6px', border: '1px solid var(--border-light)', display: 'flex', flexDirection: 'column', gap: '6px' }}>
                                                         <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
                                                             <div style={{ flex: 1 }}>
-                                                                <select
+                                                                <CustomSelect
                                                                     value={p.method}
-                                                                    onChange={e => {
+                                                                    onChange={val => {
                                                                         const newPayments = [...payments];
-                                                                        newPayments[idx] = { ...newPayments[idx], method: e.target.value };
+                                                                        newPayments[idx] = { ...newPayments[idx], method: val };
                                                                         setPayments(newPayments);
                                                                     }}
-                                                                    style={{ width: '100%', height: '42px', padding: '0 12px', fontSize: 'var(--font-size-base)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-strong)', background: '#fff', fontWeight: '500', outline: 'none' }}
-                                                                >
-                                                                    <option value="Cash">Cash</option>
-                                                                    <option value="UPI">UPI</option>
-                                                                    <option value="Card">Card</option>
-                                                                    <option value="Cheque">Cheque</option>
-                                                                    <option value="Wallet">Wallet</option>
-                                                                </select>
+                                                                    options={[
+                                                                        { value: 'Cash', label: 'Cash' },
+                                                                        { value: 'UPI', label: 'UPI' },
+                                                                        { value: 'Card', label: 'Card' },
+                                                                        { value: 'Cheque', label: 'Cheque' },
+                                                                        { value: 'Wallet', label: 'Wallet (P-Credit)' }
+                                                                    ]}
+                                                                />
                                                             </div>
                                                             <input 
                                                                 type="number"
@@ -1808,7 +1869,7 @@ export default function SalesPage() {
                                         <div className="form-group" style={{ marginTop: '12px', marginBottom: 0 }}>
                                             <label style={{ fontSize: 'var(--font-size-xs)' }}>Payment Method</label>
                                             <div style={{ display: 'flex', gap: '8px', marginTop: '4px' }}>
-                                                {['Cash', 'UPI', 'Card', 'Bank'].map(method => (
+                                                {['Cash', 'UPI', 'Card', 'Wallet'].map(method => (
                                                     <SButton
                                                         key={method}
                                                         variant={paymentMethod === method ? 'primary' : 'secondary'}
@@ -1816,7 +1877,7 @@ export default function SalesPage() {
                                                         onClick={() => setPaymentMethod(method)}
                                                         style={{ flex: 1 }}
                                                     >
-                                                        {method}
+                                                        {method === 'Wallet' ? 'Wallet (P-Credit)' : method}
                                                     </SButton>
                                                 ))}
                                             </div>
@@ -2399,14 +2460,14 @@ export default function SalesPage() {
                 <div className="form-group">
                     <label>Payment Method</label>
                     <div style={{ display: 'flex', gap: '8px', marginTop: '8px' }}>
-                        {['Cash', 'UPI', 'Card', 'Bank'].map(method => (
+                        {['Cash', 'UPI', 'Card', 'Wallet'].map(method => (
                             <SButton
                                 key={method}
                                 variant={paymentMethod === method ? 'primary' : 'secondary'}
                                 onClick={() => setPaymentMethod(method)}
                                 style={{ flex: 1 }}
                             >
-                                {method}
+                                {method === 'Wallet' ? 'Wallet (P-Credit)' : method}
                             </SButton>
                         ))}
                     </div>

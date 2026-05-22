@@ -75,3 +75,400 @@
 .purchase-history-panel table th {
     background: var(--bg-primary);
 }
+
+/* Tier Configuration Strip */
+.tier-strip {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 16px 20px;
+    margin-bottom: 24px;
+    box-shadow: var(--shadow-sm);
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+}
+
+.tier-strip-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.tier-strip-title {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-primary);
+    letter-spacing: -0.2px;
+}
+
+.tier-strip-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+}
+
+.tier-strip-card {
+    border-radius: var(--radius-lg);
+    padding: 16px 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    position: relative;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
+}
+
+/* Tier A (Gold) Card Default & Hover */
+.tier-strip-card:nth-child(1) {
+    background: var(--bg-panel);
+    border: 1px solid rgba(212, 175, 55, 0.4);
+}
+.tier-strip-card:nth-child(1):hover {
+    border-color: rgba(212, 175, 55, 0.75);
+    box-shadow: 0 8px 20px -6px rgba(212, 175, 55, 0.25), 0 4px 6px -4px rgba(212, 175, 55, 0.15);
+    background: linear-gradient(135deg, var(--bg-panel) 0%, rgba(212, 175, 55, 0.03) 100%);
+    transform: translateY(-4px);
+}
+
+/* Tier B (Silver) Card Default & Hover */
+.tier-strip-card:nth-child(2) {
+    background: var(--bg-panel);
+    border: 1px solid rgba(160, 174, 192, 0.5);
+}
+.tier-strip-card:nth-child(2):hover {
+    border-color: rgba(160, 174, 192, 0.85);
+    box-shadow: 0 8px 20px -6px rgba(160, 174, 192, 0.25), 0 4px 6px -4px rgba(160, 174, 192, 0.15);
+    background: linear-gradient(135deg, var(--bg-panel) 0%, rgba(160, 174, 192, 0.03) 100%);
+    transform: translateY(-4px);
+}
+
+/* Tier C (Bronze) Card Default & Hover */
+.tier-strip-card:nth-child(3) {
+    background: var(--bg-panel);
+    border: 1px solid rgba(205, 127, 50, 0.4);
+}
+.tier-strip-card:nth-child(3):hover {
+    border-color: rgba(205, 127, 50, 0.75);
+    box-shadow: 0 8px 20px -6px rgba(205, 127, 50, 0.25), 0 4px 6px -4px rgba(205, 127, 50, 0.15);
+    background: linear-gradient(135deg, var(--bg-panel) 0%, rgba(205, 127, 50, 0.03) 100%);
+    transform: translateY(-4px);
+}
+
+.tier-strip-card-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.tier-card-settings-btn {
+    background: none;
+    border: none;
+    color: var(--text-secondary);
+    cursor: pointer;
+    padding: 4px;
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s ease;
+}
+
+.tier-card-settings-btn:hover {
+    color: var(--primary);
+    background: rgba(var(--primary-rgb), 0.1);
+}
+
+.tier-strip-badge {
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    padding: 2px 8px;
+    border-radius: 12px;
+}
+
+.tier-badge-a {
+    background: rgba(212, 175, 55, 0.1);
+    color: rgb(212, 175, 55);
+    border: 1px solid rgba(212, 175, 55, 0.3);
+}
+
+.tier-badge-b {
+    background: rgba(160, 174, 192, 0.1);
+    color: rgb(160, 174, 192);
+    border: 1px solid rgba(160, 174, 192, 0.3);
+}
+
+.tier-badge-c {
+    background: rgba(205, 127, 50, 0.1);
+    color: rgb(205, 127, 50);
+    border: 1px solid rgba(205, 127, 50, 0.3);
+}
+
+.tier-strip-value {
+    font-size: 20px;
+    font-weight: 700;
+    color: var(--text-primary);
+}
+
+.tier-strip-desc {
+    font-size: 11px;
+    color: var(--text-secondary);
+}
+
+/* Tier Badges in Table/Forms */
+.tier-badge {
+    display: inline-flex;
+    align-items: center;
+    font-size: 11px;
+    font-weight: 600;
+    padding: 3px 8px;
+    border-radius: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.2px;
+}
+
+.tier-badge.tier-a {
+    background: rgba(212, 175, 55, 0.1);
+    color: rgb(212, 175, 55);
+    border: 1px solid rgba(212, 175, 55, 0.35);
+}
+
+.tier-badge.tier-b {
+    background: rgba(160, 174, 192, 0.1);
+    color: rgb(160, 174, 192);
+    border: 1px solid rgba(160, 174, 192, 0.35);
+}
+
+.tier-badge.tier-c {
+    background: rgba(205, 127, 50, 0.1);
+    color: rgb(205, 127, 50);
+    border: 1px solid rgba(205, 127, 50, 0.35);
+}
+
+/* CRM Modal & Tabs */
+.crm-modal-tabs {
+    display: flex;
+    gap: 8px;
+    border-bottom: 1px solid var(--border-light);
+    margin-bottom: 20px;
+    padding-bottom: 2px;
+}
+
+.crm-tab-btn {
+    background: none;
+    border: none;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-secondary);
+    padding: 10px 16px;
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    transition: all 0.2s ease;
+}
+
+.crm-tab-btn:hover {
+    color: var(--text-primary);
+}
+
+.crm-tab-btn.active {
+    color: var(--primary);
+    border-bottom-color: var(--primary);
+}
+
+/* Communication Logging Form */
+.log-activity-form {
+    background: var(--bg-panel);
+    border: 1px solid var(--border-light);
+    border-radius: var(--radius);
+    padding: 16px;
+    margin-bottom: 24px;
+}
+
+.log-activity-form h4 {
+    margin-top: 0;
+    margin-bottom: 12px;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.log-activity-row {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+}
+
+.log-activity-type {
+    width: 140px;
+    flex-shrink: 0;
+}
+
+.log-activity-notes {
+    flex-grow: 1;
+}
+
+/* Communications Timeline */
+.communications-timeline {
+    max-height: 520px;
+    overflow-y: auto;
+    padding-right: 8px;
+    position: relative;
+}
+
+.communications-timeline::before {
+    content: '';
+    position: absolute;
+    left: 20px;
+    top: 10px;
+    bottom: 10px;
+    width: 2px;
+    background: var(--border-light);
+    z-index: 1;
+}
+
+.timeline-items {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    position: relative;
+    z-index: 2;
+}
+
+.timeline-item {
+    display: flex;
+    gap: 16px;
+}
+
+.timeline-badge {
+    width: 42px;
+    height: 42px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--bg-card);
+    border: 2px solid var(--border-light);
+    color: var(--text-secondary);
+    flex-shrink: 0;
+    box-shadow: var(--shadow-sm);
+}
+
+.timeline-badge-call {
+    background: rgba(16, 185, 129, 0.1);
+    color: rgb(16, 185, 129);
+    border-color: rgba(16, 185, 129, 0.2);
+}
+
+.timeline-badge-email {
+    background: rgba(59, 130, 246, 0.1);
+    color: rgb(59, 130, 246);
+    border-color: rgba(59, 130, 246, 0.2);
+}
+
+.timeline-badge-sms {
+    background: rgba(245, 158, 11, 0.1);
+    color: rgb(245, 158, 11);
+    border-color: rgba(245, 158, 11, 0.2);
+}
+
+.timeline-badge-meeting {
+    background: rgba(147, 51, 234, 0.1);
+    color: rgb(147, 51, 234);
+    border-color: rgba(147, 51, 234, 0.2);
+}
+
+.timeline-badge-other {
+    background: rgba(107, 114, 128, 0.1);
+    color: rgb(107, 114, 128);
+    border-color: rgba(107, 114, 128, 0.2);
+}
+
+.timeline-body {
+    flex-grow: 1;
+    background: var(--bg-panel);
+    border: 1px solid var(--border-light);
+    border-radius: var(--radius);
+    padding: 12px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    position: relative;
+}
+
+.timeline-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.log-type-tag {
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    color: var(--text-secondary);
+}
+
+.log-date {
+    font-size: 11px;
+    color: var(--text-muted);
+}
+
+.delete-log-btn {
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    padding: 2px;
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s ease;
+}
+
+.delete-log-btn:hover {
+    color: var(--danger);
+    background: rgba(239, 68, 68, 0.1);
+}
+
+.timeline-notes {
+    font-size: 13px;
+    color: var(--text-primary);
+    line-height: 1.4;
+    word-break: break-word;
+}
+
+/* History/Activity Modal Sizing Override (Much Bigger) */
+s-modal#customer-history-modal::part(dialog) {
+    max-width: 1200px !important;
+    width: 90vw !important;
+    height: 85vh !important;
+    max-height: 85vh !important;
+}
+
+#customer-history-modal.maze-modal-fallback-content {
+    min-width: 1200px !important;
+    max-width: 90vw !important;
+    height: 85vh !important;
+    max-height: 85vh !important;
+}
+
+/* Custom Select with Icon support */
+.select-icon-label {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    vertical-align: middle;
+}
+
+.select-icon-label svg {
+    color: var(--text-secondary);
+    display: inline-block;
+    flex-shrink: 0;
+}
+
+

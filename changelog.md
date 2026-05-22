@@ -4,6 +4,32 @@ All notable changes to the Quantro ERP application will be documented here.
 
 ---
 
+## [2.0.3] - 2026-05-22
+### Added
+- **Customer Categorization (Tiers A/B/C):** Integrated customer categorization system into the database schema and frontend UI, enabling customers to be assigned to Gold (Tier A), Silver (Tier B), or Bronze (Tier C).
+- **Credit Limit Management:** Introduced custom credit limits for customer accounts, allowing sales transactions to exceed standard P-Credit balances up to their configured limit.
+- **Customer Communication Logs:** Added interaction logging for tracking customer calls, emails, SMS, and meetings, featuring a chronological timeline and log creation/removal tools in the Customer Activity Modal.
+- **Tier-based Discount Settings:** Created a settings interface on the Customers page to configure default percentage discounts per tier, which are stored in system settings.
+- **Tier Configuration Cards:** Overhauled the Tier Configuration stats cards on the Customers page to display solid, border-only color accents representing each tier (Gold for A, Silver for B, and Bronze for C) with clean neutral backgrounds by default, plus unique, subtle tier-specific color glows (Gold, Silver, Bronze) and lift translations on hover.
+- **Enlarged Customer Activity Modal:** Expanded the Customer Details & History Modal to a larger layout (90vw width and 85vh height) for a more spacious purchase history table and interaction logs timeline view.
+- **Sales POS Dynamic Discounts:** Integrated dynamic discount rate mapping in the POS checkout screen. Selecting a customer automatically applies their corresponding tier discount rate with instant toast feedback.
+### Fixed
+- **Wallet & Credit Checkout Validation:** Refactored checkout and payment updating APIs to validate transactions against the combined customer credit line (`p_credit_balance + credit_limit`), returning clear validation errors if exceeded.
+
+## [2.0.2] - 2026-05-21
+### Added
+- **POS Subcategory & Product List Full-Width Styling:** Overhauled subcategory titles and aligned product lists in the Standard Invoice page to match the full-width header bar design in the Inventory page.
+- **POS Checkout Custom Payment Selector:** Integrated `CustomSelect` dropdown component for checkout payment method/split selection in the Standard Invoice page to achieve cohesive, premium styling.
+- **P-Credit Wallet Deduction & Validation:** Integrated Wallet payment deductions directly from the customer's P-Credit balance with strict transactional validation. If the customer lacks sufficient balance, a standard bad request error is raised: `"Customer does not have sufficient balance in P-Credit to pay."`
+- **Dashboard Orders vs Revenue Active Bar Hover Style:** Configured activeBar rendering for the Orders bar in the "Orders vs Revenue" composed chart to darken it to opacity `0.4` when hovered, making active chart columns easily visible.
+### Fixed
+- **Variant-Aware Batch Add:** Refactored product picker bulk additions to check variant-level stock, allowing items with variants to be correctly batch added.
+- **Uncategorized Group Harmonization:** Aligned empty subcategory fallback to 'Uncategorized' across Inventory and Sales pages.
+- **Subcategory Mismatch in Add Product Modal:** Resolved issue where certain subcategories were not showing up in the "Add Product" dropdown due to an alphabetical index mismatch between front-end arrays and database IDs. Implemented self-healing SQLite startup script to repair orphaned subcategory mappings automatically.
+- **Cloud Storage Backups Icon Path:** Corrected absolute image source for the Mazeway Cloud Backups icon, resolving the issue where the icon failed to render in the installed production build due to file protocol loading constraints.
+
+---
+
 ## [2.0.1] - 2026-05-21
 ### Added
 - **Double-Click POS Batch Add:** Implemented double-click events on Category and Subcategory headers in the POS to automatically add all in-stock products under the category/subcategory to the cart.

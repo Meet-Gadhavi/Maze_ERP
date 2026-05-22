@@ -134,13 +134,21 @@ router.get('/subcategories', async (req, res, next) => {
     try {
         await db.ready;
         const { category_id } = req.query;
-        let sql = 'SELECT * FROM sub_categories';
+        let sql = `
+            SELECT sc.*, c.name as category_name 
+            FROM sub_categories sc
+            LEFT JOIN categories c ON sc.category_id = c.id
+        `;
+        const conditions = [];
         const params = [];
         if (category_id) {
-            sql += ' WHERE category_id = ?';
+            conditions.push('sc.category_id = ?');
             params.push(Number(category_id));
         }
-        const rows = db.all(sql + ' ORDER BY name', params);
+        if (conditions.length) {
+            sql += ' WHERE ' + conditions.join(' AND ');
+        }
+        const rows = db.all(sql + ' ORDER BY sc.name', params);
         res.json(rows);
     } catch (err) {
         next(err);
@@ -150,10 +158,23 @@ router.get('/subcategories', async (req, res, next) => {
 router.post('/subcategories', async (req, res, next) => {
     try {
         await db.ready;
-        const { name, category_id } = req.body;
-        if (!name || !category_id) return res.status(400).json({ error: 'Name and Category ID are required' });
-        const result = db.run('INSERT INTO sub_categories (name, category_id) VALUES (?, ?)', [name.trim(), category_id]);
-        res.status(201).json({ id: result.lastInsertRowid, name: name.trim(), category_id });
+        const { name, category_id, category_name } = req.body;
+        if (!name) return res.status(400).json({ error: 'Name is required' });
+        
+        let finalCategoryId = Number(category_id);
+        if (category_name) {
+            const catRow = db.get('SELECT id FROM categories WHERE name = ?', [category_name.trim()]);
+            if (catRow) {
+                finalCategoryId = catRow.id;
+            }
+        }
+        
+        if (!finalCategoryId) {
+            return res.status(400).json({ error: 'Category ID or category name is required' });
+        }
+
+        const result = db.run('INSERT INTO sub_categories (name, category_id) VALUES (?, ?)', [name.trim(), finalCategoryId]);
+        res.status(201).json({ id: result.lastInsertRowid, name: name.trim(), category_id: finalCategoryId });
     } catch (err) {
         next(err);
     }

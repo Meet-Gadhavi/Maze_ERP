@@ -85,6 +85,9 @@ export const validateProduct = (product) => {
 export const validateCustomer = (customer) => {
     if (!customer.name || !customer.name.trim()) return 'Customer name is required';
     if (customer.phone && !/^\+?[\d\s-]{10,}$/.test(customer.phone)) return 'Invalid phone number format';
+    if (customer.credit_limit !== undefined && customer.credit_limit !== null) {
+        if (Number(customer.credit_limit) < 0) return 'Credit limit cannot be negative';
+    }
     return null;
 };
 

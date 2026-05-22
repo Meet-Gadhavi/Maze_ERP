@@ -217,6 +217,34 @@ router.post('/', async (req, res, next) => {
                 }
             }
 
+            // Deduct from p_credit_balance if Wallet method is used
+            let totalWalletPaymentAmount = 0;
+            paymentRecords.forEach(p => {
+                if (p.method === 'Wallet') {
+                    totalWalletPaymentAmount += p.amount;
+                }
+            });
+
+            const legacyCreditAmount = use_p_credit ? p_credit_amount : 0;
+            const totalRequestedCredit = totalWalletPaymentAmount + legacyCreditAmount;
+
+            if (totalRequestedCredit > 0) {
+                if (!customer_id) {
+                    res.status(400).json({ error: 'Wallet or P-Credit payment is only available for registered customers.' });
+                    const err = new Error('Abort'); err.apiResponse = true; throw err;
+                }
+                const customer = db.get('SELECT p_credit_balance, credit_limit FROM customers WHERE id = ?', [customer_id]);
+                const availableCredit = (customer?.p_credit_balance || 0) + (customer?.credit_limit || 0);
+                if (!customer || availableCredit < totalRequestedCredit) {
+                    res.status(400).json({ error: 'Customer does not have sufficient balance in P-Credit to pay.' });
+                    const err = new Error('Abort'); err.apiResponse = true; throw err;
+                }
+            }
+
+            if (totalWalletPaymentAmount > 0) {
+                db.run('UPDATE customers SET p_credit_balance = p_credit_balance - ? WHERE id = ?', [totalWalletPaymentAmount, customer_id]);
+            }
+
             const invResult = db.run(
                 'INSERT INTO invoices (customer_id, total, gst_rate, discount_rate, paid_amount, payment_status, walk_in_name, walk_in_phone, financial_status, is_advance, advance_amount, is_stock_deducted) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
                 [customer_id || null, 0, gst_rate, discount_rate, 0, is_advance ? 'ADVANCE' : 'UNPAID', walk_in_name, walk_in_phone, is_advance ? 'ADVANCE' : 'UNPAID', is_advance ? 1 : 0, Number(advance_amount), is_advance ? 0 : 1]
@@ -398,10 +426,11 @@ router.post('/', async (req, res, next) => {
         // M039: Handle P-Credit Usage AFTER final total is calculated, capped properly
         let appliedCredit = 0;
         if (customer_id && use_p_credit && p_credit_amount > 0) {
-            const customer = db.get('SELECT p_credit_balance FROM customers WHERE id = ?', [customer_id]);
-            // Cap credit to: available balance, requested amount, and the final total (not more than owed)
+            const customer = db.get('SELECT p_credit_balance, credit_limit FROM customers WHERE id = ?', [customer_id]);
+            const availableCredit = (customer?.p_credit_balance || 0) + (customer?.credit_limit || 0);
+            // Cap credit to: available balance + credit limit, requested amount, and the final total (not more than owed)
             appliedCredit = Math.min(
-                Number(customer?.p_credit_balance || 0),
+                Number(availableCredit),
                 Number(p_credit_amount),
                 finalTotal  // M039: finalTotal is now guaranteed to be computed before this block
             );
@@ -743,7 +772,27 @@ router.put('/:id/payment', async (req, res, next) => {
             throw err;
         }
 
+        const walletAmount = payment_method === 'Wallet' ? cashAmount : 0;
+        const totalRequestedCredit = walletAmount + pCreditUsed;
+
+        if (totalRequestedCredit > 0) {
+            if (!invoice.customer_id) {
+                res.status(400).json({ error: 'Wallet or P-Credit payment is only available for registered customers.' });
+                const err = new Error('Abort'); err.apiResponse = true; throw err;
+            }
+            const customer = db.get('SELECT p_credit_balance, credit_limit FROM customers WHERE id = ?', [invoice.customer_id]);
+            const availableCredit = (customer?.p_credit_balance || 0) + (customer?.credit_limit || 0);
+            if (!customer || availableCredit < totalRequestedCredit) {
+                res.status(400).json({ error: 'Customer does not have sufficient balance in P-Credit to pay.' });
+                const err = new Error('Abort'); err.apiResponse = true; throw err;
+            }
+        }
+
         if (cashAmount > 0) {
+            if (payment_method === 'Wallet') {
+                db.run('UPDATE customers SET p_credit_balance = p_credit_balance - ? WHERE id = ?', [cashAmount, invoice.customer_id]);
+            }
+
             db.run(
                 'INSERT INTO invoice_payments (invoice_id, amount, method, transaction_id, notes) VALUES (?, ?, ?, ?, ?)',
                 [invoiceId, cashAmount, payment_method || 'Cash', transaction_id || null, notes || 'Direct payment update']
@@ -751,17 +800,10 @@ router.put('/:id/payment', async (req, res, next) => {
         }
 
         if (pCreditUsed > 0) {
-            if (!invoice.customer_id) return res.status(400).json({ error: 'P-Credit can only be used for registered customers' });
-            const customer = db.get('SELECT * FROM customers WHERE id = ?', [invoice.customer_id]);
-            if (!customer || customer.p_credit_balance < pCreditUsed) {
-                return res.status(400).json({ error: 'Insufficient P-Credit balance' });
-            }
             // Deduct from customer and track on invoice
             db.run('UPDATE customers SET p_credit_balance = p_credit_balance - ? WHERE id = ?', [pCreditUsed, invoice.customer_id]);
             db.run('UPDATE invoices SET p_credit_amount = IFNULL(p_credit_amount, 0) + ? WHERE id = ?', [pCreditUsed, invoiceId]);
             
-            // Also record P-Credit as a payment record for history? 
-            // In many ERPs, credit is a payment method.
             db.run(
                 'INSERT INTO invoice_payments (invoice_id, amount, method, notes) VALUES (?, ?, ?, ?)',
                 [invoiceId, pCreditUsed, 'P-Credit', 'Applied from customer balance']

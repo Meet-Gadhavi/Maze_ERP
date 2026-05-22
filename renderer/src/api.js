@@ -98,6 +98,9 @@ const api = {
     createCustomer: (data) => request('/customers', { method: 'POST', body: data }),
     updateCustomer: (id, data) => request(`/customers/${id}`, { method: 'PUT', body: data }),
     deleteCustomer: (id) => request(`/customers/${id}`, { method: 'DELETE' }),
+    getCustomerCommunicationLogs: (id) => request(`/customers/${id}/communication-logs`),
+    createCustomerCommunicationLog: (id, data) => request(`/customers/${id}/communication-logs`, { method: 'POST', body: data }),
+    deleteCustomerCommunicationLog: (id, logId) => request(`/customers/${id}/communication-logs/${logId}`, { method: 'DELETE' }),
     getCustomerPurchases: (id) => request(`/customers/${id}/purchases`),
 
     // Settings
