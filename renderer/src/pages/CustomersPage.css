@@ -317,44 +317,61 @@
     overflow-y: auto;
     padding-right: 8px;
     position: relative;
-}
-
-.communications-timeline::before {
-    content: '';
-    position: absolute;
-    left: 20px;
-    top: 10px;
-    bottom: 10px;
-    width: 2px;
-    background: var(--border-light);
-    z-index: 1;
+    margin-top: 16px;
 }
 
 .timeline-items {
     display: flex;
     flex-direction: column;
-    gap: 20px;
-    position: relative;
-    z-index: 2;
+    gap: 12px;
 }
 
 .timeline-item {
     display: flex;
     gap: 16px;
+    background: var(--bg-card);
+    border: 1px solid var(--border-light);
+    border-radius: var(--radius-lg);
+    padding: 16px;
+    box-shadow: var(--shadow-sm);
+    transition: all 0.2s ease;
+    align-items: flex-start;
+}
+
+.timeline-item:hover {
+    box-shadow: var(--shadow-md);
+    border-color: var(--border-strong);
+    transform: translateY(-1px);
+}
+
+/* Left-border colored indicators for each communication type */
+.timeline-item-call {
+    border-left: 4px solid var(--success) !important;
+}
+.timeline-item-email {
+    border-left: 4px solid var(--accent) !important;
+}
+.timeline-item-sms {
+    border-left: 4px solid #f59e0b !important;
+}
+.timeline-item-meeting {
+    border-left: 4px solid #9333ea !important;
+}
+.timeline-item-other {
+    border-left: 4px solid #6b7280 !important;
 }
 
 .timeline-badge {
-    width: 42px;
-    height: 42px;
+    width: 36px;
+    height: 36px;
     border-radius: 50%;
     display: flex;
     align-items: center;
     justify-content: center;
     background: var(--bg-card);
-    border: 2px solid var(--border-light);
+    border: 1px solid var(--border-light);
     color: var(--text-secondary);
     flex-shrink: 0;
-    box-shadow: var(--shadow-sm);
 }
 
 .timeline-badge-call {
@@ -389,14 +406,9 @@
 
 .timeline-body {
     flex-grow: 1;
-    background: var(--bg-panel);
-    border: 1px solid var(--border-light);
-    border-radius: var(--radius);
-    padding: 12px 16px;
     display: flex;
     flex-direction: column;
     gap: 6px;
-    position: relative;
 }
 
 .timeline-header {
@@ -410,6 +422,7 @@
     font-weight: 700;
     text-transform: uppercase;
     color: var(--text-secondary);
+    letter-spacing: 0.5px;
 }
 
 .log-date {
@@ -422,7 +435,7 @@
     border: none;
     color: var(--text-muted);
     cursor: pointer;
-    padding: 2px;
+    padding: 4px;
     border-radius: 4px;
     display: flex;
     align-items: center;
@@ -442,20 +455,6 @@
     word-break: break-word;
 }
 
-/* History/Activity Modal Sizing Override (Much Bigger) */
-s-modal#customer-history-modal::part(dialog) {
-    max-width: 1200px !important;
-    width: 90vw !important;
-    height: 85vh !important;
-    max-height: 85vh !important;
-}
-
-#customer-history-modal.maze-modal-fallback-content {
-    min-width: 1200px !important;
-    max-width: 90vw !important;
-    height: 85vh !important;
-    max-height: 85vh !important;
-}
 
 /* Custom Select with Icon support */
 .select-icon-label {

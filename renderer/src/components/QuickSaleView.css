@@ -173,7 +173,7 @@
 
 .quick-sale-payments {
     display: grid;
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: repeat(3, 1fr);
     gap: 10px;
     padding: 16px;
     border-top: 1px solid var(--border-light);
@@ -184,28 +184,50 @@
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    gap: 8px;
-    padding: 12px;
+    gap: 6px;
+    padding: 12px 6px;
     border-radius: 8px;
-    border: none;
+    border: 1px solid var(--border-strong) !important;
+    background: var(--bg-card) !important;
+    color: var(--text-primary) !important;
     font-weight: 600;
     cursor: pointer;
     transition: all 0.2s ease;
-    color: white;
 }
 
-.pay-btn.cash {
-    background: var(--success);
-    grid-column: span 2;
+.pay-btn:hover {
+    background: var(--bg-soft-hover) !important;
+    border-color: var(--accent) !important;
+    color: var(--accent) !important;
 }
 
-.pay-btn.cash:hover { background: #28b84d; }
+.pay-btn.cash,
+.pay-btn.upi,
+.pay-btn.card {
+    grid-column: auto;
+    background: var(--bg-card);
+}
 
-.pay-btn.upi { background: var(--accent); }
-.pay-btn.upi:hover { background: var(--accent-hover); }
+.split-btn {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 12px;
+    border-radius: 8px;
+    font-weight: 600;
+    border: 1px solid var(--accent) !important;
+    color: var(--accent) !important;
+    background: var(--bg-card) !important;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
 
-.pay-btn.card { background: var(--text-primary); }
-.pay-btn.card:hover { background: #3a3a3c; }
+.split-btn:hover {
+    background: var(--accent-light) !important;
+    border-color: var(--accent) !important;
+}
 
 .quick-sale-right {
     flex: 1;
@@ -219,8 +241,8 @@
 
 .quick-sale-categories {
     display: flex;
-    gap: 8px;
-    padding: 16px;
+    gap: 6px;
+    padding: 10px 16px;
     overflow-x: auto;
     border-bottom: 1px solid var(--border-light);
 }
@@ -230,7 +252,7 @@
 }
 
 .cat-btn {
-    padding: 8px 16px;
+    padding: 6px 12px;
     border-radius: 20px;
     border: 1px solid var(--border-light);
     background: var(--bg-secondary);
@@ -238,6 +260,7 @@
     white-space: nowrap;
     cursor: pointer;
     transition: all 0.2s;
+    font-size: 13px;
 }
 
 .cat-btn.active {
@@ -258,11 +281,11 @@
 
 .product-tile {
     background: var(--bg-secondary);
-    border: 1px solid var(--border-light);
+    border: 1px solid var(--border-strong);
     border-radius: 12px;
-    padding: 16px;
+    padding: 14px;
     cursor: pointer;
-    transition: transform 0.1s, box-shadow 0.1s;
+    transition: transform 0.1s, box-shadow 0.1s, border-color 0.2s;
     display: flex;
     flex-direction: column;
     justify-content: center;

@@ -4,6 +4,18 @@ All notable changes to the Quantro ERP application will be documented here.
 
 ---
 
+## [2.0.4] - 2026-05-22
+### Added
+- **Quick Sale Split Bill Checkout:** Integrated a Split Bill checkout option supporting Equal Split (split bill among N shares with payment method per share), Item Split (assign specific items/quantities to buyers with custom payment methods), and Payment Method Split (split total bill by payment amounts for Cash, UPI, and Card).
+- **Click-and-Hold Continuous Product Addition:** Enabled rapid product addition to the cart by long-pressing (click-and-hold) any product tile.
+- **Subcategory & Brand Quick Sale Groupings:** Grouped product tiles dynamically by Subcategory or Brand in the Quick Sale interface, featuring clear section headers with an "+ Add All" button to add all products in a group instantly.
+- **Category Select "Add All" and Tighter Spacing:** Added a quick select option to add all products in a category to the cart, and optimized spacing between categories.
+- **Product Tile Visual Enhancements:** Added visible borders to product tiles and displayed subcategory and brand name metadata labels inside tiles.
+- **Activity (CRM) Modal Sizing**: Set `#customer-history-modal` size to automatically match the Shopify Polaris standard `large` size by removing the custom size overrides.
+### Changed / Fixed
+- **Customer Communication Logs Polish:** Redesigned communication log timeline feeds into premium cards with colored left-borders matching the interaction types (green for Call, blue for Email, orange for SMS, purple for Meeting, gray for Other) and removed vertical connector lines.
+- **Quick Sale Payment Alignment**: Aligned Exact Cash, UPI, and Card checkout buttons horizontally into a single clean row, eliminating high-contrast solid backgrounds.
+
 ## [2.0.3] - 2026-05-22
 ### Added
 - **Customer Categorization (Tiers A/B/C):** Integrated customer categorization system into the database schema and frontend UI, enabling customers to be assigned to Gold (Tier A), Silver (Tier B), or Bronze (Tier C).

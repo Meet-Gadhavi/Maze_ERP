@@ -698,7 +698,7 @@ export default function CustomersPage() {
                                                 badgeClass = 'timeline-badge-meeting';
                                             }
                                             return (
-                                                <div className="timeline-item" key={log.id}>
+                                                <div className={`timeline-item timeline-item-${log.type.toLowerCase()}`} key={log.id}>
                                                     <div className={`timeline-badge ${badgeClass}`}>
                                                         {typeIcon}
                                                     </div>
