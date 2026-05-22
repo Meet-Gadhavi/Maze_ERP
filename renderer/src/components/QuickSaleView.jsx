@@ -523,28 +523,24 @@ export default function QuickSaleView({
                                 <Icons.Banknote size={17} />
                                 <span className="qs-sbtn-text">
                                     <span className="qs-sbtn-label">Cash</span>
-                                    <span className="qs-sbtn-amt">₹{finalTotal.toFixed(2)}</span>
                                 </span>
                             </SButton>
                             <SButton variant="primary" size="large" className="qs-sbtn" onClick={() => handleQuickPayment('UPI')}>
                                 <Icons.Smartphone size={17} />
                                 <span className="qs-sbtn-text">
                                     <span className="qs-sbtn-label">UPI</span>
-                                    <span className="qs-sbtn-amt">₹{finalTotal.toFixed(2)}</span>
                                 </span>
                             </SButton>
                             <SButton variant="primary" size="large" className="qs-sbtn" onClick={() => handleQuickPayment('Card')}>
                                 <Icons.CreditCard size={17} />
                                 <span className="qs-sbtn-text">
                                     <span className="qs-sbtn-label">Card</span>
-                                    <span className="qs-sbtn-amt">₹{finalTotal.toFixed(2)}</span>
                                 </span>
                             </SButton>
                             <SButton variant="secondary" size="large" className="qs-sbtn" onClick={() => setShowSplitModal(true)}>
                                 <Icons.Layers size={17} />
                                 <span className="qs-sbtn-text">
                                     <span className="qs-sbtn-label">Split Bill</span>
-                                    <span className="qs-sbtn-amt">₹{finalTotal.toFixed(2)}</span>
                                 </span>
                             </SButton>
                             <SButton
@@ -565,7 +561,6 @@ export default function QuickSaleView({
                                 <Icons.FileText size={17} />
                                 <span className="qs-sbtn-text">
                                     <span className="qs-sbtn-label">Create Invoice</span>
-                                    <span className="qs-sbtn-amt">₹{finalTotal.toFixed(2)}</span>
                                 </span>
                             </SButton>
                         </div>

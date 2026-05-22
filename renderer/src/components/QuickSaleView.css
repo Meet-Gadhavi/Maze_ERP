@@ -22,6 +22,7 @@
     flex-direction: column;
     background: var(--bg-primary);
     border-radius: 12px;
+    border: 1px solid var(--border-strong);
     box-shadow: 0 2px 10px rgba(0,0,0,0.05);
     overflow: hidden;
 }
@@ -306,6 +307,7 @@
 .qs-sbtn {
     flex: 1;
     min-width: 0;
+    height: 48px; /* Taller buttons */
 }
 
 s-button.qs-sbtn .s-button-content,
@@ -320,13 +322,12 @@ s-button.qs-sbtn .s-button-content,
 
 .qs-sbtn-text {
     display: flex;
-    flex-direction: column;
-    align-items: flex-start;
-    line-height: 1.2;
+    align-items: center;
+    justify-content: center;
 }
 
 .qs-sbtn-label {
-    font-size: 11px;
+    font-size: 13px;
     font-weight: 600;
 }
 
@@ -346,6 +347,7 @@ s-button.qs-sbtn .s-button-content,
     flex-direction: column;
     background: var(--bg-primary);
     border-radius: 12px;
+    border: 1px solid var(--border-strong);
     box-shadow: 0 2px 10px rgba(0,0,0,0.05);
     overflow: hidden;
 }
