@@ -210,7 +210,7 @@ router.get('/', async (req, res, next) => {
                            COALESCE(SUM(CASE WHEN sm.type='IN' THEN sm.quantity ELSE 0 END), 0) AS stock_in,
                            COALESCE(SUM(CASE WHEN sm.type='OUT' THEN sm.quantity ELSE 0 END), 0) AS stock_out
                     FROM days d
-                    LEFT JOIN stock_movements sm ON d.date = sm.date
+                    LEFT JOIN stock_movements sm ON d.date = date(sm.date)
                     GROUP BY d.date
                     ORDER BY d.date ASC
                 `);

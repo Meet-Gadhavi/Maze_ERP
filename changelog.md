@@ -4,6 +4,10 @@ All notable changes to the Quantro ERP application will be documented here.
 
 ---
 
+## [2.0.7] - 2026-05-22
+### Fixed
+- **Stock Movement Trend Analytic:** Resolved a database query bug where the date values from stock movements (stored with full timestamps) failed to match calendar date strings in string comparison. Appended the SQLite `date()` function to convert full timestamps into matching date strings, enabling the trend dashboard to correctly display stock-in and stock-out activity.
+
 ## [2.0.6] - 2026-05-22
 ### Added
 - **Category Selection Double-Click:** Enabled double-clicking category buttons to add all in-stock products in that category directly to the cart.
