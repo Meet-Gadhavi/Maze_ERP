@@ -178,7 +178,7 @@
 .qs-card-body {
     padding: 14px 20px;
     display: flex;
-    align-items: center;
+    align-items: flex-end;
     gap: 20px;
     background: var(--bg-secondary);
 }
@@ -205,11 +205,8 @@
 .qs-status-banner {
     display: flex;
     align-items: center;
-    justify-content: center;
     gap: 6px;
-    height: 38px;
-    box-sizing: border-box;
-    padding: 0 16px;
+    padding: 7px 14px;
     background: rgba(0, 160, 96, 0.1);
     border: 1px solid rgba(0, 160, 96, 0.25);
     border-radius: 6px;
@@ -226,7 +223,6 @@
     flex-direction: row;
     align-items: center;
     gap: 8px;
-    height: 38px;
 }
 
 .qs-disc-saved {
@@ -241,16 +237,13 @@
     display: flex;
     align-items: center;
     gap: 4px;
-    height: 100%;
 }
 
 .qs-disc-input {
     width: 68px;
-    height: 100%;
-    box-sizing: border-box;
     border: 1px solid var(--border-strong);
     border-radius: 6px;
-    padding: 0 8px;
+    padding: 5px 8px;
     font-size: 13px;
     font-weight: 600;
     color: var(--text-primary);
@@ -270,14 +263,12 @@
 }
 
 .qs-disc-type {
-    height: 100%;
-    box-sizing: border-box;
     border: 1px solid var(--border-strong);
     background: var(--bg-primary);
     color: var(--text-secondary);
     font-size: 12px;
     font-weight: 600;
-    padding: 0 10px;
+    padding: 5px 8px;
     border-radius: 6px;
     cursor: pointer;
     transition: all 0.15s ease;
@@ -316,7 +307,6 @@
 .qs-sbtn {
     flex: 1;
     min-width: 0;
-    height: 38px;
 }
 
 s-button.qs-sbtn .s-button-content,
