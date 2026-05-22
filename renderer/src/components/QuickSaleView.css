@@ -207,7 +207,7 @@
     align-items: center;
     justify-content: center;
     gap: 6px;
-    height: 48px;
+    height: 38px;
     box-sizing: border-box;
     padding: 0 16px;
     background: rgba(0, 160, 96, 0.1);
@@ -226,7 +226,7 @@
     flex-direction: row;
     align-items: center;
     gap: 8px;
-    height: 48px;
+    height: 38px;
 }
 
 .qs-disc-saved {
@@ -316,7 +316,7 @@
 .qs-sbtn {
     flex: 1;
     min-width: 0;
-    height: 48px; /* Taller buttons */
+    height: 38px;
 }
 
 s-button.qs-sbtn .s-button-content,
