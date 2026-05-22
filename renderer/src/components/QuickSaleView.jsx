@@ -492,8 +492,8 @@ export default function QuickSaleView({
 
                     {/* Discount */}
                     <div className="qs-field-group">
-                        <div className="qs-field-inline">
-                            <span className="qs-field-label">Discount</span>
+                        <span className="qs-field-label">Discount</span>
+                        <div className="qs-disc-container">
                             <div className="qs-disc-input-wrap">
                                 <input
                                     type="number"

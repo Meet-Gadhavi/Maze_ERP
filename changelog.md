@@ -11,6 +11,7 @@ All notable changes to the Quantro ERP application will be documented here.
 - **Custom Select Grouping Dropdown:** Integrated the premium custom `CustomSelect` dropdown for grouping options and styled it with a compact height to fit seamlessly in the toolbar.
 - **POS Bottom Checkout Bar:** Moved payment actions (Cash, UPI, Card, Split Bill) into a dedicated sticky bottom bar with totals breakdown, live payable amount on each button, and a built-in Discount field (% or flat ₹) that updates all button amounts in real time.
 ### Changed / Fixed
+- **POS Checkout Bar Alignment:** Aligned the Walk-In payment status, discount field, and payment buttons perfectly on the same horizontal line by assigning a uniform 48px height to the status banner and discount input wrappers, matching the payment buttons.
 - **Quick Sale Payment Revert:** Reverted to standard Shopify `SButton` components for payment buttons (Cash, UPI, Card, Split Bill), making the Split Bill button span 100% of the grid container width in the second row.
 - **Category Button Accent Overhaul:** Restored standard Shopify `SButton` components for category selection, eliminating the custom oval backgrounds, custom borders, and native blue focus highlights.
 - **Continuous Add Quantity Bug Fix:** Resolved a stale closure issue in the click-and-hold interval handler, ensuring that quantities correctly increment during continuous addition.
