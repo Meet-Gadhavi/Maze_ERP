@@ -19,6 +19,8 @@ export default function QuickSaleView({
     const [focusedIndex, setFocusedIndex] = useState(-1);
     const [groupBy, setGroupBy] = useState('none'); // 'none', 'subcategory', 'brand'
     const [showSplitModal, setShowSplitModal] = useState(false);
+    const [discountValue, setDiscountValue] = useState('');
+    const [discountType, setDiscountType] = useState('%'); // '%' or '₹'
     
     const searchInputRef = useRef(null);
     const gridRef = useRef(null);
@@ -156,9 +158,16 @@ export default function QuickSaleView({
     }, [filteredProducts, focusedIndex, addToCart]);
 
     const cartTotal = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
-    const cartSubtotal = cart.reduce((sum, item) => sum + (Number(item.mrp || item.price) * item.quantity), 0);
-    const cartSavings = Math.max(0, cartSubtotal - cartTotal);
-    const totalItems = cart.reduce((sum, item) => sum + item.quantity, 0);
+
+    // Compute discount and final total
+    const discountAmount = (() => {
+        const val = parseFloat(discountValue) || 0;
+        if (discountType === '%') {
+            return Math.min(cartTotal, (cartTotal * val) / 100);
+        }
+        return Math.min(cartTotal, val);
+    })();
+    const finalTotal = Math.max(0, cartTotal - discountAmount);
 
     const updateCartQty = (index, delta) => {
         const newCart = [...cart];
@@ -187,7 +196,8 @@ export default function QuickSaleView({
         await handleCreateInvoice(mockEvent, {
             isQuickSale: true,
             walkInName: 'Quick Sale',
-            paymentsOverride: [{ method, amount: cartTotal, transaction_id: '' }]
+            discount: discountAmount,
+            paymentsOverride: [{ method, amount: finalTotal, transaction_id: '' }]
         });
     };
 
@@ -197,6 +207,7 @@ export default function QuickSaleView({
         await handleCreateInvoice(mockEvent, {
             isQuickSale: true,
             walkInName: 'Quick Sale Split',
+            discount: discountAmount,
             paymentsOverride: paymentsList
         });
     };
@@ -278,90 +289,77 @@ export default function QuickSaleView({
                     )}
                 </div>
 
-                {/* Summary + Payments pinned to bottom */}
-                <div className="quick-sale-bottom">
-                    <div className="quick-sale-summary">
-                        {cart.length > 0 && (
-                            <div className="summary-row items-row">
-                                <span className="summary-label">{totalItems} Item{totalItems !== 1 ? 's' : ''}</span>
-                                <span className="summary-value">₹{cartSubtotal.toFixed(2)}</span>
-                            </div>
-                        )}
-                        {cartSavings > 0 && (
-                            <div className="summary-row savings-row">
-                                <span className="summary-label savings-label">
-                                    <Icons.Tag size={12} /> You Save
-                                </span>
-                                <span className="summary-value savings-value">−₹{cartSavings.toFixed(2)}</span>
-                            </div>
-                        )}
-                        <div className="summary-row total-row">
-                            <span>Total Amount</span>
+                {/* ── Checkout Bar ── */}
+                <div className="qs-checkout-bar">
+                    {/* Totals */}
+                    <div className="qs-totals">
+                        <div className="qs-total-row">
+                            <span>Subtotal</span>
                             <span>₹{cartTotal.toFixed(2)}</span>
+                        </div>
+                        {discountAmount > 0 && (
+                            <div className="qs-total-row qs-discount-row">
+                                <span>Discount</span>
+                                <span>− ₹{discountAmount.toFixed(2)}</span>
+                            </div>
+                        )}
+                        <div className="qs-total-row qs-final-row">
+                            <span>Total</span>
+                            <span>₹{finalTotal.toFixed(2)}</span>
                         </div>
                     </div>
 
-                    <div className="quick-sale-payments">
-                        <SButton 
-                            variant="primary" 
-                            size="large" 
-                            className="pay-btn cash" 
-                            onClick={() => handleQuickPayment('Cash')}
-                            fullWidth
-                        >
-                            <span className="pay-btn-inner">
-                                <span className="pay-btn-top">
-                                    <Icons.Banknote size={22} />
-                                    <span>Cash (F4)</span>
-                                </span>
-                                <span className="pay-btn-amount">₹{cartTotal.toFixed(2)}</span>
-                            </span>
-                        </SButton>
-                        <SButton 
-                            variant="primary" 
-                            size="large" 
-                            className="pay-btn upi" 
-                            onClick={() => handleQuickPayment('UPI')}
-                            fullWidth
-                        >
-                            <span className="pay-btn-inner">
-                                <span className="pay-btn-top">
-                                    <Icons.Smartphone size={22} />
-                                    <span>UPI</span>
-                                </span>
-                                <span className="pay-btn-amount">₹{cartTotal.toFixed(2)}</span>
-                            </span>
-                        </SButton>
-                        <SButton 
-                            variant="primary" 
-                            size="large" 
-                            className="pay-btn card" 
-                            onClick={() => handleQuickPayment('Card')}
-                            fullWidth
-                        >
-                            <span className="pay-btn-inner">
-                                <span className="pay-btn-top">
-                                    <Icons.CreditCard size={22} />
-                                    <span>Card</span>
-                                </span>
-                                <span className="pay-btn-amount">₹{cartTotal.toFixed(2)}</span>
-                            </span>
-                        </SButton>
-                        <SButton 
-                            variant="secondary" 
-                            size="large" 
-                            className="pay-btn split" 
-                            onClick={() => setShowSplitModal(true)}
-                            fullWidth
-                        >
-                            <span className="pay-btn-inner split-inner">
-                                <span className="pay-btn-top">
-                                    <Icons.Layers size={20} />
-                                    <span>Split Bill</span>
-                                </span>
-                                <span className="pay-btn-amount split-amount">₹{cartTotal.toFixed(2)}</span>
-                            </span>
-                        </SButton>
+                    {/* Discount Row */}
+                    <div className="qs-discount-bar">
+                        <Icons.Tag size={15} className="qs-disc-icon" />
+                        <span className="qs-disc-label">Discount</span>
+                        <div className="qs-disc-input-wrap">
+                            <input
+                                type="number"
+                                min="0"
+                                className="qs-disc-input"
+                                placeholder="0"
+                                value={discountValue}
+                                onChange={e => setDiscountValue(e.target.value)}
+                            />
+                            <button
+                                className={`qs-disc-type ${discountType === '%' ? 'active' : ''}`}
+                                onClick={() => setDiscountType('%')}
+                            >%</button>
+                            <button
+                                className={`qs-disc-type ${discountType === '₹' ? 'active' : ''}`}
+                                onClick={() => setDiscountType('₹')}
+                            >₹</button>
+                        </div>
+                        {discountValue && (
+                            <button className="qs-disc-clear" onClick={() => setDiscountValue('')}>
+                                <Icons.X size={13} />
+                            </button>
+                        )}
+                    </div>
+
+                    {/* Pay Buttons */}
+                    <div className="qs-pay-grid">
+                        <button className="qs-pay-btn qs-pay-cash" onClick={() => handleQuickPayment('Cash')}>
+                            <div className="qs-pay-icon"><Icons.Banknote size={22} /></div>
+                            <div className="qs-pay-label">Cash</div>
+                            <div className="qs-pay-amount">₹{finalTotal.toFixed(2)}</div>
+                        </button>
+                        <button className="qs-pay-btn qs-pay-upi" onClick={() => handleQuickPayment('UPI')}>
+                            <div className="qs-pay-icon"><Icons.Smartphone size={22} /></div>
+                            <div className="qs-pay-label">UPI</div>
+                            <div className="qs-pay-amount">₹{finalTotal.toFixed(2)}</div>
+                        </button>
+                        <button className="qs-pay-btn qs-pay-card" onClick={() => handleQuickPayment('Card')}>
+                            <div className="qs-pay-icon"><Icons.CreditCard size={22} /></div>
+                            <div className="qs-pay-label">Card</div>
+                            <div className="qs-pay-amount">₹{finalTotal.toFixed(2)}</div>
+                        </button>
+                        <button className="qs-pay-btn qs-pay-split" onClick={() => setShowSplitModal(true)}>
+                            <div className="qs-pay-icon"><Icons.Layers size={22} /></div>
+                            <div className="qs-pay-label">Split Bill</div>
+                            <div className="qs-pay-amount">₹{finalTotal.toFixed(2)}</div>
+                        </button>
                     </div>
                 </div>
             </div>

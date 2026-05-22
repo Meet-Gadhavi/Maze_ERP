@@ -132,144 +132,219 @@
     color: white;
 }
 
-.quick-sale-summary {
-    padding: 12px 16px;
-    background: var(--bg-secondary);
+/* ── Checkout Bar ── */
+.qs-checkout-bar {
     border-top: 1px solid var(--border-light);
+    background: var(--bg-primary);
+    padding: 14px 16px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
 }
 
-.summary-row.total-row {
+/* Totals breakdown */
+.qs-totals {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.qs-total-row {
     display: flex;
     justify-content: space-between;
-    font-size: 20px;
+    align-items: center;
+    font-size: 13px;
+    color: var(--text-secondary);
+}
+
+.qs-discount-row span:last-child {
+    color: var(--success, #008060);
+    font-weight: 600;
+}
+
+.qs-final-row {
+    font-size: 18px;
     font-weight: 700;
     color: var(--text-primary);
-    padding-top: 10px;
+    padding-top: 6px;
     border-top: 1px solid var(--border-light);
-    margin-top: 6px;
+    margin-top: 2px;
 }
 
-.summary-row.items-row {
-    display: flex;
-    justify-content: space-between;
-    font-size: 13px;
-    color: var(--text-secondary);
-    margin-bottom: 4px;
-}
-
-.summary-row.savings-row {
-    display: flex;
-    justify-content: space-between;
-    font-size: 13px;
-    margin-bottom: 4px;
-}
-
-.savings-label {
+/* Discount input row */
+.qs-discount-bar {
     display: flex;
     align-items: center;
-    gap: 4px;
-    color: var(--success, #00a86b);
-    font-weight: 600;
-}
-
-.savings-value {
-    font-weight: 700;
-    color: var(--success, #00a86b);
-}
-
-.customer-display-btn {
-    width: 100%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
     gap: 8px;
-    padding: 10px;
-    background: var(--bg-primary);
-    border: 1px solid var(--border-strong);
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-light);
     border-radius: 8px;
-    color: var(--text-secondary);
-    font-size: 13px;
-    font-weight: 600;
-    cursor: pointer;
-    transition: all 0.2s ease;
+    padding: 8px 12px;
 }
 
-.customer-display-btn:hover {
-    background: var(--bg-soft-hover);
-    color: var(--accent);
-    border-color: var(--accent);
-    box-shadow: var(--shadow-sm);
-}
-
-/* Bottom section: summary + payment buttons pinned to the base of the left panel */
-.quick-sale-bottom {
-    margin-top: auto;
+.qs-disc-icon {
+    color: var(--text-tertiary);
     flex-shrink: 0;
 }
 
-.quick-sale-payments {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 10px;
-    padding: 12px 16px 16px 16px;
-    border-top: 1px solid var(--border-light);
-}
-
-s-button.pay-btn {
-    grid-column: auto;
-}
-
-s-button.pay-btn.split {
-    grid-column: span 3;
-}
-
-/* Pay button inner layout */
-.pay-btn-inner {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 4px;
-    width: 100%;
-    pointer-events: none;
-}
-
-.pay-btn-top {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 4px;
+.qs-disc-label {
     font-size: 13px;
     font-weight: 600;
+    color: var(--text-secondary);
+    flex-shrink: 0;
 }
 
-.pay-btn-amount {
-    font-size: 16px;
-    font-weight: 800;
-    letter-spacing: -0.3px;
-    opacity: 0.92;
-}
-
-/* Split button: horizontal layout */
-.split-inner {
-    flex-direction: row;
-    justify-content: space-between;
-    padding: 0 8px;
-}
-
-.split-inner .pay-btn-top {
-    flex-direction: row;
+.qs-disc-input-wrap {
+    display: flex;
     align-items: center;
+    gap: 4px;
+    margin-left: auto;
+}
+
+.qs-disc-input {
+    width: 70px;
+    border: 1px solid var(--border-strong);
+    border-radius: 6px;
+    padding: 5px 8px;
     font-size: 14px;
-    gap: 6px;
+    font-weight: 600;
+    color: var(--text-primary);
+    background: var(--bg-primary);
+    text-align: right;
+    outline: none;
 }
 
-.split-amount {
-    font-size: 15px;
+.qs-disc-input:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 2px var(--accent-light);
 }
 
-/* remove old fallback button flex overrides */
-.pay-btn:not(.split) {
-    flex-direction: column !important;
+.qs-disc-input::-webkit-inner-spin-button,
+.qs-disc-input::-webkit-outer-spin-button {
+    -webkit-appearance: none;
+}
+
+.qs-disc-type {
+    border: 1px solid var(--border-strong);
+    background: var(--bg-primary);
+    color: var(--text-secondary);
+    font-size: 13px;
+    font-weight: 600;
+    padding: 5px 9px;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.qs-disc-type.active {
+    background: var(--accent);
+    color: white;
+    border-color: var(--accent);
+}
+
+.qs-disc-clear {
+    border: none;
+    background: none;
+    color: var(--text-tertiary);
+    cursor: pointer;
+    padding: 4px;
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: color 0.15s;
+}
+
+.qs-disc-clear:hover {
+    color: var(--danger);
+}
+
+/* Pay buttons grid */
+.qs-pay-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 8px;
+}
+
+.qs-pay-btn {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 3px;
+    padding: 10px 6px;
+    border: none;
+    border-radius: 10px;
+    cursor: pointer;
+    transition: transform 0.1s ease, box-shadow 0.15s ease, filter 0.15s ease;
+    font-family: inherit;
+}
+
+.qs-pay-btn:active {
+    transform: scale(0.95);
+}
+
+.qs-pay-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 1px;
+}
+
+.qs-pay-label {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+}
+
+.qs-pay-amount {
+    font-size: 12px;
+    font-weight: 700;
+    opacity: 0.85;
+}
+
+/* Cash - green */
+.qs-pay-cash {
+    background: linear-gradient(145deg, #00a060, #008048);
+    color: white;
+    box-shadow: 0 3px 10px rgba(0, 160, 96, 0.35);
+}
+.qs-pay-cash:hover {
+    filter: brightness(1.08);
+    box-shadow: 0 4px 14px rgba(0, 160, 96, 0.5);
+}
+
+/* UPI - purple */
+.qs-pay-upi {
+    background: linear-gradient(145deg, #7c3aed, #5b21b6);
+    color: white;
+    box-shadow: 0 3px 10px rgba(124, 58, 237, 0.35);
+}
+.qs-pay-upi:hover {
+    filter: brightness(1.08);
+    box-shadow: 0 4px 14px rgba(124, 58, 237, 0.5);
+}
+
+/* Card - blue */
+.qs-pay-card {
+    background: linear-gradient(145deg, #0071e3, #0055b8);
+    color: white;
+    box-shadow: 0 3px 10px rgba(0, 113, 227, 0.35);
+}
+.qs-pay-card:hover {
+    filter: brightness(1.08);
+    box-shadow: 0 4px 14px rgba(0, 113, 227, 0.5);
+}
+
+/* Split - warm amber/orange */
+.qs-pay-split {
+    background: linear-gradient(145deg, #f59e0b, #d97706);
+    color: white;
+    box-shadow: 0 3px 10px rgba(245, 158, 11, 0.35);
+}
+.qs-pay-split:hover {
+    filter: brightness(1.08);
+    box-shadow: 0 4px 14px rgba(245, 158, 11, 0.5);
 }
 
 .quick-sale-right {
