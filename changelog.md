@@ -4,6 +4,11 @@ All notable changes to the Quantro ERP application will be documented here.
 
 ---
 
+## [2.0.5] - 2026-05-22
+### Changed
+- **POS Quick Sale Payment Layout Refinement:** Moved the Split Bill checkout action directly into the payment buttons grid as a 4th button, styled identically with a custom Lucide Layers icon.
+- **Button Transparency Polish:** Removed the high-contrast white card background from Cash, UPI, Card, and Split Bill buttons, making them transparent to match the POS toolbar aesthetics and transition smoothly on hover.
+
 ## [2.0.4] - 2026-05-22
 ### Added
 - **Quick Sale Split Bill Checkout:** Integrated a Split Bill checkout option supporting Equal Split (split bill among N shares with payment method per share), Item Split (assign specific items/quantities to buyers with custom payment methods), and Payment Method Split (split total bill by payment amounts for Cash, UPI, and Card).

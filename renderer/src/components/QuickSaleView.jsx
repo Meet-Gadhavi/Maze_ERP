@@ -288,11 +288,10 @@ export default function QuickSaleView({
                         <Icons.CreditCard size={20} />
                         Card
                     </SButton>
-                </div>
-                <div className="quick-sale-split" style={{ padding: '0 16px 16px 16px' }}>
-                    <button className="split-btn" onClick={() => setShowSplitModal(true)}>
-                        <span>✅ Split Bill</span>
-                    </button>
+                    <SButton variant="secondary" className="pay-btn split" onClick={() => setShowSplitModal(true)}>
+                        <Icons.Layers size={20} />
+                        Split Bill
+                    </SButton>
                 </div>
             </div>
 

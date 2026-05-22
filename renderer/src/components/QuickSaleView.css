@@ -173,7 +173,7 @@
 
 .quick-sale-payments {
     display: grid;
-    grid-template-columns: repeat(3, 1fr);
+    grid-template-columns: repeat(4, 1fr);
     gap: 10px;
     padding: 16px;
     border-top: 1px solid var(--border-light);
@@ -188,7 +188,7 @@
     padding: 12px 6px;
     border-radius: 8px;
     border: 1px solid var(--border-strong) !important;
-    background: var(--bg-card) !important;
+    background: transparent !important;
     color: var(--text-primary) !important;
     font-weight: 600;
     cursor: pointer;
@@ -203,30 +203,10 @@
 
 .pay-btn.cash,
 .pay-btn.upi,
-.pay-btn.card {
+.pay-btn.card,
+.pay-btn.split {
     grid-column: auto;
-    background: var(--bg-card);
-}
-
-.split-btn {
-    width: 100%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 8px;
-    padding: 12px;
-    border-radius: 8px;
-    font-weight: 600;
-    border: 1px solid var(--accent) !important;
-    color: var(--accent) !important;
-    background: var(--bg-card) !important;
-    cursor: pointer;
-    transition: all 0.2s ease;
-}
-
-.split-btn:hover {
-    background: var(--accent-light) !important;
-    border-color: var(--accent) !important;
+    background: transparent !important;
 }
 
 .quick-sale-right {
