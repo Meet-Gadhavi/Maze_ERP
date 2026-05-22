@@ -234,135 +234,63 @@ export default function QuickSaleView({
 
     return (
         <div className="quick-sale-container">
-            <div className="quick-sale-left">
-                <div className="quick-sale-search">
-                    <Icons.Search size={20} className="search-icon" />
-                    <input 
-                        ref={searchInputRef}
-                        type="text" 
-                        placeholder="Scan Barcode or Search Product..." 
-                        value={searchTerm}
-                        onChange={e => setSearchTerm(e.target.value)}
-                        onKeyDown={e => {
-                            if (e.key === 'Enter') {
-                                const exactMatch = products.find(p => p.product_code === searchTerm);
-                                if (exactMatch) {
-                                    addToCart(exactMatch);
-                                    setSearchTerm('');
-                                } else if (filteredProducts.length === 1) {
-                                    addToCart(filteredProducts[0]);
-                                    setSearchTerm('');
+            {/* ─── Top: Cart + Catalog side by side ─── */}
+            <div className="quick-sale-main">
+                <div className="quick-sale-left">
+                    <div className="quick-sale-search">
+                        <Icons.Search size={20} className="search-icon" />
+                        <input 
+                            ref={searchInputRef}
+                            type="text" 
+                            placeholder="Scan Barcode or Search Product..." 
+                            value={searchTerm}
+                            onChange={e => setSearchTerm(e.target.value)}
+                            onKeyDown={e => {
+                                if (e.key === 'Enter') {
+                                    const exactMatch = products.find(p => p.product_code === searchTerm);
+                                    if (exactMatch) {
+                                        addToCart(exactMatch);
+                                        setSearchTerm('');
+                                    } else if (filteredProducts.length === 1) {
+                                        addToCart(filteredProducts[0]);
+                                        setSearchTerm('');
+                                    }
                                 }
-                            }
-                        }}
-                    />
-                </div>
+                            }}
+                        />
+                    </div>
 
-                <div className="quick-sale-cart">
-                    {cart.length === 0 ? (
-                        <div className="empty-cart">
-                            <Icons.ShoppingCart size={48} />
-                            <p>Cart is empty. Scan an item or tap a product.</p>
-                        </div>
-                    ) : (
-                        <div className="cart-items">
-                            {cart.map((item, index) => (
-                                <div key={index} className="cart-item">
-                                    <div className="cart-item-details">
-                                        <h4>{item.name}</h4>
-                                        <span>₹{item.price.toFixed(2)}</span>
+                    <div className="quick-sale-cart">
+                        {cart.length === 0 ? (
+                            <div className="empty-cart">
+                                <Icons.ShoppingCart size={48} />
+                                <p>Cart is empty. Scan an item or tap a product.</p>
+                            </div>
+                        ) : (
+                            <div className="cart-items">
+                                {cart.map((item, index) => (
+                                    <div key={index} className="cart-item">
+                                        <div className="cart-item-details">
+                                            <h4>{item.name}</h4>
+                                            <span>₹{item.price.toFixed(2)}</span>
+                                        </div>
+                                        <div className="cart-item-actions">
+                                            <button onClick={() => updateCartQty(index, -1)}><Icons.Minus size={16} /></button>
+                                            <span className="qty">{item.quantity}</span>
+                                            <button onClick={() => updateCartQty(index, 1)}><Icons.Plus size={16} /></button>
+                                            <span className="total">₹{item.total.toFixed(2)}</span>
+                                            <button className="remove-btn" onClick={() => {
+                                                const newCart = [...cart];
+                                                newCart.splice(index, 1);
+                                                setCart(newCart);
+                                            }}><Icons.X size={16} /></button>
+                                        </div>
                                     </div>
-                                    <div className="cart-item-actions">
-                                        <button onClick={() => updateCartQty(index, -1)}><Icons.Minus size={16} /></button>
-                                        <span className="qty">{item.quantity}</span>
-                                        <button onClick={() => updateCartQty(index, 1)}><Icons.Plus size={16} /></button>
-                                        <span className="total">₹{item.total.toFixed(2)}</span>
-                                        <button className="remove-btn" onClick={() => {
-                                            const newCart = [...cart];
-                                            newCart.splice(index, 1);
-                                            setCart(newCart);
-                                        }}><Icons.X size={16} /></button>
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
-                    )}
-                </div>
-
-                {/* ── Checkout Bar ── */}
-                <div className="qs-checkout-bar">
-                    {/* Totals */}
-                    <div className="qs-totals">
-                        <div className="qs-total-row">
-                            <span>Subtotal</span>
-                            <span>₹{cartTotal.toFixed(2)}</span>
-                        </div>
-                        {discountAmount > 0 && (
-                            <div className="qs-total-row qs-discount-row">
-                                <span>Discount</span>
-                                <span>− ₹{discountAmount.toFixed(2)}</span>
+                                ))}
                             </div>
                         )}
-                        <div className="qs-total-row qs-final-row">
-                            <span>Total</span>
-                            <span>₹{finalTotal.toFixed(2)}</span>
-                        </div>
                     </div>
-
-                    {/* Discount Row */}
-                    <div className="qs-discount-bar">
-                        <Icons.Tag size={15} className="qs-disc-icon" />
-                        <span className="qs-disc-label">Discount</span>
-                        <div className="qs-disc-input-wrap">
-                            <input
-                                type="number"
-                                min="0"
-                                className="qs-disc-input"
-                                placeholder="0"
-                                value={discountValue}
-                                onChange={e => setDiscountValue(e.target.value)}
-                            />
-                            <button
-                                className={`qs-disc-type ${discountType === '%' ? 'active' : ''}`}
-                                onClick={() => setDiscountType('%')}
-                            >%</button>
-                            <button
-                                className={`qs-disc-type ${discountType === '₹' ? 'active' : ''}`}
-                                onClick={() => setDiscountType('₹')}
-                            >₹</button>
-                        </div>
-                        {discountValue && (
-                            <button className="qs-disc-clear" onClick={() => setDiscountValue('')}>
-                                <Icons.X size={13} />
-                            </button>
-                        )}
-                    </div>
-
-                    {/* Pay Buttons */}
-                    <div className="qs-pay-grid">
-                        <button className="qs-pay-btn qs-pay-cash" onClick={() => handleQuickPayment('Cash')}>
-                            <div className="qs-pay-icon"><Icons.Banknote size={22} /></div>
-                            <div className="qs-pay-label">Cash</div>
-                            <div className="qs-pay-amount">₹{finalTotal.toFixed(2)}</div>
-                        </button>
-                        <button className="qs-pay-btn qs-pay-upi" onClick={() => handleQuickPayment('UPI')}>
-                            <div className="qs-pay-icon"><Icons.Smartphone size={22} /></div>
-                            <div className="qs-pay-label">UPI</div>
-                            <div className="qs-pay-amount">₹{finalTotal.toFixed(2)}</div>
-                        </button>
-                        <button className="qs-pay-btn qs-pay-card" onClick={() => handleQuickPayment('Card')}>
-                            <div className="qs-pay-icon"><Icons.CreditCard size={22} /></div>
-                            <div className="qs-pay-label">Card</div>
-                            <div className="qs-pay-amount">₹{finalTotal.toFixed(2)}</div>
-                        </button>
-                        <button className="qs-pay-btn qs-pay-split" onClick={() => setShowSplitModal(true)}>
-                            <div className="qs-pay-icon"><Icons.Layers size={22} /></div>
-                            <div className="qs-pay-label">Split Bill</div>
-                            <div className="qs-pay-amount">₹{finalTotal.toFixed(2)}</div>
-                        </button>
-                    </div>
-                </div>
-            </div>
+            </div>{/* end quick-sale-left */}
 
             <div className="quick-sale-right">
                 <div className="quick-sale-categories">
@@ -539,10 +467,115 @@ export default function QuickSaleView({
                         </div>
                     )}
                 </div>
+            </div>{/* end quick-sale-right */}
+            </div>{/* end quick-sale-main */}
+
+            {/* ─── Standalone Checkout Card (separate from panels above) ─── */}
+            <div className="qs-checkout-card">
+
+                {/* Grand Total Row */}
+                <div className="qs-grand-total-row">
+                    <span className="qs-grand-label">Grand Total</span>
+                    <span className="qs-grand-amount">₹{finalTotal.toFixed(2)}</span>
+                </div>
+
+                <div className="qs-card-body">
+
+                    {/* Payment Status */}
+                    <div className="qs-field-group">
+                        <span className="qs-field-label">Payment Status</span>
+                        <div className="qs-status-banner">
+                            <Icons.CheckCircle size={14} />
+                            WALK-IN: ALWAYS PAID
+                        </div>
+                    </div>
+
+                    {/* Discount */}
+                    <div className="qs-field-group">
+                        <div className="qs-field-inline">
+                            <span className="qs-field-label">Discount</span>
+                            <div className="qs-disc-input-wrap">
+                                <input
+                                    type="number"
+                                    min="0"
+                                    className="qs-disc-input"
+                                    placeholder="0"
+                                    value={discountValue}
+                                    onChange={e => setDiscountValue(e.target.value)}
+                                />
+                                <button className={`qs-disc-type ${discountType === '%' ? 'active' : ''}`} onClick={() => setDiscountType('%')}>%</button>
+                                <button className={`qs-disc-type ${discountType === '₹' ? 'active' : ''}`} onClick={() => setDiscountType('₹')}>₹</button>
+                                {discountValue && (
+                                    <button className="qs-disc-clear" onClick={() => setDiscountValue('')}><Icons.X size={13} /></button>
+                                )}
+                            </div>
+                            {discountAmount > 0 && (
+                                <span className="qs-disc-saved">saves ₹{discountAmount.toFixed(2)}</span>
+                            )}
+                        </div>
+                    </div>
+
+                    {/* Payments */}
+                    <div className="qs-field-group">
+                        <span className="qs-field-label">Payments</span>
+                        <div className="qs-pay-row">
+                            <SButton variant="primary" size="large" className="qs-sbtn" onClick={() => handleQuickPayment('Cash')}>
+                                <Icons.Banknote size={17} />
+                                <span className="qs-sbtn-text">
+                                    <span className="qs-sbtn-label">Cash</span>
+                                    <span className="qs-sbtn-amt">₹{finalTotal.toFixed(2)}</span>
+                                </span>
+                            </SButton>
+                            <SButton variant="primary" size="large" className="qs-sbtn" onClick={() => handleQuickPayment('UPI')}>
+                                <Icons.Smartphone size={17} />
+                                <span className="qs-sbtn-text">
+                                    <span className="qs-sbtn-label">UPI</span>
+                                    <span className="qs-sbtn-amt">₹{finalTotal.toFixed(2)}</span>
+                                </span>
+                            </SButton>
+                            <SButton variant="primary" size="large" className="qs-sbtn" onClick={() => handleQuickPayment('Card')}>
+                                <Icons.CreditCard size={17} />
+                                <span className="qs-sbtn-text">
+                                    <span className="qs-sbtn-label">Card</span>
+                                    <span className="qs-sbtn-amt">₹{finalTotal.toFixed(2)}</span>
+                                </span>
+                            </SButton>
+                            <SButton variant="secondary" size="large" className="qs-sbtn" onClick={() => setShowSplitModal(true)}>
+                                <Icons.Layers size={17} />
+                                <span className="qs-sbtn-text">
+                                    <span className="qs-sbtn-label">Split Bill</span>
+                                    <span className="qs-sbtn-amt">₹{finalTotal.toFixed(2)}</span>
+                                </span>
+                            </SButton>
+                            <SButton
+                                variant="primary"
+                                size="large"
+                                className="qs-sbtn qs-invoice-btn"
+                                onClick={async () => {
+                                    if (cart.length === 0) { toast.error('Cart is empty'); return; }
+                                    const mockEvent = { preventDefault: () => {} };
+                                    await handleCreateInvoice(mockEvent, {
+                                        isQuickSale: true,
+                                        walkInName: 'Quick Sale',
+                                        discount: discountAmount,
+                                        skipAutoPayment: true,
+                                    });
+                                }}
+                            >
+                                <Icons.FileText size={17} />
+                                <span className="qs-sbtn-text">
+                                    <span className="qs-sbtn-label">Create Invoice</span>
+                                    <span className="qs-sbtn-amt">₹{finalTotal.toFixed(2)}</span>
+                                </span>
+                            </SButton>
+                        </div>
+                    </div>
+
+                </div>
             </div>
 
-            {/* Split Bill Checkout Modal */}
-            <SplitBillModal 
+            {/* Split Bill Modal */}
+            <SplitBillModal
                 isOpen={showSplitModal}
                 onClose={() => setShowSplitModal(false)}
                 cart={cart}

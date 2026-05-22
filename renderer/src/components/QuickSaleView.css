@@ -1,9 +1,19 @@
 .quick-sale-container {
     display: flex;
-    height: calc(100vh - 80px); /* Adjust based on layout */
-    gap: 20px;
+    flex-direction: column;
+    height: calc(100vh - 80px);
+    gap: 16px;
     padding: 20px;
     background-color: var(--bg-secondary);
+    overflow: hidden;
+}
+
+.quick-sale-main {
+    display: flex;
+    flex: 1;
+    gap: 20px;
+    overflow: hidden;
+    margin-bottom: 0;
 }
 
 .quick-sale-left {
@@ -132,81 +142,108 @@
     color: white;
 }
 
-/* ── Checkout Bar ── */
-.qs-checkout-bar {
-    border-top: 1px solid var(--border-light);
+/* ── Standalone Checkout Card ── */
+.qs-checkout-card {
     background: var(--bg-primary);
-    padding: 14px 16px 16px;
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
+    border-radius: 12px;
+    border: 1px solid var(--border-light);
+    box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+    overflow: hidden;
+    flex-shrink: 0;
 }
 
-/* Totals breakdown */
-.qs-totals {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-}
-
-.qs-total-row {
+/* Grand Total header row */
+.qs-grand-total-row {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    font-size: 13px;
-    color: var(--text-secondary);
+    padding: 12px 20px;
+    border-bottom: 1px solid var(--border-light);
 }
 
-.qs-discount-row span:last-child {
-    color: var(--success, #008060);
+.qs-grand-label {
+    font-size: 14px;
     font-weight: 600;
-}
-
-.qs-final-row {
-    font-size: 18px;
-    font-weight: 700;
     color: var(--text-primary);
-    padding-top: 6px;
-    border-top: 1px solid var(--border-light);
-    margin-top: 2px;
 }
 
-/* Discount input row */
-.qs-discount-bar {
+.qs-grand-amount {
+    font-size: 22px;
+    font-weight: 700;
+    color: var(--accent);
+}
+
+/* Card body sections */
+.qs-card-body {
+    padding: 14px 20px;
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 20px;
     background: var(--bg-secondary);
-    border: 1px solid var(--border-light);
-    border-radius: 8px;
-    padding: 8px 12px;
 }
 
-.qs-disc-icon {
-    color: var(--text-tertiary);
-    flex-shrink: 0;
+.qs-field-group {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
 }
 
-.qs-disc-label {
-    font-size: 13px;
+.qs-field-group:last-child {
+    flex: 1;
+}
+
+.qs-field-label {
+    font-size: 11px;
     font-weight: 600;
     color: var(--text-secondary);
-    flex-shrink: 0;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
 }
 
+/* Status banner */
+.qs-status-banner {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 7px 14px;
+    background: rgba(0, 160, 96, 0.1);
+    border: 1px solid rgba(0, 160, 96, 0.25);
+    border-radius: 6px;
+    color: #008060;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    white-space: nowrap;
+}
+
+/* Discount inline row */
+.qs-field-inline {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 8px;
+}
+
+.qs-disc-saved {
+    font-size: 11px;
+    font-weight: 600;
+    color: #008060;
+    white-space: nowrap;
+}
+
+/* Discount input controls */
 .qs-disc-input-wrap {
     display: flex;
     align-items: center;
     gap: 4px;
-    margin-left: auto;
 }
 
 .qs-disc-input {
-    width: 70px;
+    width: 68px;
     border: 1px solid var(--border-strong);
     border-radius: 6px;
     padding: 5px 8px;
-    font-size: 14px;
+    font-size: 13px;
     font-weight: 600;
     color: var(--text-primary);
     background: var(--bg-primary);
@@ -228,9 +265,9 @@
     border: 1px solid var(--border-strong);
     background: var(--bg-primary);
     color: var(--text-secondary);
-    font-size: 13px;
+    font-size: 12px;
     font-weight: 600;
-    padding: 5px 9px;
+    padding: 5px 8px;
     border-radius: 6px;
     cursor: pointer;
     transition: all 0.15s ease;
@@ -259,92 +296,48 @@
     color: var(--danger);
 }
 
-/* Pay buttons grid */
-.qs-pay-grid {
-    display: grid;
-    grid-template-columns: repeat(4, 1fr);
-    gap: 8px;
+/* Pay buttons row using SButton */
+.qs-pay-row {
+    display: flex;
+    gap: 6px;
+    flex: 1;
 }
 
-.qs-pay-btn {
+.qs-sbtn {
+    flex: 1;
+    min-width: 0;
+}
+
+s-button.qs-sbtn .s-button-content,
+.qs-sbtn .s-button-content {
+    display: flex !important;
+    align-items: center !important;
+    gap: 5px !important;
+    justify-content: center !important;
+    flex-wrap: nowrap !important;
+    white-space: nowrap;
+}
+
+.qs-sbtn-text {
     display: flex;
     flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    gap: 3px;
-    padding: 10px 6px;
-    border: none;
-    border-radius: 10px;
-    cursor: pointer;
-    transition: transform 0.1s ease, box-shadow 0.15s ease, filter 0.15s ease;
-    font-family: inherit;
+    align-items: flex-start;
+    line-height: 1.2;
 }
 
-.qs-pay-btn:active {
-    transform: scale(0.95);
-}
-
-.qs-pay-icon {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    margin-bottom: 1px;
-}
-
-.qs-pay-label {
+.qs-sbtn-label {
     font-size: 11px;
     font-weight: 600;
-    letter-spacing: 0.02em;
 }
 
-.qs-pay-amount {
-    font-size: 12px;
+.qs-sbtn-amt {
+    font-size: 10px;
+    opacity: 0.8;
     font-weight: 700;
-    opacity: 0.85;
 }
 
-/* Cash - green */
-.qs-pay-cash {
-    background: linear-gradient(145deg, #00a060, #008048);
-    color: white;
-    box-shadow: 0 3px 10px rgba(0, 160, 96, 0.35);
-}
-.qs-pay-cash:hover {
-    filter: brightness(1.08);
-    box-shadow: 0 4px 14px rgba(0, 160, 96, 0.5);
-}
-
-/* UPI - purple */
-.qs-pay-upi {
-    background: linear-gradient(145deg, #7c3aed, #5b21b6);
-    color: white;
-    box-shadow: 0 3px 10px rgba(124, 58, 237, 0.35);
-}
-.qs-pay-upi:hover {
-    filter: brightness(1.08);
-    box-shadow: 0 4px 14px rgba(124, 58, 237, 0.5);
-}
-
-/* Card - blue */
-.qs-pay-card {
-    background: linear-gradient(145deg, #0071e3, #0055b8);
-    color: white;
-    box-shadow: 0 3px 10px rgba(0, 113, 227, 0.35);
-}
-.qs-pay-card:hover {
-    filter: brightness(1.08);
-    box-shadow: 0 4px 14px rgba(0, 113, 227, 0.5);
-}
-
-/* Split - warm amber/orange */
-.qs-pay-split {
-    background: linear-gradient(145deg, #f59e0b, #d97706);
-    color: white;
-    box-shadow: 0 3px 10px rgba(245, 158, 11, 0.35);
-}
-.qs-pay-split:hover {
-    filter: brightness(1.08);
-    box-shadow: 0 4px 14px rgba(245, 158, 11, 0.5);
+.qs-invoice-btn {
+    flex: 1.4;
 }
 
 .quick-sale-right {
