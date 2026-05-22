@@ -133,7 +133,7 @@
 }
 
 .quick-sale-summary {
-    padding: 16px;
+    padding: 12px 16px;
     background: var(--bg-secondary);
     border-top: 1px solid var(--border-light);
 }
@@ -144,7 +144,37 @@
     font-size: 20px;
     font-weight: 700;
     color: var(--text-primary);
-    margin-bottom: 12px;
+    padding-top: 10px;
+    border-top: 1px solid var(--border-light);
+    margin-top: 6px;
+}
+
+.summary-row.items-row {
+    display: flex;
+    justify-content: space-between;
+    font-size: 13px;
+    color: var(--text-secondary);
+    margin-bottom: 4px;
+}
+
+.summary-row.savings-row {
+    display: flex;
+    justify-content: space-between;
+    font-size: 13px;
+    margin-bottom: 4px;
+}
+
+.savings-label {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    color: var(--success, #00a86b);
+    font-weight: 600;
+}
+
+.savings-value {
+    font-weight: 700;
+    color: var(--success, #00a86b);
 }
 
 .customer-display-btn {
@@ -171,42 +201,75 @@
     box-shadow: var(--shadow-sm);
 }
 
+/* Bottom section: summary + payment buttons pinned to the base of the left panel */
+.quick-sale-bottom {
+    margin-top: auto;
+    flex-shrink: 0;
+}
+
 .quick-sale-payments {
     display: grid;
-    grid-template-columns: repeat(4, 1fr);
+    grid-template-columns: repeat(3, 1fr);
     gap: 10px;
-    padding: 16px;
+    padding: 12px 16px 16px 16px;
     border-top: 1px solid var(--border-light);
 }
 
-.pay-btn {
+s-button.pay-btn {
+    grid-column: auto;
+}
+
+s-button.pay-btn.split {
+    grid-column: span 3;
+}
+
+/* Pay button inner layout */
+.pay-btn-inner {
     display: flex;
     flex-direction: column;
     align-items: center;
-    justify-content: center;
-    gap: 6px;
-    padding: 12px 6px;
-    border-radius: 8px;
-    border: 1px solid var(--border-strong) !important;
-    background: transparent !important;
-    color: var(--text-primary) !important;
+    gap: 4px;
+    width: 100%;
+    pointer-events: none;
+}
+
+.pay-btn-top {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    font-size: 13px;
     font-weight: 600;
-    cursor: pointer;
-    transition: all 0.2s ease;
 }
 
-.pay-btn:hover {
-    background: var(--bg-soft-hover) !important;
-    border-color: var(--accent) !important;
-    color: var(--accent) !important;
+.pay-btn-amount {
+    font-size: 16px;
+    font-weight: 800;
+    letter-spacing: -0.3px;
+    opacity: 0.92;
 }
 
-.pay-btn.cash,
-.pay-btn.upi,
-.pay-btn.card,
-.pay-btn.split {
-    grid-column: auto;
-    background: transparent !important;
+/* Split button: horizontal layout */
+.split-inner {
+    flex-direction: row;
+    justify-content: space-between;
+    padding: 0 8px;
+}
+
+.split-inner .pay-btn-top {
+    flex-direction: row;
+    align-items: center;
+    font-size: 14px;
+    gap: 6px;
+}
+
+.split-amount {
+    font-size: 15px;
+}
+
+/* remove old fallback button flex overrides */
+.pay-btn:not(.split) {
+    flex-direction: column !important;
 }
 
 .quick-sale-right {
@@ -232,21 +295,16 @@
 }
 
 .cat-btn {
-    padding: 6px 12px;
-    border-radius: 20px;
-    border: 1px solid var(--border-light);
-    background: var(--bg-secondary);
-    color: var(--text-primary);
     white-space: nowrap;
-    cursor: pointer;
-    transition: all 0.2s;
-    font-size: 13px;
+    user-select: none;
+    -webkit-user-select: none;
 }
 
-.cat-btn.active {
-    background: var(--accent);
-    color: white;
-    border-color: var(--accent);
+s-button:focus,
+s-button:focus-visible,
+s-button:active {
+    outline: none !important;
+    box-shadow: none !important;
 }
 
 .quick-sale-grid {
@@ -313,3 +371,37 @@
     color: var(--danger);
     background: rgba(255, 59, 48, 0.1);
 }
+
+/* Compact Dropdown Styling for GroupBy Select */
+.groupBy-select {
+    width: 140px;
+}
+
+.groupBy-select .custom-select-trigger {
+    height: 32px;
+    padding: 0 10px;
+    background: var(--bg-primary);
+    border-color: var(--border-strong);
+}
+
+.groupBy-select .selected-label {
+    font-size: 13px;
+    color: var(--text-primary);
+}
+
+.groupBy-select .custom-select-options {
+    background: var(--bg-primary);
+    border-color: var(--border-strong);
+}
+
+.groupBy-select .custom-select-option {
+    font-size: 13px;
+    padding: 6px 10px;
+    color: var(--text-primary);
+}
+
+.groupBy-select .custom-select-option:hover {
+    background: var(--accent-light);
+    color: var(--accent);
+}
+

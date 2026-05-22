@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { toast } from 'sonner';
 import { Icons } from './Icons';
 import SButton from './SButton';
+import CustomSelect from './CustomSelect';
 import SplitBillModal from './SplitBillModal';
 import './QuickSaleView.css';
 
@@ -23,6 +24,12 @@ export default function QuickSaleView({
     const gridRef = useRef(null);
     const holdTimeoutRef = useRef(null);
     const holdIntervalRef = useRef(null);
+
+    // Keep a ref to the latest addToCart to avoid stale closures during continuous additions
+    const addToCartRef = useRef(addToCart);
+    useEffect(() => {
+        addToCartRef.current = addToCart;
+    }, [addToCart]);
 
     // Auto-focus search input to be ready for barcode scanner
     useEffect(() => {
@@ -46,7 +53,7 @@ export default function QuickSaleView({
 
         holdTimeoutRef.current = setTimeout(() => {
             holdIntervalRef.current = setInterval(() => {
-                addToCart(product);
+                addToCartRef.current(product);
             }, 120); // repeat additions every 120ms
         }, 400); // start repeating if held >400ms
     };
@@ -149,6 +156,9 @@ export default function QuickSaleView({
     }, [filteredProducts, focusedIndex, addToCart]);
 
     const cartTotal = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+    const cartSubtotal = cart.reduce((sum, item) => sum + (Number(item.mrp || item.price) * item.quantity), 0);
+    const cartSavings = Math.max(0, cartSubtotal - cartTotal);
+    const totalItems = cart.reduce((sum, item) => sum + item.quantity, 0);
 
     const updateCartQty = (index, delta) => {
         const newCart = [...cart];
@@ -268,30 +278,91 @@ export default function QuickSaleView({
                     )}
                 </div>
 
-                <div className="quick-sale-summary">
-                    <div className="summary-row total-row">
-                        <span>Total Amount</span>
-                        <span>₹{cartTotal.toFixed(2)}</span>
+                {/* Summary + Payments pinned to bottom */}
+                <div className="quick-sale-bottom">
+                    <div className="quick-sale-summary">
+                        {cart.length > 0 && (
+                            <div className="summary-row items-row">
+                                <span className="summary-label">{totalItems} Item{totalItems !== 1 ? 's' : ''}</span>
+                                <span className="summary-value">₹{cartSubtotal.toFixed(2)}</span>
+                            </div>
+                        )}
+                        {cartSavings > 0 && (
+                            <div className="summary-row savings-row">
+                                <span className="summary-label savings-label">
+                                    <Icons.Tag size={12} /> You Save
+                                </span>
+                                <span className="summary-value savings-value">−₹{cartSavings.toFixed(2)}</span>
+                            </div>
+                        )}
+                        <div className="summary-row total-row">
+                            <span>Total Amount</span>
+                            <span>₹{cartTotal.toFixed(2)}</span>
+                        </div>
                     </div>
-                </div>
 
-                <div className="quick-sale-payments">
-                    <SButton variant="secondary" className="pay-btn cash" onClick={() => handleQuickPayment('Cash')}>
-                        <Icons.Banknote size={20} />
-                        Cash (F4)
-                    </SButton>
-                    <SButton variant="secondary" className="pay-btn upi" onClick={() => handleQuickPayment('UPI')}>
-                        <Icons.Smartphone size={20} />
-                        UPI
-                    </SButton>
-                    <SButton variant="secondary" className="pay-btn card" onClick={() => handleQuickPayment('Card')}>
-                        <Icons.CreditCard size={20} />
-                        Card
-                    </SButton>
-                    <SButton variant="secondary" className="pay-btn split" onClick={() => setShowSplitModal(true)}>
-                        <Icons.Layers size={20} />
-                        Split Bill
-                    </SButton>
+                    <div className="quick-sale-payments">
+                        <SButton 
+                            variant="primary" 
+                            size="large" 
+                            className="pay-btn cash" 
+                            onClick={() => handleQuickPayment('Cash')}
+                            fullWidth
+                        >
+                            <span className="pay-btn-inner">
+                                <span className="pay-btn-top">
+                                    <Icons.Banknote size={22} />
+                                    <span>Cash (F4)</span>
+                                </span>
+                                <span className="pay-btn-amount">₹{cartTotal.toFixed(2)}</span>
+                            </span>
+                        </SButton>
+                        <SButton 
+                            variant="primary" 
+                            size="large" 
+                            className="pay-btn upi" 
+                            onClick={() => handleQuickPayment('UPI')}
+                            fullWidth
+                        >
+                            <span className="pay-btn-inner">
+                                <span className="pay-btn-top">
+                                    <Icons.Smartphone size={22} />
+                                    <span>UPI</span>
+                                </span>
+                                <span className="pay-btn-amount">₹{cartTotal.toFixed(2)}</span>
+                            </span>
+                        </SButton>
+                        <SButton 
+                            variant="primary" 
+                            size="large" 
+                            className="pay-btn card" 
+                            onClick={() => handleQuickPayment('Card')}
+                            fullWidth
+                        >
+                            <span className="pay-btn-inner">
+                                <span className="pay-btn-top">
+                                    <Icons.CreditCard size={22} />
+                                    <span>Card</span>
+                                </span>
+                                <span className="pay-btn-amount">₹{cartTotal.toFixed(2)}</span>
+                            </span>
+                        </SButton>
+                        <SButton 
+                            variant="secondary" 
+                            size="large" 
+                            className="pay-btn split" 
+                            onClick={() => setShowSplitModal(true)}
+                            fullWidth
+                        >
+                            <span className="pay-btn-inner split-inner">
+                                <span className="pay-btn-top">
+                                    <Icons.Layers size={20} />
+                                    <span>Split Bill</span>
+                                </span>
+                                <span className="pay-btn-amount split-amount">₹{cartTotal.toFixed(2)}</span>
+                            </span>
+                        </SButton>
+                    </div>
                 </div>
             </div>
 
@@ -300,29 +371,20 @@ export default function QuickSaleView({
                     {categories.map(cat => {
                         const allProductsInCat = products.filter(p => p.category === cat);
                         return (
-                            <div key={cat} style={{ display: 'flex', alignItems: 'center', background: selectedCategory === cat ? 'var(--accent-light)' : 'var(--bg-secondary)', border: '1px solid var(--border-light)', borderRadius: '20px', padding: '2px 8px 2px 2px', gap: '4px' }}>
-                                <SButton 
-                                    variant={selectedCategory === cat ? 'primary' : 'secondary'}
-                                    size="slim"
-                                    onClick={() => setSelectedCategory(cat)}
-                                    className="cat-btn"
-                                    style={{ border: 'none', background: 'none', color: selectedCategory === cat ? 'white' : 'var(--text-primary)' }}
-                                >
-                                    {cat}
-                                </SButton>
-                                {cat !== 'All' && (
-                                    <button 
-                                        onClick={(e) => {
-                                            e.stopPropagation();
-                                            addAllProductsInGroup(allProductsInCat);
-                                        }}
-                                        title={`Add all ${cat} products to cart`}
-                                        style={{ border: 'none', background: 'rgba(0,0,0,0.05)', cursor: 'pointer', borderRadius: '50%', width: '18px', height: '18px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px', fontWeight: 'bold', color: 'var(--text-secondary)' }}
-                                    >
-                                        +
-                                    </button>
-                                )}
-                            </div>
+                            <SButton 
+                                key={cat}
+                                variant={selectedCategory === cat ? 'primary' : 'secondary'}
+                                size="slim"
+                                onClick={() => setSelectedCategory(cat)}
+                                onDoubleClick={() => {
+                                    const productsToUse = cat === 'All' ? products : allProductsInCat;
+                                    addAllProductsInGroup(productsToUse);
+                                }}
+                                className="cat-btn"
+                                title={cat === 'All' ? "Double-click to add all products" : `Double-click to add all ${cat} products`}
+                            >
+                                {cat}
+                            </SButton>
                         );
                     })}
                 </div>
@@ -333,16 +395,16 @@ export default function QuickSaleView({
                     </span>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                         <span style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>Group by:</span>
-                        <select 
+                        <CustomSelect 
                             value={groupBy} 
-                            onChange={e => setGroupBy(e.target.value)}
-                            className="form-control"
-                            style={{ padding: '4px 8px', fontSize: '12px', height: '28px', width: '130px', background: 'var(--bg-primary)', border: '1px solid var(--border-strong)', borderRadius: '6px' }}
-                        >
-                            <option value="none">No Grouping</option>
-                            <option value="subcategory">Subcategory</option>
-                            <option value="brand">Brand</option>
-                        </select>
+                            onChange={setGroupBy}
+                            options={[
+                                { value: 'none', label: 'No Grouping' },
+                                { value: 'subcategory', label: 'Subcategory' },
+                                { value: 'brand', label: 'Brand' }
+                            ]}
+                            className="groupBy-select"
+                        />
                     </div>
                 </div>
                 
@@ -356,19 +418,19 @@ export default function QuickSaleView({
                                     style={focusedIndex === index ? { borderColor: 'var(--accent)', boxShadow: '0 0 0 2px var(--accent-light)' } : {}}
                                     onMouseDown={(e) => {
                                         if (e.button !== 0) return;
-                                        addToCart(p);
+                                        addToCartRef.current(p);
                                         startContinuousAdd(p, e);
                                     }}
                                     onMouseUp={stopContinuousAdd}
                                     onMouseLeave={stopContinuousAdd}
                                     onTouchStart={(e) => {
-                                        addToCart(p);
+                                        addToCartRef.current(p);
                                         startContinuousAdd(p, e);
                                     }}
                                     onTouchEnd={stopContinuousAdd}
                                     onTouchCancel={stopContinuousAdd}
                                     onClick={(e) => {
-                                        if (e.detail === 0) addToCart(p); // keyboard trigger
+                                        if (e.detail === 0) addToCartRef.current(p); // keyboard trigger
                                     }}
                                 >
                                     <div className="tile-content">
@@ -393,19 +455,46 @@ export default function QuickSaleView({
                         <div style={{ padding: '16px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
                             {Object.entries(groupedData || {}).map(([groupName, items]) => (
                                 <div key={groupName} className="group-container" style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border-light)', paddingBottom: '6px' }}>
-                                        <h4 style={{ margin: 0, fontSize: '14px', fontWeight: 700, color: 'var(--accent)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                                            {groupBy === 'subcategory' ? 'Subcategory' : 'Brand'}: {groupName}
-                                        </h4>
-                                        <SButton 
-                                            variant="secondary" 
-                                            size="slim" 
-                                            onClick={() => addAllProductsInGroup(items)}
-                                            style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '11px', padding: '2px 8px' }}
-                                        >
-                                            <Icons.Plus size={12} /> Add All ({items.length})
-                                        </SButton>
-                                    </div>
+                                    <h5
+                                        className="subcategory-title"
+                                        style={{
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            gap: '6px',
+                                            fontSize: '11px',
+                                            fontWeight: '700',
+                                            color: 'var(--accent)',
+                                            textTransform: 'uppercase',
+                                            letterSpacing: '0.03em',
+                                            padding: '8px 14px',
+                                            background: 'var(--bg-card)',
+                                            borderRadius: 'var(--radius-sm)',
+                                            border: '1px solid var(--border-light)',
+                                            marginBottom: '10px',
+                                            marginTop: '8px',
+                                            cursor: 'pointer',
+                                            userSelect: 'none',
+                                            transition: 'all 0.2s ease',
+                                            width: '100%',
+                                            boxSizing: 'border-box'
+                                        }}
+                                        onDoubleClick={() => addAllProductsInGroup(items)}
+                                        title={`Double-click to add all products in this ${groupBy === 'subcategory' ? 'subcategory' : 'brand'}`}
+                                        onMouseEnter={(e) => {
+                                            e.currentTarget.style.background = 'var(--accent-light)';
+                                            e.currentTarget.style.transform = 'translateX(2px)';
+                                        }}
+                                        onMouseLeave={(e) => {
+                                            e.currentTarget.style.background = 'var(--bg-card)';
+                                            e.currentTarget.style.transform = 'none';
+                                        }}
+                                    >
+                                        <Icons.ChevronRight size={12} strokeWidth={3} />
+                                        {groupBy === 'subcategory' ? 'Subcategory' : 'Brand'}: {groupName}
+                                        <span style={{ fontSize: '9px', color: 'var(--text-tertiary)', fontWeight: 'normal', textTransform: 'none', marginLeft: '6px' }}>
+                                            (Double-click to add all)
+                                        </span>
+                                    </h5>
                                     
                                     <div className="quick-sale-grid" style={{ padding: 0 }}>
                                         {items.map((p) => (
@@ -414,19 +503,19 @@ export default function QuickSaleView({
                                                 className="product-tile"
                                                 onMouseDown={(e) => {
                                                     if (e.button !== 0) return;
-                                                    addToCart(p);
+                                                    addToCartRef.current(p);
                                                     startContinuousAdd(p, e);
                                                 }}
                                                 onMouseUp={stopContinuousAdd}
                                                 onMouseLeave={stopContinuousAdd}
                                                 onTouchStart={(e) => {
-                                                    addToCart(p);
+                                                    addToCartRef.current(p);
                                                     startContinuousAdd(p, e);
                                                 }}
                                                 onTouchEnd={stopContinuousAdd}
                                                 onTouchCancel={stopContinuousAdd}
                                                 onClick={(e) => {
-                                                    if (e.detail === 0) addToCart(p);
+                                                    if (e.detail === 0) addToCartRef.current(p);
                                                 }}
                                             >
                                                 <div className="tile-content">

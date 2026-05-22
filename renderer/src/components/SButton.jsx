@@ -17,7 +17,8 @@ export default function SButton({
     size = 'medium',
     style,
     className = '',
-    slot
+    slot,
+    ...props
 }) {
     // Fallback to native button if s-button web component is not available
     const useFallback = typeof window !== 'undefined' && !customElements.get('s-button');
@@ -49,6 +50,7 @@ export default function SButton({
                 disabled={disabled || loading}
                 style={buttonStyle}
                 className={className}
+                {...props}
             >
                 {loading ? 'Loading...' : children}
             </button>
@@ -66,9 +68,10 @@ export default function SButton({
             full-width={fullWidth ? 'true' : undefined}
             size={size}
             onClick={onClick}
-            style={style}
+            style={{ ...style, width: fullWidth ? '100%' : style?.width }}
             class={className}
             slot={slot}
+            {...props}
         >
             <span className="s-button-content">
                 {children}

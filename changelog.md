@@ -4,6 +4,19 @@ All notable changes to the Quantro ERP application will be documented here.
 
 ---
 
+## [2.0.6] - 2026-05-22
+### Added
+- **Category Selection Double-Click:** Enabled double-clicking category buttons to add all in-stock products in that category directly to the cart.
+- **Group Banners Redesign:** Redesigned subcategory and brand section headers as full-width banner cards, featuring hover translation animations, standard invoice styled icons, and double-click support to add all items in that group.
+- **Custom Select Grouping Dropdown:** Integrated the premium custom `CustomSelect` dropdown for grouping options and styled it with a compact height to fit seamlessly in the toolbar.
+- **Payment Panel UX Overhaul:** Pinned the summary + payment section to the bottom of the Quick Sale left panel. Each payment button (Cash, UPI, Card) now displays the cart total amount prominently as a price note below the label. The Split Bill button spans the full row and shows the total too.
+- **Rich Summary Panel:** The order summary above payment buttons now shows item count with subtotal, a "You Save" savings row (when MRP discounts apply), and a bold total row — giving cashiers an at-a-glance overview before collecting payment.
+### Changed / Fixed
+- **Quick Sale Payment Revert:** Reverted to standard Shopify `SButton` components for payment buttons (Cash, UPI, Card, Split Bill), making the Split Bill button span 100% of the grid container width in the second row.
+- **Category Button Accent Overhaul:** Restored standard Shopify `SButton` components for category selection, eliminating the custom oval backgrounds, custom borders, and native blue focus highlights.
+- **Continuous Add Quantity Bug Fix:** Resolved a stale closure issue in the click-and-hold interval handler, ensuring that quantities correctly increment during continuous addition.
+
+
 ## [2.0.5] - 2026-05-22
 ### Changed
 - **POS Quick Sale Payment Layout Refinement:** Moved the Split Bill checkout action directly into the payment buttons grid as a 4th button, styled identically with a custom Lucide Layers icon.

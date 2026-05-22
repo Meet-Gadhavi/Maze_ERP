@@ -10,3 +10,9 @@
 s-button {
     display: inline-block;
 }
+
+s-button[full-width="true"],
+s-button[full-width] {
+    display: flex !important;
+    width: 100% !important;
+}
