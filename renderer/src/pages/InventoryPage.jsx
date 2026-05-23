@@ -64,6 +64,9 @@ export default function InventoryPage() {
     const [stockHistory, setStockHistory] = useState([]);
     const [productSerials, setProductSerials] = useState([]);
     const [loadingSerials, setLoadingSerials] = useState(false);
+    const [settings, setSettings] = useState({});
+    const [newManualSerial, setNewManualSerial] = useState('');
+    const [editingSubCatName, setEditingSubCatName] = useState('');
 
     async function loadSerials(productId) {
         try {
@@ -76,6 +79,52 @@ export default function InventoryPage() {
         } finally {
             setLoadingSerials(false);
         }
+    }
+
+    async function handleManualAddSerial() {
+        if (!newManualSerial || !newManualSerial.trim()) {
+            toast.error('Please enter a serial number');
+            return;
+        }
+        try {
+            await api.addProductSerial(editingProduct.id, { serial_number: newManualSerial.trim() });
+            toast.success('Serial number added successfully');
+            setNewManualSerial('');
+            loadSerials(editingProduct.id);
+            loadProducts(); // reload products to update stock quantity
+        } catch (err) {
+            toast.error(err.message || 'Failed to add serial number');
+        }
+    }
+
+    async function handleManualDeleteSerial(serialId, serialNumber) {
+        if (!confirm(`Are you sure you want to delete the serial number "${serialNumber}"?`)) return;
+        try {
+            await api.deleteProductSerial(serialId);
+            toast.success('Serial number deleted successfully');
+            loadSerials(editingProduct.id);
+            loadProducts(); // reload products to update stock quantity
+        } catch (err) {
+            toast.error(err.message || 'Failed to delete serial number');
+        }
+    }
+
+    async function handleSaveSubCat(id) {
+        if (!editingSubCatName.trim()) {
+            toast.error('Sub-category name cannot be empty');
+            return;
+        }
+        const promise = api.updateSubcategory(id, editingSubCatName.trim());
+        toast.promise(promise, {
+            loading: 'Saving...',
+            success: () => {
+                api.getSubcategories().then(setSubcategories).catch(() => { });
+                setEditingSubCatId(null);
+                setEditingSubCatName('');
+                return 'Sub-category updated';
+            },
+            error: (err) => err.message || 'Failed to update sub-category'
+        });
     }
 
     // Delete confirm
@@ -140,11 +189,13 @@ export default function InventoryPage() {
         Promise.all([
             api.getCategories().catch(() => []),
             api.getSubcategories().catch(() => []),
-            api.getBrands().catch(() => [])
-        ]).then(([cats, subs, brds]) => {
+            api.getBrands().catch(() => []),
+            api.getSettings().catch(() => ({}))
+        ]).then(([cats, subs, brds, sets]) => {
             setCategories(cats);
             setSubcategories(subs);
             setBrands(brds);
+            setSettings(sets);
         });
     }, []);
 
@@ -1075,7 +1126,7 @@ export default function InventoryPage() {
                 <div className="modal-tabs" style={{ marginBottom: 20 }}>
                     <button className={`modal-tab ${activeModalTab === 'basic' ? 'active' : ''}`} onClick={() => setActiveModalTab('basic')}>Basic Details</button>
                     <button className={`modal-tab ${activeModalTab === 'variants' ? 'active' : ''}`} onClick={() => setActiveModalTab('variants')}>Variants & SKUs</button>
-                    {editingProduct && form.track_serials && (
+                    {editingProduct && settings.enable_serial_tracking === 'true' && form.track_serials && (
                         <button className={`modal-tab ${activeModalTab === 'serials' ? 'active' : ''}`} onClick={() => { setActiveModalTab('serials'); loadSerials(editingProduct.id); }}>Serial/IMEI Numbers</button>
                     )}
                 </div>
@@ -1244,17 +1295,19 @@ export default function InventoryPage() {
                                         <small>Assigns batch numbers and expiry tracking for this product</small>
                                     </div>
                                 </label>
-                                <label className="option-row">
-                                    <input
-                                        type="checkbox"
-                                        checked={form.track_serials}
-                                        onChange={e => setForm({ ...form, track_serials: e.target.checked })}
-                                    />
-                                    <div className="option-row-label">
-                                        <span>Track Serial / IMEI Numbers</span>
-                                        <small>Track unique individual serial numbers for this product</small>
-                                    </div>
-                                </label>
+                                {settings.enable_serial_tracking === 'true' && (
+                                    <label className="option-row">
+                                        <input
+                                            type="checkbox"
+                                            checked={form.track_serials}
+                                            onChange={e => setForm({ ...form, track_serials: e.target.checked })}
+                                        />
+                                        <div className="option-row-label">
+                                            <span>Track Serial / IMEI Numbers</span>
+                                            <small>Track unique individual serial numbers for this product</small>
+                                        </div>
+                                    </label>
+                                )}
                             </div>
 
                             {editingProduct && pendingOrders.length > 0 && (
@@ -1452,11 +1505,32 @@ export default function InventoryPage() {
                     {activeModalTab === 'serials' && (
                         <div>
                             <div className="modal-section-title">Serial / IMEI Tracking List</div>
+                            
+                            {/* Manual Serial Add Input */}
+                            <div className="flex gap-8 items-end mb-16" style={{ marginTop: '12px', marginBottom: '16px' }}>
+                                <div style={{ flex: 1 }}>
+                                    <FormGroup label="Add Serial Number Manually">
+                                        <Input
+                                            value={newManualSerial}
+                                            onChange={e => setNewManualSerial(e.target.value)}
+                                            placeholder="Enter serial or IMEI number"
+                                            onKeyDown={e => {
+                                                if (e.key === 'Enter') {
+                                                    e.preventDefault();
+                                                    handleManualAddSerial();
+                                                }
+                                            }}
+                                        />
+                                    </FormGroup>
+                                </div>
+                                <s-button onClick={handleManualAddSerial} style={{ height: '36px', marginBottom: '4px' }}>Add Serial</s-button>
+                            </div>
+
                             {loadingSerials ? (
                                 <div style={{ padding: '20px 0', textAlign: 'center', color: 'var(--text-secondary)' }}>Loading serial numbers...</div>
                             ) : productSerials.length === 0 ? (
                                 <div style={{ padding: '30px', textAlign: 'center', color: 'var(--text-tertiary)', border: '1px dashed var(--border)', borderRadius: '12px' }}>
-                                    No serial numbers registered yet. Purchase stock or add inventory to register serials.
+                                    No serial numbers registered yet. Enter a serial above or purchase stock to register serials.
                                 </div>
                             ) : (
                                 <div style={{ maxHeight: '400px', overflowY: 'auto' }}>
@@ -1466,6 +1540,7 @@ export default function InventoryPage() {
                                                 <th className="text-left" style={{ padding: '8px' }}>Serial / IMEI Number</th>
                                                 <th className="text-left" style={{ padding: '8px' }}>Status</th>
                                                 <th className="text-left" style={{ padding: '8px' }}>Created Date</th>
+                                                <th className="text-right" style={{ padding: '8px' }}>Actions</th>
                                             </tr>
                                         </thead>
                                         <tbody>
@@ -1486,6 +1561,19 @@ export default function InventoryPage() {
                                                     </td>
                                                     <td style={{ padding: '8px', color: 'var(--text-secondary)', fontSize: '12px' }}>
                                                         {s.created_at ? formatDate(s.created_at) : '—'}
+                                                    </td>
+                                                    <td className="text-right" style={{ padding: '8px' }}>
+                                                        {s.status === 'Available' ? (
+                                                            <s-button
+                                                                type="text"
+                                                                style={{ color: 'var(--error)', padding: '4px 8px' }}
+                                                                onClick={() => handleManualDeleteSerial(s.id, s.serial_number)}
+                                                            >
+                                                                Delete
+                                                            </s-button>
+                                                        ) : (
+                                                            <span style={{ fontSize: '11px', color: 'var(--text-tertiary)' }}>—</span>
+                                                        )}
                                                     </td>
                                                 </tr>
                                             ))}
@@ -1865,26 +1953,14 @@ export default function InventoryPage() {
                                             {editingSubCatId === sc.id ? (
                                                 <Input
                                                     autoFocus
-                                                    defaultValue={sc.name}
-                                                    onBlur={e => {
-                                                        if (e.target.value.trim() && e.target.value !== sc.name) {
-                                                            const promise = api.updateSubcategory(sc.id, e.target.value.trim());
-                                                            toast.promise(promise, {
-                                                                loading: 'Updating...',
-                                                                success: () => {
-                                                                    api.getSubcategories().then(setSubcategories).catch(() => { });
-                                                                    setEditingSubCatId(null);
-                                                                    return 'Updated';
-                                                                },
-                                                                error: (err) => err.message || 'Failed'
-                                                            });
-                                                        } else {
-                                                            setEditingSubCatId(null);
-                                                        }
-                                                    }}
+                                                    value={editingSubCatName}
+                                                    onChange={e => setEditingSubCatName(e.target.value)}
                                                     onKeyDown={e => {
-                                                        if (e.key === 'Enter') e.target.blur();
-                                                        if (e.key === 'Escape') setEditingSubCatId(null);
+                                                        if (e.key === 'Enter') handleSaveSubCat(sc.id);
+                                                        if (e.key === 'Escape') {
+                                                            setEditingSubCatId(null);
+                                                            setEditingSubCatName('');
+                                                        }
                                                     }}
                                                 />
                                             ) : (
@@ -1892,10 +1968,16 @@ export default function InventoryPage() {
                                             )}
                                         </td>
                                         <td className="text-right">
-                                            <div className="flex justify-end gap-4">
-                                                <s-button onClick={() => setEditingSubCatId(sc.id)} title="Edit name">
-                                                    Edit
-                                                </s-button>
+                                            <div className="flex justify-end" style={{ gap: '8px' }}>
+                                                {editingSubCatId === sc.id ? (
+                                                    <s-button onClick={() => handleSaveSubCat(sc.id)} title="Save name">
+                                                        Save
+                                                    </s-button>
+                                                ) : (
+                                                    <s-button onClick={() => { setEditingSubCatId(sc.id); setEditingSubCatName(sc.name); }} title="Edit name">
+                                                        Edit
+                                                    </s-button>
+                                                )}
                                                 <s-button tone="critical" title="Delete" onClick={async () => {
                                                     if (confirm(`Delete sub-category "${sc.name}"?`)) {
                                                         const promise = api.deleteSubcategory(sc.id);

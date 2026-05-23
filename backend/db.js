@@ -39,7 +39,8 @@ const SETTINGS_KEYS = {
   INVOICE_LANGUAGE: 'invoice_language',
   TIER_A_DISCOUNT: 'tier_a_discount',
   TIER_B_DISCOUNT: 'tier_b_discount',
-  TIER_C_DISCOUNT: 'tier_c_discount'
+  TIER_C_DISCOUNT: 'tier_c_discount',
+  ENABLE_SERIAL_TRACKING: 'enable_serial_tracking'
 };
 
 // In production, store database in %APPDATA%/Quantro/ (set by main.js).
@@ -371,13 +372,15 @@ ready = (async () => {
         SETTINGS_KEYS.ENABLE_BATCH_SYSTEM, SETTINGS_KEYS.REQUIRE_BATCH_NUMBER, SETTINGS_KEYS.ENABLE_EXPIRY_TRACKING,
         SETTINGS_KEYS.AUTO_BATCH_SELECTION_METHOD, SETTINGS_KEYS.EXPIRY_ALERT_DAYS, SETTINGS_KEYS.ALLOW_NEGATIVE_BATCH_STOCK,
         SETTINGS_KEYS.CLOUD_BACKUPS_ENABLED, SETTINGS_KEYS.AUTO_UPDATE_ENABLED, SETTINGS_KEYS.DEFAULT_CURRENCY, SETTINGS_KEYS.INVOICE_LANGUAGE,
-        SETTINGS_KEYS.TIER_A_DISCOUNT, SETTINGS_KEYS.TIER_B_DISCOUNT, SETTINGS_KEYS.TIER_C_DISCOUNT
+        SETTINGS_KEYS.TIER_A_DISCOUNT, SETTINGS_KEYS.TIER_B_DISCOUNT, SETTINGS_KEYS.TIER_C_DISCOUNT,
+        SETTINGS_KEYS.ENABLE_SERIAL_TRACKING
       ];
       keys.forEach(k => {
         let defaultValue = '';
         if (k === SETTINGS_KEYS.BACKUP_CYCLE) defaultValue = 'off';
         else if (k === SETTINGS_KEYS.ENABLE_BATCH_SYSTEM) defaultValue = 'true';
         else if (k === SETTINGS_KEYS.AUTO_BATCH_SELECTION_METHOD) defaultValue = 'FIFO';
+        else if (k === SETTINGS_KEYS.ENABLE_SERIAL_TRACKING) defaultValue = 'true';
         else if (k === SETTINGS_KEYS.EXPIRY_ALERT_DAYS) defaultValue = '30';
         else if (k === SETTINGS_KEYS.MAZEWAY_CLOUD_ENABLED) defaultValue = 'false';
         else if (k === SETTINGS_KEYS.MAZEWAY_API_KEY) defaultValue = '';

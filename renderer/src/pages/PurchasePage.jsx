@@ -227,7 +227,7 @@ export default function PurchasePage() {
         }
 
         for (const item of cart) {
-            if (item.track_serials) {
+            if (settings.enable_serial_tracking === 'true' && item.track_serials) {
                 const serials = item.serials || [];
                 if (serials.length !== item.quantity) {
                     return toast.error(`Product "${item.product_name}" requires exactly ${item.quantity} serial number(s). You have entered ${serials.length}.`);
@@ -454,7 +454,7 @@ export default function PurchasePage() {
                                                     )}
                                                 </div>
                                             )}
-                                            {item.track_serials && (
+                                            {settings.enable_serial_tracking === 'true' && item.track_serials && (
                                                 <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 4 }}>
                                                     <span style={{ fontSize: '0.8em', fontWeight: 600, color: (item.serials || []).length === item.quantity ? 'var(--success)' : 'var(--danger)' }}>
                                                         Serials ({(item.serials || []).length} of {item.quantity})

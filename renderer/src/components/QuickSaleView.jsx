@@ -73,9 +73,9 @@ export default function QuickSaleView({
 
     // Helper to add multiple products (used for category, subcategory, brand adds)
     const addAllProductsInGroup = (productList) => {
-        const availableProducts = productList.filter(p => p.stock_quantity > 0 || settings.flexible_inventory === 'true');
+        const availableProducts = productList;
         if (availableProducts.length === 0) {
-            toast.error("No in-stock products to add");
+            toast.error("No products to add");
             return;
         }
 
@@ -85,13 +85,16 @@ export default function QuickSaleView({
             if (index >= 0) {
                 const newQty = newCart[index].quantity + 1;
                 if (settings.flexible_inventory !== 'true' && newQty > p.stock_quantity) {
-                    newCart[index].quantity = p.stock_quantity;
-                    newCart[index].total = p.stock_quantity * newCart[index].price;
+                    newCart[index].quantity = Math.max(0, p.stock_quantity);
+                    newCart[index].total = Math.max(0, p.stock_quantity) * newCart[index].price;
                 } else {
                     newCart[index].quantity = newQty;
                     newCart[index].total = newQty * newCart[index].price;
                 }
             } else {
+                if (settings.flexible_inventory !== 'true' && p.stock_quantity <= 0) {
+                    return;
+                }
                 newCart.push({
                     product_id: p.id,
                     name: p.name,

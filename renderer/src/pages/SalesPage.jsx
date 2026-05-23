@@ -437,17 +437,12 @@ export default function SalesPage() {
             }));
             const variantsMap = new Map(allVariantsRes.map(v => [v.productId, v.variants]));
 
-            // 2. Identify candidate products that are in stock (or have in-stock variants)
-            const candidateProducts = productsList.filter(p => {
-                const hasInStockProduct = p.stock_quantity > 0;
-                if (hasInStockProduct) return true;
-                const vars = variantsMap.get(p.id) || [];
-                return vars.some(v => v.stock_quantity > 0);
-            });
+            // 2. Identify candidate products (all products in the list)
+            const candidateProducts = productsList;
 
             if (candidateProducts.length === 0) {
                 toast.dismiss(toastId);
-                toast.error("No in-stock products to add in this group!");
+                toast.error("No products to add in this group!");
                 return;
             }
 
@@ -913,8 +908,21 @@ export default function SalesPage() {
         if (cart.length === 0) return;
 
         if (!isAdvance) {
+            const isQuickSale = options.isQuickSale || false;
+            const currentSelectedCustomer = isQuickSale ? null : (selectedCustomer ? parseInt(selectedCustomer) : null);
+
+            // Validation: payments must match grand total if walk-in customer or paid status
+            if (!currentSelectedCustomer || paymentStatus === 'PAID') {
+                const targetPayments = options.paymentsOverride || payments;
+                const totalPaid = targetPayments.reduce((sum, p) => sum + (parseFloat(p.amount) || 0), 0);
+                if (Math.abs(totalPaid - finalTotal) > 0.01) {
+                    toast.error(`Payment amount must exactly match the grand total of ₹${finalTotal.toFixed(2)}. Entered: ₹${totalPaid.toFixed(2)}`);
+                    return;
+                }
+            }
+
             for (const item of cart) {
-                if (item.track_serials) {
+                if (settings.enable_serial_tracking === 'true' && item.track_serials) {
                     const serials = item.serials || [];
                     if (serials.length !== item.quantity) {
                         toast.error(`Product "${item.name}" requires exactly ${item.quantity} serial number(s). You have selected ${serials.length}.`);
@@ -1484,7 +1492,7 @@ export default function SalesPage() {
                                                                 Subcategory: {item.subcategory_name}
                                                             </div>
                                                         )}
-                                                        {item.track_serials && (
+                                                        {settings.enable_serial_tracking === 'true' && item.track_serials && (
                                                             <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 4 }}>
                                                                 <span style={{ fontSize: '0.85em', fontWeight: 600, color: (item.serials || []).length === item.quantity ? 'var(--success)' : 'var(--danger)' }}>
                                                                     Serials ({(item.serials || []).length} of {item.quantity})

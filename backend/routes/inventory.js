@@ -565,4 +565,75 @@ router.get('/:id/serials', async (req, res, next) => {
     }
 });
 
+// POST /api/products/:id/serials
+router.post('/:id/serials', async (req, res, next) => {
+    try {
+        await db.ready;
+        const productId = Number(req.params.id);
+        const { serial_number } = req.body;
+        if (!serial_number || !serial_number.trim()) {
+            return res.status(400).json({ error: 'Serial number is required' });
+        }
+        const trimmedSerial = serial_number.trim();
+
+        // Verify if the serial number already exists in product_serials before adding
+        const existing = db.get('SELECT * FROM product_serials WHERE serial_number = ?', [trimmedSerial]);
+        if (existing) {
+            return res.status(400).json({ error: 'Serial number already exists' });
+        }
+
+        // Insert serial number
+        const insertResult = db.run(
+            'INSERT INTO product_serials (product_id, serial_number, status) VALUES (?, ?, ?)',
+            [productId, trimmedSerial, 'Available']
+        );
+
+        // Increment product stock quantity by 1
+        db.run('UPDATE products SET stock_quantity = stock_quantity + 1 WHERE id = ?', [productId]);
+
+        // Record an IN stock movement
+        db.run(
+            'INSERT INTO stock_movements (product_id, type, quantity, reference_type, notes) VALUES (?, ?, ?, ?, ?)',
+            [productId, 'IN', 1, 'Manual', `Manually added serial number: ${trimmedSerial}`]
+        );
+
+        res.status(201).json({ id: insertResult.lastInsertRowid, product_id: productId, serial_number: trimmedSerial, status: 'Available' });
+    } catch (err) {
+        next(err);
+    }
+});
+
+// DELETE /api/products/serials/:serialId
+router.delete('/serials/:serialId', async (req, res, next) => {
+    try {
+        await db.ready;
+        const serialId = Number(req.params.serialId);
+
+        // Verify that the serial number exists and is 'Available'
+        const serial = db.get('SELECT * FROM product_serials WHERE id = ?', [serialId]);
+        if (!serial) {
+            return res.status(404).json({ error: 'Serial number not found' });
+        }
+        if (serial.status !== 'Available') {
+            return res.status(400).json({ error: 'Only Available serial numbers can be deleted' });
+        }
+
+        // Delete the serial number
+        db.run('DELETE FROM product_serials WHERE id = ?', [serialId]);
+
+        // Decrement product stock quantity by 1 (using MAX(0, stock_quantity - 1))
+        db.run('UPDATE products SET stock_quantity = MAX(0, stock_quantity - 1) WHERE id = ?', [serial.product_id]);
+
+        // Record an OUT stock movement
+        db.run(
+            'INSERT INTO stock_movements (product_id, type, quantity, reference_type, notes) VALUES (?, ?, ?, ?, ?)',
+            [serial.product_id, 'OUT', 1, 'Manual', `Manually deleted serial number: ${serial.serial_number}`]
+        );
+
+        res.json({ message: 'Serial number deleted successfully', serial_id: serialId });
+    } catch (err) {
+        next(err);
+    }
+});
+
 module.exports = router;

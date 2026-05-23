@@ -16,7 +16,7 @@ const ALLOWED_SETTINGS_KEYS = new Set([
     'enable_barcode_scanner', 'enable_customer_display', 'enable_cash_drawer',
     'mazeway_cloud_enabled', 'mazeway_api_key', 'mazeway_webhook_url', 'cloud_backups_enabled',
     'auto_push_to_ai', 'auto_update_enabled', 'default_currency', 'invoice_language',
-    'tier_a_discount', 'tier_b_discount', 'tier_c_discount'
+    'tier_a_discount', 'tier_b_discount', 'tier_c_discount', 'enable_serial_tracking'
 ]);
 
 // GET /api/settings

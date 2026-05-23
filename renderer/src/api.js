@@ -78,6 +78,8 @@ const api = {
     adjustStock: (productId, data) => request(`/products/${productId}/adjust`, { method: 'POST', body: data }),
     getProductBatches: (productId) => request(`/products/${productId}/batches`),
     getProductSerials: (productId) => request(`/products/${productId}/serials`),
+    addProductSerial: (productId, data) => request(`/products/${productId}/serials`, { method: 'POST', body: data }),
+    deleteProductSerial: (serialId) => request(`/products/serials/${serialId}`, { method: 'DELETE' }),
 
     // Invoices
     getInvoices: () => request('/invoices'),

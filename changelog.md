@@ -4,6 +4,14 @@ All notable changes to the Quantro ERP application will be documented here.
 
 ---
 
+## [2.0.8] - 2026-05-23
+### Added
+- **Serial & IMEI Tracking Settings Toggle:** Added a global toggle under settings (Batch & Lot Management) to enable or disable Serial/IMEI tracking throughout the application. When disabled, serial tracking options and tabs are hidden.
+- **Manual Serial CRUD:** Enabled adding and deleting available serial/IMEI numbers directly from the Product Inventory Serial tab, automatically adjusting stock counts and logging stock movements.
+- **POS Out of Stock Add:** Allowed double-clicking category or subcategory header banners to add all items to the cart, including out-of-stock items (controlled by global flexible inventory rules).
+- **Paid Invoice Payment Validation:** Enforced that the sum of payments exactly matches the grand total for normal Walk-in or PAID status invoices.
+- **Manage Subcategories Polish:** Fixed button spacing in subcategory actions and implemented a controlled Save action instead of Edit labels.
+
 ## [2.0.7] - 2026-05-22
 ### Fixed
 - **Stock Movement Trend Analytic:** Resolved a database query bug where the date values from stock movements (stored with full timestamps) failed to match calendar date strings in string comparison. Appended the SQLite `date()` function to convert full timestamps into matching date strings, enabling the trend dashboard to correctly display stock-in and stock-out activity.
