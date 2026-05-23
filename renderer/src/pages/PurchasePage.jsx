@@ -1280,7 +1280,7 @@ export default function PurchasePage() {
                 variant="critical"
                 size="small"
                 primaryAction={
-                    <SButton variant="critical"
+                    <SButton variant="primary" tone="critical"
                         onClick={() => {
                             const promise = api.deleteSupplier(deleteSupplier.id);
                             toast.promise(promise, {

@@ -625,36 +625,15 @@ export default function InventoryPage() {
                     </div>
 
                     {products.length === 0 && !loading ? (
-                        <div className="empty-inventory-state" style={{ 
-                            padding: '100px 20px', 
-                            textAlign: 'center', 
-                            background: 'var(--bg-card)', 
-                            borderRadius: '20px', 
-                            border: '2px dashed var(--border)', 
-                            marginTop: '20px',
-                            display: 'flex',
-                            flexDirection: 'column',
-                            alignItems: 'center',
-                            justifyContent: 'center'
-                        }}>
-                            <div style={{ 
-                                width: '80px', 
-                                height: '80px', 
-                                borderRadius: '24px', 
-                                background: 'rgba(0, 113, 227, 0.05)', 
-                                color: 'var(--accent)',
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                marginBottom: '24px'
-                            }}>
-                                <Icons.Package size={40} strokeWidth={1.5} />
+                        <div className="empty-state-premium">
+                            <div className="empty-icon-wrapper">
+                                <Icons.Package size={48} strokeWidth={1.5} />
                             </div>
-                            <h2 style={{ fontSize: '24px', fontWeight: '700', marginBottom: '12px', color: 'var(--text-primary)' }}>Your Inventory is Empty</h2>
-                            <p style={{ color: 'var(--text-secondary)', marginBottom: '32px', maxWidth: '420px', lineHeight: '1.6' }}>
+                            <h3>Your Inventory is Empty</h3>
+                            <p>
                                 Start building your product catalog. Add items, track stock levels, and organize your business by categories.
                             </p>
-                            <SButton variant="primary" onClick={openAdd} style={{ padding: '12px 32px', borderRadius: '12px', fontSize: '15px', fontWeight: 600 }}>Add Your First Product</SButton>
+                            <SButton variant="primary" onClick={openAdd}>Add Your First Product</SButton>
                         </div>
                     ) : (
                         <div className="inventory-grid">
@@ -1506,31 +1485,11 @@ export default function InventoryPage() {
                         <div>
                             <div className="modal-section-title">Serial / IMEI Tracking List</div>
                             
-                            {/* Manual Serial Add Input */}
-                            <div className="flex gap-8 items-end mb-16" style={{ marginTop: '12px', marginBottom: '16px' }}>
-                                <div style={{ flex: 1 }}>
-                                    <FormGroup label="Add Serial Number Manually">
-                                        <Input
-                                            value={newManualSerial}
-                                            onChange={e => setNewManualSerial(e.target.value)}
-                                            placeholder="Enter serial or IMEI number"
-                                            onKeyDown={e => {
-                                                if (e.key === 'Enter') {
-                                                    e.preventDefault();
-                                                    handleManualAddSerial();
-                                                }
-                                            }}
-                                        />
-                                    </FormGroup>
-                                </div>
-                                <s-button onClick={handleManualAddSerial} style={{ height: '36px', marginBottom: '4px' }}>Add Serial</s-button>
-                            </div>
-
                             {loadingSerials ? (
                                 <div style={{ padding: '20px 0', textAlign: 'center', color: 'var(--text-secondary)' }}>Loading serial numbers...</div>
                             ) : productSerials.length === 0 ? (
                                 <div style={{ padding: '30px', textAlign: 'center', color: 'var(--text-tertiary)', border: '1px dashed var(--border)', borderRadius: '12px' }}>
-                                    No serial numbers registered yet. Enter a serial above or purchase stock to register serials.
+                                    No serial numbers registered yet. Enter a serial below or purchase stock to register serials.
                                 </div>
                             ) : (
                                 <div style={{ maxHeight: '400px', overflowY: 'auto' }}>
@@ -1581,6 +1540,26 @@ export default function InventoryPage() {
                                     </table>
                                 </div>
                             )}
+
+                            {/* Manual Serial Add Input */}
+                            <div className="flex gap-8 items-end mb-16" style={{ marginTop: '16px', marginBottom: '16px' }}>
+                                <div style={{ flex: 1 }}>
+                                    <FormGroup label="Add Serial Number Manually">
+                                        <Input
+                                            value={newManualSerial}
+                                            onChange={e => setNewManualSerial(e.target.value)}
+                                            placeholder="Enter serial or IMEI number"
+                                            onKeyDown={e => {
+                                                if (e.key === 'Enter') {
+                                                    e.preventDefault();
+                                                    handleManualAddSerial();
+                                                }
+                                            }}
+                                        />
+                                    </FormGroup>
+                                </div>
+                                <s-button onClick={handleManualAddSerial} style={{ height: '36px', marginBottom: '4px' }}>Add Serial</s-button>
+                            </div>
                         </div>
                     )}
                 </div>

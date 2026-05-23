@@ -351,16 +351,78 @@ s-button.qs-sbtn .s-button-content,
     overflow: hidden;
 }
 
+.quick-sale-categories-wrapper {
+    position: relative;
+    overflow: hidden;
+    flex: 1;
+    min-width: 0;
+}
+
+.quick-sale-categories-header {
+    display: flex;
+    align-items: center;
+    border-bottom: 1px solid var(--border-light);
+    background: var(--bg-primary);
+}
+
 .quick-sale-categories {
     display: flex;
     gap: 6px;
     padding: 10px 16px;
     overflow-x: auto;
-    border-bottom: 1px solid var(--border-light);
+    scrollbar-width: none;  /* Firefox */
+    -ms-overflow-style: none;  /* IE and Edge */
+    user-select: none;
 }
 
 .quick-sale-categories::-webkit-scrollbar {
-    height: 6px;
+    display: none; /* Chrome, Safari, Opera */
+}
+
+.quick-sale-categories.grabbing {
+    cursor: grabbing !important;
+    scroll-behavior: auto !important;
+}
+
+.quick-sale-categories.grabbing .cat-btn {
+    pointer-events: none !important;
+}
+
+/* Linear-gradient fading blurs */
+.quick-sale-categories-wrapper::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 32px;
+    background: linear-gradient(to right, var(--bg-primary) 15%, transparent);
+    pointer-events: none;
+    z-index: 2;
+    opacity: 0;
+    transition: opacity 0.2s ease;
+}
+
+.quick-sale-categories-wrapper::after {
+    content: '';
+    position: absolute;
+    right: 0;
+    top: 0;
+    bottom: 0;
+    width: 32px;
+    background: linear-gradient(to left, var(--bg-primary) 15%, transparent);
+    pointer-events: none;
+    z-index: 2;
+    opacity: 0;
+    transition: opacity 0.2s ease;
+}
+
+.quick-sale-categories-wrapper.can-scroll-left::before {
+    opacity: 1;
+}
+
+.quick-sale-categories-wrapper.can-scroll-right::after {
+    opacity: 1;
 }
 
 .cat-btn {
@@ -474,3 +536,170 @@ s-button:active {
     color: var(--accent);
 }
 
+/* ── View Switcher ── */
+.view-toggle-container {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 0 12px;
+    border-left: 1px solid var(--border-light);
+    height: 40px;
+    flex-shrink: 0;
+    background: var(--bg-primary);
+}
+
+.view-toggle-btn {
+    background: transparent;
+    border: none;
+    border-radius: 6px;
+    color: var(--text-secondary);
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.view-toggle-btn:hover {
+    background: var(--bg-secondary);
+    color: var(--text-primary);
+}
+
+.view-toggle-btn.active {
+    background: var(--accent-light);
+    color: var(--accent);
+}
+
+/* ── List Layout styling ── */
+.quick-sale-list {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 16px;
+    overflow-y: auto;
+    align-content: start;
+}
+
+.product-list-row {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-strong);
+    border-radius: 12px;
+    padding: 12px 18px;
+    cursor: pointer;
+    transition: transform 0.1s, box-shadow 0.1s, border-color 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+}
+
+.product-list-row:active {
+    transform: scale(0.985);
+}
+
+.product-list-row:hover {
+    border-color: var(--accent);
+    box-shadow: 0 3px 10px rgba(0, 0, 0, 0.05);
+}
+
+.product-list-row.focused {
+    border-color: var(--accent) !important;
+    box-shadow: 0 0 0 2px var(--accent-light) !important;
+}
+
+.product-list-row .list-row-left {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    flex: 1;
+    min-width: 0;
+}
+
+.product-list-row .list-row-info {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    min-width: 0;
+}
+
+.product-list-row .list-row-info h5 {
+    margin: 0;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-primary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.product-list-row .list-row-meta {
+    font-size: 10px;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    display: flex;
+    gap: 4px;
+    letter-spacing: 0.02em;
+}
+
+.product-list-row .list-row-right {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    flex-shrink: 0;
+}
+
+.product-list-row .price {
+    font-weight: 700;
+    color: var(--accent);
+    font-size: 14px;
+}
+
+.product-list-row .stock {
+    font-size: 12px;
+    color: var(--text-secondary);
+    background: var(--bg-primary);
+    padding: 2px 8px;
+    border-radius: 10px;
+    min-width: 70px;
+    text-align: center;
+    font-weight: 500;
+}
+
+.product-list-row .stock.out {
+    color: var(--danger);
+    background: rgba(255, 59, 48, 0.1);
+}
+
+/* ── Split Bill Dropdowns ── */
+.split-select {
+    width: 90px;
+    flex-shrink: 0;
+}
+
+.split-select .custom-select-trigger {
+    height: 32px;
+    padding: 0 10px;
+    background: var(--bg-primary);
+    border-color: var(--border-strong);
+}
+
+.split-select .selected-label {
+    font-size: 12px;
+    color: var(--text-primary);
+}
+
+.split-select .custom-select-options {
+    background: var(--bg-primary);
+    border-color: var(--border-strong);
+    width: 90px;
+    min-width: 90px;
+}
+
+.split-select .custom-select-option {
+    font-size: 12px;
+    padding: 6px 10px;
+    color: var(--text-primary);
+}

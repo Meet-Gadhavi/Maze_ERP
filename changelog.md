@@ -4,13 +4,28 @@ All notable changes to the Quantro ERP application will be documented here.
 
 ---
 
+## [2.0.9] - 2026-05-23
+### Fixed
+- **POS Category Switching:** Resolved a bug where clicking category buttons in Quick Sale was not registering. The drag-to-scroll handler was blocking all pointer events on category buttons immediately on mousedown. Fixed by introducing a 5px drag threshold — pointer events are only suppressed once a real drag gesture is detected, so tap/click to switch category works correctly again.
+- **Split Bill Payment Dropdown:** Replaced the native browser `<select>` dropdowns in the Split Bill modal (Equal Split and Item Split tabs) with the premium `CustomSelect` component, matching the design language used throughout the app.
+- **Split Bill Equal Split Layout:** Changed Equal Split tab from a 2-column grid to a single-column vertical list layout matching the exact same row height, padding, and spacing as the Item Split tab for visual consistency.
+- **POS Payment Method Buttons:** Reverted payment method buttons (Cash, UPI, Card, Split Bill) back to native Shopify `SButton` components with `variant` toggling (`primary` when selected, `secondary` when not), matching the same selection effect as the Grid/List view switcher.
+
 ## [2.0.8] - 2026-05-23
+
 ### Added
+- **POS Quick Sale List View:** Added a layout toggle next to category selection to switch between standard Box/Grid view and detailed List view for product tiles, styled as native Shopify SButtons.
+- **POS Quick Sale Payment Selection:** Changed payment method buttons (Cash, UPI, Card, Split Bill) to toggle selection state (highlighting selected in white and unselected in black) rather than checking out instantly. Checking out is now performed by clicking the primary "Create Invoice" button.
+- **POS Categories Horizontal Swipe & Blurs:** Added horizontal categories overflow scroll mask with left/right linear-gradient edge blurs and drag-swipe sliding functionality.
 - **Serial & IMEI Tracking Settings Toggle:** Added a global toggle under settings (Batch & Lot Management) to enable or disable Serial/IMEI tracking throughout the application. When disabled, serial tracking options and tabs are hidden.
 - **Manual Serial CRUD:** Enabled adding and deleting available serial/IMEI numbers directly from the Product Inventory Serial tab, automatically adjusting stock counts and logging stock movements.
 - **POS Out of Stock Add:** Allowed double-clicking category or subcategory header banners to add all items to the cart, including out-of-stock items (controlled by global flexible inventory rules).
 - **Paid Invoice Payment Validation:** Enforced that the sum of payments exactly matches the grand total for normal Walk-in or PAID status invoices.
 - **Manage Subcategories Polish:** Fixed button spacing in subcategory actions and implemented a controlled Save action instead of Edit labels.
+### Fixed
+- **Print Daily Report Blank PDF:** Resolved print media stylesheet layout hide constraints by cloning the Z-report element to the body before printing, and exposed text values for starting/actual drawer cash.
+- **Empty Inventory Box Sizing:** Aligned the custom styled empty inventory container to match the exact size and styling of the global premium empty state card.
+- **Delete Modals Button Styling:** Fixed delete customer and supplier modal action buttons to render in critical red tone by using the correct Polaris-style props.
 
 ## [2.0.7] - 2026-05-22
 ### Fixed

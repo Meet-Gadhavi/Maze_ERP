@@ -523,7 +523,7 @@ export default function CustomersPage() {
                 size="small"
                 variant="critical"
                 primaryAction={
-                    <SButton variant="critical" onClick={handleDelete}>Delete Permanently</SButton>
+                    <SButton variant="primary" tone="critical" onClick={handleDelete}>Delete Permanently</SButton>
                 }
                 secondaryActions={
                     <SButton onClick={() => setDeleteId(null)}>Cancel</SButton>

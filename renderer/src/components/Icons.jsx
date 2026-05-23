@@ -10,7 +10,7 @@ import {
     Banknote, Smartphone, Command, Monitor, Cpu, MessageSquare,
     Zap, Pause, Play, Database, Archive, ShieldCheck, Lock, ArrowUp,
     PieChart, CloudLightning, BarChart2, ShoppingBag, UserPlus, ArrowUpDown, Tag,
-    Phone, Mail
+    Phone, Mail, List
 } from 'lucide-react';
 
 const DashboardCustomIcon = ({ size = 20, stroke = 'currentColor', strokeWidth = 1.18632, ...props }) => (
@@ -47,7 +47,7 @@ export const Icons = {
     Banknote, Smartphone, Command, Monitor, Cpu, MessageSquare,
     Zap, Pause, Play, Database, Archive, ShieldCheck, Lock, ArrowUp,
     PieChart, CloudLightning, BarChart2, ShoppingBag, UserPlus, ArrowUpDown, Tag,
-    Phone, Mail
+    Phone, Mail, Grid: LayoutGrid, List
 };
 
 export default Icons;

@@ -3,6 +3,8 @@ import Modal from './Modal';
 import SButton from './SButton';
 import { Icons } from './Icons';
 import { toast } from 'sonner';
+import CustomSelect from './CustomSelect';
+
 
 export default function SplitBillModal({ isOpen, onClose, cart, total, onConfirm }) {
     const [splitType, setSplitType] = useState('equal'); // 'equal', 'item', 'payment'
@@ -238,24 +240,27 @@ export default function SplitBillModal({ isOpen, onClose, cart, total, onConfirm
                             />
                         </div>
 
-                        <div className="equal-shares-list" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', maxHeight: '300px', overflowY: 'auto', padding: '4px' }}>
+                        <div className="equal-shares-list" style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxHeight: '300px', overflowY: 'auto', padding: '4px' }}>
                             {getEqualShares().map((amt, idx) => (
-                                <div key={idx} style={{ display: 'flex', alignItems: 'center', justifyBetween: 'space-between', padding: '10px 14px', background: 'var(--bg-secondary)', border: '1px solid var(--border-light)', borderRadius: '8px', gap: '10px' }}>
-                                    <span style={{ fontWeight: 600, flexGrow: 1 }}>Person {idx + 1}: ₹{amt.toFixed(2)}</span>
-                                    <select 
+                                <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 10px', background: 'var(--bg-secondary)', border: '1px solid var(--border-light)', borderRadius: '8px' }}>
+                                    <span style={{ fontWeight: 600, flexGrow: 1, fontSize: '13px' }}>Person {idx + 1}</span>
+                                    <span style={{ fontWeight: 600, fontSize: '13px', textAlign: 'right', marginRight: '8px' }}>
+                                        ₹{amt.toFixed(2)}
+                                    </span>
+                                    <CustomSelect 
                                         value={shareMethods[idx] || 'Cash'}
-                                        onChange={e => {
+                                        onChange={val => {
                                             const updated = [...shareMethods];
-                                            updated[idx] = e.target.value;
+                                            updated[idx] = val;
                                             setShareMethods(updated);
                                         }}
-                                        className="form-control"
-                                        style={{ width: '90px', padding: '4px 6px', height: '32px' }}
-                                    >
-                                        <option value="Cash">Cash</option>
-                                        <option value="UPI">UPI</option>
-                                        <option value="Card">Card</option>
-                                    </select>
+                                        options={[
+                                            { value: 'Cash', label: 'Cash' },
+                                            { value: 'UPI', label: 'UPI' },
+                                            { value: 'Card', label: 'Card' }
+                                        ]}
+                                        className="split-select"
+                                    />
                                 </div>
                             ))}
                         </div>
@@ -336,20 +341,20 @@ export default function SplitBillModal({ isOpen, onClose, cart, total, onConfirm
                                             <span style={{ fontWeight: 600, flexGrow: 1, fontSize: '13px', textAlign: 'right' }}>
                                                 ₹{sub.toFixed(2)}
                                             </span>
-                                            <select 
+                                            <CustomSelect 
                                                 value={b.method}
-                                                onChange={e => {
+                                                onChange={val => {
                                                     const updated = [...buyers];
-                                                    updated[idx].method = e.target.value;
+                                                    updated[idx].method = val;
                                                     setBuyers(updated);
                                                 }}
-                                                className="form-control"
-                                                style={{ width: '80px', padding: '2px 4px', height: '28px', fontSize: '12px' }}
-                                            >
-                                                <option value="Cash">Cash</option>
-                                                <option value="UPI">UPI</option>
-                                                <option value="Card">Card</option>
-                                            </select>
+                                                options={[
+                                                    { value: 'Cash', label: 'Cash' },
+                                                    { value: 'UPI', label: 'UPI' },
+                                                    { value: 'Card', label: 'Card' }
+                                                ]}
+                                                className="split-select"
+                                            />
                                             <button 
                                                 onClick={() => handleRemoveBuyer(b.id)}
                                                 style={{ border: 'none', background: 'none', color: 'var(--danger)', cursor: 'pointer', padding: '4px' }}

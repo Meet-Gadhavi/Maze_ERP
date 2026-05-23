@@ -12,6 +12,7 @@ export default function DailyReportModal({ onClose }) {
     const [expenses, setExpenses] = useState(0);
 
     const modalRef = useRef(null);
+    const reportContentRef = useRef(null);
 
     useEffect(() => {
         loadReport();
@@ -68,7 +69,14 @@ export default function DailyReportModal({ onClose }) {
     const difference = Number(actualCash) - expectedCash;
 
     function handlePrint() {
-        window.print();
+        if (!reportContentRef.current) return;
+        const printContent = reportContentRef.current.cloneNode(true);
+        printContent.classList.add('maze-print-el');
+        document.body.appendChild(printContent);
+        setTimeout(() => {
+            window.print();
+            document.body.removeChild(printContent);
+        }, 50);
     }
 
     return (
@@ -80,7 +88,7 @@ export default function DailyReportModal({ onClose }) {
                 heading="Daily Cash Report (Z-Report)"
                 size="large"
             >
-                <div className="report-content printable-report">
+                <div className="report-content printable-report" ref={reportContentRef}>
                     <p style={{ color: '#6d7175', marginBottom: '20px' }}>{new Date().toDateString()}</p>
                 <div className="report-grid">
                     {/* Financial Summary */}
@@ -136,6 +144,10 @@ export default function DailyReportModal({ onClose }) {
                                     />
                                 </div>
                             </div>
+                            <div className="recon-stat only-print">
+                                <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', color: '#6d7175', marginBottom: '8px' }}>Opening Cash (Starting)</label>
+                                <div className="value" style={{ fontSize: '18px', fontWeight: '700' }}>{formatCurrency(startingCash)}</div>
+                            </div>
                             <div className="recon-stat">
                                 <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', color: '#6d7175', marginBottom: '8px' }}>Expected Cash in Drawer</label>
                                 <div className="value" style={{ fontSize: '18px', fontWeight: '700' }}>{formatCurrency(expectedCash)}</div>
@@ -153,6 +165,10 @@ export default function DailyReportModal({ onClose }) {
                                         style={{ paddingLeft: '24px' }}
                                     />
                                 </div>
+                            </div>
+                            <div className="recon-stat only-print">
+                                <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', color: '#6d7175', marginBottom: '8px' }}>Actual Cash in Drawer</label>
+                                <div className="value" style={{ fontSize: '18px', fontWeight: '700' }}>{formatCurrency(actualCash)}</div>
                             </div>
                             <div className="recon-stat">
                                 <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', color: '#6d7175', marginBottom: '8px' }}>Discrepancy / Difference</label>

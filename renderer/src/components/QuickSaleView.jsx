@@ -21,9 +21,13 @@ export default function QuickSaleView({
     const [showSplitModal, setShowSplitModal] = useState(false);
     const [discountValue, setDiscountValue] = useState('');
     const [discountType, setDiscountType] = useState('%'); // '%' or '₹'
+    const [viewLayout, setViewLayout] = useState('grid'); // 'grid' or 'list'
+    const [scrollState, setScrollState] = useState({ canScrollLeft: false, canScrollRight: false });
+    const [selectedPaymentMethod, setSelectedPaymentMethod] = useState('Cash');
     
     const searchInputRef = useRef(null);
     const gridRef = useRef(null);
+    const categoriesRef = useRef(null);
     const holdTimeoutRef = useRef(null);
     const holdIntervalRef = useRef(null);
 
@@ -40,6 +44,95 @@ export default function QuickSaleView({
         }
     }, []);
 
+    // Update categories scroll indicators
+    const updateScrollState = () => {
+        const el = categoriesRef.current;
+        if (el) {
+            const canScrollLeft = el.scrollLeft > 2;
+            const canScrollRight = el.scrollLeft < el.scrollWidth - el.clientWidth - 2;
+            setScrollState({ canScrollLeft, canScrollRight });
+        }
+    };
+
+    useEffect(() => {
+        const el = categoriesRef.current;
+        if (el) {
+            el.addEventListener('scroll', updateScrollState);
+            updateScrollState();
+            window.addEventListener('resize', updateScrollState);
+        }
+        return () => {
+            if (el) el.removeEventListener('scroll', updateScrollState);
+            window.removeEventListener('resize', updateScrollState);
+        };
+    }, [products]);
+
+    useEffect(() => {
+        const timer = setTimeout(updateScrollState, 100);
+        return () => clearTimeout(timer);
+    }, [selectedCategory, products]);
+
+    // Categories drag to scroll
+    useEffect(() => {
+        const el = categoriesRef.current;
+        if (!el) return;
+
+        let isDown = false;
+        let hasDragged = false;
+        let startX;
+        let scrollLeft;
+        const DRAG_THRESHOLD = 5; // px moved before treating as drag
+
+        const handleMouseDown = (e) => {
+            isDown = true;
+            hasDragged = false;
+            startX = e.pageX - el.offsetLeft;
+            scrollLeft = el.scrollLeft;
+        };
+
+        const handleMouseLeave = () => {
+            isDown = false;
+            hasDragged = false;
+            el.classList.remove('grabbing');
+        };
+
+        const handleMouseUp = () => {
+            isDown = false;
+            hasDragged = false;
+            el.classList.remove('grabbing');
+        };
+
+        const handleMouseMove = (e) => {
+            if (!isDown) return;
+            const x = e.pageX - el.offsetLeft;
+            const walk = (x - startX) * 2;
+
+            // Only start drag mode once the mouse has moved beyond threshold
+            if (!hasDragged && Math.abs(x - startX) < DRAG_THRESHOLD) return;
+
+            if (!hasDragged) {
+                hasDragged = true;
+                el.classList.add('grabbing');
+            }
+
+            e.preventDefault();
+            el.scrollLeft = scrollLeft - walk;
+            updateScrollState();
+        };
+
+        el.addEventListener('mousedown', handleMouseDown);
+        el.addEventListener('mouseleave', handleMouseLeave);
+        el.addEventListener('mouseup', handleMouseUp);
+        el.addEventListener('mousemove', handleMouseMove);
+
+        return () => {
+            el.removeEventListener('mousedown', handleMouseDown);
+            el.removeEventListener('mouseleave', handleMouseLeave);
+            el.removeEventListener('mouseup', handleMouseUp);
+            el.removeEventListener('mousemove', handleMouseMove);
+        };
+    }, []);
+
     // Clean up timers on unmount
     useEffect(() => {
         return () => {
@@ -47,6 +140,13 @@ export default function QuickSaleView({
             if (holdIntervalRef.current) clearInterval(holdIntervalRef.current);
         };
     }, []);
+
+    // Reset payment selection when cart is cleared
+    useEffect(() => {
+        if (cart.length === 0) {
+            setSelectedPaymentMethod('Cash');
+        }
+    }, [cart.length]);
 
     // Continuous Click-and-Hold Addition Handler
     const startContinuousAdd = (product, e) => {
@@ -189,21 +289,6 @@ export default function QuickSaleView({
         setCart(newCart);
     };
 
-    const handleQuickPayment = async (method) => {
-        if (cart.length === 0) {
-            toast.error("Cart is empty");
-            return;
-        }
-
-        const mockEvent = { preventDefault: () => {} };
-        await handleCreateInvoice(mockEvent, {
-            isQuickSale: true,
-            walkInName: 'Quick Sale',
-            discount: discountAmount,
-            paymentsOverride: [{ method, amount: finalTotal, transaction_id: '' }]
-        });
-    };
-
     const handleConfirmSplitBill = async (paymentsList) => {
         setShowSplitModal(false);
         const mockEvent = { preventDefault: () => {} };
@@ -296,26 +381,49 @@ export default function QuickSaleView({
             </div>{/* end quick-sale-left */}
 
             <div className="quick-sale-right">
-                <div className="quick-sale-categories">
-                    {categories.map(cat => {
-                        const allProductsInCat = products.filter(p => p.category === cat);
-                        return (
-                            <SButton 
-                                key={cat}
-                                variant={selectedCategory === cat ? 'primary' : 'secondary'}
-                                size="slim"
-                                onClick={() => setSelectedCategory(cat)}
-                                onDoubleClick={() => {
-                                    const productsToUse = cat === 'All' ? products : allProductsInCat;
-                                    addAllProductsInGroup(productsToUse);
-                                }}
-                                className="cat-btn"
-                                title={cat === 'All' ? "Double-click to add all products" : `Double-click to add all ${cat} products`}
-                            >
-                                {cat}
-                            </SButton>
-                        );
-                    })}
+                <div className="quick-sale-categories-header" style={{ display: 'flex', alignItems: 'center', borderBottom: '1px solid var(--border-light)', background: 'var(--bg-primary)' }}>
+                    <div style={{ flex: 1, minWidth: 0, position: 'relative' }} className={`quick-sale-categories-wrapper ${scrollState.canScrollLeft ? 'can-scroll-left' : ''} ${scrollState.canScrollRight ? 'can-scroll-right' : ''}`}>
+                        <div className="quick-sale-categories" ref={categoriesRef} style={{ borderBottom: 'none' }}>
+                            {categories.map(cat => {
+                                const allProductsInCat = products.filter(p => p.category === cat);
+                                return (
+                                    <SButton 
+                                        key={cat}
+                                        variant={selectedCategory === cat ? 'primary' : 'secondary'}
+                                        size="slim"
+                                        onClick={() => setSelectedCategory(cat)}
+                                        onDoubleClick={() => {
+                                            const productsToUse = cat === 'All' ? products : allProductsInCat;
+                                            addAllProductsInGroup(productsToUse);
+                                        }}
+                                        className="cat-btn"
+                                        title={cat === 'All' ? "Double-click to add all products" : `Double-click to add all ${cat} products`}
+                                    >
+                                        {cat}
+                                    </SButton>
+                                );
+                            })}
+                        </div>
+                    </div>
+                    {/* Grid / List View Toggle Switch */}
+                    <div className="view-toggle-container">
+                        <SButton 
+                            variant={viewLayout === 'grid' ? 'primary' : 'secondary'}
+                            size="slim"
+                            onClick={() => setViewLayout('grid')}
+                            title="Box/Grid View"
+                        >
+                            <Icons.Grid size={16} />
+                        </SButton>
+                        <SButton 
+                            variant={viewLayout === 'list' ? 'primary' : 'secondary'}
+                            size="slim"
+                            onClick={() => setViewLayout('list')}
+                            title="List View"
+                        >
+                            <Icons.List size={16} />
+                        </SButton>
+                    </div>
                 </div>
 
                 <div className="quick-sale-grid-controls" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 16px', borderBottom: '1px solid var(--border-light)', background: 'var(--bg-secondary)' }}>
@@ -339,11 +447,11 @@ export default function QuickSaleView({
                 
                 <div className="quick-sale-grid-scroll" style={{ flex: 1, overflowY: 'auto' }}>
                     {groupBy === 'none' ? (
-                        <div className="quick-sale-grid" ref={gridRef}>
+                        <div className={viewLayout === 'grid' ? "quick-sale-grid" : "quick-sale-list"} ref={gridRef}>
                             {filteredProducts.map((p, index) => (
                                 <div 
                                     key={p.id} 
-                                    className={`product-tile ${focusedIndex === index ? 'focused' : ''}`}
+                                    className={viewLayout === 'grid' ? `product-tile ${focusedIndex === index ? 'focused' : ''}` : `product-list-row ${focusedIndex === index ? 'focused' : ''}`}
                                     style={focusedIndex === index ? { borderColor: 'var(--accent)', boxShadow: '0 0 0 2px var(--accent-light)' } : {}}
                                     onMouseDown={(e) => {
                                         if (e.button !== 0) return;
@@ -362,21 +470,45 @@ export default function QuickSaleView({
                                         if (e.detail === 0) addToCartRef.current(p); // keyboard trigger
                                     }}
                                 >
-                                    <div className="tile-content">
-                                        <div className="product-metadata" style={{ fontSize: '10px', color: 'var(--text-secondary)', marginBottom: '4px', textTransform: 'uppercase', display: 'flex', gap: '4px', justifyContent: 'center' }}>
-                                            <span>{p.brand_name || 'Generic'}</span>
-                                            <span>•</span>
-                                            <span>{p.subcategory_name || 'General'}</span>
+                                    {viewLayout === 'grid' ? (
+                                        <div className="tile-content">
+                                            <div className="product-metadata" style={{ fontSize: '10px', color: 'var(--text-secondary)', marginBottom: '4px', textTransform: 'uppercase', display: 'flex', gap: '4px', justifyContent: 'center' }}>
+                                                <span>{p.brand_name || 'Generic'}</span>
+                                                <span>•</span>
+                                                <span>{p.subcategory_name || 'General'}</span>
+                                            </div>
+                                            <div className="product-icon-wrap" style={{ marginBottom: '6px', color: 'var(--accent)', opacity: 0.8 }}>
+                                                <Icons.Package size={24} />
+                                            </div>
+                                            <h5>{p.name}</h5>
+                                            <span className="price">₹{Number(p.selling_price || 0).toFixed(2)}</span>
+                                            <span className={`stock ${p.stock_quantity <= 0 ? 'out' : ''}`}>
+                                                {p.stock_quantity} {p.unit || 'pcs'}
+                                            </span>
                                         </div>
-                                        <div className="product-icon-wrap" style={{ marginBottom: '6px', color: 'var(--accent)', opacity: 0.8 }}>
-                                            <Icons.Package size={24} />
-                                        </div>
-                                        <h5>{p.name}</h5>
-                                        <span className="price">₹{Number(p.selling_price || 0).toFixed(2)}</span>
-                                        <span className={`stock ${p.stock_quantity <= 0 ? 'out' : ''}`}>
-                                            {p.stock_quantity} {p.unit || 'pcs'}
-                                        </span>
-                                    </div>
+                                    ) : (
+                                        <>
+                                            <div className="list-row-left">
+                                                <div style={{ color: 'var(--accent)', opacity: 0.8, flexShrink: 0 }}>
+                                                    <Icons.Package size={20} />
+                                                </div>
+                                                <div className="list-row-info">
+                                                    <h5>{p.name}</h5>
+                                                    <div className="list-row-meta">
+                                                        <span>{p.brand_name || 'Generic'}</span>
+                                                        <span>•</span>
+                                                        <span>{p.subcategory_name || 'General'}</span>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <div className="list-row-right">
+                                                <span className="price">₹{Number(p.selling_price || 0).toFixed(2)}</span>
+                                                <span className={`stock ${p.stock_quantity <= 0 ? 'out' : ''}`}>
+                                                    {p.stock_quantity} {p.unit || 'pcs'}
+                                                </span>
+                                            </div>
+                                        </>
+                                    )}
                                 </div>
                             ))}
                         </div>
@@ -425,11 +557,11 @@ export default function QuickSaleView({
                                         </span>
                                     </h5>
                                     
-                                    <div className="quick-sale-grid" style={{ padding: 0 }}>
+                                    <div className={viewLayout === 'grid' ? "quick-sale-grid" : "quick-sale-list"} style={{ padding: 0 }}>
                                         {items.map((p) => (
                                             <div 
                                                 key={p.id} 
-                                                className="product-tile"
+                                                className={viewLayout === 'grid' ? "product-tile" : "product-list-row"}
                                                 onMouseDown={(e) => {
                                                     if (e.button !== 0) return;
                                                     addToCartRef.current(p);
@@ -447,21 +579,45 @@ export default function QuickSaleView({
                                                     if (e.detail === 0) addToCartRef.current(p);
                                                 }}
                                             >
-                                                <div className="tile-content">
-                                                    <div className="product-metadata" style={{ fontSize: '10px', color: 'var(--text-secondary)', marginBottom: '4px', textTransform: 'uppercase', display: 'flex', gap: '4px', justifyContent: 'center' }}>
-                                                        <span>{p.brand_name || 'Generic'}</span>
-                                                        <span>•</span>
-                                                        <span>{p.subcategory_name || 'General'}</span>
+                                                {viewLayout === 'grid' ? (
+                                                    <div className="tile-content">
+                                                        <div className="product-metadata" style={{ fontSize: '10px', color: 'var(--text-secondary)', marginBottom: '4px', textTransform: 'uppercase', display: 'flex', gap: '4px', justifyContent: 'center' }}>
+                                                            <span>{p.brand_name || 'Generic'}</span>
+                                                            <span>•</span>
+                                                            <span>{p.subcategory_name || 'General'}</span>
+                                                        </div>
+                                                        <div className="product-icon-wrap" style={{ marginBottom: '6px', color: 'var(--accent)', opacity: 0.8 }}>
+                                                            <Icons.Package size={24} />
+                                                        </div>
+                                                        <h5>{p.name}</h5>
+                                                        <span className="price">₹{Number(p.selling_price || 0).toFixed(2)}</span>
+                                                        <span className={`stock ${p.stock_quantity <= 0 ? 'out' : ''}`}>
+                                                            {p.stock_quantity} {p.unit || 'pcs'}
+                                                        </span>
                                                     </div>
-                                                    <div className="product-icon-wrap" style={{ marginBottom: '6px', color: 'var(--accent)', opacity: 0.8 }}>
-                                                        <Icons.Package size={24} />
-                                                    </div>
-                                                    <h5>{p.name}</h5>
-                                                    <span className="price">₹{Number(p.selling_price || 0).toFixed(2)}</span>
-                                                    <span className={`stock ${p.stock_quantity <= 0 ? 'out' : ''}`}>
-                                                        {p.stock_quantity} {p.unit || 'pcs'}
-                                                    </span>
-                                                </div>
+                                                ) : (
+                                                    <>
+                                                        <div className="list-row-left">
+                                                            <div style={{ color: 'var(--accent)', opacity: 0.8, flexShrink: 0 }}>
+                                                                <Icons.Package size={20} />
+                                                            </div>
+                                                            <div className="list-row-info">
+                                                                <h5>{p.name}</h5>
+                                                                <div className="list-row-meta">
+                                                                    <span>{p.brand_name || 'Generic'}</span>
+                                                                    <span>•</span>
+                                                                    <span>{p.subcategory_name || 'General'}</span>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                        <div className="list-row-right">
+                                                            <span className="price">₹{Number(p.selling_price || 0).toFixed(2)}</span>
+                                                            <span className={`stock ${p.stock_quantity <= 0 ? 'out' : ''}`}>
+                                                                {p.stock_quantity} {p.unit || 'pcs'}
+                                                            </span>
+                                                        </div>
+                                                    </>
+                                                )}
                                             </div>
                                         ))}
                                     </div>
@@ -522,25 +678,45 @@ export default function QuickSaleView({
                     <div className="qs-field-group">
                         <span className="qs-field-label">Payments</span>
                         <div className="qs-pay-row">
-                            <SButton variant="primary" size="large" className="qs-sbtn" onClick={() => handleQuickPayment('Cash')}>
+                            <SButton 
+                                variant={selectedPaymentMethod === 'Cash' ? 'primary' : 'secondary'} 
+                                size="large"
+                                className="qs-sbtn"
+                                onClick={() => setSelectedPaymentMethod('Cash')}
+                            >
                                 <Icons.Banknote size={17} />
                                 <span className="qs-sbtn-text">
                                     <span className="qs-sbtn-label">Cash</span>
                                 </span>
                             </SButton>
-                            <SButton variant="primary" size="large" className="qs-sbtn" onClick={() => handleQuickPayment('UPI')}>
+                            <SButton 
+                                variant={selectedPaymentMethod === 'UPI' ? 'primary' : 'secondary'} 
+                                size="large"
+                                className="qs-sbtn"
+                                onClick={() => setSelectedPaymentMethod('UPI')}
+                            >
                                 <Icons.Smartphone size={17} />
                                 <span className="qs-sbtn-text">
                                     <span className="qs-sbtn-label">UPI</span>
                                 </span>
                             </SButton>
-                            <SButton variant="primary" size="large" className="qs-sbtn" onClick={() => handleQuickPayment('Card')}>
+                            <SButton 
+                                variant={selectedPaymentMethod === 'Card' ? 'primary' : 'secondary'} 
+                                size="large"
+                                className="qs-sbtn"
+                                onClick={() => setSelectedPaymentMethod('Card')}
+                            >
                                 <Icons.CreditCard size={17} />
                                 <span className="qs-sbtn-text">
                                     <span className="qs-sbtn-label">Card</span>
                                 </span>
                             </SButton>
-                            <SButton variant="secondary" size="large" className="qs-sbtn" onClick={() => setShowSplitModal(true)}>
+                            <SButton 
+                                variant="secondary"
+                                size="large"
+                                className="qs-sbtn"
+                                onClick={() => setShowSplitModal(true)}
+                            >
                                 <Icons.Layers size={17} />
                                 <span className="qs-sbtn-text">
                                     <span className="qs-sbtn-label">Split Bill</span>
@@ -552,12 +728,14 @@ export default function QuickSaleView({
                                 className="qs-sbtn qs-invoice-btn"
                                 onClick={async () => {
                                     if (cart.length === 0) { toast.error('Cart is empty'); return; }
+                                    if (!selectedPaymentMethod) { toast.error('Please select a payment method'); return; }
+                                    
                                     const mockEvent = { preventDefault: () => {} };
                                     await handleCreateInvoice(mockEvent, {
                                         isQuickSale: true,
                                         walkInName: 'Quick Sale',
                                         discount: discountAmount,
-                                        skipAutoPayment: true,
+                                        paymentsOverride: [{ method: selectedPaymentMethod, amount: finalTotal, transaction_id: '' }]
                                     });
                                 }}
                             >

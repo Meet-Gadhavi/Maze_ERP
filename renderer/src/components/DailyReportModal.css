@@ -214,10 +214,22 @@
     max-width: 400px;
 }
 
+.only-print {
+    display: none !important;
+}
+
 /* Print Styles */
 @media print {
     .no-print {
         display: none !important;
+    }
+
+    .only-print {
+        display: block !important;
+    }
+
+    .recon-stat.only-print {
+        display: block !important;
     }
 
     body * {
