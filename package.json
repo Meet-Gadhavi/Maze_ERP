@@ -68,6 +68,7 @@
     "electron-updater": "^6.8.3",
     "express": "^4.21.0",
     "express-rate-limit": "^8.4.1",
+    "googleapis": "^172.0.0",
     "helmet": "^8.1.0",
     "sql.js": "^1.11.0",
     "zod": "^4.3.6"

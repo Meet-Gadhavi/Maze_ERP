@@ -38,6 +38,7 @@ app.use('/api/dashboard', require('./routes/dashboard'));
 app.use('/api/products', require('./routes/inventory'));
 app.use('/api/invoices', require('./routes/sales'));
 app.use('/api/customers', require('./routes/customers'));
+app.use('/api/coupons', require('./routes/coupons'));
 app.use('/api/suppliers', require('./routes/suppliers'));
 app.use('/api/purchases', require('./routes/purchases'));
 app.use('/api/expenses', require('./routes/expenses'));
@@ -45,6 +46,7 @@ app.use('/api/settings', require('./routes/settings'));
 app.use('/api/reports', require('./routes/reports'));
 app.use('/api/mazeway', require('./routes/mazeway'));
 app.use('/api/data', dataRoutes);
+app.use('/auth/google', require('./routes/googleAuth'));
 
 // Health check
 app.get('/api/health', (_req, res) => {
@@ -140,6 +142,12 @@ function startServer() {
     const server = app.listen(PORT, () => {
         console.log(`[Maze ERP] Backend running on http://localhost:${PORT}`);
         startBackupService();
+        try {
+            const { startCampaignScheduler } = require('./services/email/campaignScheduler');
+            startCampaignScheduler();
+        } catch (e) {
+            console.error('[Maze ERP] Failed to start campaign scheduler:', e.message);
+        }
     });
 
     server.on('error', async (err) => {

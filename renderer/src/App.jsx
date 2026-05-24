@@ -143,6 +143,25 @@ export default function App() {
                             console.error('Failed to parse Mazeway callback:', e);
                         }
                     }
+                    // Handle Google OAuth Callback (Query Params)
+                    else if (url.includes('google-auth-callback')) {
+                        try {
+                            const urlObj = new URL(url.replace('maze-erp://', 'http://'));
+                            const status = urlObj.searchParams.get('status');
+                            const email = urlObj.searchParams.get('email');
+                            const message = urlObj.searchParams.get('message');
+
+                            if (status === 'success') {
+                                toast.success(`Gmail account connected: ${email}`);
+                                // Dispatch event to refresh Gmail connection status in UI
+                                window.postMessage({ type: 'gmail-connected', email }, '*');
+                            } else {
+                                toast.error(`Gmail Connection Failed: ${message || 'Unknown error'}`);
+                            }
+                        } catch (e) {
+                            console.error('Failed to parse Google OAuth callback:', e);
+                        }
+                    }
                 });
             }
 

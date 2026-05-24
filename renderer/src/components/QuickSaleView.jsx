@@ -4,6 +4,7 @@ import { Icons } from './Icons';
 import SButton from './SButton';
 import CustomSelect from './CustomSelect';
 import SplitBillModal from './SplitBillModal';
+import api from '../api';
 import './QuickSaleView.css';
 
 export default function QuickSaleView({ 
@@ -23,7 +24,12 @@ export default function QuickSaleView({
     const [discountType, setDiscountType] = useState('%'); // '%' or '₹'
     const [viewLayout, setViewLayout] = useState('grid'); // 'grid' or 'list'
     const [scrollState, setScrollState] = useState({ canScrollLeft: false, canScrollRight: false });
-    const [selectedPaymentMethod, setSelectedPaymentMethod] = useState('Cash');
+    const [selectedPaymentMethod, setSelectedPaymentMethod] = useState(null);
+    const [walkInName, setWalkInName] = useState('Walk-in');
+    const [walkInPhone, setWalkInPhone] = useState('');
+    const [couponCode, setCouponCode] = useState('');
+    const [appliedCoupon, setAppliedCoupon] = useState(null);
+    const [loadingCoupon, setLoadingCoupon] = useState(false);
     
     const searchInputRef = useRef(null);
     const gridRef = useRef(null);
@@ -141,10 +147,14 @@ export default function QuickSaleView({
         };
     }, []);
 
-    // Reset payment selection when cart is cleared
+    // Reset payment selection, customer details, and coupons when cart is cleared
     useEffect(() => {
         if (cart.length === 0) {
-            setSelectedPaymentMethod('Cash');
+            setSelectedPaymentMethod(null);
+            setWalkInName('Walk-in');
+            setWalkInPhone('');
+            setCouponCode('');
+            setAppliedCoupon(null);
         }
     }, [cart.length]);
 
@@ -270,7 +280,10 @@ export default function QuickSaleView({
         }
         return Math.min(cartTotal, val);
     })();
-    const finalTotal = Math.max(0, cartTotal - discountAmount);
+    const couponDiscount = appliedCoupon
+        ? (appliedCoupon.type === 'discount' ? cartTotal * (Number(appliedCoupon.value) / 100) : (appliedCoupon.type === 'currency' ? Number(appliedCoupon.value) : 0))
+        : 0;
+    const finalTotal = Math.max(0, cartTotal - discountAmount - couponDiscount);
 
     const updateCartQty = (index, delta) => {
         const newCart = [...cart];
@@ -294,10 +307,82 @@ export default function QuickSaleView({
         const mockEvent = { preventDefault: () => {} };
         await handleCreateInvoice(mockEvent, {
             isQuickSale: true,
-            walkInName: 'Quick Sale Split',
+            walkInName: walkInName.trim() || 'Walk-in',
+            walkInPhone: walkInPhone.trim(),
             discount: discountAmount,
+            couponCode: appliedCoupon ? appliedCoupon.code : null,
+            couponDiscountAmount: couponDiscount,
             paymentsOverride: paymentsList
         });
+    };
+
+    async function handleApplyCouponCode() {
+        if (!couponCode.trim()) return;
+        setLoadingCoupon(true);
+        try {
+            const res = await api.applyCoupon({ code: couponCode.trim() });
+            if (res.coupon.type === 'product') {
+                const productsList = res.productsList || [];
+                if (productsList.length === 0) {
+                    toast.error('No reward products found for this coupon.');
+                    setLoadingCoupon(false);
+                    return;
+                }
+                let addedNames = [];
+                for (const rewardProduct of productsList) {
+                    const exists = cart.find(c => c.product_id === rewardProduct.id && c.is_free);
+                    if (exists) {
+                        continue;
+                    }
+                    const prod = products.find(p => p.id === rewardProduct.id);
+                    const rewardQty = rewardProduct.reward_quantity || 1;
+                    if (prod) {
+                        addToCart(prod, true, rewardQty);
+                    } else {
+                        addToCart({
+                            id: rewardProduct.id,
+                            name: rewardProduct.name,
+                            selling_price: rewardProduct.selling_price,
+                            stock_quantity: rewardProduct.stock_quantity,
+                            unit: rewardProduct.unit
+                        }, true, rewardQty);
+                    }
+                    addedNames.push(`"${rewardProduct.name}" (x${rewardQty})`);
+                }
+                setAppliedCoupon(res.coupon);
+                if (addedNames.length > 0) {
+                    toast.success(`Coupon applied! Free product(s) ${addedNames.join(', ')} added to cart.`);
+                } else {
+                    toast.success('Coupon applied! Reward products were already in the cart.');
+                }
+            } else {
+                setAppliedCoupon(res.coupon);
+                toast.success(`Coupon "${res.coupon.code}" applied successfully!`);
+            }
+        } catch (err) {
+            toast.error(err.message || 'Failed to apply coupon');
+        } finally {
+            setLoadingCoupon(false);
+        }
+    }
+
+    const handleRemoveCoupon = () => {
+        if (appliedCoupon && appliedCoupon.type === 'product') {
+            try {
+                if (typeof appliedCoupon.value === 'string' && appliedCoupon.value.trim().startsWith('[')) {
+                    const items = JSON.parse(appliedCoupon.value);
+                    const idsToRemove = items.map(item => Number(item.id));
+                    setCart(prev => prev.filter(c => !(c.is_free && idsToRemove.includes(Number(c.product_id)))));
+                } else {
+                    const prodId = Number(appliedCoupon.value || appliedCoupon.product_id);
+                    setCart(prev => prev.filter(c => !(c.is_free && Number(c.product_id) === prodId)));
+                }
+            } catch (e) {
+                console.error('Failed to remove applied coupon rewards', e);
+            }
+        }
+        setAppliedCoupon(null);
+        setCouponCode('');
     };
 
     // Grouping calculations
@@ -357,21 +442,41 @@ export default function QuickSaleView({
                         ) : (
                             <div className="cart-items">
                                 {cart.map((item, index) => (
-                                    <div key={index} className="cart-item">
+                                    <div key={index} className="cart-item" style={item.is_free ? { borderLeft: '3px solid var(--success)', background: 'rgba(34, 197, 94, 0.03)' } : {}}>
                                         <div className="cart-item-details">
-                                            <h4>{item.name}</h4>
-                                            <span>₹{item.price.toFixed(2)}</span>
+                                            <h4 style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                                {item.name}
+                                                {item.is_free && <span style={{ fontSize: '9px', background: 'var(--success)', color: 'white', padding: '2px 6px', borderRadius: '4px', fontWeight: 'bold' }}>FREE PERK</span>}
+                                            </h4>
+                                            <span>{item.is_free ? '₹0.00' : `₹${item.price.toFixed(2)}`}</span>
                                         </div>
                                         <div className="cart-item-actions">
                                             <button onClick={() => updateCartQty(index, -1)}><Icons.Minus size={16} /></button>
                                             <span className="qty">{item.quantity}</span>
-                                            <button onClick={() => updateCartQty(index, 1)}><Icons.Plus size={16} /></button>
-                                            <span className="total">₹{item.total.toFixed(2)}</span>
+                                            <button onClick={() => updateCartQty(index, 1)} disabled={item.is_free}><Icons.Plus size={16} /></button>
+                                            <span className="total">{item.is_free ? 'FREE' : `₹${item.total.toFixed(2)}`}</span>
                                             <button className="remove-btn" onClick={() => {
-                                                const newCart = [...cart];
-                                                newCart.splice(index, 1);
-                                                setCart(newCart);
-                                            }}><Icons.X size={16} /></button>
+                                                 if (item.is_free && appliedCoupon && appliedCoupon.type === 'product') {
+                                                     try {
+                                                         if (typeof appliedCoupon.value === 'string' && appliedCoupon.value.trim().startsWith('[')) {
+                                                             const items = JSON.parse(appliedCoupon.value);
+                                                             const ids = items.map(x => Number(x.id));
+                                                             if (ids.includes(Number(item.product_id))) {
+                                                                 setAppliedCoupon(null);
+                                                                 setCouponCode('');
+                                                             }
+                                                         } else if (Number(appliedCoupon.value || appliedCoupon.product_id) === Number(item.product_id)) {
+                                                             setAppliedCoupon(null);
+                                                             setCouponCode('');
+                                                         }
+                                                     } catch (e) {
+                                                         console.error(e);
+                                                     }
+                                                 }
+                                                 const newCart = [...cart];
+                                                 newCart.splice(index, 1);
+                                                 setCart(newCart);
+                                             }}><Icons.X size={16} /></button>
                                         </div>
                                     </div>
                                 ))}
@@ -387,20 +492,30 @@ export default function QuickSaleView({
                             {categories.map(cat => {
                                 const allProductsInCat = products.filter(p => p.category === cat);
                                 return (
-                                    <SButton 
-                                        key={cat}
-                                        variant={selectedCategory === cat ? 'primary' : 'secondary'}
-                                        size="slim"
-                                        onClick={() => setSelectedCategory(cat)}
-                                        onDoubleClick={() => {
+                                    <span 
+                                        key={cat} 
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            setSelectedCategory(cat);
+                                        }}
+                                        onDoubleClick={(e) => {
+                                            e.stopPropagation();
                                             const productsToUse = cat === 'All' ? products : allProductsInCat;
                                             addAllProductsInGroup(productsToUse);
                                         }}
-                                        className="cat-btn"
-                                        title={cat === 'All' ? "Double-click to add all products" : `Double-click to add all ${cat} products`}
+                                        style={{ display: 'inline-block', cursor: 'pointer' }}
                                     >
-                                        {cat}
-                                    </SButton>
+                                        <SButton 
+                                            variant="secondary"
+                                            size="slim"
+                                            className="cat-btn"
+                                            title={cat === 'All' ? "Double-click to add all products" : `Double-click to add all ${cat} products`}
+                                            selected={selectedCategory === cat}
+                                            style={{ pointerEvents: 'none' }}
+                                        >
+                                            {cat}
+                                        </SButton>
+                                    </span>
                                 );
                             })}
                         </div>
@@ -408,18 +523,20 @@ export default function QuickSaleView({
                     {/* Grid / List View Toggle Switch */}
                     <div className="view-toggle-container">
                         <SButton 
-                            variant={viewLayout === 'grid' ? 'primary' : 'secondary'}
+                            variant="secondary"
                             size="slim"
                             onClick={() => setViewLayout('grid')}
                             title="Box/Grid View"
+                            selected={viewLayout === 'grid'}
                         >
                             <Icons.Grid size={16} />
                         </SButton>
                         <SButton 
-                            variant={viewLayout === 'list' ? 'primary' : 'secondary'}
+                            variant="secondary"
                             size="slim"
                             onClick={() => setViewLayout('list')}
                             title="List View"
+                            selected={viewLayout === 'list'}
                         >
                             <Icons.List size={16} />
                         </SButton>
@@ -638,112 +755,222 @@ export default function QuickSaleView({
                     <span className="qs-grand-amount">₹{finalTotal.toFixed(2)}</span>
                 </div>
 
-                <div className="qs-card-body">
-
-                    {/* Payment Status */}
-                    <div className="qs-field-group">
-                        <span className="qs-field-label">Payment Status</span>
-                        <div className="qs-status-banner">
-                            <Icons.CheckCircle size={14} />
-                            WALK-IN: ALWAYS PAID
+                <div className="qs-card-body" style={{ display: 'flex', flexDirection: 'column', alignItems: 'stretch', gap: '16px', padding: '16px 20px', background: 'var(--bg-secondary)' }}>
+                    {/* Row 1: Customer Details & Coupon */}
+                    <div style={{ display: 'flex', gap: '20px', flexWrap: 'wrap' }}>
+                        {/* Customer Name */}
+                        <div className="qs-field-group" style={{ flex: '1 1 200px' }}>
+                            <span className="qs-field-label">Customer Name</span>
+                            <input 
+                                type="text"
+                                className="qs-disc-input"
+                                style={{ width: '100%', textAlign: 'left', height: '34px', boxSizing: 'border-box' }}
+                                placeholder="Walk-in"
+                                value={walkInName}
+                                onChange={e => setWalkInName(e.target.value)}
+                            />
                         </div>
-                    </div>
-
-                    {/* Discount */}
-                    <div className="qs-field-group">
-                        <span className="qs-field-label">Discount</span>
-                        <div className="qs-disc-container">
-                            <div className="qs-disc-input-wrap">
-                                <input
-                                    type="number"
-                                    min="0"
+                        {/* Customer Phone */}
+                        <div className="qs-field-group" style={{ flex: '1 1 180px' }}>
+                            <span className="qs-field-label">Customer Phone</span>
+                            <input 
+                                type="text"
+                                className="qs-disc-input"
+                                style={{ width: '100%', textAlign: 'left', height: '34px', boxSizing: 'border-box' }}
+                                placeholder="Customer Phone"
+                                value={walkInPhone}
+                                onChange={e => setWalkInPhone(e.target.value)}
+                            />
+                        </div>
+                        {/* Coupon Code */}
+                        <div className="qs-field-group" style={{ flex: '1 1 250px' }}>
+                            <span className="qs-field-label">Coupon Code</span>
+                            <div style={{ display: 'flex', gap: '8px', alignItems: 'center', width: '100%' }}>
+                                <input 
+                                    type="text"
                                     className="qs-disc-input"
-                                    placeholder="0"
-                                    value={discountValue}
-                                    onChange={e => setDiscountValue(e.target.value)}
+                                    style={{ flex: 1, textAlign: 'left', height: '34px', textTransform: 'uppercase', boxSizing: 'border-box' }}
+                                    placeholder="ENTER CODE"
+                                    value={couponCode}
+                                    onChange={e => setCouponCode(e.target.value.toUpperCase())}
+                                    disabled={appliedCoupon || loadingCoupon}
                                 />
-                                <button className={`qs-disc-type ${discountType === '%' ? 'active' : ''}`} onClick={() => setDiscountType('%')}>%</button>
-                                <button className={`qs-disc-type ${discountType === '₹' ? 'active' : ''}`} onClick={() => setDiscountType('₹')}>₹</button>
-                                {discountValue && (
-                                    <button className="qs-disc-clear" onClick={() => setDiscountValue('')}><Icons.X size={13} /></button>
+                                {appliedCoupon ? (
+                                    <SButton 
+                                        variant="secondary" 
+                                        tone="critical" 
+                                        style={{ height: '34px', padding: '0 12px' }}
+                                        onClick={handleRemoveCoupon}
+                                    >
+                                        Remove
+                                    </SButton>
+                                ) : (
+                                    <SButton 
+                                        variant="secondary" 
+                                        style={{ height: '34px', padding: '0 12px' }}
+                                        onClick={handleApplyCouponCode}
+                                        disabled={loadingCoupon || !couponCode.trim()}
+                                    >
+                                        {loadingCoupon ? 'Applying...' : 'Apply'}
+                                    </SButton>
                                 )}
                             </div>
-                            {discountAmount > 0 && (
-                                <span className="qs-disc-saved">saves ₹{discountAmount.toFixed(2)}</span>
+                            {appliedCoupon && (
+                                <div style={{ fontSize: '10px', color: 'var(--success)', fontWeight: '600', marginTop: '2px' }}>
+                                    Applied: {appliedCoupon.code} (
+                                    {appliedCoupon.type === 'discount' && `${appliedCoupon.value}% Off`}
+                                    {appliedCoupon.type === 'currency' && `₹${appliedCoupon.value} Off`}
+                                    {appliedCoupon.type === 'product' && 'Free item added'}
+                                    )
+                                </div>
                             )}
                         </div>
                     </div>
 
-                    {/* Payments */}
-                    <div className="qs-field-group">
-                        <span className="qs-field-label">Payments</span>
-                        <div className="qs-pay-row">
-                            <SButton 
-                                variant={selectedPaymentMethod === 'Cash' ? 'primary' : 'secondary'} 
-                                size="large"
-                                className="qs-sbtn"
-                                onClick={() => setSelectedPaymentMethod('Cash')}
-                            >
-                                <Icons.Banknote size={17} />
-                                <span className="qs-sbtn-text">
-                                    <span className="qs-sbtn-label">Cash</span>
+                    {/* Row 2: Discount & Payment Methods */}
+                    <div style={{ display: 'flex', gap: '20px', alignItems: 'flex-end', flexWrap: 'wrap' }}>
+                        {/* Discount */}
+                        <div className="qs-field-group" style={{ flex: '0 0 auto' }}>
+                            <span className="qs-field-label">Discount</span>
+                            <div className="qs-disc-container">
+                                <div className="qs-disc-input-wrap">
+                                    <input
+                                        type="number"
+                                        min="0"
+                                        className="qs-disc-input"
+                                        placeholder="0"
+                                        value={discountValue}
+                                        onChange={e => setDiscountValue(e.target.value)}
+                                        style={{ height: '34px', boxSizing: 'border-box' }}
+                                    />
+                                    <button className={`qs-disc-type ${discountType === '%' ? 'active' : ''}`} style={{ height: '34px' }} onClick={() => setDiscountType('%')}>%</button>
+                                    <button className={`qs-disc-type ${discountType === '₹' ? 'active' : ''}`} style={{ height: '34px' }} onClick={() => setDiscountType('₹')}>₹</button>
+                                    {discountValue && (
+                                        <button className="qs-disc-clear" onClick={() => setDiscountValue('')}><Icons.X size={13} /></button>
+                                    )}
+                                </div>
+                                {discountAmount > 0 && (
+                                    <span className="qs-disc-saved">saves ₹{discountAmount.toFixed(2)}</span>
+                                )}
+                            </div>
+                        </div>
+
+                        {/* Payments Selection */}
+                        <div className="qs-field-group" style={{ flex: '1 1 400px' }}>
+                            <span className="qs-field-label">Select Payment Method & Checkout</span>
+                            <div className="qs-pay-row" style={{ display: 'flex', gap: '6px' }}>
+                                <span 
+                                    onClick={() => setSelectedPaymentMethod('Cash')} 
+                                    style={{ flex: 1, display: 'inline-block', cursor: 'pointer' }}
+                                >
+                                    <SButton 
+                                        variant="secondary"
+                                        size="large"
+                                        fullWidth
+                                        className={`qs-sbtn ${selectedPaymentMethod === 'Cash' ? 'selected' : ''}`}
+                                        selected={selectedPaymentMethod === 'Cash'}
+                                        style={{
+                                            pointerEvents: 'none',
+                                            height: '42px'
+                                        }}
+                                    >
+                                        <Icons.Banknote size={17} />
+                                        <span className="qs-sbtn-text">
+                                            <span className="qs-sbtn-label">Cash</span>
+                                        </span>
+                                    </SButton>
                                 </span>
-                            </SButton>
-                            <SButton 
-                                variant={selectedPaymentMethod === 'UPI' ? 'primary' : 'secondary'} 
-                                size="large"
-                                className="qs-sbtn"
-                                onClick={() => setSelectedPaymentMethod('UPI')}
-                            >
-                                <Icons.Smartphone size={17} />
-                                <span className="qs-sbtn-text">
-                                    <span className="qs-sbtn-label">UPI</span>
+                                <span 
+                                    onClick={() => setSelectedPaymentMethod('UPI')} 
+                                    style={{ flex: 1, display: 'inline-block', cursor: 'pointer' }}
+                                >
+                                    <SButton 
+                                        variant="secondary"
+                                        size="large"
+                                        fullWidth
+                                        className={`qs-sbtn ${selectedPaymentMethod === 'UPI' ? 'selected' : ''}`}
+                                        selected={selectedPaymentMethod === 'UPI'}
+                                        style={{
+                                            pointerEvents: 'none',
+                                            height: '42px'
+                                        }}
+                                    >
+                                        <Icons.Smartphone size={17} />
+                                        <span className="qs-sbtn-text">
+                                            <span className="qs-sbtn-label">UPI</span>
+                                        </span>
+                                    </SButton>
                                 </span>
-                            </SButton>
-                            <SButton 
-                                variant={selectedPaymentMethod === 'Card' ? 'primary' : 'secondary'} 
-                                size="large"
-                                className="qs-sbtn"
-                                onClick={() => setSelectedPaymentMethod('Card')}
-                            >
-                                <Icons.CreditCard size={17} />
-                                <span className="qs-sbtn-text">
-                                    <span className="qs-sbtn-label">Card</span>
+                                <span 
+                                    onClick={() => setSelectedPaymentMethod('Card')} 
+                                    style={{ flex: 1, display: 'inline-block', cursor: 'pointer' }}
+                                >
+                                    <SButton 
+                                        variant="secondary"
+                                        size="large"
+                                        fullWidth
+                                        className={`qs-sbtn ${selectedPaymentMethod === 'Card' ? 'selected' : ''}`}
+                                        selected={selectedPaymentMethod === 'Card'}
+                                        style={{
+                                            pointerEvents: 'none',
+                                            height: '42px'
+                                        }}
+                                    >
+                                        <Icons.CreditCard size={17} />
+                                        <span className="qs-sbtn-text">
+                                            <span className="qs-sbtn-label">Card</span>
+                                        </span>
+                                    </SButton>
                                 </span>
-                            </SButton>
-                            <SButton 
-                                variant="secondary"
-                                size="large"
-                                className="qs-sbtn"
-                                onClick={() => setShowSplitModal(true)}
-                            >
-                                <Icons.Layers size={17} />
-                                <span className="qs-sbtn-text">
-                                    <span className="qs-sbtn-label">Split Bill</span>
+                                <span 
+                                    onClick={() => setShowSplitModal(true)} 
+                                    style={{ flex: 1, display: 'inline-block', cursor: 'pointer' }}
+                                >
+                                    <SButton 
+                                        variant="secondary"
+                                        size="large"
+                                        fullWidth
+                                        className="qs-sbtn"
+                                        style={{ pointerEvents: 'none', background: '#f1f2f4', color: '#202223', height: '42px' }}
+                                    >
+                                        <Icons.Layers size={17} />
+                                        <span className="qs-sbtn-text">
+                                            <span className="qs-sbtn-label">Split Bill</span>
+                                        </span>
+                                    </SButton>
                                 </span>
-                            </SButton>
-                            <SButton
-                                variant="primary"
-                                size="large"
-                                className="qs-sbtn qs-invoice-btn"
-                                onClick={async () => {
-                                    if (cart.length === 0) { toast.error('Cart is empty'); return; }
-                                    if (!selectedPaymentMethod) { toast.error('Please select a payment method'); return; }
-                                    
-                                    const mockEvent = { preventDefault: () => {} };
-                                    await handleCreateInvoice(mockEvent, {
-                                        isQuickSale: true,
-                                        walkInName: 'Quick Sale',
-                                        discount: discountAmount,
-                                        paymentsOverride: [{ method: selectedPaymentMethod, amount: finalTotal, transaction_id: '' }]
-                                    });
-                                }}
-                            >
-                                <Icons.FileText size={17} />
-                                <span className="qs-sbtn-text">
-                                    <span className="qs-sbtn-label">Create Invoice</span>
+                                <span 
+                                    onClick={async () => {
+                                        if (cart.length === 0) { toast.error('Cart is empty'); return; }
+                                        if (!selectedPaymentMethod) { toast.error('Please select a payment method'); return; }
+                                        
+                                        const mockEvent = { preventDefault: () => {} };
+                                        await handleCreateInvoice(mockEvent, {
+                                            isQuickSale: true,
+                                            walkInName: walkInName.trim() || 'Walk-in',
+                                            walkInPhone: walkInPhone.trim(),
+                                            discount: discountAmount,
+                                            couponCode: appliedCoupon ? appliedCoupon.code : null,
+                                            couponDiscountAmount: couponDiscount,
+                                            paymentsOverride: [{ method: selectedPaymentMethod, amount: finalTotal, transaction_id: '' }]
+                                        });
+                                    }}
+                                    style={{ flex: 1.4, display: 'inline-block', cursor: 'pointer' }}
+                                >
+                                    <SButton
+                                        variant="primary"
+                                        size="large"
+                                        fullWidth
+                                        className="qs-sbtn qs-invoice-btn"
+                                        style={{ pointerEvents: 'none', height: '42px' }}
+                                    >
+                                        <Icons.FileText size={17} />
+                                        <span className="qs-sbtn-text">
+                                            <span className="qs-sbtn-label">Create Invoice</span>
+                                        </span>
+                                    </SButton>
                                 </span>
-                            </SButton>
+                            </div>
                         </div>
                     </div>
 

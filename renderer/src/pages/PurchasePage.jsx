@@ -302,18 +302,18 @@ export default function PurchasePage() {
                 {suppliers.length === 0 ? (
                     <div className="empty-state-premium">
                         <div className="empty-icon-wrapper">
-                            <Icons.Users size={48} strokeWidth={1.5} />
+                            <Icons.Users size={40} />
                         </div>
                         <h3>No Suppliers Found</h3>
                         <p>Add your suppliers to easily manage bills and outstanding payments.</p>
-                        <SButton variant="primary" onClick={() => { setEditingSupplier(null); setSupplierForm({ name: '', phone: '', gstin: '', address: '', opening_balance: 0, notes: '' }); setShowSupplierModal(true); }} style={{ marginTop: '16px' }}>
-                            <Icons.Plus size={18} />
+                        <SButton variant="primary" onClick={() => { setEditingSupplier(null); setSupplierForm({ name: '', phone: '', gstin: '', address: '', opening_balance: 0, notes: '' }); setShowSupplierModal(true); }}>
                             Add Supplier
                         </SButton>
                     </div>
                 ) : filtered.length === 0 ? (
-                    <div className="empty-state-premium">
-                        <p className="text-secondary italic">No suppliers matching "{supplierSearch}"</p>
+                    <div className="empty-state">
+                        <Icons.UserX size={32} />
+                        <p>No suppliers matching your search or filters</p>
                     </div>
                 ) : (
                     <div className="premium-table-wrap">
@@ -582,11 +582,11 @@ export default function PurchasePage() {
                 {purchases.length === 0 ? (
                     <div className="empty-state-premium">
                         <div className="empty-icon-wrapper">
-                            <Icons.FileText size={48} strokeWidth={1.5} />
+                            <Icons.FileText size={40} />
                         </div>
                         <h3>No Bills Found</h3>
                         <p>Get started by recording your first purchase bill from a supplier.</p>
-                        <SButton variant="primary" onClick={() => setActiveTab('bill')} style={{ marginTop: '16px' }}>
+                        <SButton variant="primary" onClick={() => setActiveTab('bill')}>
                             Add New Bill
                         </SButton>
                     </div>
@@ -668,12 +668,11 @@ export default function PurchasePage() {
                 <div className="tab-content">
                     <div className="empty-state-premium">
                         <div className="empty-icon-wrapper">
-                            <Icons.RotateCcw size={48} strokeWidth={1.5} />
+                            <Icons.RotateCcw size={40} />
                         </div>
                         <h3>Initiate a Return</h3>
                         <p>Select a bill from your purchase history to start the return process.</p>
-                        <SButton variant="primary" onClick={() => setActiveTab('history')} style={{ marginTop: '16px' }}>
-                            <Icons.History size={18} />
+                        <SButton variant="primary" onClick={() => setActiveTab('history')}>
                             Go to History
                         </SButton>
                     </div>

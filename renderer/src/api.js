@@ -4,7 +4,7 @@ import { mazewaySupabase } from './mazewaySupabase';
 const API_BASE = 'http://localhost:3001/api';
 
 async function request(endpoint, options = {}) {
-    const url = `${API_BASE}${endpoint}`;
+    const url = endpoint.startsWith('/auth') ? `http://localhost:3001${endpoint}` : `${API_BASE}${endpoint}`;
     const config = {
         headers: { 'Content-Type': 'application/json' },
         ...options
@@ -104,6 +104,12 @@ const api = {
     createCustomerCommunicationLog: (id, data) => request(`/customers/${id}/communication-logs`, { method: 'POST', body: data }),
     deleteCustomerCommunicationLog: (id, logId) => request(`/customers/${id}/communication-logs/${logId}`, { method: 'DELETE' }),
     getCustomerPurchases: (id) => request(`/customers/${id}/purchases`),
+
+    // Coupons (Marketing)
+    getCoupons: () => request('/coupons'),
+    createCoupon: (data) => request('/coupons', { method: 'POST', body: data }),
+    deleteCoupon: (id) => request(`/coupons/${id}`, { method: 'DELETE' }),
+    applyCoupon: (data) => request('/coupons/apply', { method: 'POST', body: data }),
 
     // Settings
     getSettings: async () => {
@@ -398,6 +404,15 @@ const api = {
     deleteAgent: (id) => request(`/mazeway/agents/${id}`, { method: 'DELETE' }),
     getMazewayStats: () => request('/mazeway/stats'),
     getMazewayLogs: () => request('/mazeway/logs'),
+
+    // --- Gmail OAuth Integration ---
+    getGmailConnections: () => request('/auth/google/connections'),
+    disconnectGmail: (email) => request('/auth/google/disconnect', { method: 'POST', body: { email } }),
+    sendTestEmail: (data) => request('/auth/google/test-email', { method: 'POST', body: data }),
+    sendInvoiceEmail: (data) => request('/auth/google/send-invoice', { method: 'POST', body: data }),
+    getCampaigns: () => request('/auth/google/campaigns'),
+    scheduleCampaign: (data) => request('/auth/google/campaigns', { method: 'POST', body: data }),
+    cancelCampaign: (id) => request(`/auth/google/campaigns/${id}`, { method: 'DELETE' }),
 };
 
 export default api;

@@ -4,7 +4,7 @@
 
 export const APP_NAME = 'Quantro';
 export const APP_COMPANY = 'Maze ERP';
-export const APP_VERSION = '2.0.9';
+export const APP_VERSION = '2.0.8';
 export const PURCHASES_LABEL = 'Purchases';
 
 export const EMPTY_PRODUCT = {

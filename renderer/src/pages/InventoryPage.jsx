@@ -627,7 +627,7 @@ export default function InventoryPage() {
                     {products.length === 0 && !loading ? (
                         <div className="empty-state-premium">
                             <div className="empty-icon-wrapper">
-                                <Icons.Package size={48} strokeWidth={1.5} />
+                                <Icons.Package size={40} />
                             </div>
                             <h3>Your Inventory is Empty</h3>
                             <p>
@@ -786,12 +786,12 @@ export default function InventoryPage() {
                         {loading ? (
                             <div className="loading">Loading pending items…</div>
                         ) : pendingItems.length === 0 ? (
-                            <div style={{ padding: '40px', background: 'var(--bg-card)', borderRadius: '12px', border: '1px dashed var(--border-strong)', textAlign: 'center', margin: '20px 0' }}>
-                                <div style={{ color: 'var(--success)', marginBottom: '16px', display: 'flex', justifyContent: 'center' }}>
-                                    <Icons.CheckCircle size={48} strokeWidth={1.5} />
+                            <div className="empty-state-premium">
+                                <div className="empty-icon-wrapper" style={{ color: 'var(--success)', background: 'var(--success-bg)', boxShadow: '0 8px 16px -4px rgba(40, 185, 78, 0.15)' }}>
+                                    <Icons.CheckCircle size={40} />
                                 </div>
-                                <h3 style={{ fontSize: '18px', fontWeight: '600', marginBottom: '8px' }}>All Clear!</h3>
-                                <p style={{ color: 'var(--text-secondary)' }}>No pending products at the moment.</p>
+                                <h3>All Clear!</h3>
+                                <p>No pending products at the moment.</p>
                             </div>
                         ) : (
                             <div className="pending-items-table-wrap">

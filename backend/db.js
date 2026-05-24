@@ -277,6 +277,12 @@ ready = (async () => {
       if (!columns.includes('is_stock_deducted')) {
         db.run('ALTER TABLE invoices ADD COLUMN is_stock_deducted INTEGER DEFAULT 1');
       }
+      if (!columns.includes('coupon_code')) {
+        db.run('ALTER TABLE invoices ADD COLUMN coupon_code TEXT DEFAULT NULL');
+      }
+      if (!columns.includes('coupon_discount_amount')) {
+        db.run('ALTER TABLE invoices ADD COLUMN coupon_discount_amount REAL NOT NULL DEFAULT 0');
+      }
     }
   } catch (err) {
     console.error('Invoices migration failed', err);
@@ -781,6 +787,33 @@ ready = (async () => {
     )
   `);
 
+  db.run(`
+    CREATE TABLE IF NOT EXISTS coupons (
+      id                  INTEGER PRIMARY KEY AUTOINCREMENT,
+      code                TEXT    NOT NULL UNIQUE,
+      type                TEXT    NOT NULL,
+      value               REAL    NOT NULL,
+      expiry_date         TEXT,
+      usage_limit_type    TEXT    NOT NULL DEFAULT 'unlimited',
+      usage_limit         INTEGER DEFAULT NULL,
+      times_used          INTEGER NOT NULL DEFAULT 0,
+      reward_quantity     INTEGER DEFAULT 1,
+      created_at          TEXT    NOT NULL DEFAULT (datetime('now','localtime'))
+    )
+  `);
+
+  try {
+    const res = db.exec("PRAGMA table_info(coupons)");
+    if (res && res.length > 0) {
+      const couponColumns = res[0].values.map(v => v[1]);
+      if (!couponColumns.includes('reward_quantity')) {
+        db.run('ALTER TABLE coupons ADD COLUMN reward_quantity INTEGER DEFAULT 1');
+      }
+    }
+  } catch (err) {
+    console.error('Coupons migration failed', err);
+  }
+
   // Seed default expense categories if empty
   try {
     const expCatCount = get('SELECT COUNT(*) as count FROM expense_categories').count;
@@ -821,6 +854,45 @@ ready = (async () => {
       is_active   BOOLEAN DEFAULT 1,
       config      TEXT, -- JSON string for SIP details
       created_at  TEXT DEFAULT (datetime('now','localtime'))
+    )
+  `);
+
+  // Gmail/Email Connections Table
+  db.run(`
+    CREATE TABLE IF NOT EXISTS email_connections (
+      id            INTEGER PRIMARY KEY AUTOINCREMENT,
+      provider      TEXT DEFAULT 'gmail',
+      email         TEXT UNIQUE NOT NULL,
+      access_token  TEXT NOT NULL,
+      refresh_token TEXT,
+      expiry_date   INTEGER,
+      status        TEXT DEFAULT 'Active',
+      connected_at  TEXT DEFAULT (datetime('now','localtime'))
+    )
+  `);
+
+  // Email Campaigns Table
+  db.run(`
+    CREATE TABLE IF NOT EXISTS email_campaigns (
+      id            INTEGER PRIMARY KEY AUTOINCREMENT,
+      name          TEXT NOT NULL,
+      customers     TEXT, -- JSON string array of customer IDs or emails
+      start_date    TEXT,
+      end_date      TEXT,
+      time_to_send  TEXT,
+      template      TEXT, -- 'invoice_minimalist', 'invoice_classic', 'order_confirmation', 'feedback', etc.
+      status        TEXT DEFAULT 'scheduled', -- 'scheduled', 'sending', 'completed', 'cancelled'
+      created_at    TEXT DEFAULT (datetime('now','localtime'))
+    )
+  `);
+
+  // Email Daily Usage Table
+  db.run(`
+    CREATE TABLE IF NOT EXISTS email_daily_usage (
+      email         TEXT NOT NULL,
+      date          TEXT NOT NULL,
+      emails_sent   INTEGER DEFAULT 0,
+      PRIMARY KEY (email, date)
     )
   `);
 

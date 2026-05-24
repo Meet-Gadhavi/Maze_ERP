@@ -51,12 +51,18 @@ export default function SalesPage() {
     const [productSearch, setProductSearch] = useState('');
     const [saving, setSaving] = useState(false);
     const [previewInvoice, setPreviewInvoice] = useState(null);
+    const [autoOpenShare, setAutoOpenShare] = useState(false);
     const [deleteId, setDeleteId] = useState(null);
     const [historySearch, setHistorySearch] = useState('');
     const [returningInvoice, setReturningInvoice] = useState(null);
     const [returnQuantities, setReturnQuantities] = useState({}); // { product_id: qty }
     const [fulfillingInvoice, setFulfillingInvoice] = useState(null);
     const [fulfillmentQtys, setFulfillmentQtys] = useState({}); // { product_id: qty }
+
+    // Coupon States
+    const [appliedCoupon, setAppliedCoupon] = useState(null);
+    const [couponCode, setCouponCode] = useState('');
+    const [loadingCoupon, setLoadingCoupon] = useState(false);
 
     // Payment Status State
     const [paymentStatus, setPaymentStatus] = useState('PAID'); // 'PAID', 'PARTIAL', 'UNPAID'
@@ -305,7 +311,7 @@ export default function SalesPage() {
         });
     }
 
-    async function addToCart(product, isFree = false) {
+    async function addToCart(product, isFree = false, rewardQty = 1) {
         // Check for variants first
         try {
             setVariantModalLoading(true);
@@ -322,10 +328,10 @@ export default function SalesPage() {
             setVariantModalLoading(false);
         }
 
-        addFinalToCart(product, null, isFree);
+        addFinalToCart(product, null, isFree, rewardQty);
     }
 
-    async function addFinalToCart(product, variant = null, isFree = false) {
+    async function addFinalToCart(product, variant = null, isFree = false, rewardQty = 1) {
         const productId = product.id;
         const variantId = variant ? variant.id : null;
         const price = variant ? Number(variant.selling_price) : Number(product.selling_price);
@@ -351,7 +357,7 @@ export default function SalesPage() {
         );
 
         let currentTotalQty = existingItems.reduce((sum, item) => sum + item.quantity, 0);
-        let newTotalQty = currentTotalQty + 1;
+        let newTotalQty = currentTotalQty + rewardQty;
 
         // Check for flexible inventory
         const availableStock = variant ? Number(variant.stock_quantity || 0) : Number(product.stock_quantity || 0);
@@ -378,7 +384,7 @@ export default function SalesPage() {
             if (baseIndex > -1) {
                 setCart(cart.map((c, i) =>
                     i === baseIndex
-                        ? { ...c, quantity: c.quantity + 1, total: isFree ? 0 : (c.quantity + 1) * c.price }
+                        ? { ...c, quantity: c.quantity + rewardQty, total: isFree ? 0 : (c.quantity + rewardQty) * c.price }
                         : c
                 ));
             } else {
@@ -390,8 +396,8 @@ export default function SalesPage() {
                     subcategory_name: product.subcategory_name || '',
                     price: isFree ? 0 : price,
                     original_price: price,
-                    quantity: 1,
-                    total: isFree ? 0 : price,
+                    quantity: rewardQty,
+                    total: isFree ? 0 : price * rewardQty,
                     maxStock: variant ? variant.stock_quantity : product.stock_quantity,
                     unit: product.unit || 'PCS',
                     baseUnit: product.unit || 'PCS',
@@ -797,6 +803,27 @@ export default function SalesPage() {
     }
 
     function removeFromCart(cartRowId) {
+        const itemToRemove = cart.find(c => c.cartRowId === cartRowId);
+        if (itemToRemove && itemToRemove.is_free && appliedCoupon && appliedCoupon.type === 'product') {
+            try {
+                if (typeof appliedCoupon.value === 'string' && appliedCoupon.value.trim().startsWith('[')) {
+                    const items = JSON.parse(appliedCoupon.value);
+                    const ids = items.map(x => Number(x.id));
+                    if (ids.includes(Number(itemToRemove.product_id))) {
+                        setAppliedCoupon(null);
+                        setCouponCode('');
+                    }
+                } else {
+                    const prodId = Number(appliedCoupon.value || appliedCoupon.product_id);
+                    if (prodId === Number(itemToRemove.product_id)) {
+                        setAppliedCoupon(null);
+                        setCouponCode('');
+                    }
+                }
+            } catch (e) {
+                console.error(e);
+            }
+        }
         setCart(cart.filter(c => c.cartRowId !== cartRowId));
     }
 
@@ -886,10 +913,14 @@ export default function SalesPage() {
     }, 0) || 0, [cart, settings.enable_discount_per_item, settings.enable_gst_per_item]);
 
     const subtotal = Number(subtotalNum) || 0;
+    const couponDiscount = appliedCoupon
+        ? (appliedCoupon.type === 'discount' ? subtotal * (Number(appliedCoupon.value) / 100) : (appliedCoupon.type === 'currency' ? Number(appliedCoupon.value) : 0))
+        : 0;
+
     const discountAmount = (settings.enable_discount_per_item !== 'true' && discountEnabled) ? subtotal * (Number(discountRate || 0) / 100) : 0;
-    const afterDiscount = subtotal - (Number(discountAmount) || 0);
-    const gstAmount = (settings.enable_gst_per_item !== 'true' && gstEnabled) ? afterDiscount * (Number(gstRate || 0) / 100) : 0;
-    const finalTotal = (Number(afterDiscount) || 0) + (Number(gstAmount) || 0);
+    const afterDiscountAndCoupon = Math.max(0, subtotal - (Number(discountAmount) || 0) - couponDiscount);
+    const gstAmount = (settings.enable_gst_per_item !== 'true' && gstEnabled) ? afterDiscountAndCoupon * (Number(gstRate || 0) / 100) : 0;
+    const finalTotal = (Number(afterDiscountAndCoupon) || 0) + (Number(gstAmount) || 0);
 
     // Auto-fill payment amount for walk-in customers to match grand total
     useEffect(() => {
@@ -902,6 +933,56 @@ export default function SalesPage() {
             }
         }
     }, [finalTotal, selectedCustomer, step]);
+
+    async function handleApplyCouponCode() {
+        if (!couponCode.trim()) return;
+        setLoadingCoupon(true);
+        try {
+            const res = await api.applyCoupon({ code: couponCode.trim() });
+            if (res.coupon.type === 'product') {
+                const productsList = res.productsList || [];
+                if (productsList.length === 0) {
+                    toast.error('No reward products found for this coupon.');
+                    setLoadingCoupon(false);
+                    return;
+                }
+                let addedNames = [];
+                for (const rewardProduct of productsList) {
+                    const exists = cart.find(c => c.product_id === rewardProduct.id && c.is_free);
+                    if (exists) {
+                        continue;
+                    }
+                    const prod = products.find(p => p.id === rewardProduct.id);
+                    const rewardQty = rewardProduct.reward_quantity || 1;
+                    if (prod) {
+                        addFinalToCart(prod, null, true, rewardQty);
+                    } else {
+                        addFinalToCart({
+                            id: rewardProduct.id,
+                            name: rewardProduct.name,
+                            selling_price: rewardProduct.selling_price,
+                            stock_quantity: rewardProduct.stock_quantity,
+                            unit: rewardProduct.unit
+                        }, null, true, rewardQty);
+                    }
+                    addedNames.push(`"${rewardProduct.name}" (x${rewardQty})`);
+                }
+                setAppliedCoupon(res.coupon);
+                if (addedNames.length > 0) {
+                    toast.success(`Coupon applied! Free product(s) ${addedNames.join(', ')} added to cart.`);
+                } else {
+                    toast.success('Coupon applied! Reward products were already in the cart.');
+                }
+            } else {
+                setAppliedCoupon(res.coupon);
+                toast.success(`Coupon "${res.coupon.code}" applied successfully!`);
+            }
+        } catch (err) {
+            toast.error(err.message || 'Failed to apply coupon');
+        } finally {
+            setLoadingCoupon(false);
+        }
+    }
 
     async function handleCreateInvoice(e, options = {}) {
         if (e && e.preventDefault) e.preventDefault();
@@ -938,9 +1019,11 @@ export default function SalesPage() {
         const payload = {
             customer_id: isQuickSale ? null : currentSelectedCustomer,
             walk_in_name: isQuickSale ? (options.walkInName || 'Walk-in') : (!currentSelectedCustomer ? walkInName : ''),
-            walk_in_phone: isQuickSale ? '' : (!currentSelectedCustomer ? walkInPhone : ''),
+            walk_in_phone: isQuickSale ? (options.walkInPhone || '') : (!currentSelectedCustomer ? walkInPhone : ''),
             gst_rate: gstEnabled ? Number(gstRate || 0) : 0,
             discount_rate: discountEnabled ? Number(discountRate || 0) : 0,
+            coupon_code: isQuickSale ? (options.couponCode || null) : (appliedCoupon ? appliedCoupon.code : null),
+            coupon_discount_amount: isQuickSale ? (options.couponDiscountAmount || 0) : couponDiscount,
             items: cart.map(c => ({
                 product_id: Number(c.product_id),
                 variant_id: c.variant_id ? Number(c.variant_id) : null,
@@ -985,6 +1068,8 @@ export default function SalesPage() {
             setPromoExpenseEnabled(false);
             setIsAdvance(false);
             setAdvanceAmount('');
+            setAppliedCoupon(null);
+            setCouponCode('');
 
             // Refresh products and history
             api.getProducts().then(setProducts).catch(() => {});
@@ -1684,6 +1769,79 @@ export default function SalesPage() {
                                             </div>
                                         )}
                                     </div>
+
+                                    {/* Coupon Row */}
+                                    <div className="extra-row active" style={{ display: 'flex', flexDirection: 'column', gap: '8px', alignItems: 'stretch' }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: 'var(--font-size-xs)', fontWeight: '600', color: 'var(--text-secondary)' }}>
+                                            <Icons.Tag size={14} style={{ color: appliedCoupon ? 'var(--success)' : 'var(--text-tertiary)' }} />
+                                            <span>Coupon Code</span>
+                                        </div>
+                                        <div style={{ display: 'flex', gap: '8px' }}>
+                                            <input
+                                                type="text"
+                                                className="extra-input"
+                                                placeholder="ENTER CODE"
+                                                value={couponCode}
+                                                onChange={e => setCouponCode(e.target.value.toUpperCase())}
+                                                disabled={appliedCoupon || loadingCoupon}
+                                                style={{ flex: 1, textTransform: 'uppercase', height: '32px', minWidth: 0 }}
+                                            />
+                                            {appliedCoupon ? (
+                                                <SButton
+                                                    variant="secondary"
+                                                    tone="critical"
+                                                    style={{ padding: '0 12px', height: '32px' }}
+                                                    onClick={() => {
+                                                        if (appliedCoupon.type === 'product') {
+                                                            try {
+                                                                if (typeof appliedCoupon.value === 'string' && appliedCoupon.value.trim().startsWith('[')) {
+                                                                    const items = JSON.parse(appliedCoupon.value);
+                                                                    const idsToRemove = items.map(item => Number(item.id));
+                                                                    const freeRowsToRemove = cart.filter(item => item.is_free && idsToRemove.includes(Number(item.product_id)));
+                                                                    for (const row of freeRowsToRemove) {
+                                                                        removeFromCart(row.cartRowId);
+                                                                    }
+                                                                } else {
+                                                                    const prodId = Number(appliedCoupon.value || appliedCoupon.product_id);
+                                                                    const freeProductInCart = cart.find(item => item.product_id === prodId && item.is_free);
+                                                                    if (freeProductInCart) {
+                                                                        removeFromCart(freeProductInCart.cartRowId);
+                                                                    }
+                                                                }
+                                                            } catch (e) {
+                                                                console.error('Failed to remove applied coupon rewards', e);
+                                                            }
+                                                        }
+                                                        setAppliedCoupon(null);
+                                                        setCouponCode('');
+                                                    }}
+                                                >
+                                                    Remove
+                                                </SButton>
+                                            ) : (
+                                                <SButton
+                                                    variant="secondary"
+                                                    style={{ padding: '0 12px', height: '32px' }}
+                                                    onClick={handleApplyCouponCode}
+                                                    disabled={loadingCoupon || !couponCode.trim()}
+                                                >
+                                                    {loadingCoupon ? 'Applying...' : 'Apply'}
+                                                </SButton>
+                                            )}
+                                        </div>
+                                        {appliedCoupon && (
+                                            <div style={{ fontSize: '10px', color: 'var(--success)', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                                <Icons.CheckCircle size={10} />
+                                                <span>
+                                                    Applied: {appliedCoupon.code} (
+                                                    {appliedCoupon.type === 'discount' && `${appliedCoupon.value}% Off`}
+                                                    {appliedCoupon.type === 'currency' && `₹${appliedCoupon.value} Off`}
+                                                    {appliedCoupon.type === 'product' && 'Free Item added'}
+                                                    )
+                                                </span>
+                                            </div>
+                                        )}
+                                    </div>
                                 </div>
 
                                 {cart.some(c => c.is_free) && (
@@ -1714,6 +1872,12 @@ export default function SalesPage() {
                                         <div className="break-item discount">
                                             <span>Discount ({discountRate}%)</span>
                                             <span>-₹{discountAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+                                        </div>
+                                    )}
+                                    {appliedCoupon && (appliedCoupon.type === 'discount' || appliedCoupon.type === 'currency') && (
+                                        <div className="break-item discount">
+                                            <span>Coupon ({appliedCoupon.code})</span>
+                                            <span>-₹{couponDiscount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
                                         </div>
                                     )}
                                     {gstEnabled && (
@@ -2048,11 +2212,11 @@ export default function SalesPage() {
                         {invoices.length === 0 ? (
                             <div className="empty-state-premium">
                                 <div className="empty-icon-wrapper">
-                                    <Icons.History size={48} strokeWidth={1.5} />
+                                    <Icons.History size={40} />
                                 </div>
                                 <h3>No Sales Yet</h3>
                                 <p>Start creating invoices to record your sales.</p>
-                                <SButton variant="primary" onClick={() => setTab('new')} style={{ marginTop: '16px' }}>
+                                <SButton variant="primary" onClick={() => setTab('new')}>
                                     Create Invoice
                                 </SButton>
                             </div>
@@ -2167,8 +2331,11 @@ export default function SalesPage() {
                                                                     Give Product
                                                                 </SButton>
                                                             )}
-                                                            <SButton variant="secondary" onClick={() => handleViewInvoice(inv.id)} title="View Invoice">
+                                                            <SButton variant="secondary" onClick={() => { setAutoOpenShare(false); handleViewInvoice(inv.id); }} title="View Invoice">
                                                                 <Icons.Eye size={14} />
+                                                            </SButton>
+                                                            <SButton variant="secondary" onClick={() => { setAutoOpenShare(true); handleViewInvoice(inv.id); }} title="Share Invoice">
+                                                                <Icons.Share size={14} />
                                                             </SButton>
                                                             {(inv.items && inv.items.length > 0) && (
                                                                 <SButton variant="secondary" onClick={() => {
@@ -2201,6 +2368,7 @@ export default function SalesPage() {
                     <InvoicePreviewModal
                         invoice={previewInvoice}
                         onClose={() => setPreviewInvoice(null)}
+                        autoOpenShare={autoOpenShare}
                     />
                 )
             }

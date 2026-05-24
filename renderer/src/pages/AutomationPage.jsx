@@ -8,6 +8,7 @@ import { toast } from 'sonner';
 import { isOnline } from '../utils/network';
 import { mazewaySupabase } from '../mazewaySupabase';
 import './AutomationPage.css';
+import ConnectedServicesCard from '../components/automation/ConnectedServicesCard';
 
 const AGENT_PLANS = [
     { id: 'starter', name: 'Starter', price: 600, features: ['1000 mins/mo', 'WhatsApp Only', 'Basic Personality'] },
@@ -535,6 +536,8 @@ export default function AutomationPage() {
                     );
                 })}
             </div>
+
+            <ConnectedServicesCard />
 
             <div className="agents-section">
                 <div className="agents-section-header">

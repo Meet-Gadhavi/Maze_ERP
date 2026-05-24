@@ -5,6 +5,7 @@ import html2canvas from 'html2canvas';
 import { amountToWords, calculateTaxSummary, formatCurrency } from '../utils';
 import Modal from './Modal';
 import SButton from './SButton';
+import { toast } from 'sonner';
 import './InvoicePreviewModal.css';
 
 const translations = {
@@ -172,14 +173,76 @@ const translations = {
     }
 };
 
-export default function InvoicePreviewModal({ invoice, onClose }) {
+export default function InvoicePreviewModal({ invoice, onClose, autoOpenShare = false }) {
     const [settings, setSettings] = useState(null);
     const contentRef = useRef(null);
     const [downloading, setDownloading] = useState(false);
 
+    // Share Modal States
+    const [showShareModal, setShowShareModal] = useState(autoOpenShare);
+    const [gmailConnections, setGmailConnections] = useState([]);
+    const [selectedSender, setSelectedSender] = useState('');
+    const [recipientEmail, setRecipientEmail] = useState(invoice?.customer_email || '');
+    const [sendingEmail, setSendingEmail] = useState(false);
+    const [loadingConnections, setLoadingConnections] = useState(false);
+
     useEffect(() => {
         api.getSettings().then(setSettings).catch(console.error);
     }, []);
+
+    useEffect(() => {
+        if (showShareModal) {
+            setLoadingConnections(true);
+            api.getGmailConnections()
+                .then(conns => {
+                    const activeConns = (conns || []).filter(c => c.status === 'Active');
+                    setGmailConnections(activeConns);
+                    if (activeConns.length > 0) {
+                        setSelectedSender(activeConns[0].email);
+                    }
+                })
+                .catch(console.error)
+                .finally(() => setLoadingConnections(false));
+        }
+    }, [showShareModal]);
+
+    const handleCopyLink = () => {
+        if (!invoice) return;
+        const link = `http://localhost:3000/#/sales?preview=${invoice.id}`;
+        navigator.clipboard.writeText(link)
+            .then(() => toast.success('Invoice link copied to clipboard!'))
+            .catch(() => toast.error('Failed to copy link.'));
+    };
+
+    const handleSendGmail = async () => {
+        if (!invoice) return;
+        if (!selectedSender) {
+            toast.error('Please select a sender email address.');
+            return;
+        }
+        if (!recipientEmail.trim()) {
+            toast.error('Recipient email address is required.');
+            return;
+        }
+
+        setSendingEmail(true);
+        const loadingId = toast.loading('Sending invoice email...');
+        try {
+            await api.sendInvoiceEmail({
+                senderEmail: selectedSender,
+                to: recipientEmail.trim(),
+                invoiceId: invoice.id,
+                style: settings?.invoice_style || 'classic'
+            });
+            toast.success(`Invoice sent successfully to ${recipientEmail}`, { id: loadingId });
+            setShowShareModal(false);
+        } catch (err) {
+            console.error('Failed to send invoice via Gmail:', err);
+            toast.error(err.message || 'Failed to send invoice email.', { id: loadingId });
+        } finally {
+            setSendingEmail(false);
+        }
+    };
 
     if (!invoice) return null;
 
@@ -300,7 +363,8 @@ export default function InvoicePreviewModal({ invoice, onClose }) {
     const dRate = Number(invoice.discount_rate || 0);
     const gRate = Number(invoice.gst_rate || 0);
     const discountAmount = hasPerItem ? 0 : (subtotal * (dRate / 100));
-    const afterDiscount = subtotal - discountAmount;
+    const couponDiscountAmount = Number(invoice.coupon_discount_amount || 0);
+    const afterDiscount = Math.max(0, subtotal - discountAmount - couponDiscountAmount);
     const gstAmount = hasPerItem ? 0 : (afterDiscount * (gRate / 100));
     const calculatedTotal = afterDiscount + gstAmount;
     const totalToUse = originalTotal > 0 ? originalTotal : calculatedTotal;
@@ -467,6 +531,12 @@ export default function InvoicePreviewModal({ invoice, onClose }) {
                         <div className="invoice-totals-row discount">
                             <span>{t.discount} ({dRate.toFixed(1)}%)</span>
                             <span>-{formatCurrency(discountAmount)}</span>
+                        </div>
+                    )}
+                    {couponDiscountAmount > 0 && (
+                        <div className="invoice-totals-row discount">
+                            <span>Coupon ({invoice.coupon_code})</span>
+                            <span>-{formatCurrency(couponDiscountAmount)}</span>
                         </div>
                     )}
                     {gstAmount > 0 && (
@@ -658,6 +728,15 @@ export default function InvoicePreviewModal({ invoice, onClose }) {
                 <div className="right-column">
                     <div className="summary-totals-box">
                         <div className="summary-row"><span>{t.subtotal}</span><span>:</span><span>{formatCurrency(subtotal)}</span></div>
+                        {discountAmount > 0 && (
+                            <div className="summary-row"><span>Discount ({dRate.toFixed(1)}%)</span><span>:</span><span>-{formatCurrency(discountAmount)}</span></div>
+                        )}
+                        {couponDiscountAmount > 0 && (
+                            <div className="summary-row"><span>Coupon ({invoice.coupon_code})</span><span>:</span><span>-{formatCurrency(couponDiscountAmount)}</span></div>
+                        )}
+                        {gstAmount > 0 && (
+                            <div className="summary-row"><span>GST ({gRate.toFixed(1)}%)</span><span>:</span><span>+{formatCurrency(gstAmount)}</span></div>
+                        )}
                         <div className="summary-row"><span>{t.shipping}</span><span>:</span><span>{formatCurrency(invoice.shipping_amount || 0)}</span></div>
                         <div className="summary-row total"><span>{t.total}</span><span>:</span><span>{formatCurrency(effectiveTotal)}</span></div>
                         <div className="summary-row words">
@@ -745,6 +824,12 @@ export default function InvoicePreviewModal({ invoice, onClose }) {
                     <div className="total-row">
                         <span>{t.discount} ({dRate.toFixed(1)}%)</span>
                         <span>-{formatCurrency(discountAmount)}</span>
+                    </div>
+                )}
+                {couponDiscountAmount > 0 && (
+                    <div className="total-row">
+                        <span>Coupon ({invoice.coupon_code})</span>
+                        <span>-{formatCurrency(couponDiscountAmount)}</span>
                     </div>
                 )}
                 {gstAmount > 0 && (
@@ -989,6 +1074,12 @@ export default function InvoicePreviewModal({ invoice, onClose }) {
                                 <span>-{formatCurrency(discountAmount)}</span>
                             </div>
                         )}
+                        {couponDiscountAmount > 0 && (
+                            <div className="totals-row">
+                                <span>Coupon ({invoice.coupon_code})</span>
+                                <span>-{formatCurrency(couponDiscountAmount)}</span>
+                            </div>
+                        )}
                         {gstAmount > 0 && (
                             <div className="totals-row">
                                 <span>{t.gst} ({gRate.toFixed(1)}%)</span>
@@ -1018,7 +1109,8 @@ export default function InvoicePreviewModal({ invoice, onClose }) {
     );
 
     return (
-        <Modal
+        <>
+            <Modal
             open={true}
             onClose={onClose}
             heading="Invoice Preview"
@@ -1034,6 +1126,7 @@ export default function InvoicePreviewModal({ invoice, onClose }) {
                 </SButton>
             }
             secondaryActions={[
+                <SButton key="share" variant="secondary" onClick={() => setShowShareModal(true)}>Share</SButton>,
                 <SButton key="print" onClick={handlePrint}>Print / PDF</SButton>
             ]}
         >
@@ -1122,6 +1215,95 @@ export default function InvoicePreviewModal({ invoice, onClose }) {
                 )}
             </div>
         </Modal>
+
+        {showShareModal && (
+            <div style={{
+                position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+                backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center',
+                justifyContent: 'center', zIndex: 200000, padding: '20px'
+            }}>
+                <div style={{
+                    backgroundColor: '#fff', padding: '24px', borderRadius: '16px',
+                    width: '100%', maxWidth: '440px', boxSizing: 'border-box',
+                    boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1)'
+                }}>
+                    <h3 style={{ marginTop: 0, marginBottom: '20px', fontSize: '18px', fontWeight: 700, color: 'var(--text-primary)' }}>Share Invoice</h3>
+                    
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                        {/* Copy Link Section */}
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px', border: '1px solid var(--border)', borderRadius: '8px' }}>
+                            <div>
+                                <strong style={{ display: 'block', fontSize: '13px' }}>Invoice Link</strong>
+                                <span style={{ fontSize: '11px', color: 'var(--text-tertiary)' }}>Copy the invoice URL to clipboard</span>
+                            </div>
+                            <SButton variant="secondary" size="small" onClick={handleCopyLink}>Copy Link</SButton>
+                        </div>
+
+                        {/* Gmail Send Section */}
+                        <div style={{ border: '1px solid var(--border)', borderRadius: '8px', padding: '16px' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
+                                <img src="./gmail-icon.png" alt="Gmail" style={{ width: '20px', height: '20px', objectFit: 'contain' }} />
+                                <strong style={{ fontSize: '14px' }}>Send via Gmail</strong>
+                            </div>
+
+                            {loadingConnections ? (
+                                <div style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>Loading Gmail connections...</div>
+                            ) : gmailConnections.length > 0 ? (
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                                    <div>
+                                        <label style={{ display: 'block', fontSize: '11px', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '4px' }}>Sender Account</label>
+                                        <select 
+                                            className="form-control" 
+                                            value={selectedSender} 
+                                            onChange={e => setSelectedSender(e.target.value)}
+                                            style={{ width: '100%', padding: '6px', borderRadius: '6px', border: '1px solid var(--border-strong)' }}
+                                        >
+                                            {gmailConnections.map(c => (
+                                                <option key={c.id} value={c.email}>{c.email}</option>
+                                            ))}
+                                        </select>
+                                    </div>
+
+                                    <div>
+                                        <label style={{ display: 'block', fontSize: '11px', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '4px' }}>Recipient Email</label>
+                                        <input 
+                                            type="email" 
+                                            className="form-control" 
+                                            value={recipientEmail} 
+                                            onChange={e => setRecipientEmail(e.target.value)}
+                                            placeholder="customer@example.com"
+                                            style={{ width: '100%', padding: '6px', borderRadius: '6px', border: '1px solid var(--border-strong)' }}
+                                        />
+                                    </div>
+
+                                    <SButton 
+                                        variant="primary" 
+                                        onClick={handleSendGmail} 
+                                        loading={sendingEmail} 
+                                        disabled={sendingEmail}
+                                        style={{ width: '100%', marginTop: '4px' }}
+                                    >
+                                        Send Email
+                                    </SButton>
+                                </div>
+                            ) : (
+                                <div style={{ fontSize: '12px', color: 'var(--text-secondary)', lineHeight: '1.5' }}>
+                                    No active Gmail connections found. 
+                                    <p style={{ margin: '4px 0 0 0', fontSize: '11px' }}>
+                                        Go to <strong>Automation</strong> and connect your Gmail account first to send emails directly.
+                                    </p>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+
+                    <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '20px' }}>
+                        <SButton onClick={() => setShowShareModal(false)}>Close</SButton>
+                    </div>
+                </div>
+            </div>
+        )}
+        </>
     );
 }
 

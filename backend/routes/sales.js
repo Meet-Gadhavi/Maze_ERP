@@ -35,7 +35,9 @@ const invoiceSchema = z.object({
         notes: z.string().nullable().optional()
     })).optional(),
     paid_amount: z.number().min(0).optional(),
-    payment_method: z.string().optional()
+    payment_method: z.string().optional(),
+    coupon_code: z.string().optional().nullable(),
+    coupon_discount_amount: z.number().min(0).optional()
 });
 
 // GET /api/invoices — sales history
@@ -184,7 +186,9 @@ router.post('/', async (req, res, next) => {
                 use_p_credit = false,
                 is_advance = false,
                 advance_amount = 0,
-                payments = []
+                payments = [],
+                coupon_code = null,
+                coupon_discount_amount = 0
             } = validatedData;
 
             // Determine initial paid amount from multiple payments or fallback to legacy paid_amount
@@ -245,9 +249,32 @@ router.post('/', async (req, res, next) => {
                 db.run('UPDATE customers SET p_credit_balance = p_credit_balance - ? WHERE id = ?', [totalWalletPaymentAmount, customer_id]);
             }
 
+            if (coupon_code) {
+                const coupon = db.get('SELECT * FROM coupons WHERE UPPER(code) = ?', [coupon_code.trim().toUpperCase()]);
+                if (!coupon) {
+                    res.status(400).json({ error: 'Applied coupon is invalid or does not exist.' });
+                    const err = new Error('Abort'); err.apiResponse = true; throw err;
+                }
+                // Check expiry
+                if (coupon.expiry_date) {
+                    const today = new Date().toISOString().slice(0, 10);
+                    if (coupon.expiry_date < today) {
+                        res.status(400).json({ error: 'Applied coupon has expired.' });
+                        const err = new Error('Abort'); err.apiResponse = true; throw err;
+                    }
+                }
+                // Check usage limit
+                if (coupon.usage_limit_type === 'custom' && coupon.times_used >= coupon.usage_limit) {
+                    res.status(400).json({ error: 'Applied coupon usage limit has been reached.' });
+                    const err = new Error('Abort'); err.apiResponse = true; throw err;
+                }
+                // Increment times_used
+                db.run('UPDATE coupons SET times_used = times_used + 1 WHERE id = ?', [coupon.id]);
+            }
+
             const invResult = db.run(
-                'INSERT INTO invoices (customer_id, total, gst_rate, discount_rate, paid_amount, payment_status, walk_in_name, walk_in_phone, financial_status, is_advance, advance_amount, is_stock_deducted) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-                [customer_id || null, 0, gst_rate, discount_rate, 0, is_advance ? 'ADVANCE' : 'UNPAID', walk_in_name, walk_in_phone, is_advance ? 'ADVANCE' : 'UNPAID', is_advance ? 1 : 0, Number(advance_amount), is_advance ? 0 : 1]
+                'INSERT INTO invoices (customer_id, total, gst_rate, discount_rate, paid_amount, payment_status, walk_in_name, walk_in_phone, financial_status, is_advance, advance_amount, is_stock_deducted, coupon_code, coupon_discount_amount) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+                [customer_id || null, 0, gst_rate, discount_rate, 0, is_advance ? 'ADVANCE' : 'UNPAID', walk_in_name, walk_in_phone, is_advance ? 'ADVANCE' : 'UNPAID', is_advance ? 1 : 0, Number(advance_amount), is_advance ? 0 : 1, coupon_code || null, coupon_discount_amount || 0]
             );
         const invoiceId = invResult.lastInsertRowid;
 
@@ -419,9 +446,9 @@ router.post('/', async (req, res, next) => {
 
         // Calculate final total
         const discountAmount = subtotal * (discount_rate / 100);
-        const totalAfterDiscount = subtotal - discountAmount;
-        const gstAmount = totalAfterDiscount * (gst_rate / 100);
-        const finalTotal = totalAfterDiscount + gstAmount;
+        const totalAfterDiscountAndCoupon = Math.max(0, subtotal - discountAmount - (coupon_discount_amount || 0));
+        const gstAmount = totalAfterDiscountAndCoupon * (gst_rate / 100);
+        const finalTotal = totalAfterDiscountAndCoupon + gstAmount;
 
         // M039: Handle P-Credit Usage AFTER final total is calculated, capped properly
         let appliedCredit = 0;

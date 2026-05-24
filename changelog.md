@@ -4,15 +4,47 @@ All notable changes to the Quantro ERP application will be documented here.
 
 ---
 
-## [2.0.9] - 2026-05-23
+## [2.0.9] - 2026-05-24
+### Added
+- **Daily Gmail Limit Tracking:** Configured a strict 1000 daily email limit per connected email account. Decrements on every email sent (test emails, invoices, campaigns).
+- **Automation Quota Progress Bar:** Replaced static label with a colored (green/yellow/red) progress bar showing today's email quota usage inside Connected Services.
+- **Premium Marketing Tabs:** Redesigned Coupons and Email Campaigns tab switcher with a modern pill-shaped Glassmorphism slider layout.
+- **Searchable Customer Selection Cards:** Upgraded the campaign recipient list with search input, check-state card styling, selected count badge, and custom disabled state for no-email customers.
+
+## [2.2.0] - 2026-05-23
+### Added
+- **Gmail OAuth Integration Service:** Enabled multi-tenant SaaS architecture allowing businesses to securely link their own Gmail accounts using official Google OAuth consent screens (scopes: `gmail.send`, `userinfo.email`, `userinfo.profile`) rather than insecure SMTP passwords.
+- **Automation Tab Integration Card:** Added a premium "Get Gmail Service" card under the Automation page featuring the official Gmail icon, active connection status badge, connection date, usage quota tracking (Free 1800 Emails), and Connect/Disconnect/Send Test Email actions.
+- **Automated Email Campaigns:** Introduced campaign scheduling under the Customers -> Marketing tab. Users can schedule campaigns by selecting multiple customers, templates (Order Confirmation, Feedback request, General Newsletter), start date, and daily send time.
+- **Invoice Sharing Popup:** Added a "Share" option next to the Print/PDF button in the Invoice Preview screen. Users can instantly copy the invoice link or select a connected Gmail sender to email the styled invoice directly to the customer.
+- **Background Campaign Scheduler:** Added a background interval process in the backend server that polls SQLite for scheduled campaigns and sends templated HTML emails automatically when the scheduled date/time is met.
+
+## [2.1.1] - 2026-05-23
+### Added
+- **Multi-Product Reward Coupon Support:** Updated the "Create Coupon" catalog selector to support selecting multiple product rewards. Users can configure individual reward quantities for each selected product inline.
+- **Space-Efficient Coupon Catalog Layout:** Replaced the tall bottom reward details row in the customer coupon modal with a compact, flex-wrapped tag list of selected products, solving the extra bottom margin issue.
+- **POS & Standard Checkout Multi-Product Integration:** Enabled applying multi-product coupons to automatically add all associated free products with their respective quantities to both standard invoice and POS Quick Sale carts.
+- **Automatic Coupon Invalidation on Item Removal:** Removing the coupon code or manually deleting any of the free reward products from standard or POS carts automatically clears the applied coupon state.
 ### Fixed
-- **POS Category Switching:** Resolved a bug where clicking category buttons in Quick Sale was not registering. The drag-to-scroll handler was blocking all pointer events on category buttons immediately on mousedown. Fixed by introducing a 5px drag threshold — pointer events are only suppressed once a real drag gesture is detected, so tap/click to switch category works correctly again.
-- **Split Bill Payment Dropdown:** Replaced the native browser `<select>` dropdowns in the Split Bill modal (Equal Split and Item Split tabs) with the premium `CustomSelect` component, matching the design language used throughout the app.
-- **Split Bill Equal Split Layout:** Changed Equal Split tab from a 2-column grid to a single-column vertical list layout matching the exact same row height, padding, and spacing as the Item Split tab for visual consistency.
-- **POS Payment Method Buttons:** Reverted payment method buttons (Cash, UPI, Card, Split Bill) back to native Shopify `SButton` components with `variant` toggling (`primary` when selected, `secondary` when not), matching the same selection effect as the Grid/List view switcher.
+- **POS Quick Sale Selection Active Styles:** Inverted active/inactive styling for payment selection buttons (Cash, UPI, Card), category selection buttons, and layout grid/list toggle buttons, rendering the active selections in solid black (#202223) and inactive ones in white/light grey. Added a built-in `selected` prop to `SButton` to automatically apply the black theme (by accessing the shadow DOM of `<s-button>` web components directly using React refs and modifying internal button style properties, bypassing scoped CSS variable hash limitations).
+- **POS Quick Sale Payment and Checkout Clicks:** Wrapped checkout payment method (Cash, UPI, Card) and Create Invoice action buttons inside standard browser elements with pointer-event bypasses, resolving custom element click interception issues that prevented payment selection.
+
+## [2.1.0] - 2026-05-23
+### Added
+- **Coupon Reward Quantity Integration:** Updated standard invoice and POS Quick Sale checkout to add the free product reward to the cart with its configured reward quantity (instead of defaulting to 1 unit).
+- **Empty States Standardization:** Standardized the design and size of empty state panels across all main tabs (such as the "Pending Product" tab in Inventory Page) to match the premium empty state card styling. Updated search filter empty states (such as suppliers search in Purchase Page and communication logs in CRM) to use the standard compact layout, resolving layout mismatches.
+
+## [2.0.9] - 2026-05-23
+### Added
+- **Coupon Management System:** Added a "Marketing (Coupons)" sub-tab under the Customers section to create, view, and delete promo coupons. Supports Percentage Discount, Currency Flat Discount, and Free Product Reward coupons with configurable expiration dates, usage limits (unlimited or custom), and automated tracking.
+- **Promo Coupon Checkout Integration:** Integrated coupon code entry fields inside the standard checkout invoice sidebar and POS Quick Sale checkout. Applying valid coupons automatically adds free product rewards to the cart or deducts the coupon discount amount from the grand total.
+- **Custom Customer Name & Phone in POS Quick Sale:** Replaced the hardcoded Walk-in guest default in Quick Sale checkout with editable input fields, allowing users to record custom walk-in customer names and phone numbers.
+- **Shopify Button Active Selection in POS Quick Sale:** Changed POS payment buttons (Cash, UPI, Card) to highlight the selected payment method with a white background, accent border, and subtle glow (the Shopify-like active state effect), keeping unselected options dark and allowing checkout completion only after selecting a payment method.
+- **Invoice Templates Coupon Breakdown:** Enabled Classic, Formal, POS, and Minimalist invoice templates to display applied coupon codes and discount amounts in the totals breakdown section.
+### Fixed
+- **POS Quick Sale Category Switcher:** Restored the Shopify Polaris `SButton` aesthetics for categories by wrapping them in pointer-event-transparent containers, resolving both the Shopify look-and-feel and category selection bugs.
 
 ## [2.0.8] - 2026-05-23
-
 ### Added
 - **POS Quick Sale List View:** Added a layout toggle next to category selection to switch between standard Box/Grid view and detailed List view for product tiles, styled as native Shopify SButtons.
 - **POS Quick Sale Payment Selection:** Changed payment method buttons (Cash, UPI, Card, Split Bill) to toggle selection state (highlighting selected in white and unselected in black) rather than checking out instantly. Checking out is now performed by clicking the primary "Create Invoice" button.
