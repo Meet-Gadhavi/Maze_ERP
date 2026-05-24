@@ -695,7 +695,7 @@ export default function CustomersPage() {
                 </>
             ) : (
                 /* Marketing Tab */
-                <div className="coupons-section flex-column gap-20">
+                <div className="coupons-section flex-column gap-20" style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
                     <div style={{ 
                         display: 'flex', 
                         gap: '4px', 
@@ -745,7 +745,7 @@ export default function CustomersPage() {
                     </div>
 
                     {marketingSubTab === 'coupons' ? (
-                        <div className="flex-column gap-20">
+                        <div className="flex-column gap-20" style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                 <div>
                                     <h4 style={{ margin: 0, fontSize: '16px', fontWeight: 600 }}>Discount Coupons</h4>
@@ -854,7 +854,7 @@ export default function CustomersPage() {
                             )}
                         </div>
                     ) : (
-                        <div className="flex-column gap-20">
+                        <div className="flex-column gap-20" style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                 <div>
                                     <h4 style={{ margin: 0, fontSize: '16px', fontWeight: 600 }}>Scheduled Campaigns</h4>
