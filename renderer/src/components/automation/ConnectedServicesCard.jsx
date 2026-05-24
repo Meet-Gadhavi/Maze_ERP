@@ -114,9 +114,24 @@ export default function ConnectedServicesCard() {
                     <img src="./gmail-icon.png" alt="Gmail" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
                 </div>
                 <div className="section-title-wrap" style={{ flex: 1 }}>
-                    <h3 style={{ margin: 0, fontSize: '18px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        Gmail Service
-                    </h3>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <h3 style={{ margin: 0, fontSize: '18px', fontWeight: 600 }}>
+                            Gmail Service
+                        </h3>
+                        {connections.length > 0 && (
+                            <span style={{ 
+                                fontSize: '13px', 
+                                fontWeight: 600, 
+                                color: connections[0].emailsSentToday >= (connections[0].emailsLimit || 1000) ? '#e53e3e' : 'var(--text-secondary)',
+                                background: '#f8fafc',
+                                padding: '4px 10px',
+                                borderRadius: '6px',
+                                border: '1px solid var(--border)'
+                            }}>
+                                Daily Limit: {connections[0].emailsSentToday} / {connections[0].emailsLimit || 1000} Sent
+                            </span>
+                        )}
+                    </div>
                     <p style={{ margin: '4px 0 0 0', fontSize: '13px', color: 'var(--text-secondary)' }}>
                         Send invoices, order confirmations, feedback, and marketing campaigns using your own business Gmail account.
                     </p>
@@ -154,30 +169,11 @@ export default function ConnectedServicesCard() {
                                                 {conn.status}
                                             </span>
                                         </div>
-                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '8px' }}>
-                                            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', fontSize: '12px', color: 'var(--text-tertiary)' }}>
-                                                <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                                                    <Icons.Calendar size={12} />
-                                                    Connected on {new Date(conn.connectedAt).toLocaleDateString()}
-                                                </span>
-                                            </div>
-                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', width: '250px' }}>
-                                                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', fontWeight: 600 }}>
-                                                    <span style={{ color: 'var(--text-secondary)' }}>Daily Limit:</span>
-                                                    <span style={{ color: conn.emailsSentToday >= conn.emailsLimit ? '#e53e3e' : conn.emailsSentToday > 800 ? '#dd6b20' : '#38a169' }}>
-                                                        {conn.emailsSentToday} / {conn.emailsLimit} Sent
-                                                    </span>
-                                                </div>
-                                                <div style={{ width: '100%', height: '6px', backgroundColor: '#e2e8f0', borderRadius: '3px', overflow: 'hidden' }}>
-                                                    <div style={{
-                                                        width: `${Math.min(100, (conn.emailsSentToday / conn.emailsLimit) * 100)}%`,
-                                                        height: '100%',
-                                                        backgroundColor: conn.emailsSentToday >= conn.emailsLimit ? '#e53e3e' : conn.emailsSentToday > 800 ? '#dd6b20' : '#38a169',
-                                                        transition: 'width 0.3s ease',
-                                                        borderRadius: '3px'
-                                                    }}></div>
-                                                </div>
-                                            </div>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginTop: '6px', fontSize: '12px', color: 'var(--text-tertiary)' }}>
+                                            <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                                <Icons.Calendar size={12} />
+                                                Connected on {new Date(conn.connectedAt).toLocaleDateString()}
+                                            </span>
                                         </div>
                                     </div>
                                 </div>
