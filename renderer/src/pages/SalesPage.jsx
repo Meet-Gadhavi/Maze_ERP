@@ -1293,58 +1293,63 @@ export default function SalesPage() {
                                 />
                             </div>
 
-                            <div className="customer-list-grid">
-                                <div className="customer-card walk-in" onClick={() => handleSelectCustomer(null)}>
-                                    <div className="customer-icon">
-                                        <Icons.Users size={24} />
-                                    </div>
-                                    <div className="customer-info">
-                                        <span className="customer-name">New Walk-in Customer</span>
-                                        <span className="customer-type">Default Guest</span>
-                                    </div>
-                                    <div className="customer-action">
-                                        <Icons.ChevronRight size={20} />
-                                    </div>
-                                </div>
-
-                                {filteredCustomers.map(c => (
-                                    <div key={c.id} className="customer-card" onClick={() => handleSelectCustomer(c)}>
+                            <div className="customer-list-wrapper" style={{ position: 'relative' }}>
+                                <div className="customer-list-grid">
+                                    <div className="customer-card walk-in" onClick={() => handleSelectCustomer(null)}>
                                         <div className="customer-icon">
-                                            <Icons.User size={24} />
+                                            <Icons.Users size={24} />
                                         </div>
                                         <div className="customer-info">
-                                            <span className="customer-name">{c.name}</span>
-                                            <span className="customer-details">
-                                                {c.phone || 'No Phone'}
-                                            </span>
+                                            <span className="customer-name">New Walk-in Customer</span>
+                                            <span className="customer-type">Default Guest</span>
                                         </div>
-                                        <div className="customer-action" style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                                            {(() => {
-                                                const custInvoices = invoices.filter(inv => inv.customer_id === c.id);
-                                                const totalOutstanding = custInvoices.reduce((sum, inv) => {
-                                                    const effectiveTotal = Math.max(0, (inv.total || 0) - (inv.total_returned_amount || 0));
-                                                    return sum + Math.max(0, effectiveTotal - (inv.paid_amount || 0));
-                                                }, 0);
-                                                return totalOutstanding > 0 && (
-                                                    <span style={{ fontSize: 'var(--font-size-xs)', fontWeight: '600', color: 'var(--danger)', background: 'rgba(239, 68, 68, 0.1)', padding: '4px 10px', borderRadius: '20px', whiteSpace: 'nowrap' }}>
-                                                        Due: ₹{totalOutstanding.toLocaleString('en-IN')}
-                                                    </span>
-                                                );
-                                            })()}
-                                            {Number(c.p_credit_balance || 0) > 0 && (
-                                                <span style={{ fontSize: 'var(--font-size-xs)', fontWeight: '600', color: 'var(--accent)', background: 'var(--accent-light)', padding: '4px 10px', borderRadius: '20px', whiteSpace: 'nowrap' }}>
-                                                    Credit: ₹{Number(c.p_credit_balance).toLocaleString('en-IN')}
-                                                </span>
-                                            )}
+                                        <div className="customer-action">
                                             <Icons.ChevronRight size={20} />
                                         </div>
                                     </div>
-                                ))}
 
-                                {filteredCustomers.length === 0 && customerSearch && (
-                                    <div className="empty-state mini" style={{ gridColumn: '1 / -1' }}>
-                                        <p>No customers matching "{customerSearch}"</p>
-                                    </div>
+                                    {filteredCustomers.map(c => (
+                                        <div key={c.id} className="customer-card" onClick={() => handleSelectCustomer(c)}>
+                                            <div className="customer-icon">
+                                                <Icons.User size={24} />
+                                            </div>
+                                            <div className="customer-info">
+                                                <span className="customer-name">{c.name}</span>
+                                                <span className="customer-details">
+                                                    {c.phone || 'No Phone'}
+                                                </span>
+                                            </div>
+                                            <div className="customer-action" style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                                {(() => {
+                                                    const custInvoices = invoices.filter(inv => inv.customer_id === c.id);
+                                                    const totalOutstanding = custInvoices.reduce((sum, inv) => {
+                                                        const effectiveTotal = Math.max(0, (inv.total || 0) - (inv.total_returned_amount || 0));
+                                                        return sum + Math.max(0, effectiveTotal - (inv.paid_amount || 0));
+                                                    }, 0);
+                                                    return totalOutstanding > 0 && (
+                                                        <span style={{ fontSize: 'var(--font-size-xs)', fontWeight: '600', color: 'var(--danger)', background: 'rgba(239, 68, 68, 0.1)', padding: '4px 10px', borderRadius: '20px', whiteSpace: 'nowrap' }}>
+                                                            Due: ₹{totalOutstanding.toLocaleString('en-IN')}
+                                                        </span>
+                                                    );
+                                                })()}
+                                                {Number(c.p_credit_balance || 0) > 0 && (
+                                                    <span style={{ fontSize: 'var(--font-size-xs)', fontWeight: '600', color: 'var(--accent)', background: 'var(--accent-light)', padding: '4px 10px', borderRadius: '20px', whiteSpace: 'nowrap' }}>
+                                                        Credit: ₹{Number(c.p_credit_balance).toLocaleString('en-IN')}
+                                                    </span>
+                                                )}
+                                                <Icons.ChevronRight size={20} />
+                                            </div>
+                                        </div>
+                                    ))}
+
+                                    {filteredCustomers.length === 0 && customerSearch && (
+                                        <div className="empty-state mini" style={{ gridColumn: '1 / -1' }}>
+                                            <p>No customers matching "{customerSearch}"</p>
+                                        </div>
+                                    )}
+                                </div>
+                                {filteredCustomers.length > 4 && (
+                                    <div className="list-fade-overlay"></div>
                                 )}
                             </div>
                         </div>

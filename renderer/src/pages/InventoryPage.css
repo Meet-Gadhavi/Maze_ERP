@@ -112,7 +112,7 @@
 }
 
 .category-items-list th {
-    background: transparent;
+    background: var(--bg-card);
     font-size: var(--font-size-xs);
     padding: 12px 24px;
 }
