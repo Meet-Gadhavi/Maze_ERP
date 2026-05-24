@@ -89,6 +89,7 @@ export default function ConnectedServicesCard() {
             toast.success(`Test email sent successfully to ${testRecipient}`, { id: loadingId });
             setShowTestModal(false);
             setTestRecipient('');
+            fetchConnections();
         } catch (err) {
             console.error('Test email failed:', err);
             toast.error(err.message || 'Failed to send test email.', { id: loadingId });

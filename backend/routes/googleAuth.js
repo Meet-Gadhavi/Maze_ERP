@@ -98,11 +98,20 @@ router.post('/test-email', async (req, res, next) => {
     }
 
     try {
-        const html = `<p>${body || 'This is a test email sent from Maze ERP using Gmail OAuth integration!'}</p>`;
+        await db.ready;
+        const settingsRows = db.all('SELECT key, value FROM settings');
+        const settings = {};
+        settingsRows.forEach(r => { settings[r.key] = r.value; });
+
+        const companyName = (settings.company_name && settings.company_name.trim() !== '' && settings.company_name !== 'Quantro')
+            ? settings.company_name
+            : 'Maze ERP';
+
+        const html = gmailSender.generateTestEmailTemplate(body, settings);
         await gmailSender.sendMail({
             senderEmail,
             to,
-            subject: subject || 'Maze ERP - Test Email',
+            subject: subject || `${companyName} - Test Email`,
             htmlBody: html,
             textBody: body || 'Test email content.'
         });

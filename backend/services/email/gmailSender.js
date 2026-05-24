@@ -1,6 +1,7 @@
 const { google } = require('googleapis');
 const googleOAuthService = require('../googleOAuthService');
 const EmailConnection = require('../../models/EmailConnection');
+const db = require('../../db');
 
 /**
  * Encodes a string to RFC 2822 base64url format for the Google API raw message body.
@@ -101,6 +102,38 @@ async function getAuthorizedClient(email) {
     return oauth2Client;
 }
 
+function getDefaultLogo() {
+    try {
+        const fs = require('fs');
+        const path = require('path');
+        const p1 = path.join(__dirname, '..', '..', '..', 'Public', 'mazeway.png');
+        if (fs.existsSync(p1)) {
+            return `data:image/png;base64,${fs.readFileSync(p1).toString('base64')}`;
+        }
+        const p2 = path.join(__dirname, '..', '..', '..', 'renderer', 'public', 'icons', 'Logo.png');
+        if (fs.existsSync(p2)) {
+            return `data:image/png;base64,${fs.readFileSync(p2).toString('base64')}`;
+        }
+    } catch (e) {
+        console.error('[Gmail Sender] Error loading default logo:', e);
+    }
+    return '';
+}
+
+function getCompanyName(settings) {
+    if (settings && settings.company_name && settings.company_name.trim() !== '' && settings.company_name !== 'Quantro') {
+        return settings.company_name;
+    }
+    return 'Maze ERP';
+}
+
+function getFromName(settings) {
+    if (settings && settings.company_name && settings.company_name.trim() !== '' && settings.company_name !== 'Quantro') {
+        return settings.company_name;
+    }
+    return 'Maze ERP Admin';
+}
+
 const gmailSender = {
     /**
      * Send email directly using a connected Gmail account
@@ -118,7 +151,12 @@ const gmailSender = {
             const gmail = google.gmail({ version: 'v1', auth });
 
             const connection = await EmailConnection.getConnectionByEmail(senderEmail);
-            const fromName = 'Maze ERP Admin'; // Default fallback name
+            await db.ready;
+            const settingsRows = db.all('SELECT key, value FROM settings');
+            const settings = {};
+            settingsRows.forEach(r => { settings[r.key] = r.value; });
+
+            const fromName = getFromName(settings);
 
             const rawMime = compileMimeEmail({
                 to,
@@ -166,12 +204,19 @@ const gmailSender = {
         const displayTotal = invoice.total_amount || invoice.effective_total || 0;
         const displayDue = invoice.due_amount || 0;
 
+        const logoUrl = settings.logo_url || getDefaultLogo();
+        const companyName = getCompanyName(settings);
+
         if (style === 'minimalist') {
             return `
                 <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color: #334155; max-width: 600px; margin: 0 auto; padding: 24px; border: 1px solid #e2e8f0; border-radius: 12px; background: #ffffff;">
                     <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #f1f5f9; padding-bottom: 16px; margin-bottom: 24px;">
                         <div>
-                            <h2 style="margin: 0; font-size: 20px; font-weight: 800; color: #0f172a;">${settings.company_name || 'Maze ERP'}</h2>
+                            ${logoUrl 
+                                ? `<img src="${logoUrl}" alt="${companyName}" style="max-height: 40px; margin-bottom: 8px; display: block;" />` 
+                                : ''
+                            }
+                            <h2 style="margin: 0; font-size: 20px; font-weight: 800; color: #0f172a;">${companyName}</h2>
                             <p style="margin: 4px 0 0 0; font-size: 12px; color: #64748b;">${settings.email || ''}</p>
                         </div>
                         <div style="text-align: right;">
@@ -219,7 +264,10 @@ const gmailSender = {
             <div style="font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; max-width: 600px; margin: 0 auto; background: #f8fafc; padding: 20px;">
                 <div style="background: #ffffff; border-radius: 8px; border: 1px solid #eaecf0; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05); padding: 32px;">
                     <div style="border-bottom: 2px solid #3b82f6; padding-bottom: 20px; margin-bottom: 24px; display: flex; justify-content: space-between; align-items: center;">
-                        <span style="font-size: 24px; font-weight: bold; color: #1e3a8a;">${settings.company_name || 'Maze ERP'}</span>
+                        ${logoUrl 
+                            ? `<img src="${logoUrl}" alt="${companyName}" style="max-height: 40px; display: block;" />`
+                            : `<span style="font-size: 24px; font-weight: bold; color: #1e3a8a;">${companyName}</span>`
+                        }
                         <span style="font-size: 14px; background: #eff6ff; color: #1e40af; padding: 6px 12px; border-radius: 20px; font-weight: 600; text-transform: uppercase;">Invoice Due</span>
                     </div>
                     <div style="font-size: 14px; line-height: 1.5; color: #4b5563; margin-bottom: 24px;">
@@ -263,7 +311,7 @@ const gmailSender = {
                         </tbody>
                     </table>
                     <div style="font-size: 12px; color: #9ca3af; text-align: center; line-height: 1.5; border-top: 1px solid #e5e7eb; padding-top: 20px;">
-                        <p>${settings.company_name || 'Maze ERP'} | Phone: ${settings.phone || ''} | Email: ${settings.email || ''}</p>
+                        <p>${companyName} | Phone: ${settings.phone || ''} | Email: ${settings.email || ''}</p>
                         <p style="margin-top: 4px;">This is an automated invoice transmission. Thank you for your support!</p>
                     </div>
                 </div>
@@ -272,9 +320,15 @@ const gmailSender = {
     },
 
     generateOrderConfirmationTemplate(customerName, orderDetails, settings) {
+        const logoUrl = settings.logo_url || getDefaultLogo();
+        const companyName = getCompanyName(settings);
         return `
             <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #e2e8f0; border-radius: 12px; background: #ffffff; overflow: hidden; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.05);">
                 <div style="background: linear-gradient(135deg, #0f172a, #1e293b); padding: 32px; text-align: center; color: #ffffff;">
+                    ${logoUrl 
+                        ? `<img src="${logoUrl}" alt="${companyName}" style="max-height: 40px; margin-bottom: 12px; display: inline-block;" />` 
+                        : ''
+                    }
                     <div style="font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.1em; color: #38bdf8; margin-bottom: 8px;">Order Placed Successfully</div>
                     <h2 style="margin: 0; font-size: 24px; font-weight: 800;">Order Confirmed</h2>
                 </div>
@@ -296,7 +350,7 @@ const gmailSender = {
                     </div>
                 </div>
                 <div style="background: #f8fafc; padding: 24px; text-align: center; font-size: 12px; color: #64748b; border-top: 1px solid #f1f5f9;">
-                    <p style="margin: 0 0 4px 0; font-weight: bold; color: #334155;">${settings.company_name || 'Maze ERP'}</p>
+                    <p style="margin: 0 0 4px 0; font-weight: bold; color: #334155;">${companyName}</p>
                     <p style="margin: 0;">Support: ${settings.email || ''} | Phone: ${settings.phone || ''}</p>
                 </div>
             </div>
@@ -304,14 +358,20 @@ const gmailSender = {
     },
 
     generateFeedbackTemplate(customerName, settings) {
+        const logoUrl = settings.logo_url || getDefaultLogo();
+        const companyName = getCompanyName(settings);
         return `
             <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 600px; margin: 0 auto; background: #ffffff; border: 1px solid #e2e8f0; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.02); overflow: hidden;">
                 <div style="background: #0f172a; padding: 28px; text-align: center; color: #ffffff;">
+                    ${logoUrl 
+                        ? `<img src="${logoUrl}" alt="${companyName}" style="max-height: 40px; margin-bottom: 12px; display: inline-block;" />` 
+                        : ''
+                    }
                     <h2 style="margin: 0; font-size: 22px; font-weight: 700;">We'd Love Your Feedback!</h2>
                 </div>
                 <div style="padding: 32px; color: #334155; line-height: 1.6; text-align: center;">
                     <p style="margin: 0 0 16px 0; font-size: 16px; text-align: left;">Dear <strong>${customerName}</strong>,</p>
-                    <p style="margin: 0 0 24px 0; text-align: left;">Thank you for your recent purchase at <strong>${settings.company_name || 'our store'}</strong>. We strive to provide the best possible experience, and your opinion helps us improve.</p>
+                    <p style="margin: 0 0 24px 0; text-align: left;">Thank you for your recent purchase at <strong>${companyName}</strong>. We strive to provide the best possible experience, and your opinion helps us improve.</p>
                     
                     <p style="margin: 0 0 32px 0; font-weight: 600; color: #0f172a;">How would you rate your overall experience with us?</p>
                     
@@ -330,8 +390,43 @@ const gmailSender = {
                     </div>
                 </div>
                 <div style="background: #f8fafc; padding: 24px; text-align: center; font-size: 12px; color: #64748b; border-top: 1px solid #f1f5f9;">
-                    <p style="margin: 0; font-weight: 600; color: #334155;">${settings.company_name || 'Maze ERP'}</p>
+                    <p style="margin: 0; font-weight: 600; color: #334155;">${companyName}</p>
                     <p style="margin: 4px 0 0 0;">Phone: ${settings.phone || ''} | Address: ${settings.address || ''}</p>
+                </div>
+            </div>
+        `;
+    },
+
+    generateTestEmailTemplate(body, settings) {
+        const companyName = getCompanyName(settings);
+        const logoUrl = settings.logo_url || getDefaultLogo();
+        const logoHtml = logoUrl 
+            ? `<img src="${logoUrl}" alt="${companyName}" style="max-height: 48px; display: block; margin: 0 auto 12px auto;" />`
+            : `<div style="font-size: 24px; font-weight: 800; color: #0071e3; margin-bottom: 8px; letter-spacing: -0.5px;">${companyName}</div>`;
+
+        return `
+            <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 600px; margin: 0 auto; background: #ffffff; border: 1px solid #e2e8f0; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 12px rgba(0,0,0,0.03);">
+                <div style="background: #f8fafc; padding: 32px; border-bottom: 1px solid #eaecf0; text-align: center;">
+                    ${logoHtml}
+                    <div style="font-size: 13px; font-weight: 600; color: #0071e3; text-transform: uppercase; letter-spacing: 1px; margin-top: 4px;">Gmail Integration Test</div>
+                </div>
+                <div style="padding: 32px; color: #334155; line-height: 1.6;">
+                    <p style="margin: 0 0 16px 0; font-size: 16px; font-weight: 600; color: #0f172a;">Test Email Successful!</p>
+                    <p style="margin: 0 0 24px 0; font-size: 14px; color: #475569;">
+                        ${body || 'Hello! This is a test email sent from Maze ERP via Gmail OAuth.'}
+                    </p>
+                    <div style="background: rgba(52, 199, 89, 0.08); border: 1px solid rgba(52, 199, 89, 0.2); padding: 16px; border-radius: 8px; display: flex; align-items: flex-start; gap: 12px; margin-bottom: 8px;">
+                        <div style="color: #34c759; font-size: 18px; line-height: 1;">✓</div>
+                        <div style="font-size: 13px; color: #278a3e;">
+                            <strong>Active Connection Verified</strong><br/>
+                            Your email service is configured correctly and ready to send invoices, confirmations, feedback forms, and email campaigns.
+                        </div>
+                    </div>
+                </div>
+                <div style="background: #f8fafc; padding: 24px; text-align: center; font-size: 12px; color: #86868b; border-top: 1px solid #eaecf0;">
+                    <p style="margin: 0; font-weight: 600; color: #1d1d1f;">${companyName}</p>
+                    <p style="margin: 4px 0 0 0;">${settings.address || ''}</p>
+                    <p style="margin: 2px 0 0 0;">Support: ${settings.email || ''} | Phone: ${settings.phone || ''}</p>
                 </div>
             </div>
         `;

@@ -6,8 +6,9 @@ All notable changes to the Quantro ERP application will be documented here.
 
 ## [2.0.9] - 2026-05-24
 ### Added
-- **Daily Gmail Limit Tracking:** Configured a strict 1000 daily email limit per connected email account. Decrements on every email sent (test emails, invoices, campaigns).
-- **Automation Quota Progress Bar:** Replaced static label with a colored (green/yellow/red) progress bar showing today's email quota usage inside Connected Services.
+- **Daily Gmail Limit Tracking:** Configured a strict 1000 daily email limit per connected email account. Decrements on every email sent (including test emails, invoices, and campaigns).
+- **Daily Gmail Limit Header Text:** Placed the remaining/sent email limit status text directly in the card header, removing the progress bar per user request.
+- **Custom Business Branding Support:** Added support to dynamically render custom company logo and name (from settings) in all outgoing email templates (Invoice classic/minimalist, order confirmation, feedback request, and test email), with default fallback to Maze ERP branding if not customized by the user.
 - **Premium Marketing Tabs:** Redesigned Coupons and Email Campaigns tab switcher with a modern pill-shaped Glassmorphism slider layout.
 - **Searchable Customer Selection Cards:** Upgraded the campaign recipient list with search input, check-state card styling, selected count badge, and custom disabled state for no-email customers.
 
