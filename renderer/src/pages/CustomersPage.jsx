@@ -1008,6 +1008,7 @@ export default function CustomersPage() {
                                                 <th>Template</th>
                                                 <th>Customers</th>
                                                 <th>Start Date</th>
+                                                <th>End Date</th>
                                                 <th>Send Time</th>
                                                 <th>Status</th>
                                                 <th className="text-right">Actions</th>
@@ -1024,6 +1025,7 @@ export default function CustomersPage() {
                                                     </td>
                                                     <td>{camp.customers?.length || 0} selected</td>
                                                     <td>{camp.start_date}</td>
+                                                    <td>{camp.end_date || 'No Expiry'}</td>
                                                     <td>{camp.time_to_send}</td>
                                                     <td>
                                                         <span className={`status-badge ${camp.status}`} style={{
@@ -1659,13 +1661,23 @@ export default function CustomersPage() {
                             </FormGroup>
                         </div>
 
-                        <FormGroup label="Start Date" required>
-                            <Input
-                                type="date"
-                                value={campaignForm.startDate}
-                                onChange={e => setCampaignForm({ ...campaignForm, startDate: e.target.value })}
-                            />
-                        </FormGroup>
+                        <div className="grid-2 gap-16" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                                    <FormGroup label="Start Date" required>
+                                        <Input
+                                            type="date"
+                                            value={campaignForm.startDate}
+                                            onChange={e => setCampaignForm({ ...campaignForm, startDate: e.target.value })}
+                                        />
+                                    </FormGroup>
+
+                                    <FormGroup label="End Date (Optional)">
+                                        <Input
+                                            type="date"
+                                            value={campaignForm.endDate}
+                                            onChange={e => setCampaignForm({ ...campaignForm, endDate: e.target.value })}
+                                        />
+                                    </FormGroup>
+                                </div>
 
                         <FormGroup label="Select Recipients (Customers)" required>
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '8px' }}>
@@ -1811,13 +1823,26 @@ export default function CustomersPage() {
                                                     disabled={!hasEmail}
                                                     checked={isChecked}
                                                     readOnly
-                                                    style={{ cursor: hasEmail ? 'pointer' : 'not-allowed', accentColor: 'var(--accent)' }}
+                                                    style={{ 
+                                                        cursor: hasEmail ? 'pointer' : 'not-allowed', 
+                                                        accentColor: 'var(--accent)',
+                                                        width: '16px',
+                                                        height: '16px',
+                                                        minWidth: '16px',
+                                                        minHeight: '16px',
+                                                        padding: 0,
+                                                        margin: 0,
+                                                        border: '1px solid var(--border)',
+                                                        background: '#fff',
+                                                        boxShadow: 'none',
+                                                        flexShrink: 0
+                                                    }}
                                                 />
-                                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flex: 1, minWidth: 0 }}>
-                                                    <span style={{ fontWeight: 600, fontSize: '12.5px', color: isChecked ? 'var(--accent)' : 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                                <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', flex: 1, minWidth: 0 }}>
+                                                    <span style={{ fontWeight: 600, fontSize: '13px', color: isChecked ? 'var(--accent)' : 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                                                         {c.name}
                                                     </span>
-                                                    <span style={{ fontSize: '11.5px', color: 'var(--text-secondary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', marginLeft: '12px' }}>
+                                                    <span style={{ fontSize: '11px', color: 'var(--text-secondary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                                                         {hasEmail ? c.email : 'No email address'}
                                                     </span>
                                                 </div>

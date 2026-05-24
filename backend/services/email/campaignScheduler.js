@@ -22,6 +22,13 @@ async function processCampaigns() {
         for (const campaign of campaigns) {
             // Check if start_date has arrived or passed
             if (currentDateStr < campaign.start_date) continue;
+
+            // Check if campaign has expired (past end_date)
+            if (campaign.end_date && currentDateStr > campaign.end_date) {
+                console.log(`[Campaign Scheduler] Campaign "${campaign.name}" (ID: ${campaign.id}) has expired (End Date: ${campaign.end_date}). Marking as cancelled.`);
+                db.run("UPDATE email_campaigns SET status = 'cancelled' WHERE id = ?", [campaign.id]);
+                continue;
+            }
             
             // Check if start date is today and time has arrived, or if start date was in the past
             if (currentDateStr === campaign.start_date && currentTimeStr < campaign.time_to_send) continue;

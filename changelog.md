@@ -12,6 +12,9 @@ All notable changes to the Quantro ERP application will be documented here.
 - **Premium Marketing Tabs:** Redesigned Coupons and Email Campaigns tab switcher with a modern pill-shaped Glassmorphism slider layout.
 - **Searchable Customer Selection Cards:** Upgraded the campaign recipient list with search input, check-state card styling, selected count badge, a full-width vertical list layout for clear readability of names and emails (preventing cramped truncation), and inline chip tags for all selected customer names.
 - **Campaign Template Preview with Custom Branding:** Expanded the campaign modal to a premium split-screen design featuring a real-time, responsive email template preview (supporting custom logos and company details) and a recipient dropdown selector to dynamically preview emails with individual customer names.
+### Fixed
+- **Campaign Recipient Checklist Layout:** Resolved a layout squishing bug where global input styles caused the checkbox inputs in the Select Recipients list to stretch across the card, squishing the customer details div to zero-width. Stacked customer names and emails vertically inside the cards and added robust inline style overrides to ensure checkboxes render in their standard compact size.
+- **Campaign Expiry and End Date Verification:** Added an expiry check in the background campaign scheduler to automatically cancel campaigns that are executed past their scheduled optional End Date.
 
 ## [2.2.0] - 2026-05-23
 ### Added
