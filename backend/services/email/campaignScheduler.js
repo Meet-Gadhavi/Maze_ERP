@@ -73,11 +73,42 @@ async function processCampaigns() {
                     } else {
                         // General marketing message or invoice style
                         subject = `${campaign.name} - Special Update`;
+                        const logoUrl = settings.logo_url || '';
+                        const companyName = settings.company_name || 'Maze ERP';
+                        const logoHtml = logoUrl 
+                            ? `<img src="${logoUrl}" alt="${companyName}" style="max-height: 40px; margin-bottom: 12px; display: inline-block;" />` 
+                            : '';
+                        
                         htmlBody = `
-                            <div style="font-family: Arial, sans-serif; padding: 20px; line-height: 1.6; color: #333;">
-                                <h2>Hello ${customer.name},</h2>
-                                <p>We wanted to reach out and share an update regarding our latest services.</p>
-                                <p>Thank you for choosing ${settings.company_name || 'Maze ERP'}!</p>
+                            <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 600px; margin: 0 auto; background: #ffffff; border: 1px solid #e2e8f0; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); overflow: hidden;">
+                                <div style="background: linear-gradient(135deg, #1e3a8a, #3b82f6); padding: 32px; text-align: center; color: #ffffff;">
+                                    ${logoHtml}
+                                    <div style="font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.1em; color: #93c5fd; margin-bottom: 8px;">Exclusive Newsletter</div>
+                                    <h2 style="margin: 0; font-size: 24px; font-weight: 800;">${campaign.name || 'Special Update'}</h2>
+                                </div>
+                                <div style="padding: 32px; color: #334155; line-height: 1.6; font-size: 14px;">
+                                    <p style="margin: 0 0 16px 0; font-size: 16px;">Hello <strong>${customer.name}</strong>,</p>
+                                    <p style="margin: 0 0 24px 0;">We wanted to reach out and share an exciting update regarding our latest products and services. We are continuously working to improve your experience.</p>
+                                    
+                                    <div style="background: #eff6ff; border-radius: 8px; padding: 20px; border: 1px solid #dbeafe; margin-bottom: 24px; color: #1e3a8a;">
+                                        <p style="margin: 0; font-weight: 600; font-size: 15px;">What's New?</p>
+                                        <ul style="margin: 10px 0 0 0; padding-left: 20px; font-size: 14px; color: #1e40af;">
+                                            <li>Premium updates to client communication systems</li>
+                                            <li>Enhanced discount and marketing coupon management</li>
+                                            <li>Real-time campaign tracking and template styling</li>
+                                        </ul>
+                                    </div>
+
+                                    <p style="margin: 0 0 24px 0;">Thank you for being a valued customer and choosing <strong>${companyName}</strong>!</p>
+                                    
+                                    <div style="text-align: center;">
+                                        <a href="#" style="background: #1e3a8a; color: #ffffff; padding: 12px 32px; border-radius: 6px; font-weight: 600; text-decoration: none; display: inline-block; font-size: 14px; box-shadow: 0 4px 6px -1px rgba(30, 58, 138, 0.2);">Explore Updates</a>
+                                    </div>
+                                </div>
+                                <div style="background: #f8fafc; padding: 24px; text-align: center; font-size: 12px; color: #64748b; border-top: 1px solid #f1f5f9;">
+                                    <p style="margin: 0 0 4px 0; font-weight: bold; color: #334155;">${companyName}</p>
+                                    <p style="margin: 0;">Support: ${settings.email || ''} | Phone: ${settings.phone || ''}</p>
+                                </div>
                             </div>
                         `;
                     }

@@ -10,6 +10,123 @@ import { formatDate, validateCustomer } from '../utils';
 import { EMPTY_CUSTOMER } from '../constants';
 import './CustomersPage.css';
 
+const getTemplatePreviewHtml = (templateType, customerName, settings) => {
+    const companyName = (settings.company_name && settings.company_name.trim() !== '' && settings.company_name !== 'Quantro')
+        ? settings.company_name
+        : 'Maze ERP';
+    const logoUrl = settings.logo_url || './icons/Logo.png';
+
+    if (templateType === 'order_confirmation') {
+        const logoHtml = logoUrl 
+            ? `<img src="${logoUrl}" alt="${companyName}" style="max-height: 40px; margin-bottom: 12px; display: inline-block;" />` 
+            : '';
+        return `
+            <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 100%; margin: 0 auto; border: 1px solid #e2e8f0; border-radius: 12px; background: #ffffff; overflow: hidden; box-shadow: 0 4px 6px rgba(0,0,0,0.05); height: 100%;">
+                <div style="background: linear-gradient(135deg, #0f172a, #1e293b); padding: 24px; text-align: center; color: #ffffff;">
+                    ${logoHtml}
+                    <div style="font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.1em; color: #38bdf8; margin-bottom: 4px;">Order Placed Successfully</div>
+                    <h2 style="margin: 0; font-size: 20px; font-weight: 800;">Order Confirmed</h2>
+                </div>
+                <div style="padding: 24px; color: #334155; line-height: 1.5; font-size: 13.5px;">
+                    <p style="margin: 0 0 12px 0;">Dear <strong>${customerName}</strong>,</p>
+                    <p style="margin: 0 0 16px 0;">We are thrilled to confirm your order has been received and is being processed. Below are the details of your confirmation.</p>
+                    
+                    <div style="background: #f8fafc; border-radius: 8px; padding: 14px; border: 1px solid #f1f5f9; margin-bottom: 16px;">
+                        <h4 style="margin: 0 0 8px 0; font-size: 13px; color: #0f172a; text-transform: uppercase; letter-spacing: 0.05em; border-bottom: 1px solid #e2e8f0; padding-bottom: 6px;">Order Details</h4>
+                        <div style="font-size: 12.5px; color: #475569;">
+                            <p style="margin: 4px 0;">Thank you for your order! Your confirmation details are being processed.</p>
+                            <p style="margin: 4px 0;"><strong>Customer Name:</strong> ${customerName}</p>
+                            <p style="margin: 4px 0;"><strong>Support Email:</strong> ${settings.email || 'N/A'}</p>
+                        </div>
+                    </div>
+
+                    <p style="margin: 0 0 16px 0;">We will send another notification with tracking information as soon as your items are dispatched.</p>
+                    
+                    <div style="text-align: center;">
+                        <a href="#" style="background: #0f172a; color: #ffffff; padding: 10px 24px; border-radius: 6px; font-weight: 600; text-decoration: none; display: inline-block; font-size: 13px;">View In Portal</a>
+                    </div>
+                </div>
+                <div style="background: #f8fafc; padding: 18px; text-align: center; font-size: 11px; color: #64748b; border-top: 1px solid #f1f5f9;">
+                    <p style="margin: 0 0 4px 0; font-weight: bold; color: #334155;">${companyName}</p>
+                    <p style="margin: 0;">Support: ${settings.email || ''} | Phone: ${settings.phone || ''}</p>
+                </div>
+            </div>
+        `;
+    } else if (templateType === 'feedback') {
+        const logoHtml = logoUrl 
+            ? `<img src="${logoUrl}" alt="${companyName}" style="max-height: 40px; margin-bottom: 12px; display: inline-block;" />` 
+            : '';
+        return `
+            <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 100%; margin: 0 auto; background: #ffffff; border: 1px solid #e2e8f0; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); overflow: hidden; height: 100%;">
+                <div style="background: #0f172a; padding: 24px; text-align: center; color: #ffffff;">
+                    ${logoHtml}
+                    <h2 style="margin: 0; font-size: 20px; font-weight: 700;">We'd Love Your Feedback!</h2>
+                </div>
+                <div style="padding: 24px; color: #334155; line-height: 1.5; text-align: center; font-size: 13.5px;">
+                    <p style="margin: 0 0 12px 0; text-align: left;">Dear <strong>${customerName}</strong>,</p>
+                    <p style="margin: 0 0 16px 0; text-align: left;">Thank you for your recent purchase at <strong>${companyName}</strong>. We strive to provide the best possible experience, and your opinion helps us improve.</p>
+                    
+                    <p style="margin: 0 0 20px 0; font-weight: 600; color: #0f172a;">How would you rate your overall experience with us?</p>
+                    
+                    <div style="margin: 16px 0; display: inline-flex; gap: 10px; justify-content: center;">
+                        <span style="font-size: 28px; cursor: pointer; padding: 0 4px;">😠</span>
+                        <span style="font-size: 28px; cursor: pointer; padding: 0 4px;">🙁</span>
+                        <span style="font-size: 28px; cursor: pointer; padding: 0 4px;">😐</span>
+                        <span style="font-size: 28px; cursor: pointer; padding: 0 4px;">🙂</span>
+                        <span style="font-size: 28px; cursor: pointer; padding: 0 4px;">😍</span>
+                    </div>
+
+                    <p style="margin: 20px 0 16px 0; text-align: left;">Alternatively, you can write to us directly by replying to this email. We read every response!</p>
+                    
+                    <div style="text-align: center; margin-top: 20px;">
+                        <a href="#" style="background: #3b82f6; color: #ffffff; padding: 10px 28px; border-radius: 6px; font-weight: 600; text-decoration: none; display: inline-block; font-size: 13px; box-shadow: 0 4px 6px -1px rgba(59, 130, 246, 0.2);">Share Detailed Review</a>
+                    </div>
+                </div>
+                <div style="background: #f8fafc; padding: 18px; text-align: center; font-size: 11px; color: #64748b; border-top: 1px solid #f1f5f9;">
+                    <p style="margin: 0; font-weight: 600; color: #334155;">${companyName}</p>
+                    <p style="margin: 4px 0 0 0;">Phone: ${settings.phone || ''} | Address: ${settings.address || ''}</p>
+                </div>
+            </div>
+        `;
+    } else {
+        const logoHtml = logoUrl 
+            ? `<img src="${logoUrl}" alt="${companyName}" style="max-height: 40px; margin-bottom: 12px; display: inline-block;" />` 
+            : '';
+        return `
+            <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 100%; margin: 0 auto; background: #ffffff; border: 1px solid #e2e8f0; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); overflow: hidden; height: 100%; display: flex; flex-direction: column;">
+                <div style="background: linear-gradient(135deg, #1e3a8a, #3b82f6); padding: 24px; text-align: center; color: #ffffff;">
+                    ${logoHtml}
+                    <div style="font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.1em; color: #93c5fd; margin-bottom: 4px;">Exclusive Newsletter</div>
+                    <h2 style="margin: 0; font-size: 20px; font-weight: 800;">Special Update</h2>
+                </div>
+                <div style="padding: 24px; color: #334155; line-height: 1.5; font-size: 13.5px; flex: 1;">
+                    <p style="margin: 0 0 12px 0;">Hello <strong>${customerName}</strong>,</p>
+                    <p style="margin: 0 0 16px 0;">We wanted to reach out and share an exciting update regarding our latest products and services. We are continuously working to improve your experience.</p>
+                    
+                    <div style="background: #eff6ff; border-radius: 8px; padding: 14px; border: 1px solid #dbeafe; margin-bottom: 16px; color: #1e3a8a;">
+                        <p style="margin: 0; font-weight: 600;">What's New?</p>
+                        <ul style="margin: 8px 0 0 0; padding-left: 20px; font-size: 12.5px; color: #1e40af;">
+                            <li>Premium updates to client communication systems</li>
+                            <li>Enhanced discount and marketing coupon management</li>
+                            <li>Real-time campaign tracking and template styling</li>
+                        </ul>
+                    </div>
+
+                    <p style="margin: 0 0 16px 0;">Thank you for being a valued customer and choosing <strong>${companyName}</strong>!</p>
+                    
+                    <div style="text-align: center;">
+                        <a href="#" style="background: #1e3a8a; color: #ffffff; padding: 10px 24px; border-radius: 6px; font-weight: 600; text-decoration: none; display: inline-block; font-size: 13px; box-shadow: 0 4px 6px -1px rgba(30, 58, 138, 0.2);">Explore Updates</a>
+                    </div>
+                </div>
+                <div style="background: #f8fafc; padding: 18px; text-align: center; font-size: 11px; color: #64748b; border-top: 1px solid #f1f5f9;">
+                    <p style="margin: 0 0 4px 0; font-weight: bold; color: #334155;">${companyName}</p>
+                    <p style="margin: 0;">Support: ${settings.email || ''} | Phone: ${settings.phone || ''}</p>
+                </div>
+            </div>
+        `;
+    }
+};
+
 export default function CustomersPage() {
     const [customers, setCustomers] = useState([]);
     const [search, setSearch] = useState('');
@@ -86,6 +203,7 @@ export default function CustomersPage() {
         template: 'order_confirmation'
     });
     const [campaignSearch, setCampaignSearch] = useState('');
+    const [previewCustomerId, setPreviewCustomerId] = useState(null);
 
     // Catalog search and filter states inside coupon modal
     const [catalogSearch, setCatalogSearch] = useState('');
@@ -274,6 +392,7 @@ export default function CustomersPage() {
             const s = await api.getSettings();
             if (s) {
                 setSettings({
+                    ...s,
                     tier_a_discount: s.tier_a_discount ?? '10',
                     tier_b_discount: s.tier_b_discount ?? '5',
                     tier_c_discount: s.tier_c_discount ?? '0'
@@ -1496,7 +1615,7 @@ export default function CustomersPage() {
                 open={showCampaignModal}
                 onClose={() => setShowCampaignModal(false)}
                 heading="Schedule Email Campaign"
-                size="base"
+                size="large"
                 primaryAction={
                     <SButton variant="primary" onClick={handleSaveCampaign} loading={savingCampaign} disabled={savingCampaign}>
                         Schedule Campaign
@@ -1506,167 +1625,239 @@ export default function CustomersPage() {
                     <SButton onClick={() => setShowCampaignModal(false)}>Cancel</SButton>
                 }
             >
-                <div className="flex-column gap-16">
-                    <FormGroup label="Campaign Name" required>
-                        <Input
-                            value={campaignForm.name}
-                            onChange={e => setCampaignForm({ ...campaignForm, name: e.target.value })}
-                            placeholder="e.g. Summer Discount Blast"
-                            autoFocus
-                        />
-                    </FormGroup>
-
-                    <div className="grid-2 gap-16">
-                        <FormGroup label="Template Selection" required>
-                            <CustomSelect
-                                value={campaignForm.template}
-                                onChange={template => setCampaignForm({ ...campaignForm, template })}
-                                options={[
-                                    { value: 'order_confirmation', label: 'Order Confirmation' },
-                                    { value: 'feedback', label: 'Customer Feedback Request' },
-                                    { value: 'invoice_email', label: 'General Marketing Newsletter' }
-                                ]}
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.1fr', gap: '24px', minHeight: '480px' }}>
+                    {/* Left Column: Form Fields */}
+                    <div className="flex-column gap-16" style={{ minWidth: 0, display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                        <FormGroup label="Campaign Name" required>
+                            <Input
+                                value={campaignForm.name}
+                                onChange={e => setCampaignForm({ ...campaignForm, name: e.target.value })}
+                                placeholder="e.g. Summer Discount Blast"
+                                autoFocus
                             />
                         </FormGroup>
 
-                        <FormGroup label="Time to Send" required>
+                        <div className="grid-2 gap-16" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                            <FormGroup label="Template Selection" required>
+                                <CustomSelect
+                                    value={campaignForm.template}
+                                    onChange={template => setCampaignForm({ ...campaignForm, template })}
+                                    options={[
+                                        { value: 'order_confirmation', label: 'Order Confirmation' },
+                                        { value: 'feedback', label: 'Customer Feedback Request' },
+                                        { value: 'invoice_email', label: 'General Marketing Newsletter' }
+                                    ]}
+                                />
+                            </FormGroup>
+
+                            <FormGroup label="Time to Send" required>
+                                <Input
+                                    type="time"
+                                    value={campaignForm.timeToSend}
+                                    onChange={e => setCampaignForm({ ...campaignForm, timeToSend: e.target.value })}
+                                />
+                            </FormGroup>
+                        </div>
+
+                        <FormGroup label="Start Date" required>
                             <Input
-                                type="time"
-                                value={campaignForm.timeToSend}
-                                onChange={e => setCampaignForm({ ...campaignForm, timeToSend: e.target.value })}
+                                type="date"
+                                value={campaignForm.startDate}
+                                onChange={e => setCampaignForm({ ...campaignForm, startDate: e.target.value })}
                             />
+                        </FormGroup>
+
+                        <FormGroup label="Select Recipients (Customers)" required>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '8px' }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                    <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-secondary)' }}>
+                                        Selected: {campaignForm.customers.length} of {customers.filter(c => c.email).length}
+                                    </span>
+                                    <button 
+                                        type="button"
+                                        onClick={() => {
+                                            const totalWithEmail = customers.filter(c => c.email).length;
+                                            const hasAll = campaignForm.customers.length === totalWithEmail;
+                                            setCampaignForm({
+                                                ...campaignForm,
+                                                customers: hasAll ? [] : customers.filter(c => c.email).map(c => c.id)
+                                            });
+                                        }}
+                                        style={{
+                                            background: 'none',
+                                            border: 'none',
+                                            color: 'var(--accent)',
+                                            fontSize: '12px',
+                                            fontWeight: 600,
+                                            cursor: 'pointer',
+                                            padding: 0
+                                        }}
+                                    >
+                                        {campaignForm.customers.length === customers.filter(c => c.email).length ? 'Deselect All' : 'Select All'}
+                                    </button>
+                                </div>
+                                <div style={{ position: 'relative' }}>
+                                    <Input
+                                        placeholder="Search customers by name or email..."
+                                        value={campaignSearch}
+                                        onChange={e => setCampaignSearch(e.target.value)}
+                                        style={{ paddingLeft: '36px' }}
+                                    />
+                                    <div style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-tertiary)', display: 'flex', alignItems: 'center' }}>
+                                        <Icons.Search size={16} />
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div style={{ 
+                                display: 'grid',
+                                gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))',
+                                gap: '8px',
+                                maxHeight: '180px', 
+                                overflowY: 'auto', 
+                                border: '1px solid var(--border)', 
+                                borderRadius: '10px', 
+                                padding: '12px',
+                                background: '#f8fafc'
+                            }}>
+                                {(() => {
+                                    const filtered = customers.filter(c => {
+                                        if (!campaignSearch) return true;
+                                        const query = campaignSearch.toLowerCase();
+                                        return c.name.toLowerCase().includes(query) || (c.email && c.email.toLowerCase().includes(query));
+                                    });
+                                    if (filtered.length === 0) {
+                                        return (
+                                            <div style={{ gridColumn: '1/-1', textAlign: 'center', padding: '24px 0', color: 'var(--text-secondary)', fontSize: '13px' }}>
+                                                No customers found matching "{campaignSearch}"
+                                            </div>
+                                        );
+                                    }
+                                    return filtered.map(c => {
+                                        const hasEmail = !!c.email;
+                                        const isChecked = campaignForm.customers.includes(c.id);
+                                        return (
+                                            <div
+                                                key={c.id}
+                                                onClick={() => {
+                                                    if (!hasEmail) return;
+                                                    if (isChecked) {
+                                                        setCampaignForm({
+                                                            ...campaignForm,
+                                                            customers: campaignForm.customers.filter(id => id !== c.id)
+                                                        });
+                                                    } else {
+                                                        setCampaignForm({
+                                                            ...campaignForm,
+                                                            customers: [...campaignForm.customers, c.id]
+                                                        });
+                                                    }
+                                                }}
+                                                style={{
+                                                    display: 'flex',
+                                                    alignItems: 'center',
+                                                    gap: '8px',
+                                                    padding: '8px 10px',
+                                                    borderRadius: '8px',
+                                                    border: isChecked ? '1px solid var(--accent)' : '1px solid var(--border)',
+                                                    background: !hasEmail ? '#f1f5f9' : isChecked ? 'rgba(10, 110, 255, 0.05)' : '#fff',
+                                                    cursor: hasEmail ? 'pointer' : 'not-allowed',
+                                                    opacity: hasEmail ? 1 : 0.6,
+                                                    transition: 'all 0.15s ease',
+                                                    userSelect: 'none'
+                                                }}
+                                            >
+                                                <input
+                                                    type="checkbox"
+                                                    disabled={!hasEmail}
+                                                    checked={isChecked}
+                                                    readOnly
+                                                    style={{ cursor: hasEmail ? 'pointer' : 'not-allowed', accentColor: 'var(--accent)' }}
+                                                />
+                                                <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minWidth: 0 }}>
+                                                    <span style={{ fontWeight: 600, fontSize: '12.5px', color: isChecked ? 'var(--accent)' : 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                                        {c.name}
+                                                    </span>
+                                                    <span style={{ fontSize: '10.5px', color: 'var(--text-secondary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                                        {hasEmail ? c.email : 'No email address'}
+                                                    </span>
+                                                </div>
+                                            </div>
+                                        );
+                                    });
+                                })()}
+                            </div>
                         </FormGroup>
                     </div>
 
-                    <FormGroup label="Start Date" required>
-                        <Input
-                            type="date"
-                            value={campaignForm.startDate}
-                            onChange={e => setCampaignForm({ ...campaignForm, startDate: e.target.value })}
-                        />
-                    </FormGroup>
-
-                    <FormGroup label="Select Recipients (Customers)" required>
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '8px' }}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-secondary)' }}>
-                                    Selected: {campaignForm.customers.length} of {customers.filter(c => c.email).length}
-                                </span>
-                                <button 
-                                    type="button"
-                                    onClick={() => {
-                                        const totalWithEmail = customers.filter(c => c.email).length;
-                                        const hasAll = campaignForm.customers.length === totalWithEmail;
-                                        setCampaignForm({
-                                            ...campaignForm,
-                                            customers: hasAll ? [] : customers.filter(c => c.email).map(c => c.id)
-                                        });
-                                    }}
-                                    style={{
-                                        background: 'none',
-                                        border: 'none',
-                                        color: 'var(--accent)',
-                                        fontSize: '12px',
-                                        fontWeight: 600,
-                                        cursor: 'pointer',
-                                        padding: 0
-                                    }}
-                                >
-                                    {campaignForm.customers.length === customers.filter(c => c.email).length ? 'Deselect All' : 'Select All'}
-                                </button>
-                            </div>
-                            <div style={{ position: 'relative' }}>
-                                <Input
-                                    placeholder="Search customers by name or email..."
-                                    value={campaignSearch}
-                                    onChange={e => setCampaignSearch(e.target.value)}
-                                    style={{ paddingLeft: '36px' }}
-                                />
-                                <div style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-tertiary)', display: 'flex', alignItems: 'center' }}>
-                                    <Icons.Search size={16} />
+                    {/* Right Column: Live Template Preview */}
+                    <div style={{ 
+                        display: 'flex', 
+                        flexDirection: 'column', 
+                        borderLeft: '1px solid var(--border)', 
+                        paddingLeft: '24px',
+                        minWidth: 0 
+                    }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+                            <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-secondary)' }}>
+                                Live Template Preview
+                            </span>
+                            {/* Dropdown to select preview customer name */}
+                            {campaignForm.customers.length > 0 && (
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                    <span style={{ fontSize: '11.5px', color: 'var(--text-secondary)' }}>Preview for:</span>
+                                    <select 
+                                        value={previewCustomerId && campaignForm.customers.includes(previewCustomerId) ? previewCustomerId : (campaignForm.customers[0] || '')}
+                                        onChange={e => setPreviewCustomerId(Number(e.target.value))}
+                                        style={{ 
+                                            fontSize: '11.5px', 
+                                            padding: '2px 8px', 
+                                            borderRadius: '6px', 
+                                            border: '1px solid var(--border)', 
+                                            background: '#fff',
+                                            maxWidth: '120px',
+                                            cursor: 'pointer'
+                                        }}
+                                    >
+                                        {campaignForm.customers.map(id => {
+                                            const cust = customers.find(c => c.id === id);
+                                            return cust ? <option key={id} value={id}>{cust.name}</option> : null;
+                                        })}
+                                    </select>
                                 </div>
-                            </div>
+                            )}
                         </div>
-
                         <div style={{ 
-                            display: 'grid',
-                            gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))',
-                            gap: '8px',
-                            maxHeight: '200px', 
-                            overflowY: 'auto', 
-                            border: '1px solid var(--border)', 
+                            flex: 1, 
+                            background: '#f1f5f9', 
                             borderRadius: '10px', 
                             padding: '12px',
-                            background: '#f8fafc'
+                            display: 'flex',
+                            alignItems: 'stretch',
+                            justifyContent: 'stretch',
+                            border: '1px solid var(--border)',
+                            height: '100%',
+                            minHeight: '380px'
                         }}>
-                            {(() => {
-                                const filtered = customers.filter(c => {
-                                    if (!campaignSearch) return true;
-                                    const query = campaignSearch.toLowerCase();
-                                    return c.name.toLowerCase().includes(query) || (c.email && c.email.toLowerCase().includes(query));
-                                });
-                                if (filtered.length === 0) {
-                                    return (
-                                        <div style={{ gridColumn: '1/-1', textAlign: 'center', padding: '24px 0', color: 'var(--text-secondary)', fontSize: '13px' }}>
-                                            No customers found matching "{campaignSearch}"
-                                        </div>
-                                    );
-                                }
-                                return filtered.map(c => {
-                                    const hasEmail = !!c.email;
-                                    const isChecked = campaignForm.customers.includes(c.id);
-                                    return (
-                                        <div
-                                            key={c.id}
-                                            onClick={() => {
-                                                if (!hasEmail) return;
-                                                if (isChecked) {
-                                                    setCampaignForm({
-                                                        ...campaignForm,
-                                                        customers: campaignForm.customers.filter(id => id !== c.id)
-                                                    });
-                                                } else {
-                                                    setCampaignForm({
-                                                        ...campaignForm,
-                                                        customers: [...campaignForm.customers, c.id]
-                                                    });
-                                                }
-                                            }}
-                                            style={{
-                                                display: 'flex',
-                                                alignItems: 'center',
-                                                gap: '8px',
-                                                padding: '8px 10px',
-                                                borderRadius: '8px',
-                                                border: isChecked ? '1px solid var(--accent)' : '1px solid var(--border)',
-                                                background: !hasEmail ? '#f1f5f9' : isChecked ? 'rgba(10, 110, 255, 0.05)' : '#fff',
-                                                cursor: hasEmail ? 'pointer' : 'not-allowed',
-                                                opacity: hasEmail ? 1 : 0.6,
-                                                transition: 'all 0.15s ease',
-                                                userSelect: 'none'
-                                            }}
-                                        >
-                                            <input
-                                                type="checkbox"
-                                                disabled={!hasEmail}
-                                                checked={isChecked}
-                                                readOnly
-                                                style={{ cursor: hasEmail ? 'pointer' : 'not-allowed', accentColor: 'var(--accent)' }}
-                                            />
-                                            <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minWidth: 0 }}>
-                                                <span style={{ fontWeight: 600, fontSize: '12.5px', color: isChecked ? 'var(--accent)' : 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                                                    {c.name}
-                                                </span>
-                                                <span style={{ fontSize: '10.5px', color: 'var(--text-secondary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                                                    {hasEmail ? c.email : 'No email address'}
-                                                </span>
-                                            </div>
-                                        </div>
-                                    );
-                                });
-                            })()}
+                            <iframe 
+                                title="Template Preview"
+                                srcDoc={getTemplatePreviewHtml(
+                                    campaignForm.template, 
+                                    (previewCustomerId && campaignForm.customers.includes(previewCustomerId)
+                                        ? (customers.find(c => c.id === previewCustomerId)?.name || 'Valued Customer')
+                                        : (customers.find(c => c.id === campaignForm.customers[0])?.name || 'Valued Customer')),
+                                    settings
+                                )}
+                                style={{ 
+                                    width: '100%', 
+                                    height: '100%', 
+                                    border: 'none', 
+                                    borderRadius: '6px',
+                                    background: '#fff' 
+                                }}
+                            />
                         </div>
-                    </FormGroup>
+                    </div>
                 </div>
             </Modal>
         </div>
