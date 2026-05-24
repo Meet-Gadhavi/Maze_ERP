@@ -10,6 +10,130 @@ import { formatDate, validateCustomer } from '../utils';
 import { EMPTY_CUSTOMER } from '../constants';
 import './CustomersPage.css';
 
+const getInvoiceMockTemplateHtml = (customerName, settings) => {
+    const companyName = (settings.company_name && settings.company_name.trim() !== '' && settings.company_name !== 'Quantro')
+        ? settings.company_name
+        : 'Maze ERP';
+    const logoUrl = settings.logo_url || './icons/Logo.png';
+    const invoiceStyle = settings.invoice_style || 'classic';
+
+    const mockItems = [
+        { product_name: 'Premium Office Chair', variant_name: 'Mesh Black', quantity: 1, price: 8500, total: 8500 },
+        { product_name: 'Wireless Keyboard', variant_name: '', quantity: 1, price: 1500, total: 1500 }
+    ];
+
+    const itemsListHtml = mockItems.map(item => `
+        <tr>
+            <td style="padding: 10px; border-bottom: 1px solid #f1f5f9; text-align: left;">
+                ${item.product_name} ${item.variant_name ? `(${item.variant_name})` : ''}
+            </td>
+            <td style="padding: 10px; border-bottom: 1px solid #f1f5f9; text-align: center;">${item.quantity}</td>
+            <td style="padding: 10px; border-bottom: 1px solid #f1f5f9; text-align: right;">₹${item.price.toLocaleString('en-IN')}</td>
+            <td style="padding: 10px; border-bottom: 1px solid #f1f5f9; text-align: right; font-weight: bold;">₹${item.total.toLocaleString('en-IN')}</td>
+        </tr>
+    `).join('');
+
+    if (invoiceStyle === 'minimalist') {
+        return `
+            <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color: #334155; max-width: 100%; margin: 0 auto; padding: 24px; border: 1px solid #e2e8f0; border-radius: 12px; background: #ffffff; box-sizing: border-box; display: flex; flex-direction: column; height: 100%;">
+                <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #f1f5f9; padding-bottom: 16px; margin-bottom: 24px;">
+                    <div>
+                        ${logoUrl 
+                            ? `<img src="${logoUrl}" alt="${companyName}" style="max-height: 40px; margin-bottom: 8px; display: block;" />` 
+                            : ''
+                        }
+                        <h2 style="margin: 0; font-size: 20px; font-weight: 800; color: #0f172a;">${companyName}</h2>
+                        <p style="margin: 4px 0 0 0; font-size: 12px; color: #64748b;">${settings.email || ''}</p>
+                    </div>
+                    <div style="text-align: right;">
+                        <h3 style="margin: 0; font-size: 16px; font-weight: 700; color: #0f172a;">INVOICE</h3>
+                        <p style="margin: 4px 0 0 0; font-size: 12px; color: #64748b;">#INV-2026-001</p>
+                    </div>
+                </div>
+                <div style="margin-bottom: 24px;">
+                    <h4 style="margin: 0 0 8px 0; font-size: 12px; text-transform: uppercase; color: #94a3b8; letter-spacing: 0.05em;">Billed To</h4>
+                    <p style="margin: 0; font-weight: 600; color: #1e293b;">${customerName}</p>
+                </div>
+                <table style="width: 100%; border-collapse: collapse; margin-bottom: 24px; font-size: 13px;">
+                    <thead>
+                        <tr style="background: #f8fafc;">
+                            <th style="padding: 10px; border-bottom: 1px solid #e2e8f0; text-align: left; font-weight: 600; color: #475569;">Item</th>
+                            <th style="padding: 10px; border-bottom: 1px solid #e2e8f0; text-align: center; font-weight: 600; color: #475569;">Qty</th>
+                            <th style="padding: 10px; border-bottom: 1px solid #e2e8f0; text-align: right; font-weight: 600; color: #475569;">Price</th>
+                            <th style="padding: 10px; border-bottom: 1px solid #e2e8f0; text-align: right; font-weight: 600; color: #475569;">Total</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${itemsListHtml}
+                    </tbody>
+                </table>
+                <div style="width: 200px; margin-left: auto; font-size: 13px; margin-top: auto;">
+                    <div style="display: flex; justify-content: space-between; padding: 6px 0; color: #475569;">
+                        <span>Subtotal</span>
+                        <span>₹10,000</span>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; padding: 10px 0; border-top: 1px solid #0f172a; font-weight: 700; color: #0f172a; font-size: 15px; margin-top: 8px;">
+                        <span>Grand Total</span>
+                        <span>₹10,000</span>
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+
+    // Default / Classic layout
+    return `
+        <div style="font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; max-width: 100%; margin: 0 auto; background: #f8fafc; padding: 12px; box-sizing: border-box; height: 100%; display: flex; flex-direction: column;">
+            <div style="background: #ffffff; border-radius: 8px; border: 1px solid #eaecf0; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05); padding: 24px; flex: 1; display: flex; flex-direction: column;">
+                <div style="border-bottom: 2px solid #3b82f6; padding-bottom: 16px; margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center;">
+                    ${logoUrl 
+                        ? `<img src="${logoUrl}" alt="${companyName}" style="max-height: 35px; display: block;" />`
+                        : `<span style="font-size: 20px; font-weight: bold; color: #1e3a8a;">${companyName}</span>`
+                    }
+                    <span style="font-size: 12px; background: #eff6ff; color: #1e40af; padding: 4px 10px; border-radius: 20px; font-weight: 600; text-transform: uppercase;">Invoice Due</span>
+                </div>
+                <div style="font-size: 13px; line-height: 1.5; color: #4b5563; margin-bottom: 20px;">
+                    <p>Dear <strong>${customerName}</strong>,</p>
+                    <p>Thank you for shopping with us. We have generated invoice <strong>#INV-2026-001</strong> for your recent purchase.</p>
+                </div>
+                <div style="background: #f9fafb; border-radius: 6px; border: 1px solid #f3f4f6; padding: 12px; margin-bottom: 20px;">
+                    <table style="width: 100%; font-size: 12px; color: #4b5563;">
+                        <tr>
+                            <td style="padding: 2px 0; color: #9ca3af;">Invoice Number:</td>
+                            <td style="padding: 2px 0; text-align: right; font-weight: 600;">#INV-2026-001</td>
+                        </tr>
+                        <tr>
+                            <td style="padding: 2px 0; color: #9ca3af;">Date:</td>
+                            <td style="padding: 2px 0; text-align: right; font-weight: 600;">${new Date().toLocaleDateString('en-IN')}</td>
+                        </tr>
+                        <tr>
+                            <td style="padding: 2px 0; color: #9ca3af;">Total Amount:</td>
+                            <td style="padding: 2px 0; text-align: right; font-weight: bold; color: #111827; font-size: 13.5px;">₹10,000</td>
+                        </tr>
+                    </table>
+                </div>
+                <h4 style="margin: 0 0 8px 0; font-size: 13px; color: #111827; border-bottom: 1px solid #e5e7eb; padding-bottom: 4px;">Purchase Summary</h4>
+                <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px; font-size: 12px; color: #4b5563;">
+                    <thead>
+                        <tr style="color: #9ca3af;">
+                            <th style="padding: 4px 0; border-bottom: 1px solid #e5e7eb; text-align: left;">Product</th>
+                            <th style="padding: 4px 0; border-bottom: 1px solid #e5e7eb; text-align: center; width: 40px;">Qty</th>
+                            <th style="padding: 4px 0; border-bottom: 1px solid #e5e7eb; text-align: right; width: 80px;">Price</th>
+                            <th style="padding: 4px 0; border-bottom: 1px solid #e5e7eb; text-align: right; width: 80px;">Total</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${itemsListHtml}
+                    </tbody>
+                </table>
+                <div style="font-size: 11px; color: #9ca3af; text-align: center; line-height: 1.5; border-top: 1px solid #e5e7eb; padding-top: 16px; margin-top: auto;">
+                    <p>${companyName} | Phone: ${settings.phone || ''} | Email: ${settings.email || ''}</p>
+                </div>
+            </div>
+        </div>
+    `;
+};
+
 const getTemplatePreviewHtml = (templateType, customerName, settings) => {
     const companyName = (settings.company_name && settings.company_name.trim() !== '' && settings.company_name !== 'Quantro')
         ? settings.company_name
@@ -88,6 +212,8 @@ const getTemplatePreviewHtml = (templateType, customerName, settings) => {
                 </div>
             </div>
         `;
+    } else if (templateType === 'invoice_email') {
+        return getInvoiceMockTemplateHtml(customerName, settings);
     } else {
         const logoHtml = logoUrl 
             ? `<img src="${logoUrl}" alt="${companyName}" style="max-height: 40px; margin-bottom: 12px; display: inline-block;" />` 
@@ -1647,7 +1773,8 @@ export default function CustomersPage() {
                                     options={[
                                         { value: 'order_confirmation', label: 'Order Confirmation' },
                                         { value: 'feedback', label: 'Customer Feedback Request' },
-                                        { value: 'invoice_email', label: 'General Marketing Newsletter' }
+                                        { value: 'invoice_email', label: 'Invoice Template' },
+                                        { value: 'marketing_newsletter', label: 'General Marketing Newsletter' }
                                     ]}
                                 />
                             </FormGroup>

@@ -77,8 +77,33 @@ async function processCampaigns() {
                     } else if (templateType === 'feedback') {
                         subject = `Feedback Request - ${settings.company_name || 'Maze ERP'}`;
                         htmlBody = gmailSender.generateFeedbackTemplate(customer.name, settings);
+                    } else if (templateType === 'invoice_email') {
+                        // Find the customer's latest invoice
+                        const latestInvoice = db.get("SELECT * FROM invoices WHERE customer_id = ? ORDER BY created_at DESC LIMIT 1", [customer.id]);
+                        let invoiceObj;
+                        if (latestInvoice) {
+                            const items = db.all("SELECT * FROM invoice_items WHERE invoice_id = ?", [latestInvoice.id]);
+                            invoiceObj = { ...latestInvoice, items, customer_name: customer.name, customer_email: customer.email };
+                        } else {
+                            // Fallback to a mock invoice if no invoice exists yet
+                            invoiceObj = {
+                                invoice_number: 'MOCK-001',
+                                date: new Date().toLocaleDateString('en-IN'),
+                                customer_name: customer.name,
+                                customer_email: customer.email,
+                                total: 10000,
+                                paid_amount: 10000,
+                                items: [
+                                    { product_name: 'Premium Office Chair', variant_name: 'Mesh Black', quantity: 1, price: 8500, total: 8500 },
+                                    { product_name: 'Wireless Keyboard', variant_name: '', quantity: 1, price: 1500, total: 1500 }
+                                ]
+                            };
+                        }
+                        subject = `Invoice #${invoiceObj.invoice_number || invoiceObj.id} from ${settings.company_name || 'Maze ERP'}`;
+                        const activeStyle = settings.invoice_style || 'classic';
+                        htmlBody = gmailSender.generateInvoiceTemplate(invoiceObj, settings, activeStyle);
                     } else {
-                        // General marketing message or invoice style
+                        // General marketing message or newsletter style
                         subject = `${campaign.name} - Special Update`;
                         const logoUrl = settings.logo_url || '';
                         const companyName = settings.company_name || 'Maze ERP';

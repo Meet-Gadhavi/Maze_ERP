@@ -201,8 +201,8 @@ const gmailSender = {
         `).join('');
 
         const currency = settings.default_currency || 'INR';
-        const displayTotal = invoice.total_amount || invoice.effective_total || 0;
-        const displayDue = invoice.due_amount || 0;
+        const displayTotal = invoice.total_amount || invoice.effective_total || invoice.total || 0;
+        const displayDue = typeof invoice.due_amount !== 'undefined' ? invoice.due_amount : Math.max(0, (invoice.total || 0) - (invoice.paid_amount || 0));
 
         const logoUrl = settings.logo_url || getDefaultLogo();
         const companyName = getCompanyName(settings);
