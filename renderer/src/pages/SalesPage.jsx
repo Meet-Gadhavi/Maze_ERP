@@ -51,7 +51,6 @@ export default function SalesPage() {
     const [productSearch, setProductSearch] = useState('');
     const [saving, setSaving] = useState(false);
     const [previewInvoice, setPreviewInvoice] = useState(null);
-    const [autoOpenShare, setAutoOpenShare] = useState(false);
     const [deleteId, setDeleteId] = useState(null);
     const [historySearch, setHistorySearch] = useState('');
     const [returningInvoice, setReturningInvoice] = useState(null);
@@ -2331,11 +2330,8 @@ export default function SalesPage() {
                                                                     Give Product
                                                                 </SButton>
                                                             )}
-                                                            <SButton variant="secondary" onClick={() => { setAutoOpenShare(false); handleViewInvoice(inv.id); }} title="View Invoice">
+                                                            <SButton variant="secondary" onClick={() => { handleViewInvoice(inv.id); }} title="View Invoice">
                                                                 <Icons.Eye size={14} />
-                                                            </SButton>
-                                                            <SButton variant="secondary" onClick={() => { setAutoOpenShare(true); handleViewInvoice(inv.id); }} title="Share Invoice">
-                                                                <Icons.Share size={14} />
                                                             </SButton>
                                                             {(inv.items && inv.items.length > 0) && (
                                                                 <SButton variant="secondary" onClick={() => {
@@ -2368,7 +2364,6 @@ export default function SalesPage() {
                     <InvoicePreviewModal
                         invoice={previewInvoice}
                         onClose={() => setPreviewInvoice(null)}
-                        autoOpenShare={autoOpenShare}
                     />
                 )
             }

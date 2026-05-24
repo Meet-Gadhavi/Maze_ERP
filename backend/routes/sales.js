@@ -46,7 +46,7 @@ router.get('/', async (_req, res, next) => {
         await db.ready;
 
         const invoices = db.all(`
-      SELECT i.*, c.name AS customer_name
+      SELECT i.*, c.name AS customer_name, c.email AS customer_email, c.phone AS customer_phone
       FROM invoices i
       LEFT JOIN customers c ON i.customer_id = c.id
       ORDER BY i.created_at DESC
@@ -120,7 +120,7 @@ router.get('/:id', async (req, res, next) => {
         await db.ready;
 
         const invoice = db.get(`
-      SELECT i.*, c.name AS customer_name, c.gstin AS customer_gstin
+      SELECT i.*, c.name AS customer_name, c.gstin AS customer_gstin, c.email AS customer_email, c.phone AS customer_phone
       FROM invoices i
       LEFT JOIN customers c ON i.customer_id = c.id
       WHERE i.id = ?
@@ -518,7 +518,7 @@ router.post('/', async (req, res, next) => {
             [invoiceId, 'Invoice Created', `Invoice created. Fulfillment: ${fulfillmentStatus}, Payment: ${finalPaymentStatus}`]);
 
         invoice = db.get(`
-            SELECT i.*, c.name AS customer_name
+            SELECT i.*, c.name AS customer_name, c.email AS customer_email
             FROM invoices i
             LEFT JOIN customers c ON i.customer_id = c.id
             WHERE i.id = ?
@@ -531,7 +531,7 @@ router.post('/', async (req, res, next) => {
         
         if (!invoice) {
             // Invoice was created but could not be fetched back — fetch it now
-            invoice = db.get('SELECT i.*, c.name AS customer_name FROM invoices i LEFT JOIN customers c ON i.customer_id = c.id ORDER BY i.id DESC LIMIT 1');
+            invoice = db.get('SELECT i.*, c.name AS customer_name, c.email AS customer_email FROM invoices i LEFT JOIN customers c ON i.customer_id = c.id ORDER BY i.id DESC LIMIT 1');
             if (invoice) {
                 invoice.items = db.all('SELECT * FROM invoice_items WHERE invoice_id = ?', [invoice.id]);
                 invoice.payments = db.all('SELECT * FROM invoice_payments WHERE invoice_id = ? ORDER BY payment_date DESC', [invoice.id]);
@@ -756,7 +756,7 @@ router.post('/:id/return', async (req, res, next) => {
             [newTotalReturned, returnType, financialStatus, paymentStatus, invoiceId]);
 
         updatedInvoice = db.get(`
-            SELECT i.*, c.name AS customer_name
+            SELECT i.*, c.name AS customer_name, c.email AS customer_email
             FROM invoices i
             LEFT JOIN customers c ON i.customer_id = c.id
             WHERE i.id = ?
@@ -876,7 +876,7 @@ router.put('/:id/payment', async (req, res, next) => {
         }); // End transaction
 
         const updated = db.get(`
-            SELECT i.*, c.name AS customer_name
+            SELECT i.*, c.name AS customer_name, c.email AS customer_email
             FROM invoices i
             LEFT JOIN customers c ON i.customer_id = c.id
             WHERE i.id = ?

@@ -187,6 +187,10 @@ export default function InvoicePreviewModal({ invoice, onClose, autoOpenShare = 
     const [loadingConnections, setLoadingConnections] = useState(false);
 
     useEffect(() => {
+        setRecipientEmail(invoice?.customer_email || '');
+    }, [invoice]);
+
+    useEffect(() => {
         api.getSettings().then(setSettings).catch(console.error);
     }, []);
 
@@ -1265,14 +1269,28 @@ export default function InvoicePreviewModal({ invoice, onClose, autoOpenShare = 
 
                                         <div>
                                             <label style={{ display: 'block', fontSize: '11px', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '4px' }}>Recipient Email</label>
-                                            <input 
-                                                type="email" 
-                                                className="form-control" 
-                                                value={recipientEmail} 
-                                                onChange={e => setRecipientEmail(e.target.value)}
-                                                placeholder="customer@example.com"
-                                                style={{ width: '100%', padding: '6px', borderRadius: '6px', border: '1px solid var(--border-strong)' }}
-                                            />
+                                            {invoice?.customer_id && invoice?.customer_email ? (
+                                                <div style={{
+                                                    padding: '8px 12px',
+                                                    borderRadius: '6px',
+                                                    border: '1px solid var(--border)',
+                                                    background: 'var(--bg-primary)',
+                                                    fontSize: '13px',
+                                                    fontWeight: '500',
+                                                    color: 'var(--text-primary)'
+                                                }}>
+                                                    {recipientEmail}
+                                                </div>
+                                            ) : (
+                                                <input 
+                                                    type="email" 
+                                                    className="form-control" 
+                                                    value={recipientEmail} 
+                                                    onChange={e => setRecipientEmail(e.target.value)}
+                                                    placeholder="customer@example.com"
+                                                    style={{ width: '100%', padding: '6px', borderRadius: '6px', border: '1px solid var(--border-strong)' }}
+                                                />
+                                            )}
                                         </div>
 
                                         <SButton 
