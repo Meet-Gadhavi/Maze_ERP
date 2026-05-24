@@ -1214,95 +1214,95 @@ export default function InvoicePreviewModal({ invoice, onClose, autoOpenShare = 
                     </div>
                 )}
             </div>
-        </Modal>
 
-        {showShareModal && (
-            <div style={{
-                position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
-                backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center',
-                justifyContent: 'center', zIndex: 200000, padding: '20px'
-            }}>
+            {showShareModal && (
                 <div style={{
-                    backgroundColor: '#fff', padding: '24px', borderRadius: '16px',
-                    width: '100%', maxWidth: '440px', boxSizing: 'border-box',
-                    boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1)'
+                    position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+                    backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center',
+                    justifyContent: 'center', zIndex: 200000, padding: '20px'
                 }}>
-                    <h3 style={{ marginTop: 0, marginBottom: '20px', fontSize: '18px', fontWeight: 700, color: 'var(--text-primary)' }}>Share Invoice</h3>
-                    
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-                        {/* Copy Link Section */}
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px', border: '1px solid var(--border)', borderRadius: '8px' }}>
-                            <div>
-                                <strong style={{ display: 'block', fontSize: '13px' }}>Invoice Link</strong>
-                                <span style={{ fontSize: '11px', color: 'var(--text-tertiary)' }}>Copy the invoice URL to clipboard</span>
-                            </div>
-                            <SButton variant="secondary" size="small" onClick={handleCopyLink}>Copy Link</SButton>
-                        </div>
-
-                        {/* Gmail Send Section */}
-                        <div style={{ border: '1px solid var(--border)', borderRadius: '8px', padding: '16px' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
-                                <img src="./gmail-icon.png" alt="Gmail" style={{ width: '20px', height: '20px', objectFit: 'contain' }} />
-                                <strong style={{ fontSize: '14px' }}>Send via Gmail</strong>
+                    <div style={{
+                        backgroundColor: '#fff', padding: '24px', borderRadius: '16px',
+                        width: '100%', maxWidth: '440px', boxSizing: 'border-box',
+                        boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1)'
+                    }}>
+                        <h3 style={{ marginTop: 0, marginBottom: '20px', fontSize: '18px', fontWeight: 700, color: 'var(--text-primary)' }}>Share Invoice</h3>
+                        
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                            {/* Copy Link Section */}
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px', border: '1px solid var(--border)', borderRadius: '8px' }}>
+                                <div>
+                                    <strong style={{ display: 'block', fontSize: '13px' }}>Invoice Link</strong>
+                                    <span style={{ fontSize: '11px', color: 'var(--text-tertiary)' }}>Copy the invoice URL to clipboard</span>
+                                </div>
+                                <SButton variant="secondary" size="small" onClick={handleCopyLink}>Copy Link</SButton>
                             </div>
 
-                            {loadingConnections ? (
-                                <div style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>Loading Gmail connections...</div>
-                            ) : gmailConnections.length > 0 ? (
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                                    <div>
-                                        <label style={{ display: 'block', fontSize: '11px', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '4px' }}>Sender Account</label>
-                                        <select 
-                                            className="form-control" 
-                                            value={selectedSender} 
-                                            onChange={e => setSelectedSender(e.target.value)}
-                                            style={{ width: '100%', padding: '6px', borderRadius: '6px', border: '1px solid var(--border-strong)' }}
+                            {/* Gmail Send Section */}
+                            <div style={{ border: '1px solid var(--border)', borderRadius: '8px', padding: '16px' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
+                                    <img src="./gmail-icon.png" alt="Gmail" style={{ width: '20px', height: '20px', objectFit: 'contain' }} />
+                                    <strong style={{ fontSize: '14px' }}>Send via Gmail</strong>
+                                </div>
+
+                                {loadingConnections ? (
+                                    <div style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>Loading Gmail connections...</div>
+                                ) : gmailConnections.length > 0 ? (
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                                        <div>
+                                            <label style={{ display: 'block', fontSize: '11px', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '4px' }}>Sender Account</label>
+                                            <select 
+                                                className="form-control" 
+                                                value={selectedSender} 
+                                                onChange={e => setSelectedSender(e.target.value)}
+                                                style={{ width: '100%', padding: '6px', borderRadius: '6px', border: '1px solid var(--border-strong)' }}
+                                            >
+                                                {gmailConnections.map(c => (
+                                                    <option key={c.id} value={c.email}>{c.email}</option>
+                                                ))}
+                                            </select>
+                                        </div>
+
+                                        <div>
+                                            <label style={{ display: 'block', fontSize: '11px', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '4px' }}>Recipient Email</label>
+                                            <input 
+                                                type="email" 
+                                                className="form-control" 
+                                                value={recipientEmail} 
+                                                onChange={e => setRecipientEmail(e.target.value)}
+                                                placeholder="customer@example.com"
+                                                style={{ width: '100%', padding: '6px', borderRadius: '6px', border: '1px solid var(--border-strong)' }}
+                                            />
+                                        </div>
+
+                                        <SButton 
+                                            variant="primary" 
+                                            onClick={handleSendGmail} 
+                                            loading={sendingEmail} 
+                                            disabled={sendingEmail}
+                                            style={{ width: '100%', marginTop: '4px' }}
                                         >
-                                            {gmailConnections.map(c => (
-                                                <option key={c.id} value={c.email}>{c.email}</option>
-                                            ))}
-                                        </select>
+                                            Send Email
+                                        </SButton>
                                     </div>
-
-                                    <div>
-                                        <label style={{ display: 'block', fontSize: '11px', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '4px' }}>Recipient Email</label>
-                                        <input 
-                                            type="email" 
-                                            className="form-control" 
-                                            value={recipientEmail} 
-                                            onChange={e => setRecipientEmail(e.target.value)}
-                                            placeholder="customer@example.com"
-                                            style={{ width: '100%', padding: '6px', borderRadius: '6px', border: '1px solid var(--border-strong)' }}
-                                        />
+                                ) : (
+                                    <div style={{ fontSize: '12px', color: 'var(--text-secondary)', lineHeight: '1.5' }}>
+                                        No active Gmail connections found. 
+                                        <p style={{ margin: '4px 0 0 0', fontSize: '11px' }}>
+                                            Go to <strong>Automation</strong> and connect your Gmail account first to send emails directly.
+                                        </p>
                                     </div>
-
-                                    <SButton 
-                                        variant="primary" 
-                                        onClick={handleSendGmail} 
-                                        loading={sendingEmail} 
-                                        disabled={sendingEmail}
-                                        style={{ width: '100%', marginTop: '4px' }}
-                                    >
-                                        Send Email
-                                    </SButton>
-                                </div>
-                            ) : (
-                                <div style={{ fontSize: '12px', color: 'var(--text-secondary)', lineHeight: '1.5' }}>
-                                    No active Gmail connections found. 
-                                    <p style={{ margin: '4px 0 0 0', fontSize: '11px' }}>
-                                        Go to <strong>Automation</strong> and connect your Gmail account first to send emails directly.
-                                    </p>
-                                </div>
-                            )}
+                                )}
+                            </div>
                         </div>
-                    </div>
 
-                    <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '20px' }}>
-                        <SButton onClick={() => setShowShareModal(false)}>Close</SButton>
+                        <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '20px' }}>
+                            <SButton onClick={() => setShowShareModal(false)}>Close</SButton>
+                        </div>
                     </div>
                 </div>
-            </div>
-        )}
+            )}
+        </Modal>
         </>
     );
 }
