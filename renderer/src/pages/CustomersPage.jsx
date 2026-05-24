@@ -1696,6 +1696,45 @@ export default function CustomersPage() {
                                         {campaignForm.customers.length === customers.filter(c => c.email).length ? 'Deselect All' : 'Select All'}
                                     </button>
                                 </div>
+                                {campaignForm.customers.length > 0 && (
+                                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', maxHeight: '72px', overflowY: 'auto', padding: '6px', background: '#f8fafc', border: '1px solid var(--border)', borderRadius: '8px' }}>
+                                        {campaignForm.customers.map(id => {
+                                            const cust = customers.find(c => c.id === id);
+                                            if (!cust) return null;
+                                            return (
+                                                <span 
+                                                    key={id} 
+                                                    style={{ 
+                                                        fontSize: '11px', 
+                                                        padding: '3px 8px', 
+                                                        background: 'rgba(10, 110, 255, 0.1)', 
+                                                        color: 'var(--accent)', 
+                                                        borderRadius: '12px',
+                                                        display: 'inline-flex',
+                                                        alignItems: 'center',
+                                                        gap: '4px',
+                                                        fontWeight: 600
+                                                    }}
+                                                >
+                                                    {cust.name}
+                                                    <span 
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            setCampaignForm(prev => ({
+                                                                ...prev,
+                                                                customers: prev.customers.filter(cid => cid !== id)
+                                                            }));
+                                                        }}
+                                                        style={{ cursor: 'pointer', fontWeight: 'bold', fontSize: '12px', marginLeft: '2px', opacity: 0.7 }}
+                                                        title="Deselect"
+                                                    >
+                                                        ×
+                                                    </span>
+                                                </span>
+                                            );
+                                        })}
+                                    </div>
+                                )}
                                 <div style={{ position: 'relative' }}>
                                     <Input
                                         placeholder="Search customers by name or email..."
@@ -1710,9 +1749,9 @@ export default function CustomersPage() {
                             </div>
 
                             <div style={{ 
-                                display: 'grid',
-                                gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))',
-                                gap: '8px',
+                                display: 'flex',
+                                flexDirection: 'column',
+                                gap: '6px',
                                 maxHeight: '180px', 
                                 overflowY: 'auto', 
                                 border: '1px solid var(--border)', 
@@ -1728,7 +1767,7 @@ export default function CustomersPage() {
                                     });
                                     if (filtered.length === 0) {
                                         return (
-                                            <div style={{ gridColumn: '1/-1', textAlign: 'center', padding: '24px 0', color: 'var(--text-secondary)', fontSize: '13px' }}>
+                                            <div style={{ textAlign: 'center', padding: '24px 0', color: 'var(--text-secondary)', fontSize: '13px' }}>
                                                 No customers found matching "{campaignSearch}"
                                             </div>
                                         );
@@ -1756,8 +1795,8 @@ export default function CustomersPage() {
                                                 style={{
                                                     display: 'flex',
                                                     alignItems: 'center',
-                                                    gap: '8px',
-                                                    padding: '8px 10px',
+                                                    gap: '12px',
+                                                    padding: '8px 12px',
                                                     borderRadius: '8px',
                                                     border: isChecked ? '1px solid var(--accent)' : '1px solid var(--border)',
                                                     background: !hasEmail ? '#f1f5f9' : isChecked ? 'rgba(10, 110, 255, 0.05)' : '#fff',
@@ -1774,11 +1813,11 @@ export default function CustomersPage() {
                                                     readOnly
                                                     style={{ cursor: hasEmail ? 'pointer' : 'not-allowed', accentColor: 'var(--accent)' }}
                                                 />
-                                                <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minWidth: 0 }}>
+                                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flex: 1, minWidth: 0 }}>
                                                     <span style={{ fontWeight: 600, fontSize: '12.5px', color: isChecked ? 'var(--accent)' : 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                                                         {c.name}
                                                     </span>
-                                                    <span style={{ fontSize: '10.5px', color: 'var(--text-secondary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                                    <span style={{ fontSize: '11.5px', color: 'var(--text-secondary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', marginLeft: '12px' }}>
                                                         {hasEmail ? c.email : 'No email address'}
                                                     </span>
                                                 </div>
