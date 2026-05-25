@@ -183,11 +183,15 @@ export default function InvoicePreviewModal({ invoice, onClose, autoOpenShare = 
     const [gmailConnections, setGmailConnections] = useState([]);
     const [selectedSender, setSelectedSender] = useState('');
     const [recipientEmail, setRecipientEmail] = useState(invoice?.customer_email || '');
+    const [recipientPhone, setRecipientPhone] = useState(invoice?.customer_phone || invoice?.walk_in_phone || '');
     const [sendingEmail, setSendingEmail] = useState(false);
+    const [sendingWhatsApp, setSendingWhatsApp] = useState(false);
     const [loadingConnections, setLoadingConnections] = useState(false);
+    const [whatsAppConnections, setWhatsAppConnections] = useState([]);
 
     useEffect(() => {
         setRecipientEmail(invoice?.customer_email || '');
+        setRecipientPhone(invoice?.customer_phone || invoice?.walk_in_phone || '');
     }, [invoice]);
 
     useEffect(() => {
@@ -197,16 +201,20 @@ export default function InvoicePreviewModal({ invoice, onClose, autoOpenShare = 
     useEffect(() => {
         if (showShareModal) {
             setLoadingConnections(true);
-            api.getGmailConnections()
-                .then(conns => {
-                    const activeConns = (conns || []).filter(c => c.status === 'Active');
-                    setGmailConnections(activeConns);
-                    if (activeConns.length > 0) {
-                        setSelectedSender(activeConns[0].email);
-                    }
-                })
-                .catch(console.error)
-                .finally(() => setLoadingConnections(false));
+            Promise.all([
+                api.getGmailConnections(),
+                api.getWhatsAppConnections()
+            ]).then(([gConns, waConns]) => {
+                const activeGConns = (gConns || []).filter(c => c.status === 'Active');
+                setGmailConnections(activeGConns);
+                if (activeGConns.length > 0) {
+                    setSelectedSender(activeGConns[0].email);
+                }
+                const activeWaConns = (waConns || []).filter(c => c.status === 'Active');
+                setWhatsAppConnections(activeWaConns);
+            }).catch(err => {
+                console.error('Failed to load connections in share modal:', err);
+            }).finally(() => setLoadingConnections(false));
         }
     }, [showShareModal]);
 
@@ -245,6 +253,46 @@ export default function InvoicePreviewModal({ invoice, onClose, autoOpenShare = 
             toast.error(err.message || 'Failed to send invoice email.', { id: loadingId });
         } finally {
             setSendingEmail(false);
+        }
+    };
+
+    const handleSendWhatsApp = async () => {
+        if (!invoice) return;
+        if (whatsAppConnections.length === 0) {
+            toast.error('No active WhatsApp service connected.');
+            return;
+        }
+        if (!recipientPhone.trim()) {
+            toast.error('Recipient phone number is required.');
+            return;
+        }
+
+        setSendingWhatsApp(true);
+        const loadingId = toast.loading('Sending invoice PDF via WhatsApp...');
+        try {
+            // Proactively save phone number to customer if they didn't have one before
+            if (invoice.customer_id && (!invoice.customer_phone || invoice.customer_phone.trim() === '')) {
+                try {
+                    await api.updateCustomer(invoice.customer_id, {
+                        name: invoice.customer_name,
+                        phone: recipientPhone.trim()
+                    });
+                } catch (saveErr) {
+                    console.warn('Failed to auto-save customer phone:', saveErr);
+                }
+            }
+
+            await api.sendWhatsAppInvoice({
+                to: recipientPhone.trim(),
+                invoiceId: invoice.id
+            });
+            toast.success(`Invoice PDF sent successfully via WhatsApp to ${recipientPhone}`, { id: loadingId });
+            setShowShareModal(false);
+        } catch (err) {
+            console.error('Failed to send invoice via WhatsApp:', err);
+            toast.error(err.message || 'Failed to send invoice via WhatsApp.', { id: loadingId });
+        } finally {
+            setSendingWhatsApp(false);
         }
     };
 
@@ -1308,6 +1356,54 @@ export default function InvoicePreviewModal({ invoice, onClose, autoOpenShare = 
                                         No active Gmail connections found. 
                                         <p style={{ margin: '4px 0 0 0', fontSize: '11px' }}>
                                             Go to <strong>Automation</strong> and connect your Gmail account first to send emails directly.
+                                        </p>
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* WhatsApp Send Section */}
+                            <div style={{ border: '1px solid var(--border)', borderRadius: '8px', padding: '16px' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
+                                    <img src="./whatsapp-icon.png" alt="WhatsApp" style={{ width: '20px', height: '20px', objectFit: 'contain' }} />
+                                    <strong style={{ fontSize: '14px' }}>Send via WhatsApp</strong>
+                                </div>
+
+                                {loadingConnections ? (
+                                    <div style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>Loading WhatsApp connections...</div>
+                                ) : whatsAppConnections.length > 0 ? (
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                                        <div>
+                                            <label style={{ display: 'block', fontSize: '11px', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '4px' }}>Recipient Phone Number</label>
+                                            <input 
+                                                type="text" 
+                                                className="form-control" 
+                                                value={recipientPhone} 
+                                                onChange={e => setRecipientPhone(e.target.value)}
+                                                placeholder="e.g. +91 98765 43210"
+                                                style={{ width: '100%', padding: '6px', borderRadius: '6px', border: '1px solid var(--border-strong)' }}
+                                            />
+                                            {!recipientPhone.trim() && (
+                                                <div style={{ fontSize: '11.5px', color: '#e53e3e', marginTop: '6px', fontWeight: 600 }}>
+                                                    ⚠️ No phone number saved. Please enter one to proceed.
+                                                </div>
+                                            )}
+                                        </div>
+
+                                        <SButton 
+                                            variant="primary" 
+                                            onClick={handleSendWhatsApp} 
+                                            loading={sendingWhatsApp} 
+                                            disabled={sendingWhatsApp}
+                                            style={{ width: '100%', marginTop: '4px', backgroundColor: '#25D366', borderColor: '#25D366', color: '#fff' }}
+                                        >
+                                            Send PDF via WhatsApp
+                                        </SButton>
+                                    </div>
+                                ) : (
+                                    <div style={{ fontSize: '12px', color: 'var(--text-secondary)', lineHeight: '1.5' }}>
+                                        No active WhatsApp connections found. 
+                                        <p style={{ margin: '4px 0 0 0', fontSize: '11px' }}>
+                                            Go to <strong>Automation</strong> and connect your WhatsApp service first to send messages.
                                         </p>
                                     </div>
                                 )}

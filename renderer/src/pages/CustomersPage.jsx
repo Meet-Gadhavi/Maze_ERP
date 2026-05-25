@@ -161,6 +161,42 @@ const wrapCampaignPreviewHtml = (title, customerName, innerContent, settings) =>
     `;
 };
 
+const getWhatsAppTemplateText = (templateType, customerName, settings) => {
+    const companyName = (settings.company_name && settings.company_name.trim() !== '' && settings.company_name !== 'Quantro')
+        ? settings.company_name
+        : 'Maze ERP';
+
+    if (templateType === 'due_balance') {
+        return `Outstanding Due Reminder:\n\nDear ${customerName},\n\nYou have an outstanding due balance of ₹5,000 at ${companyName}. Please clear your balance as soon as possible. Thank you!\n\nSupport: ${settings.email || 'N/A'}\nPhone: ${settings.phone || 'N/A'}`;
+    }
+    if (templateType === 'festival_offer') {
+        return `Festival Sale Greetings!\n\nDear ${customerName},\n\nCelebrate this festive season with our exclusive Diwali/Holi/Eid sale. Enjoy special deals and discounts on all our products! Visit us today!\n\nBest regards,\n${companyName}`;
+    }
+    if (templateType === 'discount_coupon') {
+        return `Exclusive Discount!\n\nDear ${customerName},\n\nHere is your exclusive promo code: WELCOME10.\nUse this code at checkout to claim 10% Flat Discount on your next order! Valid for a limited time.\n\nBest regards,\n${companyName}`;
+    }
+    if (templateType === 'new_arrivals') {
+        return `New Arrivals!\n\nDear ${customerName},\n\nWe have just launched our brand new products and latest collections. Check them out today before they sell out!\n\nBest regards,\n${companyName}`;
+    }
+    if (templateType === 'flash_sale') {
+        return `Flash Sale Alert!\n\nDear ${customerName},\n\nOur Flash Sale is live! Slashed prices on our top products for a limited time only. Hurry and order now!\n\nBest regards,\n${companyName}`;
+    }
+    if (templateType === 'clearance_sale') {
+        return `Clearance Sale!\n\nDear ${customerName},\n\nClearance Sale is live now! Get massive discounts on remaining inventory. Grab them while stocks last!\n\nBest regards,\n${companyName}`;
+    }
+    if (templateType === 'back_in_stock') {
+        return `Back In Stock!\n\nDear ${customerName},\n\nYour favorite products are now back in stock and ready to order. Get yours today before they are sold out again!\n\nBest regards,\n${companyName}`;
+    }
+    if (templateType === 'order_confirmation') {
+        return `Order Confirmed!\n\nDear ${customerName},\n\nThank you for your order. We have successfully received it and are processing it. We will notify you once shipped.\n\nBest regards,\n${companyName}`;
+    }
+    if (templateType === 'feedback') {
+        return `We'd Love Your Feedback!\n\nDear ${customerName},\n\nThank you for shopping at ${companyName}. We hope you had a great experience. Please reply to this message with your rating (1-5 stars) and feedback!\n\nBest regards,\n${companyName}`;
+    }
+    // Default / marketing_newsletter
+    return `Special Update from ${companyName}:\n\nDear ${customerName},\n\nWe wanted to share some exciting news regarding our latest products and inventory updates. Contact us for more details!\n\nBest regards,\n${companyName}`;
+};
+
 const getTemplatePreviewHtml = (templateType, customerName, settings) => {
     const companyName = (settings.company_name && settings.company_name.trim() !== '' && settings.company_name !== 'Quantro')
         ? settings.company_name
@@ -1083,6 +1119,24 @@ export default function CustomersPage() {
                         >
                             Email Campaigns
                         </button>
+                        <button 
+                            className={`crm-tab-btn ${marketingSubTab === 'whatsapp' ? 'active' : ''}`}
+                            onClick={() => setMarketingSubTab('whatsapp')}
+                            style={{ 
+                                background: marketingSubTab === 'whatsapp' ? '#fff' : 'none', 
+                                border: 'none', 
+                                padding: '8px 20px', 
+                                fontWeight: 600, 
+                                cursor: 'pointer', 
+                                borderRadius: '8px',
+                                boxShadow: marketingSubTab === 'whatsapp' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
+                                color: marketingSubTab === 'whatsapp' ? 'var(--accent)' : 'var(--text-secondary)',
+                                transition: 'all 0.2s ease',
+                                borderBottom: 'none'
+                            }}
+                        >
+                            WhatsApp Campaigns
+                        </button>
                     </div>
 
                     {marketingSubTab === 'coupons' ? (
@@ -1198,10 +1252,27 @@ export default function CustomersPage() {
                         <div className="flex-column gap-20" style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                 <div>
-                                    <h4 style={{ margin: 0, fontSize: '16px', fontWeight: 600 }}>Scheduled Campaigns</h4>
-                                    <p style={{ margin: '4px 0 0 0', fontSize: '13px', color: 'var(--text-secondary)' }}>Automate sending newsletters, confirmations, and feedback requests to customers.</p>
+                                    <h4 style={{ margin: 0, fontSize: '16px', fontWeight: 600 }}>
+                                        {marketingSubTab === 'whatsapp' ? 'Scheduled WhatsApp Campaigns' : 'Scheduled Email Campaigns'}
+                                    </h4>
+                                    <p style={{ margin: '4px 0 0 0', fontSize: '13px', color: 'var(--text-secondary)' }}>
+                                        {marketingSubTab === 'whatsapp' 
+                                            ? 'Automate sending text updates and promotions to customers via WhatsApp.' 
+                                            : 'Automate sending newsletters, confirmations, and feedback requests to customers.'}
+                                    </p>
                                 </div>
-                                <SButton variant="primary" onClick={() => setShowCampaignModal(true)}>
+                                <SButton variant="primary" onClick={() => {
+                                    setCampaignForm({
+                                        name: '',
+                                        customers: [],
+                                        startDate: '',
+                                        endDate: '',
+                                        timeToSend: '09:00',
+                                        template: 'marketing_newsletter',
+                                        channel: marketingSubTab === 'whatsapp' ? 'whatsapp' : 'email'
+                                    });
+                                    setShowCampaignModal(true);
+                                }}>
                                     Schedule Campaign
                                 </SButton>
                             </div>
@@ -1210,70 +1281,93 @@ export default function CustomersPage() {
                                 <div className="customers-table-wrap card">
                                     <div className="loading">Loading campaigns…</div>
                                 </div>
-                            ) : campaigns.length === 0 ? (
-                                <div className="empty-state-premium">
-                                    <div className="empty-icon-wrapper">
-                                        <Icons.Mail size={40} />
-                                    </div>
-                                    <h3>No Campaigns Found</h3>
-                                    <p>Schedule your first email campaign to engage with your customers.</p>
-                                    <SButton variant="primary" onClick={() => setShowCampaignModal(true)}>
-                                        Schedule Campaign
-                                    </SButton>
-                                </div>
-                            ) : (
-                                <div className="customers-table-wrap card">
-                                    <table className="premium-table">
-                                        <thead>
-                                            <tr>
-                                                <th>Campaign Name</th>
-                                                <th>Template</th>
-                                                <th>Customers</th>
-                                                <th>Start Date</th>
-                                                <th>End Date</th>
-                                                <th>Send Time</th>
-                                                <th>Status</th>
-                                                <th className="text-right">Actions</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            {campaigns.map(camp => (
-                                                <tr key={camp.id}>
-                                                    <td className="fw-600">{camp.name}</td>
-                                                    <td>
-                                                        <span style={{ textTransform: 'capitalize', fontWeight: '500' }}>
-                                                            {camp.template.replace(/_/g, ' ')}
-                                                        </span>
-                                                    </td>
-                                                    <td>{camp.customers?.length || 0} selected</td>
-                                                    <td>{camp.start_date}</td>
-                                                    <td>{camp.end_date || 'No Expiry'}</td>
-                                                    <td>{camp.time_to_send}</td>
-                                                    <td>
-                                                        <span className={`status-badge ${camp.status}`} style={{
-                                                            fontSize: '11px',
-                                                            padding: '2px 8px',
-                                                            borderRadius: '999px',
-                                                            fontWeight: '600',
-                                                            background: camp.status === 'completed' ? 'rgba(52, 199, 89, 0.1)' : camp.status === 'scheduled' ? 'rgba(0, 113, 227, 0.1)' : 'rgba(255, 149, 0, 0.1)',
-                                                            color: camp.status === 'completed' ? 'var(--success)' : camp.status === 'scheduled' ? 'var(--accent)' : '#d07c00'
-                                                        }}>
-                                                            {camp.status}
-                                                        </span>
-                                                    </td>
-                                                    <td className="text-right">
-                                                        {camp.status === 'scheduled' && (
-                                                            <SButton variant="secondary" size="small" onClick={() => handleCancelCampaign(camp.id)} style={{ color: 'var(--danger)' }}>
-                                                                Cancel
-                                                            </SButton>
-                                                        )}
-                                                    </td>
+                            ) : (() => {
+                                const list = campaigns.filter(camp => 
+                                    marketingSubTab === 'whatsapp' ? camp.channel === 'whatsapp' : (camp.channel === 'email' || !camp.channel)
+                                );
+                                if (list.length === 0) {
+                                    return (
+                                        <div className="empty-state-premium">
+                                            <div className="empty-icon-wrapper">
+                                                {marketingSubTab === 'whatsapp' ? <Icons.MessageSquare size={40} /> : <Icons.Mail size={40} />}
+                                            </div>
+                                            <h3>No Campaigns Found</h3>
+                                            <p>
+                                                {marketingSubTab === 'whatsapp' 
+                                                    ? 'Schedule your first WhatsApp campaign to engage with your customers.'
+                                                    : 'Schedule your first email campaign to engage with your customers.'}
+                                            </p>
+                                            <SButton variant="primary" onClick={() => {
+                                                setCampaignForm({
+                                                    name: '',
+                                                    customers: [],
+                                                    startDate: '',
+                                                    endDate: '',
+                                                    timeToSend: '09:00',
+                                                    template: 'marketing_newsletter',
+                                                    channel: marketingSubTab === 'whatsapp' ? 'whatsapp' : 'email'
+                                                });
+                                                setShowCampaignModal(true);
+                                            }}>
+                                                Schedule Campaign
+                                            </SButton>
+                                        </div>
+                                    );
+                                }
+                                return (
+                                    <div className="customers-table-wrap card">
+                                        <table className="premium-table">
+                                            <thead>
+                                                <tr>
+                                                    <th>Campaign Name</th>
+                                                    <th>Template</th>
+                                                    <th>Customers</th>
+                                                    <th>Start Date</th>
+                                                    <th>End Date</th>
+                                                    <th>Send Time</th>
+                                                    <th>Status</th>
+                                                    <th className="text-right">Actions</th>
                                                 </tr>
-                                            ))}
-                                        </tbody>
-                                    </table>
-                                </div>
-                            )}
+                                            </thead>
+                                            <tbody>
+                                                {list.map(camp => (
+                                                    <tr key={camp.id}>
+                                                        <td className="fw-600">{camp.name}</td>
+                                                        <td>
+                                                            <span style={{ textTransform: 'capitalize', fontWeight: '500' }}>
+                                                                {camp.template.replace(/_/g, ' ')}
+                                                            </span>
+                                                        </td>
+                                                        <td>{camp.customers?.length || 0} selected</td>
+                                                        <td>{camp.start_date}</td>
+                                                        <td>{camp.end_date || 'No Expiry'}</td>
+                                                        <td>{camp.time_to_send}</td>
+                                                        <td>
+                                                            <span className={`status-badge ${camp.status}`} style={{
+                                                                fontSize: '11px',
+                                                                padding: '2px 8px',
+                                                                borderRadius: '999px',
+                                                                fontWeight: '600',
+                                                                background: camp.status === 'completed' ? 'rgba(52, 199, 89, 0.1)' : camp.status === 'scheduled' ? 'rgba(0, 113, 227, 0.1)' : 'rgba(255, 149, 0, 0.1)',
+                                                                color: camp.status === 'completed' ? 'var(--success)' : camp.status === 'scheduled' ? 'var(--accent)' : '#d07c00'
+                                                            }}>
+                                                                {camp.status}
+                                                            </span>
+                                                        </td>
+                                                        <td className="text-right">
+                                                            {camp.status === 'scheduled' && (
+                                                                <SButton variant="secondary" size="small" onClick={() => handleCancelCampaign(camp.id)} style={{ color: 'var(--danger)' }}>
+                                                                    Cancel
+                                                                </SButton>
+                                                            )}
+                                                        </td>
+                                                    </tr>
+                                                ))}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                );
+                            })()}
                         </div>
                     )}
                 </div>
@@ -1838,7 +1932,7 @@ export default function CustomersPage() {
             <Modal
                 open={showCampaignModal}
                 onClose={() => setShowCampaignModal(false)}
-                heading="Schedule Email Campaign"
+                heading={campaignForm.channel === 'whatsapp' ? "Schedule WhatsApp Campaign" : "Schedule Email Campaign"}
                 size="large"
                 primaryAction={
                     <SButton variant="primary" onClick={handleSaveCampaign} loading={savingCampaign} disabled={savingCampaign}>
@@ -1870,6 +1964,7 @@ export default function CustomersPage() {
                                         { value: 'email', label: 'Gmail Email' },
                                         { value: 'whatsapp', label: 'Meta WhatsApp' }
                                     ]}
+                                    disabled={true}
                                 />
                             </FormGroup>
 
@@ -2142,23 +2237,122 @@ export default function CustomersPage() {
                             height: '100%',
                             minHeight: '380px'
                         }}>
-                            <iframe 
-                                title="Template Preview"
-                                srcDoc={getTemplatePreviewHtml(
-                                    campaignForm.template, 
-                                    (previewCustomerId && campaignForm.customers.includes(previewCustomerId)
-                                        ? (customers.find(c => c.id === previewCustomerId)?.name || 'Valued Customer')
-                                        : (customers.find(c => c.id === campaignForm.customers[0])?.name || 'Valued Customer')),
-                                    settings
-                                )}
-                                style={{ 
-                                    width: '100%', 
-                                    height: '100%', 
-                                    border: 'none', 
-                                    borderRadius: '6px',
-                                    background: '#fff' 
-                                }}
-                            />
+                             {campaignForm.channel === 'whatsapp' ? (() => {
+                                 const previewCust = (previewCustomerId && campaignForm.customers.includes(previewCustomerId)
+                                     ? customers.find(c => c.id === previewCustomerId)
+                                     : customers.find(c => c.id === campaignForm.customers[0]));
+                                 const previewCustomerName = previewCust ? previewCust.name : 'Valued Customer';
+                                 return (
+                                     <div style={{ 
+                                         width: '100%', 
+                                         height: '100%', 
+                                         borderRadius: '6px',
+                                         background: '#efeae2', 
+                                         backgroundImage: 'radial-gradient(#dfdcd6 1px, transparent 0), radial-gradient(#dfdcd6 1px, #efeae2 0)',
+                                         backgroundSize: '12px 12px',
+                                         backgroundPosition: '0 0, 6px 6px',
+                                         padding: '16px',
+                                         display: 'flex',
+                                         flexDirection: 'column',
+                                         justifyContent: 'flex-start',
+                                         overflowY: 'auto'
+                                     }}>
+                                         {/* WhatsApp Chat Header (Mock) */}
+                                         <div style={{
+                                             display: 'flex',
+                                             alignItems: 'center',
+                                             gap: '8px',
+                                             background: '#075e54',
+                                             color: '#fff',
+                                             padding: '10px 14px',
+                                             margin: '-16px -16px 16px -16px',
+                                             borderTopLeftRadius: '6px',
+                                             borderTopRightRadius: '6px',
+                                             boxShadow: '0 1px 3px rgba(0,0,0,0.15)'
+                                         }}>
+                                             <div style={{
+                                                 width: '32px',
+                                                 height: '32px',
+                                                 borderRadius: '50%',
+                                                 background: '#ece5dd',
+                                                 color: '#555',
+                                                 display: 'flex',
+                                                 alignItems: 'center',
+                                                 justifyContent: 'center',
+                                                 fontWeight: 'bold',
+                                                 fontSize: '14px'
+                                             }}>
+                                                 {(previewCustomerName && previewCustomerName[0]) || 'C'}
+                                             </div>
+                                             <div style={{ display: 'flex', flexDirection: 'column' }}>
+                                                 <span style={{ fontSize: '13px', fontWeight: 600 }}>{previewCustomerName}</span>
+                                                 <span style={{ fontSize: '9.5px', opacity: 0.8 }}>online</span>
+                                             </div>
+                                         </div>
+
+                                         {/* Chat message bubble */}
+                                         <div style={{
+                                             background: '#d9fdd3',
+                                             borderRadius: '8px',
+                                             padding: '8px 12px 24px 12px',
+                                             maxWidth: '85%',
+                                             alignSelf: 'flex-end',
+                                             boxShadow: '0 1px 1px rgba(0,0,0,0.15)',
+                                             position: 'relative',
+                                             color: '#111b21',
+                                             fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif',
+                                             fontSize: '13.5px',
+                                             lineHeight: '1.4',
+                                             whiteSpace: 'pre-wrap',
+                                             wordBreak: 'break-word',
+                                             marginTop: '8px',
+                                             marginBottom: '8px'
+                                         }}>
+                                             {getWhatsAppTemplateText(
+                                                 campaignForm.template, 
+                                                 previewCustomerName,
+                                                 settings
+                                             )}
+                                             <div style={{ 
+                                                 position: 'absolute', 
+                                                 bottom: '3px', 
+                                                 right: '7px', 
+                                                 fontSize: '9.5px', 
+                                                 color: '#667781',
+                                                 display: 'flex',
+                                                 alignItems: 'center',
+                                                 gap: '3px'
+                                             }}>
+                                                 <span>{new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true })}</span>
+                                                 <span style={{ color: '#53bdeb', display: 'flex' }}>
+                                                     <svg viewBox="0 0 16 15" width="15" height="14" fill="currentColor">
+                                                         <path d="M15.01 3.316l-.478-.372a.365.365 0 0 0-.51.063L8.666 9.879a.32.32 0 0 1-.484.033L5.438 7.168a.365.365 0 0 0-.51.008l-.427.422a.37.37 0 0 0-.006.521l3.51 3.554a.32.32 0 0 0 .474-.019l5.594-6.83a.37.37 0 0 0-.063-.51z" />
+                                                         <path d="M11.177 3.316l-.478-.372a.365.365 0 0 0-.51.063L4.833 9.879a.32.32 0 0 1-.484.033L1.591 7.143a.365.365 0 0 0-.51.008l-.427.422a.37.37 0 0 0-.006.521l3.51 3.554a.32.32 0 0 0 .474-.019l5.594-6.83a.37.37 0 0 0-.063-.51z" />
+                                                     </svg>
+                                                 </span>
+                                             </div>
+                                         </div>
+                                     </div>
+                                 );
+                             })() : (
+                                 <iframe 
+                                     title="Template Preview"
+                                     srcDoc={getTemplatePreviewHtml(
+                                         campaignForm.template, 
+                                         (previewCustomerId && campaignForm.customers.includes(previewCustomerId)
+                                             ? (customers.find(c => c.id === previewCustomerId)?.name || 'Valued Customer')
+                                             : (customers.find(c => c.id === campaignForm.customers[0])?.name || 'Valued Customer')),
+                                         settings
+                                     )}
+                                     style={{ 
+                                         width: '100%', 
+                                         height: '100%', 
+                                         border: 'none', 
+                                         borderRadius: '6px',
+                                         background: '#fff' 
+                                     }}
+                                 />
+                             )}
                         </div>
                     </div>
                 </div>

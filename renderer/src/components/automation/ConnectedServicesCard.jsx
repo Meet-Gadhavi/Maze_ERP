@@ -389,6 +389,21 @@ export default function ConnectedServicesCard() {
                                                     Connected on {new Date(conn.connected_at).toLocaleDateString()}
                                                 </span>
                                             </div>
+                                            <div style={{ display: 'flex', flexDirection: 'column', marginTop: '8px', minWidth: '220px' }}>
+                                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px', fontSize: '11px', fontWeight: 600, color: 'var(--text-secondary)' }}>
+                                                    <span>Daily Message Usage</span>
+                                                    <span>{conn.messagesSentToday || 0} / {conn.messagesLimit || 1800} Sent</span>
+                                                </div>
+                                                <div style={{ width: '100%', height: '5px', background: 'rgba(0,0,0,0.06)', borderRadius: '999px', overflow: 'hidden' }}>
+                                                    <div style={{
+                                                        width: `${Math.min(100, ((conn.messagesSentToday || 0) / (conn.messagesLimit || 1800)) * 100)}%`,
+                                                        height: '100%',
+                                                        background: '#25D366',
+                                                        borderRadius: '999px',
+                                                        transition: 'width 0.3s ease'
+                                                    }} />
+                                                </div>
+                                            </div>
                                         </div>
                                     </div>
                                     <div style={{ display: 'flex', gap: '8px' }}>

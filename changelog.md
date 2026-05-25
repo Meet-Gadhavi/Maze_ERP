@@ -4,6 +4,14 @@ All notable changes to the Quantro ERP application will be documented here.
 
 ---
 
+## [2.4.2] - 2026-05-25
+### Added
+- **WhatsApp Campaigns Upgrades**: Implemented locked Meta WhatsApp channel flows inside CRM scheduling dialog. Fixed a Babel compilation syntax error caused by a missing closing brace on `wrapCampaignPreviewHtml`. Prefilled campaign dispatch times to `'09:00'`.
+- **Premium WhatsApp Chat Mock Preview**: Implemented a responsive WhatsApp chat thread bubble mockup rendering plain text campaign template contents against selected customer data, complete with double blue checkmarks and online contact headers.
+- **WhatsApp Dashboard Analytics**: Added a dedicated WhatsApp Delivery Analytics dashboard card to the AI/Automation analytics tab. Tracks total WhatsApp messages sent, active channels, daily transmission quotas (1800 limit), and daily volume charts.
+- **Voice Agent WhatsApp Auto-Dispatch**: Expanded Voice calling agent webhook triggers to automatically dispatch invoice PDFs to customer numbers via WhatsApp in Hindi, Gujarati, or English, active when the setting `auto_whatsapp_voice_request` is enabled.
+- **Daily Transmission Tracker Bar**: Integrated message transmission usage indicator bars on active WhatsApp Service cards showing current usage relative to the 1800 message limit.
+
 ## [2.4.0] - 2026-05-25
 ### Added
 - **WhatsApp Cloud API Integration:** Added a premium "Get WhatsApp Service" integration. Supports simulated Meta Embedded Signup flow to save WABA ID, Phone Number ID, and Permanent System User Tokens. Keep developer credentials hidden from the frontend.

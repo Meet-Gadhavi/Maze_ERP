@@ -4,6 +4,7 @@ const db = require('../db');
 const crypto = require('crypto');
 const EmailConnection = require('../models/EmailConnection');
 const gmailSender = require('../services/email/gmailSender');
+const whatsappSender = require('../services/whatsappSender');
 
 // POST /api/mazeway/webhook - Receive orders from Mazeway
 router.post('/webhook', async (req, res) => {
@@ -116,6 +117,63 @@ router.post('/webhook', async (req, res) => {
             }
         })();
 
+        // Trigger voice agent requested auto-whatsapp check asynchronously
+        (async () => {
+            try {
+                const autoWhatsAppVoiceSetting = db.get("SELECT value FROM settings WHERE key = 'auto_whatsapp_voice_request'")?.value;
+                if (autoWhatsAppVoiceSetting === 'true' && notes && detectWhatsAppInvoiceRequest(notes)) {
+                    console.log('[Voice Webhook] Call summary requests invoice details on WhatsApp. Attempting auto-send...');
+                    
+                    let customer = null;
+                    if (customer_phone) {
+                        const cleanPhone = customer_phone.replace(/\D/g, ''); // keep digits only
+                        if (cleanPhone) {
+                            const customers = db.all("SELECT * FROM customers WHERE phone IS NOT NULL AND phone != ''");
+                            customer = customers.find(c => {
+                                const dbPhone = (c.phone || '').replace(/\D/g, '');
+                                return dbPhone && (dbPhone === cleanPhone || dbPhone.endsWith(cleanPhone) || cleanPhone.endsWith(dbPhone));
+                            });
+                        }
+                    }
+                    
+                    if (!customer && customer_name) {
+                        customer = db.get("SELECT * FROM customers WHERE LOWER(name) = ? AND phone IS NOT NULL AND phone != ''", [customer_name.toLowerCase()]);
+                    }
+
+                    if (customer && customer.phone) {
+                        const invoice = db.get("SELECT * FROM invoices WHERE customer_id = ? ORDER BY created_at DESC LIMIT 1", [customer.id]);
+                        if (invoice) {
+                            invoice.items = db.all("SELECT * FROM invoice_items WHERE invoice_id = ?", [invoice.id]);
+                            
+                            const settingsRows = db.all("SELECT key, value FROM settings");
+                            const settings = {};
+                            settingsRows.forEach(r => { settings[r.key] = r.value; });
+                            
+                            const companyName = settings.company_name || 'Maze ERP';
+                            const { generateInvoicePDF } = require('../services/pdfGenerator');
+                            const pdfBuffer = await generateInvoicePDF(invoice, settings);
+                            const filename = `Invoice_${String(invoice.id).padStart(4, '0')}.pdf`;
+                            const caption = `Dear customer, please find attached invoice #${invoice.invoice_number || invoice.id} for your purchase from ${companyName}.`;
+                            
+                            await whatsappSender.sendInvoicePDF(customer.phone, pdfBuffer, filename, caption);
+
+                            db.run(
+                                "INSERT INTO customer_communication_logs (customer_id, type, notes) VALUES (?, 'SMS', ?)",
+                                [customer.id, `Voice Agent auto-sent invoice #${invoice.invoice_number || invoice.id} via WhatsApp`]
+                            );
+                            console.log(`[Voice Auto-WhatsApp] Successfully sent invoice #${invoice.invoice_number} to ${customer.phone}`);
+                        } else {
+                            console.log('[Voice Auto-WhatsApp] No recent invoice found for customer:', customer.name);
+                        }
+                    } else {
+                        console.log('[Voice Auto-WhatsApp] Customer matching phone/name not found or has no phone number in database.');
+                    }
+                }
+            } catch (err) {
+                console.error('[Voice Webhook Auto-WhatsApp Error]', err);
+            }
+        })();
+
         res.json({ success: true, message: 'Order received' });
     } catch (err) {
         console.error('[Mazeway Webhook Error]', err);
@@ -135,6 +193,19 @@ function detectInvoiceRequest(notes) {
         return true;
     }
     return false;
+}
+
+function detectWhatsAppInvoiceRequest(notes) {
+    if (!notes) return false;
+    const text = notes.toLowerCase();
+    
+    // Check if whatsapp or variations are mentioned
+    const mentionsWhatsApp = text.includes('whatsapp') || text.includes('whats app') || text.includes('whatapp') || text.includes('watsup') || text.includes('watsapp') || text.includes('wa');
+    
+    // Check for invoice/bill/receipt target in English, Hindi, or Gujarati
+    const hasInvoiceTarget = text.includes('invoice') || text.includes('bill') || text.includes('receipt') || text.includes('order') || text.includes('statement') || text.includes('hisab');
+    
+    return mentionsWhatsApp && hasInvoiceTarget;
 }
 
 // GET /api/mazeway/orders - Fetch all Mazeway orders

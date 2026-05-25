@@ -980,6 +980,86 @@ export default function DashboardPage() {
                             </ChartCard>
                         </div>
                     </div>
+
+                    {/* WhatsApp Analytics Section */}
+                    <div style={{ marginTop: '32px', borderTop: '1px solid var(--border)', paddingTop: '32px' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
+                            <div>
+                                <h3 style={{ margin: 0, fontSize: '18px', fontWeight: 700, color: 'var(--text-primary)' }}>WhatsApp Delivery Analytics</h3>
+                                <p style={{ margin: '4px 0 0 0', fontSize: '13px', color: 'var(--text-secondary)' }}>Delivery stats and account usage for connected Meta WhatsApp Cloud API services.</p>
+                            </div>
+                            <SButton variant="secondary" onClick={() => navigate('/automation')} style={{ fontSize: '12px', padding: '6px 12px' }}>
+                                Manage WhatsApp
+                            </SButton>
+                        </div>
+
+                        {/* WhatsApp KPI Row */}
+                        <div className="analytics-mini-kpi-row" style={{ marginBottom: '24px' }}>
+                            <div className="mini-kpi-card">
+                                <span className="mini-kpi-label">Total WhatsApp Sent</span>
+                                <span className="mini-kpi-value">{data.whatsappStats?.totalSent || 0}</span>
+                                <span className="mini-kpi-sub">In selected period</span>
+                            </div>
+                            <div className="mini-kpi-card">
+                                <span className="mini-kpi-label">Active WhatsApp Channels</span>
+                                <span className="mini-kpi-value">{data.whatsappStats?.activeChannelsCount || 0}</span>
+                                <span className="mini-kpi-sub">Connected phone IDs</span>
+                            </div>
+                        </div>
+
+                        <div className="analytics-grid-2">
+                            {/* Usage by Phone ID Card */}
+                            <ChartCard title="Usage by Phone ID" subtitle="Daily WhatsApp message limit utilization">
+                                {!data.whatsappStats?.connections || data.whatsappStats.connections.length === 0 ? (
+                                    <EmptyChart icon="MessageSquare" message="No connected WhatsApp accounts" />
+                                ) : (
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', padding: '8px' }}>
+                                        {data.whatsappStats.connections.map((conn, idx) => {
+                                            const percent = Math.min(100, Math.round((conn.messages_sent_today / (conn.messagesLimit || 1800)) * 100));
+                                            return (
+                                                <div key={idx} style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '13px' }}>
+                                                        <span style={{ fontWeight: 600, color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '70%' }}>
+                                                            Phone ID: {conn.phone_number_id}
+                                                        </span>
+                                                        <span style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>
+                                                            {conn.messages_sent_today} / {conn.messagesLimit || 1800} Sent
+                                                        </span>
+                                                    </div>
+                                                    <div style={{ width: '100%', height: '8px', background: 'var(--bg-soft)', borderRadius: '4px', overflow: 'hidden' }}>
+                                                        <div style={{ width: `${percent}%`, height: '100%', background: percent > 85 ? 'var(--danger)' : '#25D366', borderRadius: '4px', transition: 'width 0.3s ease' }} />
+                                                    </div>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                )}
+                            </ChartCard>
+
+                            {/* WhatsApp Dispatches Trend */}
+                            <ChartCard title="WhatsApp Dispatches" subtitle="Daily WhatsApp message volume">
+                                {!data.whatsappStats?.dailyTrends?.some(t => t.count > 0) ? (
+                                    <EmptyChart icon="MessageSquare" message="No WhatsApp messages sent in this period" />
+                                ) : (
+                                    <ResponsiveContainer width="100%" height={260}>
+                                        <AreaChart data={data.whatsappStats.dailyTrends}>
+                                            <defs>
+                                                <linearGradient id="gradWA" x1="0" y1="0" x2="0" y2="1">
+                                                    <stop offset="5%" stopColor="#25D366" stopOpacity={0.2} />
+                                                    <stop offset="95%" stopColor="#25D366" stopOpacity={0} />
+                                                </linearGradient>
+                                            </defs>
+                                            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
+                                            <XAxis dataKey="date" axisLine={false} tickLine={false} tick={chartStyle.axisTickStyle} tickFormatter={formatDateShort} />
+                                            <YAxis axisLine={false} tickLine={false} tick={chartStyle.axisTickStyle} allowDecimals={false} />
+                                            <Tooltip contentStyle={chartStyle.contentStyle} formatter={v => [v, 'Messages Sent']} labelFormatter={formatDate} />
+                                            <Area type="monotone" dataKey="count" stroke="#25D366" strokeWidth={2.5} fillOpacity={1} fill="url(#gradWA)" name="Messages Sent" />
+                                        </AreaChart>
+                                    </ResponsiveContainer>
+                                )}
+                            </ChartCard>
+                        </div>
+                    </div>
                 </div>
             )}
 

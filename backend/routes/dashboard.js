@@ -453,6 +453,55 @@ router.get('/', async (req, res, next) => {
             }
         })();
 
+        const whatsappStats = (() => {
+            try {
+                const totalSent = db.get(
+                    `SELECT COALESCE(SUM(messages_sent), 0) AS total FROM whatsapp_daily_usage WHERE date >= date('now', 'localtime', ${rangeSql})`
+                ).total;
+
+                const activeChannelsCount = db.get(
+                    "SELECT COUNT(*) AS count FROM whatsapp_connections WHERE status = 'Active'"
+                ).count;
+
+                const connections = db.all(`
+                    SELECT wc.phone_number_id, wc.waba_id, wc.status, COALESCE(wdu.messages_sent, 0) AS messages_sent_today, wc.connected_at
+                    FROM whatsapp_connections wc
+                    LEFT JOIN whatsapp_daily_usage wdu ON wc.phone_number_id = wdu.phone_number_id AND wdu.date = date('now', 'localtime')
+                `).map(c => ({
+                    ...c,
+                    messagesLimit: 1800
+                }));
+
+                const dailyTrends = db.all(`
+                    WITH RECURSIVE days(date) AS (
+                        SELECT date('now', 'localtime', ${rangeSql})
+                        UNION ALL
+                        SELECT date(date, '+1 day') FROM days WHERE date < date('now', 'localtime')
+                    )
+                    SELECT d.date, COALESCE(SUM(wdu.messages_sent), 0) AS count
+                    FROM days d
+                    LEFT JOIN whatsapp_daily_usage wdu ON d.date = wdu.date
+                    GROUP BY d.date
+                    ORDER BY d.date ASC
+                `);
+
+                return {
+                    totalSent,
+                    activeChannelsCount,
+                    connections,
+                    dailyTrends
+                };
+            } catch (e) {
+                console.error('Failed to query whatsappStats', e);
+                return {
+                    totalSent: 0,
+                    activeChannelsCount: 0,
+                    connections: [],
+                    dailyTrends: []
+                };
+            }
+        })();
+
         // ─────────────────────────────────────────────
         // FINANCIAL ANALYTICS
         // ─────────────────────────────────────────────
@@ -579,6 +628,7 @@ router.get('/', async (req, res, next) => {
             aiVsManual,
             aiOrdersByDay,
             emailStats,
+            whatsappStats,
 
             // Financial
             totalExpenses,

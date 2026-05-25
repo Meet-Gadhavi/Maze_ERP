@@ -158,7 +158,18 @@ router.get('/connections', async (req, res, next) => {
     try {
         await db.ready;
         const rows = db.all("SELECT id, phone_number_id, waba_id, status, connected_at FROM whatsapp_connections");
-        res.json(rows);
+        const today = new Date().toISOString().split('T')[0];
+        
+        const connectionsWithUsage = rows.map(r => {
+            const usageRow = db.get("SELECT messages_sent FROM whatsapp_daily_usage WHERE phone_number_id = ? AND date = ?", [r.phone_number_id, today]);
+            return {
+                ...r,
+                messagesSentToday: usageRow ? usageRow.messages_sent : 0,
+                messagesLimit: 1800
+            };
+        });
+        
+        res.json(connectionsWithUsage);
     } catch (err) {
         next(err);
     }
@@ -193,6 +204,56 @@ router.post('/test-message', async (req, res, next) => {
         res.json({ success: true, result });
     } catch (err) {
         res.status(500).json({ error: err.message });
+    }
+});
+
+// POST send-invoice via WhatsApp
+router.post('/send-invoice', async (req, res, next) => {
+    const { to, invoiceId } = req.body;
+    if (!to || !invoiceId) {
+        return res.status(400).json({ error: 'to and invoiceId parameters are required.' });
+    }
+
+    try {
+        await db.ready;
+        // Fetch Invoice details
+        const invoice = db.get('SELECT * FROM invoices WHERE id = ?', [invoiceId]);
+        if (!invoice) {
+            return res.status(404).json({ error: 'Invoice not found.' });
+        }
+
+        // Fetch invoice items
+        const items = db.all('SELECT * FROM invoice_items WHERE invoice_id = ?', [invoiceId]);
+        invoice.items = items;
+
+        // Fetch settings
+        const settingsRows = db.all('SELECT key, value FROM settings');
+        const settings = {};
+        settingsRows.forEach(r => { settings[r.key] = r.value; });
+
+        const companyName = settings.company_name || 'Maze ERP';
+        
+        // Generate Invoice PDF
+        const { generateInvoicePDF } = require('../services/pdfGenerator');
+        const pdfBuffer = await generateInvoicePDF(invoice, settings);
+        const filename = `Invoice_${String(invoice.id).padStart(4, '0')}.pdf`;
+        const caption = `Dear customer, please find attached invoice #${invoice.invoice_number || invoice.id} for your purchase from ${companyName}.`;
+
+        // Send PDF via WhatsApp
+        await whatsappSender.sendInvoicePDF(to, pdfBuffer, filename, caption);
+
+        // Record communication log
+        if (invoice.customer_id) {
+            db.run(
+                "INSERT INTO customer_communication_logs (customer_id, type, notes) VALUES (?, 'SMS', ?)",
+                [invoice.customer_id, `Sent invoice #${invoice.invoice_number || invoice.id} via WhatsApp`]
+            );
+        }
+
+        res.json({ message: 'Invoice sent successfully via WhatsApp' });
+    } catch (err) {
+        console.error('[WhatsApp Auth] Send invoice failed:', err);
+        res.status(500).json({ error: err.message || 'Failed to send invoice via WhatsApp.' });
     }
 });
 

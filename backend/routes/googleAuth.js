@@ -191,7 +191,7 @@ router.get('/campaigns', async (req, res, next) => {
 
 // POST /auth/google/campaigns -> Schedule email campaign
 router.post('/campaigns', async (req, res, next) => {
-    const { name, customers, startDate, endDate, timeToSend, template } = req.body;
+    const { name, customers, startDate, endDate, timeToSend, template, channel } = req.body;
     if (!name || !customers || !startDate || !timeToSend || !template) {
         return res.status(400).json({ error: 'Missing required campaign scheduling parameters.' });
     }
@@ -199,8 +199,8 @@ router.post('/campaigns', async (req, res, next) => {
     try {
         await db.ready;
         const sql = `
-            INSERT INTO email_campaigns (name, customers, start_date, end_date, time_to_send, template, status)
-            VALUES (?, ?, ?, ?, ?, ?, 'scheduled')
+            INSERT INTO email_campaigns (name, customers, start_date, end_date, time_to_send, template, channel, status)
+            VALUES (?, ?, ?, ?, ?, ?, ?, 'scheduled')
         `;
         const result = db.run(sql, [
             name, 
@@ -208,7 +208,8 @@ router.post('/campaigns', async (req, res, next) => {
             startDate, 
             endDate || null, 
             timeToSend, 
-            template
+            template,
+            channel || 'email'
         ]);
         res.json({ message: 'Campaign scheduled successfully', id: result.lastInsertRowid });
     } catch (err) {
