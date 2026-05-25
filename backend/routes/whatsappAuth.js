@@ -10,7 +10,26 @@ router.get('/connect', async (req, res, next) => {
         const wabaId = db.get("SELECT value FROM settings WHERE key = 'whatsapp_business_account_id'")?.value || '3150419608479658';
         const phoneId = db.get("SELECT value FROM settings WHERE key = 'whatsapp_phone_number_id'")?.value || '1117813404753239';
         const token = db.get("SELECT value FROM settings WHERE key = 'whatsapp_token'")?.value || 'EAATPnZC7jFeIBRqggccKGFX3E8Q3UNUmNf4bS59ZCV8MpbzIvfaIHmFrMRvDIHRkiS91DlU110DKgvY5EHWqKzzKL3mgPO9iuv8iFnR5ZAr6GC3CKZC4jmBkZBzSNoFB1v7ArepgYwCUoAeM2UFca2wudIVnPZCJRVgc9W3n0k2S5BG9EmA95Q6g8x1ZAuMjvdkCgZDZD';
+        const appId = db.get("SELECT value FROM settings WHERE key = 'whatsapp_app_id'")?.value || '1354185989887458';
 
+        // Real Mode: If not mock mode, redirect directly to real Facebook Login for Business onboarding popup
+        if (req.query.mode !== 'mock') {
+            const redirectUri = encodeURIComponent('http://localhost:3001/auth/whatsapp/callback');
+            const scope = encodeURIComponent('whatsapp_business_management,whatsapp_business_messaging');
+            const extras = encodeURIComponent(JSON.stringify({
+                setup: {
+                    business: {
+                        name: "Quantro ERP"
+                    }
+                }
+            }));
+            const facebookLoginUrl = `https://www.facebook.com/v23.0/dialog/oauth?client_id=${appId}&redirect_uri=${redirectUri}&response_type=code&scope=${scope}&extras=${extras}`;
+            
+            console.log('[WhatsApp Auth] Redirecting user to real Meta Onboarding OAuth dialog:', facebookLoginUrl);
+            return res.redirect(facebookLoginUrl);
+        }
+
+        // Mock Mode: Render the beautiful Meta-designed mockup signup dialog
         res.send(`
             <!DOCTYPE html>
             <html>
@@ -538,20 +557,89 @@ router.get('/connect', async (req, res, next) => {
 router.get('/callback', async (req, res, next) => {
     try {
         await db.ready;
-        const { waba_id, phone_number_id, token } = req.query;
+        const { code } = req.query;
 
-        if (!waba_id || !phone_number_id || !token) {
-            return res.status(400).send("Missing required WhatsApp login details.");
+        // Fallback: If no auth code, look for direct manual parameters (e.g. from Mock Mode)
+        if (!code) {
+            const { waba_id, phone_number_id, token } = req.query;
+            if (waba_id && phone_number_id && token) {
+                db.run(
+                    `INSERT OR REPLACE INTO whatsapp_connections (phone_number_id, waba_id, token, status)
+                     VALUES (?, ?, ?, 'Active')`,
+                    [phone_number_id, waba_id, token]
+                );
+                return res.redirect('http://localhost:5173/#/automation?whatsapp=success');
+            }
+            return res.status(400).send("Missing code or login parameters.");
         }
 
-        // Store active credentials in the database
+        // Real Meta OAuth flow: Exchange code for user access token
+        const appId = db.get("SELECT value FROM settings WHERE key = 'whatsapp_app_id'")?.value || '1354185989887458';
+        const appSecret = db.get("SELECT value FROM settings WHERE key = 'whatsapp_app_secret'")?.value || '678f644e1e7eafce62c29e5ba2dd17ff';
+        const redirectUri = 'http://localhost:3001/auth/whatsapp/callback';
+
+        console.log('[WhatsApp Auth] Exchanging authorization code for User Access Token...');
+        
+        // Exchange code for user access token
+        const tokenResponse = await fetch(`https://graph.facebook.com/v23.0/oauth/access_token?client_id=${appId}&redirect_uri=${encodeURIComponent(redirectUri)}&client_secret=${appSecret}&code=${code}`);
+        const tokenData = await tokenResponse.json();
+
+        if (!tokenResponse.ok || !tokenData.access_token) {
+            console.error('[WhatsApp Auth] Token exchange failed:', tokenData);
+            return res.status(400).send(`
+                <h2>Meta Onboarding Callback Error</h2>
+                <p>Failed to exchange authorization code: ${tokenData.error?.message || 'Unknown error'}</p>
+                <p>To use mock connection mode instead, click <a href="/auth/whatsapp/connect?mode=mock">here</a>.</p>
+            `);
+        }
+
+        const userAccessToken = tokenData.access_token;
+        console.log('[WhatsApp Auth] Token exchange succeeded. Fetching user accounts...');
+
+        // Fetch WhatsApp Business Accounts
+        const accountsResponse = await fetch(`https://graph.facebook.com/v23.0/me/whatsapp_business_accounts?access_token=${userAccessToken}`);
+        const accountsData = await accountsResponse.json();
+
+        if (!accountsResponse.ok || !accountsData.data || accountsData.data.length === 0) {
+            console.error('[WhatsApp Auth] Failed to fetch WABA accounts:', accountsData);
+            return res.status(400).send(`
+                <h2>Meta Onboarding Error</h2>
+                <p>No WhatsApp Business Accounts (WABA) were found associated with your Facebook profile.</p>
+                <p>Ensure you have created a WABA in your Meta Business Suite, or use <a href="/auth/whatsapp/connect?mode=mock">Mock Setup</a>.</p>
+            `);
+        }
+
+        // Use the first returned WABA ID
+        const wabaId = accountsData.data[0].id;
+        console.log(`[WhatsApp Auth] Found WABA: ${wabaId}. Fetching phone numbers...`);
+
+        // Fetch Phone Numbers for WABA
+        const phoneResponse = await fetch(`https://graph.facebook.com/v23.0/${wabaId}/phone_numbers?access_token=${userAccessToken}`);
+        const phoneData = await phoneResponse.json();
+
+        if (!phoneResponse.ok || !phoneData.data || phoneData.data.length === 0) {
+            console.error('[WhatsApp Auth] Failed to fetch phone numbers:', phoneData);
+            return res.status(400).send(`
+                <h2>Meta Onboarding Error</h2>
+                <p>No phone numbers were found under WABA ID: ${wabaId}.</p>
+                <p>Please register a number in your Meta Developer console or use <a href="/auth/whatsapp/connect?mode=mock">Mock Setup</a>.</p>
+            `);
+        }
+
+        // Use the first phone number ID
+        const phoneNumberId = phoneData.data[0].id;
+        console.log(`[WhatsApp Auth] Resolved Phone Number ID: ${phoneNumberId}. Saving connection...`);
+
+        // Save connection to database (falling back to userAccessToken or settings token)
+        const tokenToSave = db.get("SELECT value FROM settings WHERE key = 'whatsapp_token'")?.value || userAccessToken;
+
         db.run(
             `INSERT OR REPLACE INTO whatsapp_connections (phone_number_id, waba_id, token, status)
              VALUES (?, ?, ?, 'Active')`,
-            [phone_number_id, waba_id, token]
+            [phoneNumberId, wabaId, tokenToSave]
         );
 
-        // Redirect back to electron client frontend
+        // Redirect back to electron frontend
         res.redirect('http://localhost:5173/#/automation?whatsapp=success');
     } catch (err) {
         next(err);
