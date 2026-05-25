@@ -539,7 +539,7 @@ export default function AutomationPage() {
 
             <ConnectedServicesCard />
 
-            <div className="agents-section">
+            <div className="agents-section" style={{ marginTop: '24px' }}>
                 <div className="agents-section-header">
                     <div className="section-title-wrap">
                         <h3>Agent List <span className="count-badge">{agents.length} Total</span></h3>

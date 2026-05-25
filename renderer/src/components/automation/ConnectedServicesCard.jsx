@@ -333,9 +333,10 @@ export default function ConnectedServicesCard() {
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
-                        padding: '8px'
+                        padding: '4px',
+                        overflow: 'hidden'
                     }}>
-                        <Icons.MessageSquare size={24} style={{ color: '#25d366' }} />
+                        <img src="./whatsapp-icon.png" alt="WhatsApp" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
                     </div>
                     <div className="section-title-wrap" style={{ flex: 1 }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
