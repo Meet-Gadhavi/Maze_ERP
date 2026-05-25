@@ -11,25 +11,116 @@ router.get('/connect', async (req, res, next) => {
         const phoneId = db.get("SELECT value FROM settings WHERE key = 'whatsapp_phone_number_id'")?.value || '1117813404753239';
         const token = db.get("SELECT value FROM settings WHERE key = 'whatsapp_token'")?.value || 'EAATPnZC7jFeIBRqggccKGFX3E8Q3UNUmNf4bS59ZCV8MpbzIvfaIHmFrMRvDIHRkiS91DlU110DKgvY5EHWqKzzKL3mgPO9iuv8iFnR5ZAr6GC3CKZC4jmBkZBzSNoFB1v7ArepgYwCUoAeM2UFca2wudIVnPZCJRVgc9W3n0k2S5BG9EmA95Q6g8x1ZAuMjvdkCgZDZD';
         const appId = db.get("SELECT value FROM settings WHERE key = 'whatsapp_app_id'")?.value || '1354185989887458';
+        const configId = '1222207263263139'; // Meta-hosted config ID provided by user
 
-        // Real Mode: If not mock mode, redirect directly to real Facebook Login for Business onboarding popup
-        if (req.query.mode !== 'mock') {
-            const redirectUri = encodeURIComponent('http://localhost:3001/auth/whatsapp/callback');
-            const scope = encodeURIComponent('whatsapp_business_management,whatsapp_business_messaging');
-            const extras = encodeURIComponent(JSON.stringify({
-                setup: {
-                    business: {
-                        name: "Quantro ERP"
-                    }
-                }
-            }));
-            const facebookLoginUrl = `https://www.facebook.com/v23.0/dialog/oauth?client_id=${appId}&redirect_uri=${redirectUri}&response_type=code&scope=${scope}&extras=${extras}`;
-            
-            console.log('[WhatsApp Auth] Redirecting user to real Meta Onboarding OAuth dialog:', facebookLoginUrl);
-            return res.redirect(facebookLoginUrl);
+        // Case A: Mock Manual Form Mode
+        if (req.query.mode === 'mock') {
+            return res.send(`
+                <!DOCTYPE html>
+                <html>
+                <head>
+                    <title>Manual WhatsApp Setup</title>
+                    <meta charset="utf-8">
+                    <style>
+                        body {
+                            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+                            background-color: #f0f2f5;
+                            display: flex;
+                            justify-content: center;
+                            align-items: center;
+                            min-height: 100vh;
+                            margin: 0;
+                        }
+                        .card {
+                            background: white;
+                            padding: 32px;
+                            border-radius: 12px;
+                            box-shadow: 0 12px 28px 0 rgba(0, 0, 0, 0.12);
+                            width: 100%;
+                            max-width: 450px;
+                            box-sizing: border-box;
+                        }
+                        h2 {
+                            margin-top: 0;
+                            color: #1c1e21;
+                            font-size: 20px;
+                        }
+                        p {
+                            color: #606770;
+                            font-size: 14px;
+                            line-height: 1.4;
+                            margin-bottom: 24px;
+                        }
+                        .form-group {
+                            margin-bottom: 16px;
+                        }
+                        .form-group label {
+                            display: block;
+                            font-size: 12px;
+                            font-weight: bold;
+                            color: #606770;
+                            margin-bottom: 6px;
+                        }
+                        .form-control {
+                            width: 100%;
+                            padding: 10px;
+                            border: 1px solid #dddfe2;
+                            border-radius: 6px;
+                            font-size: 14px;
+                            box-sizing: border-box;
+                        }
+                        .btn {
+                            background-color: #1877f2;
+                            color: white;
+                            border: none;
+                            border-radius: 6px;
+                            padding: 12px 24px;
+                            font-size: 15px;
+                            font-weight: bold;
+                            width: 100%;
+                            cursor: pointer;
+                            margin-top: 8px;
+                        }
+                        .btn:hover {
+                            background-color: #166fe5;
+                        }
+                        .footer-link {
+                            display: block;
+                            text-align: center;
+                            margin-top: 16px;
+                            font-size: 13px;
+                            color: #1877f2;
+                            text-decoration: none;
+                        }
+                    </style>
+                </head>
+                <body>
+                    <div class="card">
+                        <h2>Manual WhatsApp Link</h2>
+                        <p>Link your account manually by entering WABA details below.</p>
+                        <form action="/auth/whatsapp/callback" method="GET">
+                            <div class="form-group">
+                                <label>WhatsApp Business Account ID (WABA ID)</label>
+                                <input type="text" class="form-control" name="waba_id" value="${wabaId}" required />
+                            </div>
+                            <div class="form-group">
+                                <label>Phone Number ID</label>
+                                <input type="text" class="form-control" name="phone_number_id" value="${phoneId}" required />
+                            </div>
+                            <div class="form-group">
+                                <label>System User Token (Permanent)</label>
+                                <input type="password" class="form-control" name="token" value="${token}" required />
+                            </div>
+                            <button type="submit" class="btn">Link Account</button>
+                        </form>
+                        <a class="footer-link" href="/auth/whatsapp/connect">← Back to Real Meta Onboarding</a>
+                    </div>
+                </body>
+                </html>
+            `);
         }
 
-        // Mock Mode: Render the beautiful Meta-designed mockup signup dialog
+        // Case B: Real Meta-Hosted Embedded Signup parent page
         res.send(`
             <!DOCTYPE html>
             <html>
@@ -142,7 +233,6 @@ router.get('/connect', async (req, res, next) => {
                         font-weight: 700;
                         color: #1c1e21;
                         margin: 0 0 16px 0;
-                        text-transform: none;
                     }
                     .feature-item {
                         display: flex;
@@ -250,53 +340,40 @@ router.get('/connect', async (req, res, next) => {
                         background-color: #166fe5;
                     }
                     
-                    /* Step 2 Form Styles */
-                    .form-group {
+                    /* Status alerts */
+                    .status-alert {
+                        display: flex;
+                        align-items: center;
+                        gap: 12px;
+                        padding: 16px;
+                        border-radius: 8px;
                         margin-bottom: 20px;
+                        font-size: 14px;
+                        line-height: 1.4;
                         text-align: left;
                     }
-                    .form-group label {
-                        display: block;
-                        font-size: 13px;
-                        font-weight: 600;
-                        color: #606770;
-                        margin-bottom: 8px;
+                    .status-alert.loading {
+                        background-color: #e7f3ff;
+                        border: 1px solid #1877f2;
+                        color: #1877f2;
                     }
-                    .form-control {
-                        width: 100%;
-                        padding: 12px 14px;
-                        border: 1px solid #dddfe2;
-                        border-radius: 6px;
-                        font-size: 14px;
-                        box-sizing: border-box;
-                        background-color: #f5f6f7;
-                        color: #1c1e21;
-                        transition: border-color 0.15s, background-color 0.15s;
+                    .status-alert.success {
+                        background-color: #ecfdf5;
+                        border: 1px solid #059669;
+                        color: #065f46;
                     }
-                    .form-control:focus {
-                        border-color: #1877f2;
-                        background-color: #ffffff;
-                        outline: none;
-                        box-shadow: 0 0 0 2px #e7f3ff;
+                    .spinner {
+                        border: 3px solid #e7f3ff;
+                        border-top: 3px solid #1877f2;
+                        border-radius: 50%;
+                        width: 20px;
+                        height: 20px;
+                        animation: spin 1s linear infinite;
+                        flex-shrink: 0;
                     }
-                    .select-wrapper {
-                        position: relative;
-                    }
-                    .select-wrapper::after {
-                        content: '';
-                        position: absolute;
-                        right: 14px;
-                        top: 50%;
-                        transform: translateY(-50%);
-                        border: 6px solid transparent;
-                        border-top-color: #606770;
-                        pointer-events: none;
-                    }
-                    select.form-control {
-                        appearance: none;
-                        -webkit-appearance: none;
-                        padding-right: 36px;
-                        cursor: pointer;
+                    @keyframes spin {
+                        0% { transform: rotate(0deg); }
+                        100% { transform: rotate(360deg); }
                     }
                     .account-preview-box {
                         display: flex;
@@ -331,6 +408,18 @@ router.get('/connect', async (req, res, next) => {
                         margin-top: 2px;
                     }
                 </style>
+                <!-- Facebook SDK initialization -->
+                <script>
+                  window.fbAsyncInit = function() {
+                    FB.init({
+                      appId            : '${appId}',
+                      autoLogAppEvents : true,
+                      xfbml            : true,
+                      version          : 'v25.0'
+                    });
+                  };
+                </script>
+                <script async defer crossorigin="anonymous" src="https://connect.facebook.net/en_US/sdk.js"></script>
             </head>
             <body>
                 <div class="dialog-container">
@@ -357,8 +446,8 @@ router.get('/connect', async (req, res, next) => {
 
                     <!-- Step 1: Informational Screen -->
                     <div id="step1">
-                        <!-- Shaking Hands Banner Graphic (SVG) -->
                         <div class="dialog-banner">
+                            <!-- Visual Shaking Hands SVG -->
                             <svg viewBox="0 0 500 180" xmlns="http://www.w3.org/2000/svg" style="width:100%; height:100%; object-fit: cover;">
                               <defs>
                                 <linearGradient id="banner-grad" x1="0" y1="0" x2="1" y2="1">
@@ -369,42 +458,33 @@ router.get('/connect', async (req, res, next) => {
                               </defs>
                               <rect width="100%" height="100%" fill="url(#banner-grad)"/>
                               
-                              <!-- Left Side Circle and Avatar -->
                               <circle cx="70" cy="90" r="35" fill="#fecdd3" />
                               <path d="M 55,115 Q 70,80 85,115" fill="none" stroke="#e11d48" stroke-width="4" stroke-linecap="round" />
                               <circle cx="70" cy="75" r="10" fill="#e11d48" />
 
-                              <!-- Right Side Circle and Avatar -->
                               <circle cx="430" cy="90" r="35" fill="#fed7aa" />
                               <path d="M 415,115 Q 430,80 445,115" fill="none" stroke="#ea580c" stroke-width="4" stroke-linecap="round" />
                               <circle cx="430" cy="75" r="10" fill="#ea580c" />
 
-                              <!-- Left Arm (Blue Sleeve) -->
+                              <!-- Sleeves -->
                               <path d="M 0,80 L 170,80 L 190,110 L 0,110 Z" fill="#1877f2" opacity="0.95"/>
-                              <!-- Right Arm (Dark Sleeve) -->
                               <path d="M 500,80 L 330,80 L 310,110 L 500,110 Z" fill="#1c1e21" opacity="0.95"/>
 
-                              <!-- Shaking Hands -->
+                              <!-- Handshake -->
                               <g transform="translate(190, 80)">
-                                <!-- Left Hand (Light Skin) -->
                                 <path d="M 0,0 C 15,-10 30,-5 40,5 L 50,15 C 55,20 50,25 45,25 L 30,20 L 10,30 Z" fill="#fde047" stroke="#1c1e21" stroke-width="2"/>
-                                <!-- Right Hand (Darker Skin) -->
                                 <path d="M 120,0 C 105,-10 90,-5 80,5 L 70,15 C 65,20 70,25 75,25 L 90,20 L 110,30 Z" fill="#ca8a04" stroke="#1c1e21" stroke-width="2"/>
-                                <!-- Handshake Interaction -->
                                 <path d="M 40,5 C 50,15 70,15 80,5" fill="none" stroke="#1c1e21" stroke-width="3" stroke-linecap="round"/>
                                 <path d="M 45,15 C 55,25 65,25 75,15" fill="none" stroke="#1c1e21" stroke-width="3" stroke-linecap="round"/>
                               </g>
 
-                              <!-- UI Floating Cards / Elements -->
-                              <!-- Left Bubble card -->
+                              <!-- Floating Cards -->
                               <rect x="130" y="20" width="50" height="35" rx="6" fill="#ffffff" filter="drop-shadow(0px 2px 4px rgba(0,0,0,0.08))"/>
                               <circle cx="155" cy="38" r="8" fill="#1877f2" opacity="0.8" />
                               
-                              <!-- Center top card (Speech Bubble) -->
                               <rect x="220" y="15" width="60" height="40" rx="8" fill="#ffffff" filter="drop-shadow(0px 4px 6px rgba(0,0,0,0.08))"/>
                               <path d="M 235,30 H 265 M 235,37 H 255" stroke="#94a3b8" stroke-width="3" stroke-linecap="round"/>
 
-                              <!-- Right Chart Card -->
                               <rect x="310" y="25" width="50" height="40" rx="6" fill="#ffffff" filter="drop-shadow(0px 2px 4px rgba(0,0,0,0.08))"/>
                               <rect x="320" y="45" width="6" height="12" fill="#25d366" rx="1"/>
                               <rect x="330" y="37" width="6" height="20" fill="#25d366" rx="1"/>
@@ -412,17 +492,14 @@ router.get('/connect', async (req, res, next) => {
                             </svg>
                         </div>
 
-                        <!-- Body -->
                         <div class="dialog-body">
                             <h2>Easily connect your account to Quantro</h2>
                             <p class="subtitle">This onboarding process will help you register your business account and connect with your partner.</p>
 
                             <h3 class="section-title">You will be able to:</h3>
 
-                            <!-- Feature Item -->
                             <div class="feature-item">
                                 <div class="feature-icon">
-                                    <!-- Message bubble SVG -->
                                     <svg viewBox="0 0 24 24"><path d="M20 2H4c-1.1 0-1.99.9-1.99 2L2 22l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zM6 9h12v2H6V9zm8 5H6v-2h8v2zm4-6H6V6h12v2z"/></svg>
                                 </div>
                                 <div class="feature-text">
@@ -447,75 +524,49 @@ router.get('/connect', async (req, res, next) => {
                             </p>
                         </div>
 
-                        <!-- Footer -->
                         <div class="dialog-footer">
                             <button class="btn btn-secondary" onclick="handleCancel()">Cancel</button>
-                            <button class="btn btn-primary" onclick="goToStep2()">Continue</button>
+                            <button class="btn btn-primary" onclick="launchRealMetaOnboarding()">Continue</button>
                         </div>
                     </div>
 
-                    <!-- Step 2: Meta Profile Selection Mock -->
+                    <!-- Step 2: Waiting Status Screen -->
                     <div id="step2" style="display: none;">
-                        <div class="dialog-body">
-                            <h2>Confirm WhatsApp Account Details</h2>
-                            <p class="subtitle" style="margin-bottom: 16px;">Verify or customize the accounts to link with Quantro ERP.</p>
-
-                            <div class="account-preview-box">
-                                <div class="account-icon">
-                                    <!-- Briefcase SVG -->
-                                    <svg width="18" height="18" fill="currentColor" viewBox="0 0 24 24"><path d="M20 6h-4V4c0-1.11-.89-2-2-2h-4c-1.11 0-2 .89-2 2v2H4c-1.11 0-1.99.89-1.99 2L2 19c0 1.11.89 2 2 2h16c1.11 0 2-.89 2-2V8c0-1.11-.89-2-2-2zm-8-2h4v2h-4V4zm8 15H4V8h16v11z"/></svg>
+                        <div class="dialog-body" style="text-align: center; padding: 40px 24px;">
+                            <div class="status-alert loading" id="status-box">
+                                <div class="spinner"></div>
+                                <div>
+                                    <strong style="display: block;">Awaiting Meta Authorization...</strong>
+                                    Please complete the signup wizard in the pop-up window.
+                                </div>
+                            </div>
+                            
+                            <h2 style="font-size: 18px; margin-top: 24px;">Connecting Quantro to WhatsApp</h2>
+                            <p class="subtitle">Once authorized, your WABA ID and Phone Number will sync automatically.</p>
+                            
+                            <div class="account-preview-box" id="result-box" style="display: none; text-align: left; margin-top: 24px;">
+                                <div class="account-icon" style="background-color: #d1fae5; color: #059669;">
+                                    <svg width="18" height="18" fill="currentColor" viewBox="0 0 24 24"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>
                                 </div>
                                 <div class="account-details">
-                                    <div class="account-name">Quantro Portfolio Account</div>
-                                    <div class="account-id">Meta Business Portfolio ID: 3150419608479658</div>
+                                    <div class="account-name" id="result-title">Account Linked successfully!</div>
+                                    <div class="account-id" id="result-info">Syncing with local settings...</div>
                                 </div>
                             </div>
 
-                            <form action="/auth/whatsapp/callback" method="GET">
-                                <!-- Business Account ID Selector -->
-                                <div class="form-group">
-                                    <label>WhatsApp Business Account ID (WABA ID)</label>
-                                    <div class="select-wrapper">
-                                        <select class="form-control" name="waba_id" required>
-                                            <option value="${wabaId}">Quantro Business WABA (${wabaId})</option>
-                                            <option value="3150419608479658">Default Sandbox WABA (3150419608479658)</option>
-                                        </select>
-                                    </div>
-                                </div>
-
-                                <!-- Phone Number ID Selector -->
-                                <div class="form-group">
-                                    <label>Select Phone Number to Link</label>
-                                    <div class="select-wrapper">
-                                        <select class="form-control" name="phone_number_id" id="phone-id-select" required>
-                                            <option value="${phoneId}">+1 555-010-1234 (ID: ${phoneId})</option>
-                                            <option value="1117813404753239">Test sandbox number (ID: 1117813404753239)</option>
-                                        </select>
-                                    </div>
-                                </div>
-
-                                <!-- Hidden Token Field (Pre-filled from Settings) -->
-                                <input type="hidden" name="token" value="${token}" />
-
-                                <div style="font-size: 12px; color: #606770; line-height: 1.4; background-color: #f7f8f9; padding: 12px; border-radius: 6px; border: 1px solid #e9e9e9; margin-top: 16px;">
-                                    <span style="font-weight: 700; color: #1877f2; display: block; margin-bottom: 4px;">✓ System Access Integration Verified</span>
-                                    Quantro ERP has securely loaded the system user access token. Click "Link WhatsApp Account" below to complete connection.
-                                </div>
-                                
-                                <div class="divider" style="margin: 20px 0 0 0;"></div>
-                            </form>
+                            <p class="terms-text" style="margin-top: 32px;">
+                                Pop-up didn't open? <a href="#" onclick="launchRealMetaOnboarding(); return false;">Click here to reopen</a>
+                                <br><br>
+                                <a href="/auth/whatsapp/connect?mode=mock" style="color: #606770; text-decoration: underline;">Switch to manual mock integration mode</a>
+                            </p>
                         </div>
-
-                        <!-- Footer for Step 2 -->
                         <div class="dialog-footer">
                             <button class="btn btn-secondary" onclick="goToStep1()">Back</button>
-                            <button class="btn btn-primary" onclick="submitForm()">Link WhatsApp Account</button>
                         </div>
                     </div>
                 </div>
 
                 <script>
-                    // Generate random session ID
                     function generateUUID() {
                         return '019e5d60-xxxx-4xxx-yxxx-5e047214ccc2'.replace(/[xy]/g, function(c) {
                             var r = Math.random() * 16 | 0,
@@ -524,6 +575,73 @@ router.get('/connect', async (req, res, next) => {
                         });
                     }
                     document.getElementById('sess-id-val').innerText = generateUUID();
+
+                    let popupWindow = null;
+
+                    function launchRealMetaOnboarding() {
+                        // Official Meta-hosted landing page URL
+                        const onboardingUrl = 'https://business.facebook.com/messaging/whatsapp/onboard/?app_id=${appId}&config_id=${configId}&extras=%7B%22sessionInfoVersion%22%3A%223%22%2C%22version%22%3A%22v4%22%7D';
+                        
+                        const width = 600;
+                        const height = 660;
+                        const left = (window.screen.width / 2) - (width / 2);
+                        const top = (window.screen.height / 2) - (height / 2);
+                        
+                        popupWindow = window.open(
+                            onboardingUrl, 
+                            'MetaWhatsAppOnboarding', 
+                            \`width=\${width},height=\${height},left=\${left},top=\${top},status=no,resizable=yes,scrollbars=yes\`
+                        );
+                        
+                        goToStep2();
+                    }
+
+                    // Listen for message events from the popup
+                    window.addEventListener('message', function(event) {
+                        // Accept events from both facebook.com and business.facebook.com
+                        if (!event.origin.includes('facebook.com')) {
+                            console.log('[Parent] Ignored event origin:', event.origin);
+                            return;
+                        }
+                        
+                        console.log('[Parent] Received Message Event:', event.data);
+                        
+                        try {
+                            const data = typeof event.data === 'string' ? JSON.parse(event.data) : event.data;
+                            
+                            if (data.type === 'WA_EMBEDDED_SIGNUP') {
+                                if (data.event === 'FINISH') {
+                                    const sessionInfo = data.sessionInfo;
+                                    const wabaId = sessionInfo.wabaID;
+                                    const phoneId = sessionInfo.phoneID || sessionInfo.phoneNumberID;
+                                    
+                                    console.log('[Parent] Meta Signup Success! WABA ID:', wabaId, 'Phone ID:', phoneId);
+                                    
+                                    // Update UI to show success
+                                    const statusBox = document.getElementById('status-box');
+                                    statusBox.className = 'status-alert success';
+                                    statusBox.innerHTML = '<div><strong>✓ Authorization Successful!</strong> Linking accounts...</div>';
+                                    
+                                    const resultBox = document.getElementById('result-box');
+                                    resultBox.style.display = 'flex';
+                                    document.getElementById('result-title').innerText = 'WhatsApp Connected!';
+                                    document.getElementById('result-info').innerText = 'WABA: ' + wabaId + ' | Phone: ' + phoneId;
+                                    
+                                    if (popupWindow) popupWindow.close();
+                                    
+                                    // Redirect parent to callback to save token & credentials
+                                    setTimeout(() => {
+                                        window.location.href = '/auth/whatsapp/callback?waba_id=' + wabaId + '&phone_number_id=' + phoneId + '&token=${token}';
+                                    }, 2000);
+                                } else if (data.event === 'CANCEL') {
+                                    alert('WhatsApp Signup was cancelled.');
+                                    goToStep1();
+                                }
+                            }
+                        } catch (e) {
+                            console.error('[Parent] Failed to parse message event data:', e);
+                        }
+                    });
 
                     function goToStep2() {
                         document.getElementById('step1').style.display = 'none';
@@ -539,10 +657,6 @@ router.get('/connect', async (req, res, next) => {
                         if (confirm("Are you sure you want to cancel WhatsApp Business setup?")) {
                             window.close();
                         }
-                    }
-
-                    function submitForm() {
-                        document.querySelector('#step2 form').submit();
                     }
                 </script>
             </body>
