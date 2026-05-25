@@ -6,7 +6,7 @@ import { FormGroup, Input } from '../components/FormComponents';
 import Modal from '../components/Modal';
 import SButton from '../components/SButton';
 import Icons from '../components/Icons';
-import { formatDate } from '../utils';
+import { formatDate, amountToWords } from '../utils';
 import { EMPTY_SUPPLIER, EMPTY_EXPENSE } from '../constants';
 import './PurchasePage.css';
 
@@ -1141,60 +1141,191 @@ export default function PurchasePage() {
                 heading={`Purchase Bill: ${previewPurchase?.bill_number || `P-${previewPurchase?.id}`}`}
                 size="large"
             >
-                <div className="form-grid mb-24">
-                    <div>
-                        <span className="text-secondary size-12 block uppercase ls-1 mb-4">Supplier</span>
-                        <div className="fw-600 size-16">{previewPurchase?.supplier_name}</div>
-                    </div>
-                    <div>
-                        <span className="text-secondary size-12 block uppercase ls-1 mb-4">Date</span>
-                        <div className="fw-600 size-16">{formatDate(previewPurchase?.purchase_date)}</div>
-                    </div>
-                    <div>
-                        <span className="text-secondary size-12 block uppercase ls-1 mb-4">Status</span>
-                        <span className={`badge badge-${previewPurchase?.status?.toLowerCase()}`}>{previewPurchase?.status}</span>
-                    </div>
-                </div>
+                {(() => {
+                    const supplierObj = suppliers.find(s => s.id === previewPurchase?.supplier_id);
+                    
+                    // Calculate totals on the fly
+                    let subtotal = 0;
+                    let discountTotal = 0;
+                    let gstTotal = 0;
+                    
+                    if (previewPurchase?.items) {
+                        previewPurchase.items.forEach(item => {
+                            const qty = Number(item.quantity || 0);
+                            const price = Number(item.purchase_price || 0);
+                            const discPer = Number(item.discount_percent || 0);
+                            const gstPer = Number(item.gst_percent || 0);
+                            
+                            const itemSubtotal = qty * price;
+                            const itemDiscount = itemSubtotal * (discPer / 100);
+                            const lineAfterDiscount = itemSubtotal - itemDiscount;
+                            const itemGst = lineAfterDiscount * (gstPer / 100);
+                            
+                            subtotal += itemSubtotal;
+                            discountTotal += itemDiscount;
+                            gstTotal += itemGst;
+                        });
+                    }
 
-                <div className="premium-table-wrap">
-                    <table className="premium-table">
-                        <thead>
-                            <tr>
-                                <th>Product</th>
-                                <th className="text-center">Qty</th>
-                                <th className="text-right">Price</th>
-                                <th className="text-center">GST</th>
-                                <th className="text-right">Total</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {previewPurchase?.items?.map((item, i) => (
-                                <tr key={i}>
-                                    <td className="fw-500">{item.product_name}</td>
-                                    <td className="text-center">{item.quantity} {item.unit}</td>
-                                    <td className="text-right text-secondary">₹{item.purchase_price}</td>
-                                    <td className="text-center text-secondary">{item.gst_percent}%</td>
-                                    <td className="text-right fw-600">₹{item.line_total.toFixed(2)}</td>
-                                </tr>
-                            ))}
-                        </tbody>
-                    </table>
-                </div>
+                    return (
+                        <div className="purchase-invoice-preview formal-invoice-container">
+                            {/* Header Section */}
+                            <div className="formal-header">
+                                <div className="company-logo-section">
+                                    {settings?.logo_url ? (
+                                        <img src={settings.logo_url} alt="Logo" />
+                                    ) : (
+                                        <div className="logo-placeholder">{settings?.company_name?.substring(0, 2).toUpperCase() || 'MZ'}</div>
+                                    )}
+                                </div>
+                                <div className="company-details-section">
+                                    <h1>{settings?.company_name || 'Maze ERP'}</h1>
+                                    {settings?.address && <p>{settings.address}</p>}
+                                    {settings?.phone && <p>Phone: {settings.phone}</p>}
+                                    {settings?.email && <p>Email: {settings.email}</p>}
+                                    {settings?.gstin && <p>GSTIN: <strong>{settings.gstin}</strong></p>}
+                                </div>
+                            </div>
 
-                <div className="mt-24 p-20 glass-card bg-accent-subtle ml-auto" style={{ maxWidth: '300px' }}>
-                    <div className="summary-row mb-8">
-                        <span className="text-secondary">Grand Total:</span>
-                        <span className="fw-700 size-18 color-primary">₹{previewPurchase?.grand_total?.toFixed(2)}</span>
-                    </div>
-                    <div className="summary-row mb-8 color-success">
-                        <span>Paid Amount:</span>
-                        <span className="fw-600">₹{previewPurchase?.paid_amount?.toFixed(2)}</span>
-                    </div>
-                    <div className="summary-row color-danger">
-                        <span>Balance Due:</span>
-                        <span className="fw-700">₹{previewPurchase?.due_amount?.toFixed(2)}</span>
-                    </div>
-                </div>
+                            {/* Details Grid */}
+                            <div className="formal-info-grid">
+                                <div className="info-box bill-to">
+                                    <div className="box-label">Supplier / Vendor</div>
+                                    <div className="box-content">
+                                        <strong>{supplierObj?.name || previewPurchase?.supplier_name || '—'}</strong>
+                                        {(supplierObj?.phone || previewPurchase?.supplier_phone) && (
+                                            <p>Phone: {supplierObj?.phone || previewPurchase?.supplier_phone}</p>
+                                        )}
+                                        {supplierObj?.address && (
+                                            <p style={{ whiteSpace: 'pre-line', fontSize: '11px', margin: '4px 0 0 0', color: '#475569' }}>{supplierObj.address}</p>
+                                        )}
+                                        {supplierObj?.gstin && (
+                                            <p style={{ margin: '4px 0 0 0' }}>GSTIN: <strong>{supplierObj.gstin}</strong></p>
+                                        )}
+                                    </div>
+                                </div>
+                                <div className="info-box invoice-details">
+                                    <div className="box-label">Bill Info</div>
+                                    <div className="box-content">
+                                        <div className="detail-row">
+                                            <span>Bill Number:</span>
+                                            <strong>{previewPurchase?.bill_number || `P-${previewPurchase?.id}`}</strong>
+                                        </div>
+                                        <div className="detail-row">
+                                            <span>Purchase Date:</span>
+                                            <strong>{formatDate(previewPurchase?.purchase_date)}</strong>
+                                        </div>
+                                        {previewPurchase?.due_date && (
+                                            <div className="detail-row">
+                                                <span>Due Date:</span>
+                                                <strong>{formatDate(previewPurchase?.due_date)}</strong>
+                                            </div>
+                                        )}
+                                        <div className="detail-row" style={{ marginTop: '6px' }}>
+                                            <span>Payment Status:</span>
+                                            <span className={`badge badge-${previewPurchase?.status?.toLowerCase()}`} style={{ fontSize: '10px', padding: '2px 8px' }}>
+                                                {previewPurchase?.status}
+                                            </span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Items Table */}
+                            <div style={{ borderBottom: '1px solid #334155' }}>
+                                <table className="formal-items-table">
+                                    <thead>
+                                        <tr>
+                                            <th style={{ width: '50px' }}>#</th>
+                                            <th className="text-left">Product Name</th>
+                                            <th style={{ width: '100px' }}>HSN Code</th>
+                                            <th style={{ width: '70px' }}>Qty</th>
+                                            <th style={{ width: '60px' }}>Unit</th>
+                                            <th className="text-right" style={{ width: '100px' }}>Unit Price</th>
+                                            <th style={{ width: '70px' }}>Disc %</th>
+                                            <th style={{ width: '70px' }}>GST %</th>
+                                            <th className="text-right" style={{ width: '110px' }}>Total</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {previewPurchase?.items?.map((item, i) => (
+                                            <tr key={i}>
+                                                <td>{i + 1}</td>
+                                                <td className="text-left fw-500">{item.product_name}</td>
+                                                <td>{item.hsn_code || '—'}</td>
+                                                <td>{item.quantity}</td>
+                                                <td>{item.unit || 'PCS'}</td>
+                                                <td className="text-right text-secondary">₹{Number(item.purchase_price || 0).toFixed(2)}</td>
+                                                <td>{item.discount_percent ? `${item.discount_percent}%` : '—'}</td>
+                                                <td>{item.gst_percent ? `${item.gst_percent}%` : '0%'}</td>
+                                                <td className="text-right fw-600">₹{Number(item.line_total || 0).toFixed(2)}</td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+
+                            {/* Bottom Summary Section */}
+                            <div className="formal-bottom-section">
+                                <div className="left-column" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+                                    <div className="box-content" style={{ borderBottom: '1px solid #334155', padding: '12px' }}>
+                                        <div className="box-label" style={{ background: 'transparent', padding: 0, fontSize: '11px', fontWeight: 600, color: '#64748b', marginBottom: '4px' }}>Amount in Words:</div>
+                                        <div style={{ fontSize: '12px', fontWeight: 500, fontStyle: 'italic', textTransform: 'capitalize', color: 'var(--text-primary)' }}>
+                                            {amountToWords(previewPurchase?.grand_total || 0)}
+                                        </div>
+                                    </div>
+                                    <div className="box-content" style={{ padding: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', flex: 1, minHeight: '100px' }}>
+                                        <div style={{ textAlign: 'center', width: '45%' }}>
+                                            <div style={{ height: '40px', borderBottom: '1px dashed #cbd5e1', marginBottom: '8px' }}></div>
+                                            <span style={{ fontSize: '11px', color: '#64748b', fontWeight: 500 }}>Prepared By</span>
+                                        </div>
+                                        <div style={{ textAlign: 'center', width: '45%' }}>
+                                            <div style={{ height: '40px', borderBottom: '1px dashed #cbd5e1', marginBottom: '8px' }}></div>
+                                            <span style={{ fontSize: '11px', color: '#64748b', fontWeight: 500 }}>Authorized Signatory</span>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div className="summary-totals-box" style={{ background: '#f8fafc' }}>
+                                    <div className="summary-row">
+                                        <span>Subtotal</span>
+                                        <span>:</span>
+                                        <strong className="text-right">₹{subtotal.toFixed(2)}</strong>
+                                    </div>
+                                    {discountTotal > 0 && (
+                                        <div className="summary-row" style={{ color: 'var(--danger)' }}>
+                                            <span>Discount Total</span>
+                                            <span>:</span>
+                                            <strong className="text-right">-₹{discountTotal.toFixed(2)}</strong>
+                                        </div>
+                                    )}
+                                    {gstTotal > 0 && (
+                                        <div className="summary-row">
+                                            <span>GST Total</span>
+                                            <span>:</span>
+                                            <strong className="text-right">+₹{gstTotal.toFixed(2)}</strong>
+                                        </div>
+                                    )}
+                                    <div className="invoice-totals-divider" />
+                                    <div className="summary-row" style={{ fontSize: '14px', fontWeight: 700, color: 'var(--accent)', marginTop: '8px' }}>
+                                        <span>Grand Total</span>
+                                        <span>:</span>
+                                        <strong className="text-right">₹{previewPurchase?.grand_total?.toFixed(2)}</strong>
+                                    </div>
+                                    <div className="summary-row" style={{ color: 'var(--success)' }}>
+                                        <span>Paid Amount</span>
+                                        <span>:</span>
+                                        <strong className="text-right">₹{previewPurchase?.paid_amount?.toFixed(2)}</strong>
+                                    </div>
+                                    <div className="summary-row" style={{ color: 'var(--danger)', borderTop: '1px solid #cbd5e1', paddingTop: '6px', marginTop: '6px' }}>
+                                        <span>Balance Due</span>
+                                        <span>:</span>
+                                        <strong className="text-right">₹{previewPurchase?.due_amount?.toFixed(2)}</strong>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    );
+                })()}
             </Modal>
 
             <Modal

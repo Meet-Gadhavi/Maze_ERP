@@ -413,6 +413,11 @@ const api = {
     getCampaigns: () => request('/auth/google/campaigns'),
     scheduleCampaign: (data) => request('/auth/google/campaigns', { method: 'POST', body: data }),
     cancelCampaign: (id) => request(`/auth/google/campaigns/${id}`, { method: 'DELETE' }),
+
+    // --- WhatsApp Integration ---
+    getWhatsAppConnections: () => request('/auth/whatsapp/connections'),
+    disconnectWhatsApp: (phone_number_id) => request('/auth/whatsapp/disconnect', { method: 'POST', body: { phone_number_id } }),
+    sendWhatsAppTest: (data) => request('/auth/whatsapp/test-message', { method: 'POST', body: data }),
 };
 
 export default api;

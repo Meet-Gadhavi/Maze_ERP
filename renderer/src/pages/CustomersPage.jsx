@@ -134,6 +134,33 @@ const getInvoiceMockTemplateHtml = (customerName, settings) => {
     `;
 };
 
+const wrapCampaignPreviewHtml = (title, customerName, innerContent, settings) => {
+    const companyName = (settings.company_name && settings.company_name.trim() !== '' && settings.company_name !== 'Quantro')
+        ? settings.company_name
+        : 'Maze ERP';
+    const logoUrl = settings.logo_url || './icons/Logo.png';
+    const logoHtml = logoUrl 
+        ? `<img src="${logoUrl}" alt="${companyName}" style="max-height: 40px; margin-bottom: 12px; display: inline-block;" />` 
+        : '';
+    return `
+        <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 100%; margin: 0 auto; background: #ffffff; border: 1px solid #e2e8f0; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); overflow: hidden; height: 100%; display: flex; flex-direction: column;">
+            <div style="background: linear-gradient(135deg, #1e3a8a, #3b82f6); padding: 24px; text-align: center; color: #ffffff;">
+                ${logoHtml}
+                <div style="font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.1em; color: #93c5fd; margin-bottom: 4px;">${companyName}</div>
+                <h2 style="margin: 0; font-size: 20px; font-weight: 800;">${title}</h2>
+            </div>
+            <div style="padding: 24px; color: #334155; line-height: 1.5; font-size: 13.5px; flex: 1;">
+                <p style="margin: 0 0 12px 0;">Hello <strong>${customerName}</strong>,</p>
+                ${innerContent}
+            </div>
+            <div style="background: #f8fafc; padding: 18px; text-align: center; font-size: 11px; color: #64748b; border-top: 1px solid #f1f5f9;">
+                <p style="margin: 0 0 4px 0; font-weight: bold; color: #334155;">${companyName}</p>
+                <p style="margin: 0;">Support: ${settings.email || ''} | Phone: ${settings.phone || ''}</p>
+            </div>
+        </div>
+    `;
+};
+
 const getTemplatePreviewHtml = (templateType, customerName, settings) => {
     const companyName = (settings.company_name && settings.company_name.trim() !== '' && settings.company_name !== 'Quantro')
         ? settings.company_name
@@ -214,6 +241,72 @@ const getTemplatePreviewHtml = (templateType, customerName, settings) => {
         `;
     } else if (templateType === 'invoice_email') {
         return getInvoiceMockTemplateHtml(customerName, settings);
+    } else if (templateType === 'due_balance') {
+        const innerHtml = `
+            <p>Our records show that you have an outstanding due balance of <strong>₹4,500.00</strong>.</p>
+            <p>Below is the list of your unpaid invoices:</p>
+            <table style="width: 100%; border-collapse: collapse; margin: 16px 0; font-size: 13px;">
+                <thead>
+                    <tr style="background: #f8fafc; border-bottom: 1px solid #e2e8f0; color: #475569;">
+                        <th style="padding: 8px; text-align: left;">Invoice ID</th>
+                        <th style="padding: 8px; text-align: left;">Date</th>
+                        <th style="padding: 8px; text-align: right;">Total Amount</th>
+                        <th style="padding: 8px; text-align: right;">Outstanding Due</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr style="border-bottom: 1px solid #f1f5f9;">
+                        <td style="padding: 8px;">#INV-0042</td>
+                        <td style="padding: 8px;">2026-05-20</td>
+                        <td style="padding: 8px; text-align: right;">₹10,500.00</td>
+                        <td style="padding: 8px; text-align: right; color: #ef4444; font-weight: bold;">₹4,500.00</td>
+                    </tr>
+                </tbody>
+            </table>
+            <p>Please complete your payment at your earliest convenience.</p>
+        `;
+        return wrapCampaignPreviewHtml("Outstanding Due Statement", customerName, innerHtml, settings);
+    } else if (templateType === 'festival_offer') {
+        const innerHtml = `
+            <p>Celebrate this festive season with our exclusive **Diwali / Holi / Eid Sale**!</p>
+            <p>Enjoy special deals, seasonal catalogs, and limited-time discounts across our entire store. Be sure to check them out today!</p>
+        `;
+        return wrapCampaignPreviewHtml("Festival Sale!", customerName, innerHtml, settings);
+    } else if (templateType === 'discount_coupon') {
+        const innerHtml = `
+            <p>We are pleased to offer you an exclusive discount on your next purchase!</p>
+            <div style="background: #f0fdf4; border: 1px dashed #22c55e; border-radius: 8px; padding: 20px; text-align: center; margin: 20px 0;">
+                <div style="font-size: 13px; color: #166534; font-weight: 600; text-transform: uppercase;">Your Coupon Code</div>
+                <div style="font-size: 28px; font-weight: bold; color: #15803d; margin: 8px 0; letter-spacing: 2px;">WELCOME10</div>
+                <div style="font-size: 14px; color: #166534;">Get <strong>10% Flat Discount</strong> at checkout!</div>
+            </div>
+            <p>Hurry, this offer is valid for a limited time only.</p>
+        `;
+        return wrapCampaignPreviewHtml("Exclusive Discount!", customerName, innerHtml, settings);
+    } else if (templateType === 'new_arrivals') {
+        const innerHtml = `
+            <p>We are thrilled to announce that our **New Arrivals** are officially here!</p>
+            <p>Discover fresh collections, advanced new inventory, and cutting-edge products designed to fit your needs perfectly. Visit our catalog today to check them out!</p>
+        `;
+        return wrapCampaignPreviewHtml("New Arrivals!", customerName, innerHtml, settings);
+    } else if (templateType === 'flash_sale') {
+        const innerHtml = `
+            <p>Our **Flash Sale** is officially live for a very limited time!</p>
+            <p>Prices have been heavily slashed across selected high-demand products. Don't wait — grab your favorites before the timer runs out!</p>
+        `;
+        return wrapCampaignPreviewHtml("Flash Sale Alert!", customerName, innerHtml, settings);
+    } else if (templateType === 'clearance_sale') {
+        const innerHtml = `
+            <p>Get ready for our massive **Stock Clearance Sale**!</p>
+            <p>We are clearing out inventory to make room for new stock. Take advantage of our lowest prices ever. Quantities are highly limited, so shop today!</p>
+        `;
+        return wrapCampaignPreviewHtml("Clearance Sale!", customerName, innerHtml, settings);
+    } else if (templateType === 'back_in_stock') {
+        const innerHtml = `
+            <p>We've got great news! Your favorite products are officially **Back In Stock**!</p>
+            <p>We have restocked our most popular products, and they are now ready for immediate billing and delivery. Order yours now while supplies last.</p>
+        `;
+        return wrapCampaignPreviewHtml("Back In Stock!", customerName, innerHtml, settings);
     } else {
         const logoHtml = logoUrl 
             ? `<img src="${logoUrl}" alt="${companyName}" style="max-height: 40px; margin-bottom: 12px; display: inline-block;" />` 
@@ -326,7 +419,8 @@ export default function CustomersPage() {
         startDate: '',
         endDate: '',
         timeToSend: '09:00',
-        template: 'order_confirmation'
+        template: 'marketing_newsletter',
+        channel: 'email'
     });
     const [campaignSearch, setCampaignSearch] = useState('');
     const [previewCustomerId, setPreviewCustomerId] = useState(null);
@@ -478,7 +572,8 @@ export default function CustomersPage() {
             startDate: campaignForm.startDate,
             endDate: campaignForm.endDate || null,
             timeToSend: campaignForm.timeToSend,
-            template: campaignForm.template
+            template: campaignForm.template,
+            channel: campaignForm.channel || 'email'
         };
 
         setSavingCampaign(true);
@@ -492,7 +587,8 @@ export default function CustomersPage() {
                 startDate: '',
                 endDate: '',
                 timeToSend: '09:00',
-                template: 'order_confirmation'
+                template: 'marketing_newsletter',
+                channel: 'email'
             });
             loadCampaigns();
         } catch (err) {
@@ -1766,19 +1862,36 @@ export default function CustomersPage() {
                         </FormGroup>
 
                         <div className="grid-2 gap-16" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                            <FormGroup label="Campaign Channel" required>
+                                <CustomSelect
+                                    value={campaignForm.channel || 'email'}
+                                    onChange={channel => setCampaignForm({ ...campaignForm, channel, customers: [] })}
+                                    options={[
+                                        { value: 'email', label: 'Gmail Email' },
+                                        { value: 'whatsapp', label: 'Meta WhatsApp' }
+                                    ]}
+                                />
+                            </FormGroup>
+
                             <FormGroup label="Template Selection" required>
                                 <CustomSelect
                                     value={campaignForm.template}
                                     onChange={template => setCampaignForm({ ...campaignForm, template })}
                                     options={[
-                                        { value: 'order_confirmation', label: 'Order Confirmation' },
-                                        { value: 'feedback', label: 'Customer Feedback Request' },
-                                        { value: 'invoice_email', label: 'Invoice Template' },
-                                        { value: 'marketing_newsletter', label: 'General Marketing Newsletter' }
+                                        { value: 'marketing_newsletter', label: 'General Marketing Newsletter' },
+                                        { value: 'due_balance', label: 'Due Balance Statement' },
+                                        { value: 'festival_offer', label: 'Festival Offer (Diwali/Holi/Eid Sale)' },
+                                        { value: 'discount_coupon', label: 'Discount Coupon' },
+                                        { value: 'new_arrivals', label: 'New Arrivals' },
+                                        { value: 'flash_sale', label: 'Flash Sale (Limited Offer)' },
+                                        { value: 'clearance_sale', label: 'Clearance Sale (Stock Clearance)' },
+                                        { value: 'back_in_stock', label: 'Back In Stock (Available Again)' }
                                     ]}
                                 />
                             </FormGroup>
+                        </div>
 
+                        <div className="grid-2 gap-16" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
                             <FormGroup label="Time to Send" required>
                                 <Input
                                     type="time"
@@ -1786,40 +1899,40 @@ export default function CustomersPage() {
                                     onChange={e => setCampaignForm({ ...campaignForm, timeToSend: e.target.value })}
                                 />
                             </FormGroup>
+
+                            <FormGroup label="Start Date" required>
+                                <Input
+                                    type="date"
+                                    value={campaignForm.startDate}
+                                    onChange={e => setCampaignForm({ ...campaignForm, startDate: e.target.value })}
+                                />
+                            </FormGroup>
                         </div>
 
                         <div className="grid-2 gap-16" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-                                    <FormGroup label="Start Date" required>
-                                        <Input
-                                            type="date"
-                                            value={campaignForm.startDate}
-                                            onChange={e => setCampaignForm({ ...campaignForm, startDate: e.target.value })}
-                                        />
-                                    </FormGroup>
-
-                                    <FormGroup label="End Date (Optional)">
-                                        <Input
-                                            type="date"
-                                            value={campaignForm.endDate}
-                                            onChange={e => setCampaignForm({ ...campaignForm, endDate: e.target.value })}
-                                        />
-                                    </FormGroup>
-                                </div>
+                            <FormGroup label="End Date (Optional)">
+                                <Input
+                                    type="date"
+                                    value={campaignForm.endDate}
+                                    onChange={e => setCampaignForm({ ...campaignForm, endDate: e.target.value })}
+                                />
+                            </FormGroup>
+                        </div>
 
                         <FormGroup label="Select Recipients (Customers)" required>
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '8px' }}>
                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                     <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-secondary)' }}>
-                                        Selected: {campaignForm.customers.length} of {customers.filter(c => c.email).length}
+                                        Selected: {campaignForm.customers.length} of {customers.filter(c => campaignForm.channel === 'whatsapp' ? c.phone : c.email).length}
                                     </span>
                                     <button 
                                         type="button"
                                         onClick={() => {
-                                            const totalWithEmail = customers.filter(c => c.email).length;
-                                            const hasAll = campaignForm.customers.length === totalWithEmail;
+                                            const filteredCustomers = customers.filter(c => campaignForm.channel === 'whatsapp' ? c.phone : c.email);
+                                            const hasAll = campaignForm.customers.length === filteredCustomers.length;
                                             setCampaignForm({
                                                 ...campaignForm,
-                                                customers: hasAll ? [] : customers.filter(c => c.email).map(c => c.id)
+                                                customers: hasAll ? [] : filteredCustomers.map(c => c.id)
                                             });
                                         }}
                                         style={{
@@ -1832,7 +1945,7 @@ export default function CustomersPage() {
                                             padding: 0
                                         }}
                                     >
-                                        {campaignForm.customers.length === customers.filter(c => c.email).length ? 'Deselect All' : 'Select All'}
+                                        {campaignForm.customers.length === customers.filter(c => campaignForm.channel === 'whatsapp' ? c.phone : c.email).length ? 'Deselect All' : 'Select All'}
                                     </button>
                                 </div>
                                 {campaignForm.customers.length > 0 && (
@@ -1876,7 +1989,7 @@ export default function CustomersPage() {
                                 )}
                                 <div style={{ position: 'relative' }}>
                                     <Input
-                                        placeholder="Search customers by name or email..."
+                                        placeholder={`Search customers by name or ${campaignForm.channel === 'whatsapp' ? 'phone' : 'email'}...`}
                                         value={campaignSearch}
                                         onChange={e => setCampaignSearch(e.target.value)}
                                         style={{ paddingLeft: '36px' }}
@@ -1899,10 +2012,12 @@ export default function CustomersPage() {
                                 background: '#f8fafc'
                             }}>
                                 {(() => {
+                                    const isWa = campaignForm.channel === 'whatsapp';
                                     const filtered = customers.filter(c => {
+                                        if (isWa ? !c.phone : !c.email) return false;
                                         if (!campaignSearch) return true;
                                         const query = campaignSearch.toLowerCase();
-                                        return c.name.toLowerCase().includes(query) || (c.email && c.email.toLowerCase().includes(query));
+                                        return c.name.toLowerCase().includes(query) || (isWa ? c.phone.includes(query) : c.email.toLowerCase().includes(query));
                                     });
                                     if (filtered.length === 0) {
                                         return (
@@ -1912,13 +2027,12 @@ export default function CustomersPage() {
                                         );
                                     }
                                     return filtered.map(c => {
-                                        const hasEmail = !!c.email;
                                         const isChecked = campaignForm.customers.includes(c.id);
+                                        const displayContact = isWa ? c.phone : c.email;
                                         return (
                                             <div
                                                 key={c.id}
                                                 onClick={() => {
-                                                    if (!hasEmail) return;
                                                     if (isChecked) {
                                                         setCampaignForm({
                                                             ...campaignForm,
@@ -1938,20 +2052,18 @@ export default function CustomersPage() {
                                                     padding: '8px 12px',
                                                     borderRadius: '8px',
                                                     border: isChecked ? '1px solid var(--accent)' : '1px solid var(--border)',
-                                                    background: !hasEmail ? '#f1f5f9' : isChecked ? 'rgba(10, 110, 255, 0.05)' : '#fff',
-                                                    cursor: hasEmail ? 'pointer' : 'not-allowed',
-                                                    opacity: hasEmail ? 1 : 0.6,
+                                                    background: isChecked ? 'rgba(10, 110, 255, 0.05)' : '#fff',
+                                                    cursor: 'pointer',
                                                     transition: 'all 0.15s ease',
                                                     userSelect: 'none'
                                                 }}
                                             >
                                                 <input
                                                     type="checkbox"
-                                                    disabled={!hasEmail}
                                                     checked={isChecked}
                                                     readOnly
                                                     style={{ 
-                                                        cursor: hasEmail ? 'pointer' : 'not-allowed', 
+                                                        cursor: 'pointer', 
                                                         accentColor: 'var(--accent)',
                                                         width: '16px',
                                                         height: '16px',
@@ -1970,7 +2082,7 @@ export default function CustomersPage() {
                                                         {c.name}
                                                     </span>
                                                     <span style={{ fontSize: '11px', color: 'var(--text-secondary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                                                        {hasEmail ? c.email : 'No email address'}
+                                                        {displayContact}
                                                     </span>
                                                 </div>
                                             </div>

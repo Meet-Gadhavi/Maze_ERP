@@ -16,7 +16,12 @@ const ALLOWED_SETTINGS_KEYS = new Set([
     'enable_barcode_scanner', 'enable_customer_display', 'enable_cash_drawer',
     'mazeway_cloud_enabled', 'mazeway_api_key', 'mazeway_webhook_url', 'cloud_backups_enabled',
     'auto_push_to_ai', 'auto_update_enabled', 'default_currency', 'invoice_language',
-    'tier_a_discount', 'tier_b_discount', 'tier_c_discount', 'enable_serial_tracking'
+    'tier_a_discount', 'tier_b_discount', 'tier_c_discount', 'enable_serial_tracking',
+    'auto_email_invoice_created', 'auto_email_invoice_edited', 'auto_email_voice_request',
+    'auto_email_order_confirmation', 'auto_email_payment_received', 'auto_email_due_reminder', 'auto_email_due_reminder_days',
+    'auto_whatsapp_invoice_created', 'auto_whatsapp_invoice_edited', 'auto_whatsapp_order_confirmation',
+    'auto_whatsapp_voice_request', 'auto_whatsapp_payment_received', 'auto_whatsapp_due_reminder', 'auto_whatsapp_due_reminder_days',
+    'whatsapp_app_id', 'whatsapp_app_secret', 'whatsapp_token', 'whatsapp_phone_number_id', 'whatsapp_business_account_id', 'whatsapp_webhook_verify_token'
 ]);
 
 // GET /api/settings
@@ -25,7 +30,13 @@ router.get('/', async (_req, res, next) => {
         await db.ready;
         const rows = db.all('SELECT key, value FROM settings');
         const settings = {};
-        rows.forEach(r => { settings[r.key] = r.value; });
+        rows.forEach(r => {
+            if (r.key === 'whatsapp_token' || r.key === 'whatsapp_app_secret') {
+                settings[r.key] = r.value ? '••••••••••••••••' : '';
+            } else {
+                settings[r.key] = r.value;
+            }
+        });
         res.json(settings);
     } catch (err) {
         next(err);
@@ -40,6 +51,12 @@ router.post('/', async (req, res, next) => {
 
         for (const [key, value] of Object.entries(incoming)) {
             if (!ALLOWED_SETTINGS_KEYS.has(key)) continue; // skip unknown keys
+            
+            // Skip overwriting sensitive keys if they are returned as masked
+            if ((key === 'whatsapp_token' || key === 'whatsapp_app_secret') && value === '••••••••••••••••') {
+                continue;
+            }
+            
             db.run('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)', [key, String(value)]);
         }
 

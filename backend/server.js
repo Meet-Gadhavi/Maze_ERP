@@ -47,6 +47,7 @@ app.use('/api/reports', require('./routes/reports'));
 app.use('/api/mazeway', require('./routes/mazeway'));
 app.use('/api/data', dataRoutes);
 app.use('/auth/google', require('./routes/googleAuth'));
+app.use('/auth/whatsapp', require('./routes/whatsappAuth'));
 
 // Health check
 app.get('/api/health', (_req, res) => {

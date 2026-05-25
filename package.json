@@ -1,7 +1,7 @@
 {
   "name": "quantro",
   "productName": "Quantro",
-  "version": "2.0.9",
+  "version": "2.4.0",
   "description": "Quantro — Professional Desktop ERP by Maze Lab",
   "main": "main/main.js",
   "author": "Maze Lab",
@@ -19,7 +19,7 @@
     "appId": "com.mazelab.quantro",
     "productName": "Quantro",
     "directories": {
-      "output": "Deployment/v2.0.9"
+      "output": "Deployment/v2.4.0"
     },
     "publish": [
       {
@@ -33,6 +33,7 @@
       "main/**/*",
       "backend/**/*",
       "renderer/dist/**/*",
+      "Public/**/*",
       "package.json"
     ],
     "extraResources": [
@@ -68,8 +69,10 @@
     "electron-updater": "^6.8.3",
     "express": "^4.21.0",
     "express-rate-limit": "^8.4.1",
+    "form-data": "^4.0.5",
     "googleapis": "^172.0.0",
     "helmet": "^8.1.0",
+    "pdfkit": "^0.18.0",
     "sql.js": "^1.11.0",
     "zod": "^4.3.6"
   },

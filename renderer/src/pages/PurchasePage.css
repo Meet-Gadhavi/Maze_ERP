@@ -881,3 +881,195 @@
         font-size: 0.8rem;
     }
 }
+
+/* Premium formal purchase invoice styles */
+.logo-placeholder {
+    width: 60px;
+    height: 60px;
+    border-radius: 8px;
+    background: var(--accent);
+    color: white;
+    font-size: 24px;
+    font-weight: 800;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.purchase-invoice-preview.formal-invoice-container {
+    border: 1px solid #334155;
+    background: #fff;
+    border-radius: 8px;
+    overflow: hidden;
+    font-family: 'Inter', sans-serif;
+    box-shadow: var(--shadow-sm);
+    color: #333;
+}
+
+.purchase-invoice-preview .formal-header {
+    display: flex;
+    border-bottom: 1px solid #334155;
+}
+
+.purchase-invoice-preview .company-logo-section {
+    width: 120px;
+    padding: 15px;
+    border-right: 1px solid #334155;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.purchase-invoice-preview .company-logo-section img {
+    max-width: 100%;
+    max-height: 80px;
+    object-fit: contain;
+}
+
+.purchase-invoice-preview .company-details-section {
+    flex: 1;
+    padding: 15px;
+    text-align: center;
+}
+
+.purchase-invoice-preview .company-details-section h1 {
+    font-size: 20px;
+    font-weight: 800;
+    margin: 0 0 6px 0;
+    color: #1e293b;
+    letter-spacing: 0.5px;
+}
+
+.purchase-invoice-preview .company-details-section p {
+    font-size: 11px;
+    margin: 2px 0;
+    color: #475569;
+}
+
+.purchase-invoice-preview .formal-info-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    border-bottom: 1px solid #334155;
+}
+
+.purchase-invoice-preview .info-box {
+    padding: 0;
+}
+
+.purchase-invoice-preview .info-box.bill-to {
+    border-right: 1px solid #334155;
+}
+
+.purchase-invoice-preview .box-label {
+    background: #f8fafc;
+    padding: 4px 10px;
+    font-size: 10px;
+    font-weight: 700;
+    color: #64748b;
+    border-bottom: 1px solid #cbd5e1;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.purchase-invoice-preview .box-content {
+    padding: 10px 12px;
+}
+
+.purchase-invoice-preview .bill-to .box-content strong {
+    display: block;
+    font-size: 13px;
+    margin-bottom: 5px;
+    color: #1e293b;
+}
+
+.purchase-invoice-preview .bill-to .box-content p {
+    font-size: 11px;
+    margin: 2px 0;
+    color: #475569;
+}
+
+.purchase-invoice-preview .detail-row {
+    display: flex;
+    justify-content: space-between;
+    font-size: 11px;
+    margin-bottom: 4px;
+}
+
+.purchase-invoice-preview .detail-row span {
+    color: #64748b;
+}
+
+.purchase-invoice-preview .detail-row strong {
+    color: #1e293b;
+}
+
+.purchase-invoice-preview .formal-items-table {
+    width: 100%;
+    border-collapse: collapse;
+    table-layout: auto;
+}
+
+.purchase-invoice-preview .formal-items-table th {
+    background: #f1f5f9;
+    border-bottom: 2px solid #334155;
+    border-right: 1px solid #cbd5e1;
+    padding: 8px 10px;
+    font-size: 10px;
+    font-weight: 800;
+    text-transform: uppercase;
+    color: #334155;
+    text-align: center;
+}
+
+.purchase-invoice-preview .formal-items-table th:last-child {
+    border-right: none;
+}
+
+.purchase-invoice-preview .formal-items-table td {
+    padding: 8px 10px;
+    font-size: 11px;
+    border-bottom: 1px solid #cbd5e1;
+    border-right: 1px solid #cbd5e1;
+    text-align: center;
+    color: #1e293b;
+}
+
+.purchase-invoice-preview .formal-items-table td:last-child {
+    border-right: none;
+}
+
+.purchase-invoice-preview .formal-items-table td.text-left {
+    text-align: left;
+}
+
+.purchase-invoice-preview .formal-items-table td.text-right {
+    text-align: right;
+}
+
+.purchase-invoice-preview .formal-bottom-section {
+    display: grid;
+    grid-template-columns: 1fr 280px;
+}
+
+.purchase-invoice-preview .formal-bottom-section .left-column {
+    border-right: 1px solid #334155;
+}
+
+.purchase-invoice-preview .summary-totals-box {
+    padding: 12px;
+}
+
+.purchase-invoice-preview .summary-row {
+    display: flex;
+    justify-content: space-between;
+    font-size: 11px;
+    margin-bottom: 6px;
+    color: #475569;
+}
+
+.purchase-invoice-preview .invoice-totals-divider {
+    height: 1px;
+    background: #cbd5e1;
+    margin: 6px 0;
+}
+

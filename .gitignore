@@ -25,3 +25,6 @@ Public/client_secret_*.json
 credentials.json
 Public/Email Service.json
 
+# Scratch files
+scratch/
+

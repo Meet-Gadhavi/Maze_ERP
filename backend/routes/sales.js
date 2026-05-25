@@ -2,6 +2,10 @@ const express = require('express');
 const router = express.Router();
 const db = require('../db');
 const { z } = require('zod');
+const EmailConnection = require('../models/EmailConnection');
+const gmailSender = require('../services/email/gmailSender');
+const whatsappSender = require('../services/whatsappSender');
+const { generateInvoicePDF } = require('../services/pdfGenerator');
 
 // C004: Zod validation schema for invoice items
 const invoiceItemSchema = z.object({
@@ -538,6 +542,9 @@ router.post('/', async (req, res, next) => {
             }
         }
         
+        if (invoice) {
+            triggerAutoEmail(invoice.id, false);
+        }
         res.status(201).json(invoice);
         } catch (txnErr) {
             if (txnErr.apiResponse) return; // Already handled
@@ -765,6 +772,7 @@ router.post('/:id/return', async (req, res, next) => {
         updatedInvoice.returns = db.all('SELECT * FROM invoice_returns WHERE invoice_id = ?', [invoiceId]);
         }); // End transaction
 
+        triggerAutoEmail(invoiceId, true);
         res.json(updatedInvoice);
         } catch (txnErr) {
             if (txnErr.apiResponse) return;
@@ -886,6 +894,7 @@ router.put('/:id/payment', async (req, res, next) => {
             updated.items = db.all('SELECT * FROM invoice_items WHERE invoice_id = ?', [invoiceId]);
         }
 
+        triggerAutoEmail(invoiceId, true);
         res.json(updated);
         } catch (txnErr) {
             if (txnErr.apiResponse) return;
@@ -1038,6 +1047,7 @@ router.post('/:id/fulfill', async (req, res, next) => {
             [newGrandTotal, invoiceDeliveryStatus, fulfillmentStatus, isPendingProduct, newPaymentStatus, newPaymentStatus, invoiceId]);
 
         }); // End transaction
+        triggerAutoEmail(invoiceId, true);
         res.json({ success: true, grand_total: newGrandTotal, delivery_status: invoiceDeliveryStatus, fulfillment_status: fulfillmentStatus, payment_status: newPaymentStatus });
         } catch (txnErr) {
             if (txnErr.apiResponse) return;
@@ -1143,6 +1153,7 @@ router.post('/:id/process-advance', async (req, res, next) => {
             [newPaymentStatus, newPaymentStatus, invoiceDeliveryStatus, fulfillmentStatus, isPendingProduct, invoiceId]);
 
         }); // End transaction
+        triggerAutoEmail(invoiceId, true);
         res.json({ success: true, payment_status: newPaymentStatus });
         } catch (txnErr) {
             if (txnErr.apiResponse) return;
@@ -1152,5 +1163,210 @@ router.post('/:id/process-advance', async (req, res, next) => {
         next(err);
     }
 });
+
+async function triggerAutoEmail(invoiceId, isEdit) {
+    try {
+        await db.ready;
+        // 1. Fetch settings
+        const settingsRows = db.all('SELECT key, value FROM settings');
+        const settings = {};
+        settingsRows.forEach(r => { settings[r.key] = r.value; });
+        const companyName = settings.company_name || 'Maze ERP';
+
+        // 2. Fetch invoice details
+        const invoice = db.get('SELECT * FROM invoices WHERE id = ?', [invoiceId]);
+        if (!invoice) {
+            console.log('[Auto-Notification] Invoice not found:', invoiceId);
+            return;
+        }
+
+        // Fetch invoice items
+        const items = db.all('SELECT * FROM invoice_items WHERE invoice_id = ?', [invoiceId]);
+        invoice.items = items;
+
+        // 3. Resolve customer details
+        let recipientEmail = '';
+        let recipientPhone = '';
+        let customerName = invoice.customer_name;
+        if (invoice.customer_id) {
+            const customer = db.get('SELECT name, email, phone FROM customers WHERE id = ?', [invoice.customer_id]);
+            if (customer) {
+                if (!customerName) customerName = customer.name;
+                recipientEmail = (customer.email || '').trim();
+                recipientPhone = (customer.phone || '').trim();
+            }
+        }
+        if (!customerName) {
+            customerName = invoice.walk_in_name || 'Valued Customer';
+        }
+        if (!recipientPhone) {
+            recipientPhone = (invoice.walk_in_phone || invoice.customer_phone || '').trim();
+        }
+
+        // 4. Fetch active Gmail sender if needed
+        const connections = await EmailConnection.getConnections();
+        const activeConn = connections.find(c => c.status === 'Active');
+
+        // Check payment status
+        const isPaid = (invoice.payment_status || '').toUpperCase() === 'PAID';
+
+        if (!isEdit) {
+            // --- INVOICE CREATION ---
+            // Gmail Auto Invoicing
+            if (settings.auto_email_invoice_created === 'true' && recipientEmail && activeConn) {
+                try {
+                    const htmlBody = gmailSender.generateInvoiceTemplate(invoice, settings, settings.invoice_style || 'classic');
+                    const subject = `Invoice #${invoice.invoice_number || invoice.id} from ${companyName}`;
+                    await gmailSender.sendMail({
+                        senderEmail: activeConn.email,
+                        to: recipientEmail,
+                        subject,
+                        htmlBody,
+                        textBody: `Dear ${customerName}, please find your invoice #${invoice.invoice_number || invoice.id} for ₹${invoice.total}.`
+                    });
+                    db.run(
+                        "INSERT INTO customer_communication_logs (customer_id, type, notes) VALUES (?, 'Email', ?)",
+                        [invoice.customer_id || null, `Auto-sent invoice #${invoice.invoice_number || invoice.id} via Gmail (${activeConn.email})`]
+                    );
+                } catch (e) {
+                    console.error('[Auto-Notification] Gmail invoice created send failed:', e.message);
+                }
+            }
+
+            // Gmail Order Confirmation
+            if (settings.auto_email_order_confirmation === 'true' && recipientEmail && activeConn) {
+                try {
+                    const orderDetails = `
+                        <p><strong>Customer Name:</strong> ${customerName}</p>
+                        <p><strong>Invoice ID:</strong> #${invoice.invoice_number || invoice.id}</p>
+                        <p><strong>Total Amount:</strong> ₹${invoice.total.toLocaleString('en-IN')}</p>
+                    `;
+                    const htmlBody = gmailSender.generateOrderConfirmationTemplate(customerName, orderDetails, settings);
+                    const subject = `Order Confirmed: Invoice #${invoice.invoice_number || invoice.id}`;
+                    await gmailSender.sendMail({
+                        senderEmail: activeConn.email,
+                        to: recipientEmail,
+                        subject,
+                        htmlBody,
+                        textBody: `Dear ${customerName}, your order has been confirmed. Invoice #${invoice.invoice_number || invoice.id}.`
+                    });
+                    db.run(
+                        "INSERT INTO customer_communication_logs (customer_id, type, notes) VALUES (?, 'Email', ?)",
+                        [invoice.customer_id || null, `Auto-sent order confirmation #${invoice.invoice_number || invoice.id} via Gmail`]
+                    );
+                } catch (e) {
+                    console.error('[Auto-Notification] Gmail order confirmation send failed:', e.message);
+                }
+            }
+
+            // WhatsApp Auto Invoicing
+            if (settings.auto_whatsapp_invoice_created === 'true' && recipientPhone) {
+                try {
+                    const pdfBuffer = await generateInvoicePDF(invoice, settings);
+                    const filename = `Invoice_${String(invoice.id).padStart(4, '0')}.pdf`;
+                    const caption = `Dear ${customerName}, please find attached invoice #${invoice.invoice_number || invoice.id} for ₹${invoice.total}. Thank you!`;
+                    await whatsappSender.sendInvoicePDF(recipientPhone, pdfBuffer, filename, caption);
+                    db.run(
+                        "INSERT INTO customer_communication_logs (customer_id, type, notes) VALUES (?, 'SMS', ?)",
+                        [invoice.customer_id || null, `Auto-sent invoice #${invoice.invoice_number || invoice.id} via WhatsApp (${recipientPhone})`]
+                    );
+                } catch (e) {
+                    console.error('[Auto-Notification] WhatsApp invoice created send failed:', e.message);
+                }
+            }
+
+            // WhatsApp Order Confirmation
+            if (settings.auto_whatsapp_order_confirmation === 'true' && recipientPhone) {
+                try {
+                    const msgText = `Order Confirmed!\n\nDear ${customerName},\n\nWe are happy to confirm your order details:\nInvoice: #${invoice.invoice_number || invoice.id}\nTotal: ₹${invoice.total.toLocaleString('en-IN')}\n\nThank you for choosing ${companyName}!`;
+                    await whatsappSender.sendText(recipientPhone, msgText);
+                    db.run(
+                        "INSERT INTO customer_communication_logs (customer_id, type, notes) VALUES (?, 'SMS', ?)",
+                        [invoice.customer_id || null, `Auto-sent WhatsApp order confirmation #${invoice.invoice_number || invoice.id}`]
+                    );
+                } catch (e) {
+                    console.error('[Auto-Notification] WhatsApp order confirmation send failed:', e.message);
+                }
+            }
+        } else {
+            // --- INVOICE EDITED / PAYMENT RECEIVED ---
+            if (isPaid) {
+                // Payment Received
+                if (settings.auto_email_payment_received === 'true' && recipientEmail && activeConn) {
+                    try {
+                        const htmlBody = gmailSender.generateInvoiceTemplate(invoice, settings, settings.invoice_style || 'classic');
+                        const subject = `Payment Received Receipt: Invoice #${invoice.invoice_number || invoice.id}`;
+                        await gmailSender.sendMail({
+                            senderEmail: activeConn.email,
+                            to: recipientEmail,
+                            subject,
+                            htmlBody,
+                            textBody: `Dear ${customerName}, we have successfully received your payment for Invoice #${invoice.invoice_number || invoice.id}.`
+                        });
+                        db.run(
+                            "INSERT INTO customer_communication_logs (customer_id, type, notes) VALUES (?, 'Email', ?)",
+                            [invoice.customer_id || null, `Auto-sent payment receipt #${invoice.invoice_number || invoice.id} via Gmail`]
+                        );
+                    } catch (e) {
+                        console.error('[Auto-Notification] Gmail payment received send failed:', e.message);
+                    }
+                }
+
+                if (settings.auto_whatsapp_payment_received === 'true' && recipientPhone) {
+                    try {
+                        const pdfBuffer = await generateInvoicePDF(invoice, settings);
+                        const filename = `Invoice_${String(invoice.id).padStart(4, '0')}.pdf`;
+                        const caption = `Dear ${customerName}, thank you for your payment! Here is your invoice receipt #${invoice.invoice_number || invoice.id}.`;
+                        await whatsappSender.sendInvoicePDF(recipientPhone, pdfBuffer, filename, caption);
+                        db.run(
+                            "INSERT INTO customer_communication_logs (customer_id, type, notes) VALUES (?, 'SMS', ?)",
+                            [invoice.customer_id || null, `Auto-sent payment receipt #${invoice.invoice_number || invoice.id} via WhatsApp`]
+                        );
+                    } catch (e) {
+                        console.error('[Auto-Notification] WhatsApp payment received send failed:', e.message);
+                    }
+                }
+            } else {
+                // Standard Invoice Edited
+                if (settings.auto_email_invoice_edited === 'true' && recipientEmail && activeConn) {
+                    try {
+                        const htmlBody = gmailSender.generateInvoiceTemplate(invoice, settings, settings.invoice_style || 'classic');
+                        const subject = `Updated Invoice #${invoice.invoice_number || invoice.id} from ${companyName}`;
+                        await gmailSender.sendMail({
+                            senderEmail: activeConn.email,
+                            to: recipientEmail,
+                            subject,
+                            htmlBody,
+                            textBody: `Dear ${customerName}, please find your updated invoice #${invoice.invoice_number || invoice.id} for ₹${invoice.total}.`
+                        });
+                        db.run(
+                            "INSERT INTO customer_communication_logs (customer_id, type, notes) VALUES (?, 'Email', ?)",
+                            [invoice.customer_id || null, `Auto-sent updated invoice #${invoice.invoice_number || invoice.id} via Gmail`]
+                        );
+                    } catch (e) {
+                        console.error('[Auto-Notification] Gmail invoice edited send failed:', e.message);
+                    }
+                }
+
+                if (settings.auto_whatsapp_invoice_edited === 'true' && recipientPhone) {
+                    try {
+                        const pdfBuffer = await generateInvoicePDF(invoice, settings);
+                        const filename = `Invoice_${String(invoice.id).padStart(4, '0')}.pdf`;
+                        const caption = `Dear ${customerName}, please find your updated invoice #${invoice.invoice_number || invoice.id}.`;
+                        await whatsappSender.sendInvoicePDF(recipientPhone, pdfBuffer, filename, caption);
+                        db.run(
+                            "INSERT INTO customer_communication_logs (customer_id, type, notes) VALUES (?, 'SMS', ?)",
+                            [invoice.customer_id || null, `Auto-sent updated invoice #${invoice.invoice_number || invoice.id} via WhatsApp`]
+                        );
+                    } catch (e) {
+                        console.error('[Auto-Notification] WhatsApp invoice edited send failed:', e.message);
+                    }
+                }
+            }
+        }
+    } catch (err) {
+        console.error('[Auto-Notification] Error running triggers:', err.message);
+    }
+}
 
 module.exports = router;

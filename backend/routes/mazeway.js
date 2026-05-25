@@ -2,6 +2,8 @@ const express = require('express');
 const router = express.Router();
 const db = require('../db');
 const crypto = require('crypto');
+const EmailConnection = require('../models/EmailConnection');
+const gmailSender = require('../services/email/gmailSender');
 
 // POST /api/mazeway/webhook - Receive orders from Mazeway
 router.post('/webhook', async (req, res) => {
@@ -45,12 +47,95 @@ router.post('/webhook', async (req, res) => {
             notes, 
             type
         ]);
+
+        // Trigger voice agent requested auto-email check asynchronously
+        (async () => {
+            try {
+                const autoEmailVoiceSetting = db.get("SELECT value FROM settings WHERE key = 'auto_email_voice_request'")?.value;
+                if (autoEmailVoiceSetting === 'true' && notes && detectInvoiceRequest(notes)) {
+                    console.log('[Voice Webhook] Call summary requests invoice details. Attempting auto-send...');
+                    
+                    let customer = null;
+                    if (customer_phone) {
+                        const cleanPhone = customer_phone.replace(/\D/g, ''); // keep digits only
+                        if (cleanPhone) {
+                            const customers = db.all("SELECT * FROM customers WHERE email IS NOT NULL AND email != ''");
+                            customer = customers.find(c => {
+                                const dbPhone = (c.phone || '').replace(/\D/g, '');
+                                return dbPhone && (dbPhone === cleanPhone || dbPhone.endsWith(cleanPhone) || cleanPhone.endsWith(dbPhone));
+                            });
+                        }
+                    }
+                    
+                    if (!customer && customer_name) {
+                        customer = db.get("SELECT * FROM customers WHERE LOWER(name) = ? AND email IS NOT NULL AND email != ''", [customer_name.toLowerCase()]);
+                    }
+
+                    if (customer && customer.email) {
+                        const invoice = db.get("SELECT * FROM invoices WHERE customer_id = ? ORDER BY created_at DESC LIMIT 1", [customer.id]);
+                        if (invoice) {
+                            invoice.items = db.all("SELECT * FROM invoice_items WHERE invoice_id = ?", [invoice.id]);
+                            
+                            const connections = await EmailConnection.getConnections();
+                            const activeConn = connections.find(c => c.status === 'Active');
+                            
+                            if (activeConn) {
+                                const settingsRows = db.all("SELECT key, value FROM settings");
+                                const settings = {};
+                                settingsRows.forEach(r => { settings[r.key] = r.value; });
+                                
+                                const activeStyle = settings.invoice_style || 'classic';
+                                const htmlBody = gmailSender.generateInvoiceTemplate(invoice, settings, activeStyle);
+                                
+                                const subject = `Requested Invoice #${invoice.invoice_number || invoice.id} from ${settings.company_name || 'Maze ERP'}`;
+                                await gmailSender.sendMail({
+                                    senderEmail: activeConn.email,
+                                    to: customer.email.trim(),
+                                    subject,
+                                    htmlBody,
+                                    textBody: `Here is the copy of the invoice you requested during your call with our voice agent. Invoice #${invoice.invoice_number || invoice.id}.`
+                                });
+
+                                db.run(
+                                    "INSERT INTO customer_communication_logs (customer_id, type, notes) VALUES (?, 'Email', ?)",
+                                    [customer.id, `Voice Agent auto-sent invoice #${invoice.invoice_number || invoice.id} via Gmail (${activeConn.email})`]
+                                );
+                                console.log(`[Voice Auto-Email] Successfully sent invoice #${invoice.invoice_number} to ${customer.email}`);
+                            } else {
+                                console.log('[Voice Auto-Email] No active Gmail connection found.');
+                            }
+                        } else {
+                            console.log('[Voice Auto-Email] No recent invoice found for customer:', customer.name);
+                        }
+                    } else {
+                        console.log('[Voice Auto-Email] Customer matching phone/name not found or has no email in Customers tab.');
+                    }
+                }
+            } catch (err) {
+                console.error('[Voice Webhook Auto-Email Error]', err);
+            }
+        })();
+
         res.json({ success: true, message: 'Order received' });
     } catch (err) {
         console.error('[Mazeway Webhook Error]', err);
         res.status(500).json({ error: 'Failed to save order' });
     }
 });
+
+function detectInvoiceRequest(notes) {
+    if (!notes) return false;
+    const text = notes.toLowerCase();
+    const hasSendOrEmail = text.includes('send') || text.includes('email') || text.includes('mail') || text.includes('share') || text.includes('progress') || text.includes('status') || text.includes('where');
+    const hasInvoiceOrOrder = text.includes('invoice') || text.includes('order') || text.includes('bill') || text.includes('receipt');
+    if (hasSendOrEmail && hasInvoiceOrOrder) {
+        return true;
+    }
+    if (text.includes('send invoice') || text.includes('email invoice') || text.includes('send order') || text.includes('order progress') || text.includes('where is my order')) {
+        return true;
+    }
+    return false;
+}
 
 // GET /api/mazeway/orders - Fetch all Mazeway orders
 router.get('/orders', (req, res) => {

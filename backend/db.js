@@ -40,7 +40,29 @@ const SETTINGS_KEYS = {
   TIER_A_DISCOUNT: 'tier_a_discount',
   TIER_B_DISCOUNT: 'tier_b_discount',
   TIER_C_DISCOUNT: 'tier_c_discount',
-  ENABLE_SERIAL_TRACKING: 'enable_serial_tracking'
+  ENABLE_SERIAL_TRACKING: 'enable_serial_tracking',
+  AUTO_EMAIL_INVOICE_CREATED: 'auto_email_invoice_created',
+  AUTO_EMAIL_INVOICE_EDITED: 'auto_email_invoice_edited',
+  AUTO_EMAIL_VOICE_REQUEST: 'auto_email_voice_request',
+  AUTO_EMAIL_ORDER_CONFIRMATION: 'auto_email_order_confirmation',
+  AUTO_EMAIL_PAYMENT_RECEIVED: 'auto_email_payment_received',
+  AUTO_EMAIL_DUE_REMINDER: 'auto_email_due_reminder',
+  AUTO_EMAIL_DUE_REMINDER_DAYS: 'auto_email_due_reminder_days',
+
+  AUTO_WHATSAPP_INVOICE_CREATED: 'auto_whatsapp_invoice_created',
+  AUTO_WHATSAPP_INVOICE_EDITED: 'auto_whatsapp_invoice_edited',
+  AUTO_WHATSAPP_ORDER_CONFIRMATION: 'auto_whatsapp_order_confirmation',
+  AUTO_WHATSAPP_VOICE_REQUEST: 'auto_whatsapp_voice_request',
+  AUTO_WHATSAPP_PAYMENT_RECEIVED: 'auto_whatsapp_payment_received',
+  AUTO_WHATSAPP_DUE_REMINDER: 'auto_whatsapp_due_reminder',
+  AUTO_WHATSAPP_DUE_REMINDER_DAYS: 'auto_whatsapp_due_reminder_days',
+
+  WHATSAPP_APP_ID: 'whatsapp_app_id',
+  WHATSAPP_APP_SECRET: 'whatsapp_app_secret',
+  WHATSAPP_TOKEN: 'whatsapp_token',
+  WHATSAPP_PHONE_NUMBER_ID: 'whatsapp_phone_number_id',
+  WHATSAPP_BUSINESS_ACCOUNT_ID: 'whatsapp_business_account_id',
+  WHATSAPP_WEBHOOK_VERIFY_TOKEN: 'whatsapp_webhook_verify_token'
 };
 
 // In production, store database in %APPDATA%/Quantro/ (set by main.js).
@@ -364,7 +386,27 @@ ready = (async () => {
         [SETTINGS_KEYS.INVOICE_LANGUAGE, 'en'],
         [SETTINGS_KEYS.TIER_A_DISCOUNT, '10'],
         [SETTINGS_KEYS.TIER_B_DISCOUNT, '5'],
-        [SETTINGS_KEYS.TIER_C_DISCOUNT, '0']
+        [SETTINGS_KEYS.TIER_C_DISCOUNT, '0'],
+        [SETTINGS_KEYS.AUTO_EMAIL_INVOICE_CREATED, 'false'],
+        [SETTINGS_KEYS.AUTO_EMAIL_INVOICE_EDITED, 'false'],
+        [SETTINGS_KEYS.AUTO_EMAIL_VOICE_REQUEST, 'false'],
+        [SETTINGS_KEYS.AUTO_EMAIL_ORDER_CONFIRMATION, 'false'],
+        [SETTINGS_KEYS.AUTO_EMAIL_PAYMENT_RECEIVED, 'false'],
+        [SETTINGS_KEYS.AUTO_EMAIL_DUE_REMINDER, 'false'],
+        [SETTINGS_KEYS.AUTO_EMAIL_DUE_REMINDER_DAYS, '7'],
+        [SETTINGS_KEYS.AUTO_WHATSAPP_INVOICE_CREATED, 'false'],
+        [SETTINGS_KEYS.AUTO_WHATSAPP_INVOICE_EDITED, 'false'],
+        [SETTINGS_KEYS.AUTO_WHATSAPP_ORDER_CONFIRMATION, 'false'],
+        [SETTINGS_KEYS.AUTO_WHATSAPP_VOICE_REQUEST, 'false'],
+        [SETTINGS_KEYS.AUTO_WHATSAPP_PAYMENT_RECEIVED, 'false'],
+        [SETTINGS_KEYS.AUTO_WHATSAPP_DUE_REMINDER, 'false'],
+        [SETTINGS_KEYS.AUTO_WHATSAPP_DUE_REMINDER_DAYS, '7'],
+        [SETTINGS_KEYS.WHATSAPP_APP_ID, '1354185989887458'],
+        [SETTINGS_KEYS.WHATSAPP_APP_SECRET, '678f644e1e7eafce62c29e5ba2dd17ff'],
+        [SETTINGS_KEYS.WHATSAPP_TOKEN, 'EAATPnZC7jFeIBRqggccKGFX3E8Q3UNUmNf4bS59ZCV8MpbzIvfaIHmFrMRvDIHRkiS91DlU110DKgvY5EHWqKzzKL3mgPO9iuv8iFnR5ZAr6GC3CKZC4jmBkZBzSNoFB1v7ArepgYwCUoAeM2UFca2wudIVnPZCJRVgc9W3n0k2S5BG9EmA95Q6g8x1ZAuMjvdkCgZDZD'],
+        [SETTINGS_KEYS.WHATSAPP_PHONE_NUMBER_ID, '1117813404753239'],
+        [SETTINGS_KEYS.WHATSAPP_BUSINESS_ACCOUNT_ID, '3150419608479658'],
+        [SETTINGS_KEYS.WHATSAPP_WEBHOOK_VERIFY_TOKEN, 'maze_secure_verify_2026']
       ];
       defaultSettings.forEach(([key, value]) => {
         db.run('INSERT INTO settings (key, value) VALUES (?, ?)', [key, value]);
@@ -379,7 +421,14 @@ ready = (async () => {
         SETTINGS_KEYS.AUTO_BATCH_SELECTION_METHOD, SETTINGS_KEYS.EXPIRY_ALERT_DAYS, SETTINGS_KEYS.ALLOW_NEGATIVE_BATCH_STOCK,
         SETTINGS_KEYS.CLOUD_BACKUPS_ENABLED, SETTINGS_KEYS.AUTO_UPDATE_ENABLED, SETTINGS_KEYS.DEFAULT_CURRENCY, SETTINGS_KEYS.INVOICE_LANGUAGE,
         SETTINGS_KEYS.TIER_A_DISCOUNT, SETTINGS_KEYS.TIER_B_DISCOUNT, SETTINGS_KEYS.TIER_C_DISCOUNT,
-        SETTINGS_KEYS.ENABLE_SERIAL_TRACKING
+        SETTINGS_KEYS.ENABLE_SERIAL_TRACKING, SETTINGS_KEYS.AUTO_EMAIL_INVOICE_CREATED, SETTINGS_KEYS.AUTO_EMAIL_INVOICE_EDITED,
+        SETTINGS_KEYS.AUTO_EMAIL_VOICE_REQUEST,
+        SETTINGS_KEYS.AUTO_EMAIL_ORDER_CONFIRMATION, SETTINGS_KEYS.AUTO_EMAIL_PAYMENT_RECEIVED, SETTINGS_KEYS.AUTO_EMAIL_DUE_REMINDER, SETTINGS_KEYS.AUTO_EMAIL_DUE_REMINDER_DAYS,
+        SETTINGS_KEYS.AUTO_WHATSAPP_INVOICE_CREATED, SETTINGS_KEYS.AUTO_WHATSAPP_INVOICE_EDITED, SETTINGS_KEYS.AUTO_WHATSAPP_ORDER_CONFIRMATION,
+        SETTINGS_KEYS.AUTO_WHATSAPP_VOICE_REQUEST, SETTINGS_KEYS.AUTO_WHATSAPP_PAYMENT_RECEIVED, SETTINGS_KEYS.AUTO_WHATSAPP_DUE_REMINDER,
+        SETTINGS_KEYS.AUTO_WHATSAPP_DUE_REMINDER_DAYS,
+        SETTINGS_KEYS.WHATSAPP_APP_ID, SETTINGS_KEYS.WHATSAPP_APP_SECRET, SETTINGS_KEYS.WHATSAPP_TOKEN,
+        SETTINGS_KEYS.WHATSAPP_PHONE_NUMBER_ID, SETTINGS_KEYS.WHATSAPP_BUSINESS_ACCOUNT_ID, SETTINGS_KEYS.WHATSAPP_WEBHOOK_VERIFY_TOKEN
       ];
       keys.forEach(k => {
         let defaultValue = '';
@@ -397,6 +446,26 @@ ready = (async () => {
         else if (k === SETTINGS_KEYS.TIER_A_DISCOUNT) defaultValue = '10';
         else if (k === SETTINGS_KEYS.TIER_B_DISCOUNT) defaultValue = '5';
         else if (k === SETTINGS_KEYS.TIER_C_DISCOUNT) defaultValue = '0';
+        else if (k === SETTINGS_KEYS.AUTO_EMAIL_INVOICE_CREATED) defaultValue = 'false';
+        else if (k === SETTINGS_KEYS.AUTO_EMAIL_INVOICE_EDITED) defaultValue = 'false';
+        else if (k === SETTINGS_KEYS.AUTO_EMAIL_VOICE_REQUEST) defaultValue = 'false';
+        else if (k === SETTINGS_KEYS.AUTO_EMAIL_ORDER_CONFIRMATION) defaultValue = 'false';
+        else if (k === SETTINGS_KEYS.AUTO_EMAIL_PAYMENT_RECEIVED) defaultValue = 'false';
+        else if (k === SETTINGS_KEYS.AUTO_EMAIL_DUE_REMINDER) defaultValue = 'false';
+        else if (k === SETTINGS_KEYS.AUTO_EMAIL_DUE_REMINDER_DAYS) defaultValue = '7';
+        else if (k === SETTINGS_KEYS.AUTO_WHATSAPP_INVOICE_CREATED) defaultValue = 'false';
+        else if (k === SETTINGS_KEYS.AUTO_WHATSAPP_INVOICE_EDITED) defaultValue = 'false';
+        else if (k === SETTINGS_KEYS.AUTO_WHATSAPP_ORDER_CONFIRMATION) defaultValue = 'false';
+        else if (k === SETTINGS_KEYS.AUTO_WHATSAPP_VOICE_REQUEST) defaultValue = 'false';
+        else if (k === SETTINGS_KEYS.AUTO_WHATSAPP_PAYMENT_RECEIVED) defaultValue = 'false';
+        else if (k === SETTINGS_KEYS.AUTO_WHATSAPP_DUE_REMINDER) defaultValue = 'false';
+        else if (k === SETTINGS_KEYS.AUTO_WHATSAPP_DUE_REMINDER_DAYS) defaultValue = '7';
+        else if (k === SETTINGS_KEYS.WHATSAPP_APP_ID) defaultValue = '1354185989887458';
+        else if (k === SETTINGS_KEYS.WHATSAPP_APP_SECRET) defaultValue = '678f644e1e7eafce62c29e5ba2dd17ff';
+        else if (k === SETTINGS_KEYS.WHATSAPP_TOKEN) defaultValue = 'EAATPnZC7jFeIBRqggccKGFX3E8Q3UNUmNf4bS59ZCV8MpbzIvfaIHmFrMRvDIHRkiS91DlU110DKgvY5EHWqKzzKL3mgPO9iuv8iFnR5ZAr6GC3CKZC4jmBkZBzSNoFB1v7ArepgYwCUoAeM2UFca2wudIVnPZCJRVgc9W3n0k2S5BG9EmA95Q6g8x1ZAuMjvdkCgZDZD';
+        else if (k === SETTINGS_KEYS.WHATSAPP_PHONE_NUMBER_ID) defaultValue = '1117813404753239';
+        else if (k === SETTINGS_KEYS.WHATSAPP_BUSINESS_ACCOUNT_ID) defaultValue = '3150419608479658';
+        else if (k === SETTINGS_KEYS.WHATSAPP_WEBHOOK_VERIFY_TOKEN) defaultValue = 'maze_secure_verify_2026';
         else if (k.startsWith('enable_') || k.startsWith('require_') || k.startsWith('allow_')) defaultValue = 'false';
         
         db.run('INSERT OR IGNORE INTO settings (key, value) VALUES (?, ?)', [k, defaultValue]);
@@ -886,6 +955,19 @@ ready = (async () => {
     )
   `);
 
+  // Migration: Add channel column if missing in email_campaigns
+  try {
+    const res = db.exec('PRAGMA table_info(email_campaigns)');
+    if (res && res.length > 0) {
+      const columns = res[0].values.map(v => v[1]);
+      if (!columns.includes('channel')) {
+        db.run("ALTER TABLE email_campaigns ADD COLUMN channel TEXT DEFAULT 'email'");
+      }
+    }
+  } catch (err) {
+    console.error('Email campaigns channel column migration failed', err);
+  }
+
   // Email Daily Usage Table
   db.run(`
     CREATE TABLE IF NOT EXISTS email_daily_usage (
@@ -893,6 +975,28 @@ ready = (async () => {
       date          TEXT NOT NULL,
       emails_sent   INTEGER DEFAULT 0,
       PRIMARY KEY (email, date)
+    )
+  `);
+
+  // WhatsApp Connections Table
+  db.run(`
+    CREATE TABLE IF NOT EXISTS whatsapp_connections (
+      id            INTEGER PRIMARY KEY AUTOINCREMENT,
+      phone_number_id TEXT UNIQUE NOT NULL,
+      waba_id       TEXT,
+      token         TEXT,
+      status        TEXT DEFAULT 'Active',
+      connected_at  TEXT DEFAULT (datetime('now','localtime'))
+    )
+  `);
+
+  // WhatsApp Daily Usage Table
+  db.run(`
+    CREATE TABLE IF NOT EXISTS whatsapp_daily_usage (
+      phone_number_id TEXT NOT NULL,
+      date            TEXT NOT NULL,
+      messages_sent   INTEGER DEFAULT 0,
+      PRIMARY KEY (phone_number_id, date)
     )
   `);
 

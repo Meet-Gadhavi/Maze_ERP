@@ -4,6 +4,26 @@ All notable changes to the Quantro ERP application will be documented here.
 
 ---
 
+## [2.4.0] - 2026-05-25
+### Added
+- **WhatsApp Cloud API Integration:** Added a premium "Get WhatsApp Service" integration. Supports simulated Meta Embedded Signup flow to save WABA ID, Phone Number ID, and Permanent System User Tokens. Keep developer credentials hidden from the frontend.
+- **Headless Server-Side Invoice PDF Generation:** Integrated server-side PDF generator using `pdfkit` to compile itemized invoice documents.
+- **WhatsApp Automations:** Enable auto-sending invoice PDFs, order confirmation texts, payment receipts, and voice agent request replies via WhatsApp Cloud API.
+- **Gmail Automation Upgrades:** Moved Invoice Template and Order Confirmation templates from campaigns to settings-controlled automated emails, adding Payment Received and configurable Due Payment Reminder toggles to Gmail Manage Settings.
+- **New Campaign Marketing Templates:** Expanded campaigns with template selections for Due Balance Statement (exclusively for customers with outstanding due), Festival Offer (Diwali/Holi/Eid sale), Discount Coupon (links latest promo codes), New Arrivals, Flash Sale, Clearance Sale, and Back in Stock.
+- **WhatsApp Text Campaigns:** Added channel selector to marketing campaigns supporting both Gmail (HTML template dispatches) and WhatsApp (text-only campaign dispatches).
+
+## [2.3.1] - 2026-05-24
+### Fixed
+- **Google OAuth Packaging Bug:** Included the `Public/` resources directory in the production build files array so that `Email Service.json` is correctly bundled in the final application installer, resolving the Google OAuth initialization error.
+
+## [2.3.0] - 2026-05-24
+### Added
+- **Gmail Automation Settings & Toggles:** Added general settings toggles to Connected Gmail Service card (`Manage` modal) allowing users to enable/disable automated invoice emails on creation, on edits (payments, fulfillment, returns), and via Voice Agent interaction.
+- **Voice Agent Call Request Auto-Dispatch:** Integrated Voice Agent call summary analysis to match customer details (name or phone) and detect request intents (like "send invoice" or "order progress"). If matched and enabled, the system automatically dispatches their latest sales invoice.
+- **Premium Purchase History Bill Preview:** Redesigned the Purchase Page bill preview modal with a matching premium invoice template layout, including user company details (address, phone, gstin) from settings, vendor details from suppliers catalog, itemized lists with GST details, signature blocks, and amount-to-words translation.
+- **Dashboard Email Analytics & Trends:** Added Email Delivery Analytics inside the AI/Automation dashboard tab displaying total emails sent in the selected timeframe, active connections count, progress bars for daily Gmail limit utilization by account, and daily dispatch trend charts.
+
 ## [2.0.9] - 2026-05-24
 ### Added
 - **Daily Gmail Limit Tracking:** Configured a strict 1000 daily email limit per connected email account. Decrements on every email sent (including test emails, invoices, and campaigns).

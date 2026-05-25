@@ -404,6 +404,55 @@ router.get('/', async (req, res, next) => {
             } catch (e) { return []; }
         })();
 
+        const emailStats = (() => {
+            try {
+                const totalEmailsSent = db.get(
+                    `SELECT COALESCE(SUM(emails_sent), 0) AS total FROM email_daily_usage WHERE date >= date('now', 'localtime', ${rangeSql})`
+                ).total;
+
+                const activeAccountsCount = db.get(
+                    "SELECT COUNT(*) AS count FROM email_connections WHERE status = 'Active'"
+                ).count;
+
+                const connections = db.all(`
+                    SELECT ec.email, ec.provider, ec.status, COALESCE(edu.emails_sent, 0) AS emails_sent_today
+                    FROM email_connections ec
+                    LEFT JOIN email_daily_usage edu ON ec.email = edu.email AND edu.date = date('now', 'localtime')
+                `).map(c => ({
+                    ...c,
+                    emailsLimit: 1000
+                }));
+
+                const dailyTrends = db.all(`
+                    WITH RECURSIVE days(date) AS (
+                        SELECT date('now', 'localtime', ${rangeSql})
+                        UNION ALL
+                        SELECT date(date, '+1 day') FROM days WHERE date < date('now', 'localtime')
+                    )
+                    SELECT d.date, COALESCE(SUM(edu.emails_sent), 0) AS count
+                    FROM days d
+                    LEFT JOIN email_daily_usage edu ON d.date = edu.date
+                    GROUP BY d.date
+                    ORDER BY d.date ASC
+                `);
+
+                return {
+                    totalEmailsSent,
+                    activeAccountsCount,
+                    connections,
+                    dailyTrends
+                };
+            } catch (e) {
+                console.error('Failed to query emailStats', e);
+                return {
+                    totalEmailsSent: 0,
+                    activeAccountsCount: 0,
+                    connections: [],
+                    dailyTrends: []
+                };
+            }
+        })();
+
         // ─────────────────────────────────────────────
         // FINANCIAL ANALYTICS
         // ─────────────────────────────────────────────
@@ -529,6 +578,7 @@ router.get('/', async (req, res, next) => {
             aiStats,
             aiVsManual,
             aiOrdersByDay,
+            emailStats,
 
             // Financial
             totalExpenses,
