@@ -526,7 +526,10 @@ export default function SettingsPage() {
 
         toast.promise(promise, {
             loading: 'Saving settings...',
-            success: 'Settings saved successfully!',
+            success: () => {
+                window.dispatchEvent(new CustomEvent('settings-updated', { detail: settings }));
+                return 'Settings saved successfully!';
+            },
             error: (err) => 'Failed to save settings: ' + err.message,
         });
     }
@@ -696,11 +699,42 @@ export default function SettingsPage() {
                                             )}
                                             <div className="upload-btn-wrapper">
                                                 <SButton variant="secondary" onClick={() => document.getElementById('logo-upload').click()}>Upload Logo</SButton>
-                                                <input type="file" accept="image/*" onChange={e => {
+                                                <input type="file" id="logo-upload" accept="image/*" style={{ display: 'none' }} onChange={e => {
                                                     const file = e.target.files[0];
                                                     if (file) {
                                                         const reader = new FileReader();
-                                                        reader.onloadend = () => setSettings({ ...settings, logo_url: reader.result });
+                                                        reader.onloadend = () => {
+                                                            const base64Str = reader.result;
+                                                            const img = new Image();
+                                                            img.src = base64Str;
+                                                            img.onload = () => {
+                                                                const canvas = document.createElement('canvas');
+                                                                let width = img.width;
+                                                                let height = img.height;
+                                                                const maxWidth = 300;
+                                                                const maxHeight = 150;
+
+                                                                if (width > maxWidth) {
+                                                                    height = (maxWidth / width) * height;
+                                                                    width = maxWidth;
+                                                                }
+                                                                if (height > maxHeight) {
+                                                                    width = (maxHeight / height) * width;
+                                                                    height = maxHeight;
+                                                                }
+
+                                                                canvas.width = width;
+                                                                canvas.height = height;
+                                                                const ctx = canvas.getContext('2d');
+                                                                ctx.drawImage(img, 0, 0, width, height);
+
+                                                                const compressedBase64 = canvas.toDataURL('image/jpeg', 0.75);
+                                                                setSettings({ ...settings, logo_url: compressedBase64 });
+                                                            };
+                                                            img.onerror = () => {
+                                                                setSettings({ ...settings, logo_url: base64Str });
+                                                            };
+                                                        };
                                                         reader.readAsDataURL(file);
                                                     }
                                                 }} />
@@ -1537,11 +1571,196 @@ export default function SettingsPage() {
                                         </div>
                                     )}
 
+                                    {/* Timeline Item: v2.5.0 */}
+                                    <div style={{ position: 'relative' }}>
+                                        <div style={{ position: 'absolute', left: '-22px', top: '4px', width: '12px', height: '12px', borderRadius: '50%', background: 'var(--accent)', border: '2px solid var(--bg-primary)' }}></div>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                            <strong style={{ fontSize: '15px' }}>Version 2.5.0 {updateState.status !== 'available' && '(Latest)'}</strong>
+                                            <span style={{ fontSize: '11px', color: 'var(--text-tertiary)', background: 'var(--bg-secondary)', padding: '2px 8px', borderRadius: '12px' }}>May 26, 2026</span>
+                                        </div>
+                                        <div style={{ fontSize: '13px', color: 'var(--text-secondary)', marginTop: '8px', lineHeight: 1.6 }}>
+                                            <ul style={{ margin: 0, paddingLeft: '16px' }}>
+                                                <li><strong>Two-way Communication:</strong> Track, log, and process incoming customer replies across Gmail and WhatsApp in real time.</li>
+                                                <li><strong>OpenCode Zen AI Responder:</strong> Integrated context-aware auto-replies utilizing live ERP database context (invoices, payments, catalog, balances) powered by `deepseek-v4-flash-free`.</li>
+                                                <li><strong>AI Sales Order Leads:</strong> Smart classification of customer intent (Support vs Sales), auto-gathering of customer profile details, and automatic draft sales order generation.</li>
+                                                <li><strong>Order-to-Invoice Conversion:</strong> Convert draft orders to standard invoices instantly, pre-filling customer profiles, applying tier-based pricing discounts, and triggering dispatch notifications.</li>
+                                            </ul>
+                                        </div>
+                                    </div>
+
+                                    {/* Timeline Item: v2.4.5 */}
+                                    <div style={{ position: 'relative' }}>
+                                        <div style={{ position: 'absolute', left: '-22px', top: '4px', width: '12px', height: '12px', borderRadius: '50%', background: 'var(--text-tertiary)', border: '2px solid var(--bg-primary)' }}></div>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                            <strong style={{ fontSize: '15px' }}>Version 2.4.5</strong>
+                                            <span style={{ fontSize: '11px', color: 'var(--text-tertiary)', background: 'var(--bg-secondary)', padding: '2px 8px', borderRadius: '12px' }}>May 26, 2026</span>
+                                        </div>
+                                        <div style={{ fontSize: '13px', color: 'var(--text-secondary)', marginTop: '8px', lineHeight: 1.6 }}>
+                                            <ul style={{ margin: 0, paddingLeft: '16px' }}>
+                                                <li><strong>Automation Panel Cleanups:</strong> Removed redundant separate Agent List tables, unifying configuration options directly inside the Voice Agent Service tab.</li>
+                                                <li><strong>WhatsApp SVG Integration:</strong> Custom Meta WhatsApp SVG applied to all action buttons and placeholder boxes for consistent branding.</li>
+                                                <li><strong>Polished User Warnings:</strong> Voice Agent connection warnings updated to be page-relative and avoid site navigation redundancy.</li>
+                                            </ul>
+                                        </div>
+                                    </div>
+
+                                    {/* Timeline Item: v2.4.4 */}
+                                    <div style={{ position: 'relative' }}>
+                                        <div style={{ position: 'absolute', left: '-22px', top: '4px', width: '12px', height: '12px', borderRadius: '50%', background: 'var(--text-tertiary)', border: '2px solid var(--bg-primary)' }}></div>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                            <strong style={{ fontSize: '15px' }}>Version 2.4.4</strong>
+                                            <span style={{ fontSize: '11px', color: 'var(--text-tertiary)', background: 'var(--bg-secondary)', padding: '2px 8px', borderRadius: '12px' }}>May 26, 2026</span>
+                                        </div>
+                                        <div style={{ fontSize: '13px', color: 'var(--text-secondary)', marginTop: '8px', lineHeight: 1.6 }}>
+                                            <ul style={{ margin: 0, paddingLeft: '16px' }}>
+                                                <li><strong>Voice Agent Service Tab:</strong> Integrated a dedicated "Voice Agent Service" section in the Automation dashboard, displaying active/provisioning details and providing a shortcut button to get an agent.</li>
+                                                <li><strong>First-time Warning Indicators:</strong> Added visual warning boxes when no Voice Agents are created, ensuring users are directed to get started.</li>
+                                                <li><strong>Unified Connection Warnings:</strong> Unified warnings across Billing and Automation sections for Gmail, WhatsApp, and Voice calling.</li>
+                                            </ul>
+                                        </div>
+                                    </div>
+
+                                    {/* Timeline Item: v2.4.3 */}
+                                    <div style={{ position: 'relative' }}>
+                                        <div style={{ position: 'absolute', left: '-22px', top: '4px', width: '12px', height: '12px', borderRadius: '50%', background: 'var(--text-tertiary)', border: '2px solid var(--bg-primary)' }}></div>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                            <strong style={{ fontSize: '15px' }}>Version 2.4.3</strong>
+                                            <span style={{ fontSize: '11px', color: 'var(--text-tertiary)', background: 'var(--bg-secondary)', padding: '2px 8px', borderRadius: '12px' }}>May 25, 2026</span>
+                                        </div>
+                                        <div style={{ fontSize: '13px', color: 'var(--text-secondary)', marginTop: '8px', lineHeight: 1.6 }}>
+                                            <ul style={{ margin: 0, paddingLeft: '16px' }}>
+                                                <li><strong>Automation Billing Subscriptions:</strong> Created a premium **Billing** sidebar page showing usage and rates for Email, WhatsApp (without CSW), and AI Voice Agent. Includes simulated Razorpay pay gates.</li>
+                                                <li><strong>Auto-Blocking Service Suspend:</strong> Implemented auto-blocking past the 5-day grace period (on the 6th of the next month) if outstanding dues exist.</li>
+                                                <li><strong>Dynamic Brand Logo Integration:</strong> Company settings logo (`logo_url`) is now dynamically rendered in the ERP sidebar, customer checkout display, and all four cloud-hosted templates.</li>
+                                                <li><strong>Hosted Invoice Deletion Sync:</strong> Deleting an invoice locally automatically triggers a delete action on Mazeway DB to remove the hosted row and clean up local sharing tokens.</li>
+                                                <li><strong>Polished User Interface:</strong> Removed redundant "Campaign Channel" select input from CRM scheduling modal and restored version text in sidebar footer.</li>
+                                            </ul>
+                                        </div>
+                                    </div>
+
+                                    {/* Timeline Item: v2.4.2 */}
+                                    <div style={{ position: 'relative' }}>
+                                        <div style={{ position: 'absolute', left: '-22px', top: '4px', width: '12px', height: '12px', borderRadius: '50%', background: 'var(--text-tertiary)', border: '2px solid var(--bg-primary)' }}></div>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                            <strong style={{ fontSize: '15px' }}>Version 2.4.2</strong>
+                                            <span style={{ fontSize: '11px', color: 'var(--text-tertiary)', background: 'var(--bg-secondary)', padding: '2px 8px', borderRadius: '12px' }}>May 25, 2026</span>
+                                        </div>
+                                        <div style={{ fontSize: '13px', color: 'var(--text-secondary)', marginTop: '8px', lineHeight: 1.6 }}>
+                                            <ul style={{ margin: 0, paddingLeft: '16px' }}>
+                                                <li><strong>Cloud-Hosted Invoices:</strong> Integrated secure hosted HTML invoice delivery via Netlify linked to Mazeway DB, replacing heavy PDF email attachments.</li>
+                                                <li><strong>WhatsApp Campaign scheduling:</strong> Integrated WhatsApp chat preview bubble, active WhatsApp limits tracker, and 24-hour Customer Service Window controls.</li>
+                                            </ul>
+                                        </div>
+                                    </div>
+
+                                    {/* Timeline Item: v2.4.0 */}
+                                    <div style={{ position: 'relative' }}>
+                                        <div style={{ position: 'absolute', left: '-22px', top: '4px', width: '12px', height: '12px', borderRadius: '50%', background: 'var(--text-tertiary)', border: '2px solid var(--bg-primary)' }}></div>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                            <strong style={{ fontSize: '15px' }}>Version 2.4.0</strong>
+                                            <span style={{ fontSize: '11px', color: 'var(--text-tertiary)', background: 'var(--bg-secondary)', padding: '2px 8px', borderRadius: '12px' }}>May 25, 2026</span>
+                                        </div>
+                                        <div style={{ fontSize: '13px', color: 'var(--text-secondary)', marginTop: '8px', lineHeight: 1.6 }}>
+                                            <ul style={{ margin: 0, paddingLeft: '16px' }}>
+                                                <li><strong>WhatsApp Cloud API Integration:</strong> Official Embedded Signup integration, supporting auto-sending invoice PDFs, order notifications, and text campaigns.</li>
+                                                <li><strong>Marketing Campaigns:</strong> Added new marketing email/text templates (Clearance Sale, Flash Sale, Due Balance Statement).</li>
+                                            </ul>
+                                        </div>
+                                    </div>
+
+                                    {/* Timeline Item: v2.3.1 */}
+                                    <div style={{ position: 'relative' }}>
+                                        <div style={{ position: 'absolute', left: '-22px', top: '4px', width: '12px', height: '12px', borderRadius: '50%', background: 'var(--text-tertiary)', border: '2px solid var(--bg-primary)' }}></div>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                            <strong style={{ fontSize: '15px' }}>Version 2.3.1</strong>
+                                            <span style={{ fontSize: '11px', color: 'var(--text-tertiary)', background: 'var(--bg-secondary)', padding: '2px 8px', borderRadius: '12px' }}>May 24, 2026</span>
+                                        </div>
+                                        <div style={{ fontSize: '13px', color: 'var(--text-secondary)', marginTop: '8px', lineHeight: 1.6 }}>
+                                            <ul style={{ margin: 0, paddingLeft: '16px' }}>
+                                                <li><strong>Packaging Fix:</strong> Fixed Google OAuth packaging issue by correctly bundling `Public/` resources directory inside the final production installer.</li>
+                                            </ul>
+                                        </div>
+                                    </div>
+
+                                    {/* Timeline Item: v2.3.0 */}
+                                    <div style={{ position: 'relative' }}>
+                                        <div style={{ position: 'absolute', left: '-22px', top: '4px', width: '12px', height: '12px', borderRadius: '50%', background: 'var(--text-tertiary)', border: '2px solid var(--bg-primary)' }}></div>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                            <strong style={{ fontSize: '15px' }}>Version 2.3.0</strong>
+                                            <span style={{ fontSize: '11px', color: 'var(--text-tertiary)', background: 'var(--bg-secondary)', padding: '2px 8px', borderRadius: '12px' }}>May 24, 2026</span>
+                                        </div>
+                                        <div style={{ fontSize: '13px', color: 'var(--text-secondary)', marginTop: '8px', lineHeight: 1.6 }}>
+                                            <ul style={{ margin: 0, paddingLeft: '16px' }}>
+                                                <li><strong>Gmail Automations &amp; Toggles:</strong> Connected settings switches to trigger automatic emails based on order updates, returns, and Voice Agent triggers.</li>
+                                                <li><strong>Purchase Bill Preview:</strong> Premium preview overlay design featuring detailed tax itemization and supplier details.</li>
+                                            </ul>
+                                        </div>
+                                    </div>
+
+                                    {/* Timeline Item: v2.2.0 */}
+                                    <div style={{ position: 'relative' }}>
+                                        <div style={{ position: 'absolute', left: '-22px', top: '4px', width: '12px', height: '12px', borderRadius: '50%', background: 'var(--text-tertiary)', border: '2px solid var(--bg-primary)' }}></div>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                            <strong style={{ fontSize: '15px' }}>Version 2.2.0</strong>
+                                            <span style={{ fontSize: '11px', color: 'var(--text-tertiary)', background: 'var(--bg-secondary)', padding: '2px 8px', borderRadius: '12px' }}>May 23, 2026</span>
+                                        </div>
+                                        <div style={{ fontSize: '13px', color: 'var(--text-secondary)', marginTop: '8px', lineHeight: 1.6 }}>
+                                            <ul style={{ margin: 0, paddingLeft: '16px' }}>
+                                                <li><strong>Secure Google OAuth Consent:</strong> Relocated mail servers to secure tenant consent loops using standard Google scopes instead of plain SMTP passwords.</li>
+                                                <li><strong>Invoice Link Copy-Sharing:</strong> Pre-integrated dynamic URL creation with integrated share popups next to invoice previews.</li>
+                                            </ul>
+                                        </div>
+                                    </div>
+
+                                    {/* Timeline Item: v2.1.1 */}
+                                    <div style={{ position: 'relative' }}>
+                                        <div style={{ position: 'absolute', left: '-22px', top: '4px', width: '12px', height: '12px', borderRadius: '50%', background: 'var(--text-tertiary)', border: '2px solid var(--bg-primary)' }}></div>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                            <strong style={{ fontSize: '15px' }}>Version 2.1.1</strong>
+                                            <span style={{ fontSize: '11px', color: 'var(--text-tertiary)', background: 'var(--bg-secondary)', padding: '2px 8px', borderRadius: '12px' }}>May 23, 2026</span>
+                                        </div>
+                                        <div style={{ fontSize: '13px', color: 'var(--text-secondary)', marginTop: '8px', lineHeight: 1.6 }}>
+                                            <ul style={{ margin: 0, paddingLeft: '16px' }}>
+                                                <li><strong>Multi-Product Reward Coupons:</strong> Expanded coupon setup schemas to permit bundling multiple product reward items.</li>
+                                                <li><strong>Active POS Theme Overrides:</strong> Fixed active state highlight button styles using Shadow DOM element ref mappings.</li>
+                                            </ul>
+                                        </div>
+                                    </div>
+
+                                    {/* Timeline Item: v2.1.0 */}
+                                    <div style={{ position: 'relative' }}>
+                                        <div style={{ position: 'absolute', left: '-22px', top: '4px', width: '12px', height: '12px', borderRadius: '50%', background: 'var(--text-tertiary)', border: '2px solid var(--bg-primary)' }}></div>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                            <strong style={{ fontSize: '15px' }}>Version 2.1.0</strong>
+                                            <span style={{ fontSize: '11px', color: 'var(--text-tertiary)', background: 'var(--bg-secondary)', padding: '2px 8px', borderRadius: '12px' }}>May 23, 2026</span>
+                                        </div>
+                                        <div style={{ fontSize: '13px', color: 'var(--text-secondary)', marginTop: '8px', lineHeight: 1.6 }}>
+                                            <ul style={{ margin: 0, paddingLeft: '16px' }}>
+                                                <li><strong>Standardized Empty States:</strong> Redesigned empty status layouts globally across Inventory and CRM panels.</li>
+                                            </ul>
+                                        </div>
+                                    </div>
+
+                                    {/* Timeline Item: v2.0.9 */}
+                                    <div style={{ position: 'relative' }}>
+                                        <div style={{ position: 'absolute', left: '-22px', top: '4px', width: '12px', height: '12px', borderRadius: '50%', background: 'var(--text-tertiary)', border: '2px solid var(--bg-primary)' }}></div>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                            <strong style={{ fontSize: '15px' }}>Version 2.0.9</strong>
+                                            <span style={{ fontSize: '11px', color: 'var(--text-tertiary)', background: 'var(--bg-secondary)', padding: '2px 8px', borderRadius: '12px' }}>May 24, 2026</span>
+                                        </div>
+                                        <div style={{ fontSize: '13px', color: 'var(--text-secondary)', marginTop: '8px', lineHeight: 1.6 }}>
+                                            <ul style={{ margin: 0, paddingLeft: '16px' }}>
+                                                <li><strong>Daily Email Limit Tracking:</strong> Configured 1000 daily email dispatch caps inside Connected Services.</li>
+                                                <li><strong>Split-Screen Campaign Previewer:</strong> Real-time templates viewer displaying customer-specific mock data on design switches.</li>
+                                            </ul>
+                                        </div>
+                                    </div>
+
                                     {/* Timeline Item: v2.0.8 */}
                                     <div style={{ position: 'relative' }}>
-                                        <div style={{ position: 'absolute', left: '-22px', top: '4px', width: '12px', height: '12px', borderRadius: '50%', background: updateState.status === 'available' ? 'var(--text-tertiary)' : 'var(--accent)', border: '2px solid var(--bg-primary)' }}></div>
+                                        <div style={{ position: 'absolute', left: '-22px', top: '4px', width: '12px', height: '12px', borderRadius: '50%', background: 'var(--text-tertiary)', border: '2px solid var(--bg-primary)' }}></div>
                                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                            <strong style={{ fontSize: '15px' }}>Version 2.0.8 {updateState.status !== 'available' && '(Latest)'}</strong>
+                                            <strong style={{ fontSize: '15px' }}>Version 2.0.8</strong>
                                             <span style={{ fontSize: '11px', color: 'var(--text-tertiary)', background: 'var(--bg-secondary)', padding: '2px 8px', borderRadius: '12px' }}>May 23, 2026</span>
                                         </div>
                                         <div style={{ fontSize: '13px', color: 'var(--text-secondary)', marginTop: '8px', lineHeight: 1.6 }}>

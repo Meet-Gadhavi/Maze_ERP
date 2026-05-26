@@ -29,15 +29,32 @@ router.post('/webhook', async (req, res) => {
         type 
     } = req.body;
 
+    // Check if billing is blocked
+    const { isBillingBlocked } = require('../services/billingHelper');
+    const blocked = await isBillingBlocked();
+    if (blocked) {
+        return res.status(402).json({ error: 'Payment Required: Services blocked due to outstanding balance' });
+    }
+
+    // Check payment method for Voice agent calls
+    if (type === 'Voice') {
+        const pmAdded = db.get("SELECT value FROM settings WHERE key = 'billing_payment_method_added'")?.value === 'true';
+        if (!pmAdded) {
+            return res.status(400).json({ error: 'Payment Method Required: Please add a payment method in the Billing tab to receive Voice Agent calls.' });
+        }
+    }
+
     if (!mazeway_id) {
         return res.status(400).json({ error: 'Missing mazeway_id' });
     }
 
     try {
+        const durationSec = type === 'Voice' ? Number(req.body.duration_seconds || req.body.duration || 105) : 0;
+        
         const sql = `
             INSERT INTO mazeway_orders (
-                mazeway_id, customer_name, customer_phone, items, total, notes, type, status
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, 'NEW')
+                mazeway_id, customer_name, customer_phone, items, total, notes, type, status, duration_seconds
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, 'NEW', ?)
         `;
         db.run(sql, [
             mazeway_id, 
@@ -46,8 +63,14 @@ router.post('/webhook', async (req, res) => {
             JSON.stringify(items), 
             total, 
             notes, 
-            type
+            type,
+            durationSec
         ]);
+
+        if (type === 'Voice') {
+            // Increment billing_voice_agent_seconds
+            db.run("UPDATE settings SET value = CAST(CAST(COALESCE((SELECT value FROM settings WHERE key = 'billing_voice_agent_seconds'), '0') AS INTEGER) + ? AS TEXT) WHERE key = 'billing_voice_agent_seconds'", [durationSec]);
+        }
 
         // Trigger voice agent requested auto-email check asynchronously
         (async () => {
@@ -366,6 +389,13 @@ router.post('/agents', (req, res) => {
     }
 
     try {
+        if (is_active && status === 'ACTIVE') {
+            const pmAdded = db.get("SELECT value FROM settings WHERE key = 'billing_payment_method_added'")?.value === 'true';
+            if (!pmAdded) {
+                return res.status(400).json({ error: 'Payment Method Required: Please add a payment method in the Billing tab to activate Voice Agents.' });
+            }
+        }
+
         const sql = `
             INSERT OR REPLACE INTO mazeway_agents (id, name, type, persona, status, is_active, config)
             VALUES (?, ?, ?, ?, ?, ?, ?)
@@ -405,7 +435,12 @@ router.get('/logs', (req, res) => {
                 id: o.id,
                 type: o.type || 'Voice',
                 status: o.status === 'NEW' ? 'PENDING' : o.status === 'CONFIRMED' ? 'COMPLETED' : 'REJECTED',
-                duration: o.type === 'Voice' ? '1:45' : '-', // Fake duration for now as it's not in DB
+                duration: o.type === 'Voice' ? (() => {
+                    const sec = Number(o.duration_seconds || 105);
+                    const mins = Math.floor(sec / 60);
+                    const secs = sec % 60;
+                    return `${mins}:${String(secs).padStart(2, '0')}`;
+                })() : '-',
                 timestamp: o.created_at,
                 summary: o.notes || `Processed order for ${o.customer_name}. Items: ${itemsList}. Total: ₹${o.total}.`
             };
@@ -426,6 +461,22 @@ router.get('/stats', (req, res) => {
             FROM mazeway_orders
         `);
 
+        // Fetch all agents and sum the price of bought ones
+        const agents = db.all("SELECT config FROM mazeway_agents");
+        let agentRevenue = 0;
+        agents.forEach(a => {
+            try {
+                const config = JSON.parse(a.config || '{}');
+                if (config.price) {
+                    agentRevenue += Number(config.price);
+                }
+            } catch (e) {
+                console.error('[Stats] Error parsing agent config for revenue:', e);
+            }
+        });
+
+        const totalRevenue = (orderStats.total_revenue || 0) + agentRevenue;
+
         const agentCount = db.get('SELECT COUNT(*) as count FROM mazeway_agents WHERE is_active = 1').count;
 
         // Estimate minutes: 5 mins per processed order + 2 mins per active agent (just for demo consistency)
@@ -435,7 +486,7 @@ router.get('/stats', (req, res) => {
         res.json({
             totalMinutes: estimatedMinutes.toLocaleString('en-IN'),
             leadsProcessed: (orderStats.total_leads || 0).toLocaleString('en-IN'),
-            revenue: (orderStats.total_revenue || 0).toLocaleString('en-IN', {
+            revenue: totalRevenue.toLocaleString('en-IN', {
                 style: 'currency',
                 currency: 'INR',
                 maximumFractionDigits: 0

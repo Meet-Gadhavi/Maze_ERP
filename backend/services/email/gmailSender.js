@@ -135,11 +135,19 @@ function getFromName(settings) {
 }
 
 const gmailSender = {
+    getAuthorizedClient,
     /**
      * Send email directly using a connected Gmail account
      */
     async sendMail({ senderEmail, to, subject, htmlBody, textBody = '' }) {
         try {
+            // Check billing block status
+            const { isBillingBlocked } = require('../billingHelper');
+            const blocked = await isBillingBlocked();
+            if (blocked) {
+                throw new Error("Email Service Blocked: Outstanding dues have not been paid. Please complete payment in the Billing tab.");
+            }
+
             // Check daily usage limit
             const limit = 1000;
             const currentUsage = await EmailConnection.getDailyUsage(senderEmail);
@@ -176,6 +184,9 @@ const gmailSender = {
 
             // Increment daily usage count
             await EmailConnection.incrementDailyUsage(senderEmail);
+
+            // Increment billing email sent count
+            db.run("UPDATE settings SET value = CAST(CAST(COALESCE((SELECT value FROM settings WHERE key = 'billing_email_sent_count'), '0') AS INTEGER) + 1 AS TEXT) WHERE key = 'billing_email_sent_count'");
 
             console.log(`[Gmail Sender] Email successfully sent to ${to} via ${senderEmail}. Message ID: ${response.data.id}`);
             return response.data;

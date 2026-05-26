@@ -4,6 +4,96 @@ All notable changes to the Quantro ERP application will be documented here.
 
 ---
 
+## [2.5.2] - 2026-05-26
+### Added
+- **Licensing & Key Activation Gate**:
+  - Implemented client setup activation locks. On desktop app startup, users are prompted for a unique activation key.
+  - Verified activation keys against the Supabase `licenses` table. On validation, the activation key and active subscription plan are stored in SQLite `settings` locally to unlock the desktop app.
+  - Created a license key registry on the web client's download dashboard (`Download.jsx`). When downloading the app, users select their desired plan tier (Free Starter, Business PRO, AI Professional) to dynamically generate and copy their new license key.
+- **Dynamic Tiered Subscriptions & Auto-renew Billing**:
+  - Overhauled subscription tier options (Free, Pro at ₹499/mo, Professional at ₹1199/mo) with active/cancel actions in the desktop client `BillingPage.jsx` and the web simulator.
+  - Configured outstanding dues to dynamically accumulate active subscription plan fees when unpaid (`!hasPaidThisCycle`).
+  - Added auto-renewal on successful due settlement, and grace suspension handling on unpaid overdue subscriptions.
+- **Supabase Integration & Web Portal Upgrades**:
+  - Re-routed the Express background campaign engine (`server.cjs`) to fetch, patch, and execute campaign automations via Supabase REST API instead of the old Render DB endpoints.
+  - Refactored the web client simulator tabs (Customers, Automation, Settings, Billing) inside `Home.jsx` to perfectly clone the real desktop client layouts and interactively handle plan subscription management.
+
+## [2.5.1] - 2026-05-26
+### Added
+- **Cloud-Synced Online Campaigns (Keep-Alive)**:
+  - Swapped the local campaign scheduler dependency with an online cloud sync architecture. Scheduled campaigns (Email/WhatsApp) are pushed to the remote Mazeway DB (`https://mazeway-db.onrender.com`).
+  - Implemented a high-availability Express server (`server.cjs`) deployed under `https://quantro-web.onrender.com` that processes pending campaign queues and sends messages 24/7.
+  - Supported secure token refreshing on the cloud server: Gmail access tokens are refreshed automatically using client OAuth secrets, keeping campaign dispatches flowing.
+  - Integrated automatic metadata sync hooks: customer list changes, Google/WhatsApp connection states, and company settings updates are automatically synced to the cloud database.
+  - Added bidirectional status synchronization: the desktop client pulls campaign execution results from the cloud database to update local SQLite states.
+
+---
+
+## [Web Portal] - 2026-05-26
+### Added
+- **Quantro Web Portal & Try-It-Out Simulator**:
+  - Launched official product marketing portal at `C:\Users\Meet\Music\Quantro Web` featuring a modern, light-theme design.
+  - Implemented an interactive browser-based ERP Simulator replicating the actual desktop client's layout (sidebar, stats grid, and vector charts).
+  - Integrated Supabase User Authentication gate requiring users to log in or register before downloading the stable desktop installer package.
+  - Documented upcoming updates and added an "Upcoming Release" tag for version `v2.4.5`.
+
+## [2.5.0] - 2026-05-26
+### Added
+- **Two-way Communication Tracking**:
+  - Implemented background email polling (Gmail) every 30 seconds for active connected email accounts. Automatically logs replies to communication logs.
+  - Implemented webhook receiver integration for WhatsApp replies, tracking all customer responses and logging them to `customer_communication_logs`.
+- **OpenCode Zen AI Responder**:
+  - Created a robust context builder that dynamically retrieves customer information (contact details, outstanding balance, invoice history, payment records), inventory details (stock counts, pricing), and recent chat history to construct a highly context-aware prompt.
+  - Connected the responder to OpenCode Zen completions endpoint using the free `deepseek-v4-flash-free` model with automatic failover to `nemotron-3-super-free` on rate limits or API outages.
+- **AI Sales Leads & Automated Order Processing**:
+  - Integrated smart classification in the AI Responder to distinguish between support/billing queries and order requests.
+  - Implemented auto-profiling: for unregistered users, the AI detects missing contact information (Name, Email, Phone, Address) and prompts for them step-by-step. Once complete, it creates the customer profile and submits a new draft order in `mazeway_orders` (automatically calculating product pricing and totals).
+  - Already registered customers can instantly place orders through conversational messages.
+- **Draft Order-to-Invoice Conversion**:
+  - Replaced the simple "Confirm" action button in the AI Sales panel with a premium "Convert to Invoice" action flow.
+  - Clicking "Convert to Invoice" automatically redirects the user to the Standard Invoice builder, pre-selects the customer profile, matches cart items to catalog inventory, loads stock and batch numbers (if batch-management is enabled), and applies tier-based percentage discounts.
+  - Saving the completed invoice automatically updates the original order status to `CONFIRMED` and dispatches a customer order notification via WhatsApp (utilizing the open Customer Service Window if active, otherwise falling back to the ₹0.20 `invoice_ready` template message).
+
+## [2.4.5] - 2026-05-26
+### Changed
+- **Automation Cleanups**: Removed redundant separate "Agent List" layout sections from `AutomationPage.jsx` and unified agent display directly in the dashboard connection cards.
+- **WhatsApp Icon Customization**: Integrated user-provided inline Bootstrap WhatsApp SVG branding inside both the "Get WhatsApp Service" header button and empty/disconnected state placeholder cards.
+- **Voice Agent Warning Messages**: Polished warning text on the empty voice agent card to avoid "in the Automation page" phrasing, providing more context-aware guidelines.
+
+## [2.4.4] - 2026-05-26
+### Added
+- **Automation Voice Agent Service Integration**: Added a dedicated **Voice Agent Service** section inside the Automation dashboard (`ConnectedServicesCard`) matching Gmail and WhatsApp cards.
+  - Displays list of active/provisioning Voice Agents, their language, persona, monthly plan subscription, and provisioned VoIP phone number.
+  - If no Voice Agent is created yet, displays a warning block matching Gmail and WhatsApp connection alerts: *"Please create your first voice calling agent in the Automation page to enable auto-notifications and campaign templates and furthermore transactions."*
+  - Provides a **Get Voice Agent** action button in the section header to directly launch the agent creation dialog flow.
+- **Enhanced Billing Verification**: Swapped the hardcoded active check for Voice Agent warnings on the Billing Page, ensuring it checks `voiceAgentCreated` state and differentiates between a provisioning status versus no agent at all.
+
+### Changed
+- **Connected Services Props Sync**: Structured prop callbacks to synchronize parent state changes in `AutomationPage` directly with `ConnectedServicesCard` for instant updates.
+
+## [2.4.3] - 2026-05-25
+### Added
+- **Automation Billing & Services Subscriptions**: Created a premium **Billing** page in the ERP sidebar to track service usage, pricing structures, and subscriptions.
+  - WhatsApp: Messages sent outside the Customer Service Window (without CSW) cost ₹0.20 per message.
+  - Voice Agent: Call duration billed at ₹10.00 per minute.
+  - Email: Free tier of 1,000 emails/mo, with overage billed at ₹0.05 per email. Support upgrading to the Transactional Email Package for ₹2,500/mo (adds 50,000 email quota) after reaching the free daily limit.
+  - VoIP Phone Number Subscription: Replaced the flat number purchase with subscriptions dynamically linked to active Voice Agents (Starter ₹600/mo, Pro ₹700/mo, or Enterprise ₹1100/mo) and display their original provisioned numbers.
+- **Service Blocking & Grace Period Enforcer**: Implemented auto-blocking rules. Dues must be settled by the 5th of the next month. Past the 5th, any outstanding balance immediately suspends WhatsApp template campaigns, Email automations, and Voice Agent calls until dues are cleared.
+- **Razorpay Checkout Integration**: Added a "Pay All Dues" Razorpay payment gate simulation that securely processes transactions and instantly unblocks all suspended services.
+- **Automated Billing Test Suite**: Created a command-line script (`npm run test:billing`) to instantly simulate and test the auto-suspension behavior across different days of the billing cycle (Grace period, grace overdue, and block clearance).
+- **Environment Billing Day Simulator**: Replaced the "Developer Time Machine" UI card with a process environment variable override (`BILLING_SIMULATED_DAY=X`) to test billing behavior instantly without polluting user interfaces.
+- **Connection Warnings & Transactions Control**: Added checks for connection status (Gmail/WhatsApp). Displays warning messages "Gmail/WhatsApp is not connected to enable transactions" if services are not connected.
+- **Card Authorization & Autopay Modal**: Replaced simple payment card addition with a modal that processes a ₹1 authorization fee, displays Terms and Conditions, Privacy Policy, and Refund Policy agreements, and configures Autopay via Razorpay.
+- **Voice Webhook Restrictions**: Restricts Voice Agent webhooks and activations if an agent is approved/active but no payment method has been added in settings.
+- **Dynamic Brand Logo Integration**: Company settings logo (`logo_url`) is now dynamically rendered in the ERP sidebar, customer checkout display, and all four cloud-hosted A4 HTML invoice templates. Saving settings instantly triggers a background settings update on all active shared invoice links.
+- **Hosted Invoice Deletion Sync**: Deleting an invoice locally in the ERP automatically triggers a delete action on the remote Mazeway DB to remove the hosted invoice row and clean up the sharing token.
+- **Changelog Settings Tab Updates**: Fully synchronized the System Changelog tab inside settings to display the release history details up to v2.4.3.
+
+### Changed
+- **Hosted Viewer Print Action Removal**: Removed the download/print PDF button action from the top navigation bar of the hosted HTML viewer for a cleaner client-facing design.
+- **Campaign Scheduling Polish**: Removed the redundant "Campaign Channel" FormGroup dropdown in the Schedule Campaign modal, rendering the Template Selection input as a full-width field.
+- **Sidebar Version Restoration**: Restored the application version indicator in the bottom footer of the main navigation sidebar.
+
 ## [2.4.2] - 2026-05-25
 ### Added
 - **WhatsApp Campaigns Upgrades**: Implemented locked Meta WhatsApp channel flows inside CRM scheduling dialog. Fixed a Babel compilation syntax error caused by a missing closing brace on `wrapCampaignPreviewHtml`. Prefilled campaign dispatch times to `'09:00'`.
@@ -11,6 +101,13 @@ All notable changes to the Quantro ERP application will be documented here.
 - **WhatsApp Dashboard Analytics**: Added a dedicated WhatsApp Delivery Analytics dashboard card to the AI/Automation analytics tab. Tracks total WhatsApp messages sent, active channels, daily transmission quotas (1800 limit), and daily volume charts.
 - **Voice Agent WhatsApp Auto-Dispatch**: Expanded Voice calling agent webhook triggers to automatically dispatch invoice PDFs to customer numbers via WhatsApp in Hindi, Gujarati, or English, active when the setting `auto_whatsapp_voice_request` is enabled.
 - **Daily Transmission Tracker Bar**: Integrated message transmission usage indicator bars on active WhatsApp Service cards showing current usage relative to the 1800 message limit.
+- **WhatsApp CSW & Template Fallback**: Upgraded WhatsApp delivery architecture to support 24-hour Customer Service Window (CSW) tracking. Configured automatic fallback to Meta-approved 'invoice_ready' utility template when sending invoices outside active user sessions.
+- **Invoice Shareable Links**: Configured dynamic URL generation for copying invoice links to match the user's running protocol, host, and port. Added automated URL search parameter listeners to load and display the invoice preview modal instantly on page load when a share link is opened.
+- **Cloud-Hosted HTML Invoice Delivery**: Integrated secure cloud-hosted HTML invoice delivery via Netlify (`https://billing-mazelab.netlify.app`) and synchronization to the custom database at `https://maze-erp-hosted-invoice.376591.dbmz`. Generated a static deployment directory `Billing.maze` containing production-ready viewer assets, including a `_redirects` and `netlify.toml` configuration to ensure seamless single-page application routing. Updated the copy actions and WhatsApp dispatch routines to send cloud-hosted invoice URLs instead of PDF attachments.
+
+### Fixed
+- **Hosted Invoice Database Resolution**: Resolved DNS "failed to fetch" errors on Copy Link clicks by swapping the custom `.dbmz` virtual domains for the public online instance at `https://mazeway-db.onrender.com`. Rewrote client-side fetching and analytics updating workflows to use Mazeway DB's standard API endpoints (`/api/v1/tables/.../rows` and `{ match, update }` PATCH payloads) instead of Supabase PostgREST query parameter filters.
+- **Hosted Invoice Payload Optimization**: Avoided "Payload Too Large" (HTTP 413) errors during synchronization by extracting and syncing only the specific metadata keys needed by the viewer, excluding heavy base64 company logos and unrelated configuration keys.
 
 ## [2.4.0] - 2026-05-25
 ### Added

@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const db = require('../db');
 const { z } = require('zod');
+const campaignSyncService = require('../services/email/campaignSyncService');
 
 // C005: Zod validation schema for customer data
 const customerSchema = z.object({
@@ -100,6 +101,9 @@ router.post('/', async (req, res, next) => {
 
         const customer = db.get('SELECT * FROM customers WHERE id = ?', [result.lastInsertRowid]);
         res.status(201).json(customer);
+
+        // Sync customer metadata to cloud
+        campaignSyncService.pushMetadata().catch(err => console.error('[Sync] Failed to push metadata on customer create:', err.message));
     } catch (err) {
         if (err instanceof z.ZodError) {
             return res.status(400).json({ error: 'Validation failed', details: err.errors });
@@ -125,6 +129,9 @@ router.put('/:id', async (req, res, next) => {
 
         const customer = db.get('SELECT * FROM customers WHERE id = ?', [Number(req.params.id)]);
         res.json(customer);
+
+        // Sync customer metadata to cloud
+        campaignSyncService.pushMetadata().catch(err => console.error('[Sync] Failed to push metadata on customer update:', err.message));
     } catch (err) {
         if (err instanceof z.ZodError) {
             return res.status(400).json({ error: 'Validation failed', details: err.errors });
@@ -142,6 +149,9 @@ router.delete('/:id', async (req, res, next) => {
 
         db.run('DELETE FROM customers WHERE id = ?', [Number(req.params.id)]);
         res.json({ message: 'Customer deleted', id: Number(req.params.id) });
+
+        // Sync customer metadata to cloud
+        campaignSyncService.pushMetadata().catch(err => console.error('[Sync] Failed to push metadata on customer delete:', err.message));
     } catch (err) {
         next(err);
     }

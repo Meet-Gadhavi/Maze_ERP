@@ -6,6 +6,20 @@ const EmailConnection = require('../models/EmailConnection');
 const gmailSender = require('../services/email/gmailSender');
 const whatsappSender = require('../services/whatsappSender');
 const { generateInvoicePDF } = require('../services/pdfGenerator');
+const hostedInvoiceService = require('../services/hostedInvoiceService');
+
+// Auto-sync helper for hosted invoices when updated in ERP
+async function syncInvoiceIfShared(invoiceId) {
+    try {
+        const tokenRow = db.get("SELECT token FROM invoice_tokens WHERE invoice_id = ?", [invoiceId]);
+        if (tokenRow) {
+            console.log(`[Sync Helper] Auto-syncing updated invoice #${invoiceId} to cloud DB...`);
+            await hostedInvoiceService.generateHostedInvoice(invoiceId);
+        }
+    } catch (e) {
+        console.error(`[Sync Helper] Background auto-sync failed for invoice #${invoiceId}:`, e.message);
+    }
+}
 
 // C004: Zod validation schema for invoice items
 const invoiceItemSchema = z.object({
@@ -41,7 +55,8 @@ const invoiceSchema = z.object({
     paid_amount: z.number().min(0).optional(),
     payment_method: z.string().optional(),
     coupon_code: z.string().optional().nullable(),
-    coupon_discount_amount: z.number().min(0).optional()
+    coupon_discount_amount: z.number().min(0).optional(),
+    mazeway_order_id: z.union([z.number(), z.string()]).nullable().optional()
 });
 
 // GET /api/invoices — sales history
@@ -157,6 +172,18 @@ router.get('/:id', async (req, res, next) => {
     }
 });
 
+// GET /api/invoices/:id/share-link — Generate secure hosted link and sync to cloud DB
+router.get('/:id/share-link', async (req, res, next) => {
+    try {
+        await db.ready;
+        const invoiceId = Number(req.params.id);
+        const result = await hostedInvoiceService.generateHostedInvoice(invoiceId);
+        res.json(result);
+    } catch (err) {
+        next(err);
+    }
+});
+
 // POST /api/invoices — create invoice + reduce stock
 router.post('/', async (req, res, next) => {
     try {
@@ -192,7 +219,8 @@ router.post('/', async (req, res, next) => {
                 advance_amount = 0,
                 payments = [],
                 coupon_code = null,
-                coupon_discount_amount = 0
+                coupon_discount_amount = 0,
+                mazeway_order_id = null
             } = validatedData;
 
             // Determine initial paid amount from multiple payments or fallback to legacy paid_amount
@@ -544,6 +572,37 @@ router.post('/', async (req, res, next) => {
         
         if (invoice) {
             triggerAutoEmail(invoice.id, false);
+
+            if (mazeway_order_id) {
+                console.log(`[Sales Confirmation] Converting AI Order ID ${mazeway_order_id} to invoice #${invoice.id}...`);
+                db.run("UPDATE mazeway_orders SET status = 'CONFIRMED' WHERE id = ?", [mazeway_order_id]);
+
+                // Asynchronously trigger WhatsApp Order Confirmation
+                (async () => {
+                    try {
+                        const recipientPhone = invoice.customer_phone || invoice.walk_in_phone;
+                        if (recipientPhone) {
+                            const pdfBuffer = await generateInvoicePDF(invoice, settings);
+                            const filename = `Invoice_${String(invoice.id).padStart(4, '0')}.pdf`;
+                            const caption = `Dear ${invoice.customer_name || 'Customer'}, your order has been confirmed! Here is your invoice #${invoice.invoice_number || invoice.id} for ₹${invoice.total}.`;
+
+                            await whatsappSender.sendInvoicePDF(recipientPhone, pdfBuffer, filename, caption, {
+                                customerName: invoice.customer_name || invoice.walk_in_name || 'Customer',
+                                invoiceNumber: invoice.invoice_number || `#${invoice.id}`,
+                                companyName: settings.company_name || 'Maze ERP',
+                                invoiceId: invoice.id
+                            });
+
+                            db.run(
+                                "INSERT INTO customer_communication_logs (customer_id, type, notes) VALUES (?, 'SMS', ?)",
+                                [invoice.customer_id || null, `WhatsApp order confirmation sent for invoice #${invoice.invoice_number || invoice.id} (Converted from AI Order)`]
+                            );
+                        }
+                    } catch (e) {
+                        console.error('[AI Order Confirm] WhatsApp notification failed:', e.message);
+                    }
+                })();
+            }
         }
         res.status(201).json(invoice);
         } catch (txnErr) {
@@ -560,7 +619,30 @@ router.post('/', async (req, res, next) => {
 router.delete('/:id', async (req, res, next) => {
     try {
         await db.ready;
-        db.run('DELETE FROM invoices WHERE id = ?', [Number(req.params.id)]);
+        const invoiceId = Number(req.params.id);
+
+        // Check if there is an active share token for this invoice and delete the remote entry
+        const tokenRow = db.get("SELECT token FROM invoice_tokens WHERE invoice_id = ?", [invoiceId]);
+        if (tokenRow) {
+            const DB_URL = "https://mazeway-db.onrender.com";
+            const DB_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJncm91cCI6ImFub24iLCJpYXQiOjE3Nzk3MDA0Mzh9.mazeway_db_anon_5KUWRlLbhAarPceBoTlDGMTjNn8hvXtgSTCAGH7CSCOMxgwcZNojTpcYiqqUc3Ma";
+            
+            fetch(`${DB_URL}/api/v1/tables/hosted_invoices/rows`, {
+                method: 'DELETE',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'apikey': DB_ANON_KEY,
+                    'Authorization': `Bearer ${DB_ANON_KEY}`
+                },
+                body: JSON.stringify({
+                    match: { invoice_id: invoiceId }
+                })
+            }).catch(e => console.error(`[Delete Sync] Failed to delete hosted invoice #${invoiceId} from cloud DB:`, e.message));
+
+            db.run('DELETE FROM invoice_tokens WHERE invoice_id = ?', [invoiceId]);
+        }
+
+        db.run('DELETE FROM invoices WHERE id = ?', [invoiceId]);
         res.json({ success: true });
     } catch (err) {
         next(err);
@@ -773,6 +855,7 @@ router.post('/:id/return', async (req, res, next) => {
         }); // End transaction
 
         triggerAutoEmail(invoiceId, true);
+        syncInvoiceIfShared(invoiceId);
         res.json(updatedInvoice);
         } catch (txnErr) {
             if (txnErr.apiResponse) return;
@@ -895,6 +978,7 @@ router.put('/:id/payment', async (req, res, next) => {
         }
 
         triggerAutoEmail(invoiceId, true);
+        syncInvoiceIfShared(invoiceId);
         res.json(updated);
         } catch (txnErr) {
             if (txnErr.apiResponse) return;
@@ -1048,6 +1132,7 @@ router.post('/:id/fulfill', async (req, res, next) => {
 
         }); // End transaction
         triggerAutoEmail(invoiceId, true);
+        syncInvoiceIfShared(invoiceId);
         res.json({ success: true, grand_total: newGrandTotal, delivery_status: invoiceDeliveryStatus, fulfillment_status: fulfillmentStatus, payment_status: newPaymentStatus });
         } catch (txnErr) {
             if (txnErr.apiResponse) return;
@@ -1154,6 +1239,7 @@ router.post('/:id/process-advance', async (req, res, next) => {
 
         }); // End transaction
         triggerAutoEmail(invoiceId, true);
+        syncInvoiceIfShared(invoiceId);
         res.json({ success: true, payment_status: newPaymentStatus });
         } catch (txnErr) {
             if (txnErr.apiResponse) return;

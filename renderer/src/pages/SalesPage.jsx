@@ -19,6 +19,7 @@ export default function SalesPage() {
     const [aiSearch, setAiSearch] = useState('');
     const [aiChannelFilter, setAiChannelFilter] = useState('All');
     const [aiStatusFilter, setAiStatusFilter] = useState('All');
+    const [convertedOrderId, setConvertedOrderId] = useState(null);
 
     const filteredOrders = useMemo(() => {
         return (mazewayOrders || []).filter(order => {
@@ -111,6 +112,16 @@ export default function SalesPage() {
         if (tab === 'new') setStep('customer');
         if (tab === 'ai-sales') loadMazewayOrders();
     }, [tab]);
+
+    useEffect(() => {
+        const params = new URLSearchParams(window.location.search || (window.location.hash.includes('?') ? window.location.hash.split('?')[1] : ''));
+        const previewId = params.get('preview');
+        if (previewId) {
+            const cleanHash = window.location.hash.split('?')[0];
+            window.history.replaceState(null, '', window.location.pathname + cleanHash);
+            handleViewInvoice(Number(previewId));
+        }
+    }, [invoices]);
 
     const handleSelectCustomer = (customer) => {
         if (!customer) {
@@ -1043,7 +1054,8 @@ export default function SalesPage() {
             use_p_credit: usePCredit,
             p_credit_amount: usePCredit ? Number(pCreditToApply || 0) : 0,
             is_advance: isAdvance,
-            advance_amount: isAdvance ? Number(advanceAmount || 0) : 0
+            advance_amount: isAdvance ? Number(advanceAmount || 0) : 0,
+            mazeway_order_id: convertedOrderId
         };
 
         setSaving(true);
@@ -1069,6 +1081,7 @@ export default function SalesPage() {
             setAdvanceAmount('');
             setAppliedCoupon(null);
             setCouponCode('');
+            setConvertedOrderId(null);
 
             // Refresh products and history
             api.getProducts().then(setProducts).catch(() => {});
@@ -1238,6 +1251,90 @@ export default function SalesPage() {
             error: 'Failed to update order status'
         });
     }
+
+    const handleConvertOrderToInvoice = async (order) => {
+        // Find customer by phone or name
+        const cleanOrderPhone = (order.customer_phone || '').replace(/\D/g, '');
+        const matchedCustomer = customers.find(c => {
+            const cleanPhone = (c.phone || '').replace(/\D/g, '');
+            return cleanPhone && cleanOrderPhone && (cleanPhone === cleanOrderPhone || cleanPhone.endsWith(cleanOrderPhone) || cleanOrderPhone.endsWith(cleanPhone));
+        });
+
+        if (matchedCustomer) {
+            setSelectedCustomer(String(matchedCustomer.id));
+            const tier = matchedCustomer.tier || 'C';
+            const discountKey = `tier_${tier.toLowerCase()}_discount`;
+            const pct = parseFloat(settings[discountKey] ?? '0');
+            if (pct > 0) {
+                setDiscountRate(pct);
+                setDiscountEnabled(true);
+            } else {
+                setDiscountRate(0);
+                setDiscountEnabled(false);
+            }
+        } else {
+            setSelectedCustomer('');
+            setWalkInName(order.customer_name || '');
+            setWalkInPhone(order.customer_phone || '');
+        }
+
+        // Map order items to cart
+        const newCart = [];
+        const toastId = toast.loading("Checking inventory stock & batches for order items...");
+        try {
+            for (const item of order.items) {
+                const prod = products.find(p => p.name.toLowerCase() === item.name.toLowerCase() || p.id === item.product_id);
+                if (prod) {
+                    let batches = [];
+                    if (settings.enable_batch_system === 'true') {
+                        try {
+                            batches = await api.getProductBatches(prod.id);
+                        } catch (e) { console.error('Failed to load batches', e); }
+                    }
+
+                    newCart.push({
+                        cartRowId: Date.now().toString() + Math.random().toString(),
+                        product_id: prod.id,
+                        variant_id: null,
+                        name: prod.name,
+                        subcategory_name: prod.subcategory_name || '',
+                        price: Number(prod.selling_price),
+                        original_price: Number(prod.selling_price),
+                        quantity: Number(item.quantity || 1),
+                        total: Number(prod.selling_price) * Number(item.quantity || 1),
+                        maxStock: prod.stock_quantity,
+                        unit: prod.unit || 'PCS',
+                        baseUnit: prod.unit || 'PCS',
+                        secondaryUnit: prod.secondary_unit || null,
+                        conversionFactor: prod.conversion_factor || 1,
+                        allowDecimal: !!prod.allow_decimal,
+                        is_free: false,
+                        gst_rate: 0,
+                        discount_rate: 0,
+                        track_batches: settings.enable_batch_system === 'true',
+                        batch_id: batches.length === 1 ? batches[0].id : '',
+                        available_batches: batches,
+                        track_serials: !!prod.track_serials,
+                        serials: []
+                    });
+                } else {
+                    toast.error(`Product "${item.name}" not found in inventory catalog.`);
+                }
+            }
+
+            if (newCart.length > 0) {
+                setCart(newCart);
+                setConvertedOrderId(order.id);
+                setTab('new');
+                setStep('products');
+                toast.success(`Loaded order items for ${order.customer_name || 'Customer'}`, { id: toastId });
+            } else {
+                toast.error("Could not load any matching products from order into cart.", { id: toastId });
+            }
+        } catch (err) {
+            toast.error("Failed to load order items: " + err.message, { id: toastId });
+        }
+    };
 
     return (
         <div>
@@ -2159,10 +2256,10 @@ export default function SalesPage() {
                                     {order.notes && <div className="order-notes">"{order.notes}"</div>}
                                     <div className="order-footer">
                                         {order.status === 'NEW' ? (
-                                            <>
-                                                <SButton variant="secondary" tone="critical" onClick={() => handleUpdateMazewayStatus(order.id, 'REJECTED')}>Reject</SButton>
-                                                <SButton variant="primary" onClick={() => handleUpdateMazewayStatus(order.id, 'CONFIRMED')}>Confirm</SButton>
-                                            </>
+                                            <div style={{ display: 'flex', gap: '8px', width: '100%' }}>
+                                                <SButton variant="secondary" tone="critical" style={{ flex: 1 }} onClick={() => handleUpdateMazewayStatus(order.id, 'REJECTED')}>Reject</SButton>
+                                                <SButton variant="primary" style={{ flex: 1 }} onClick={() => handleConvertOrderToInvoice(order)}>Convert to Invoice</SButton>
+                                            </div>
                                         ) : (
                                             <div className={`status-pill ${order.status.toLowerCase()}`}>
                                                 {order.status === 'CONFIRMED' ? <Icons.Check size={14} /> : <Icons.X size={14} />}

@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const db = require('../db');
 const whatsappSender = require('../services/whatsappSender');
+const campaignSyncService = require('../services/email/campaignSyncService');
 
 // Simulated Meta Embedded Signup page matching Facebook Login for Business UX
 router.get('/connect', async (req, res, next) => {
@@ -47,6 +48,9 @@ router.get('/callback', async (req, res, next) => {
                          VALUES (?, ?, ?, 'Active')`,
                         [phoneNumberId, target_waba_id, permanentToken]
                     );
+
+                    // Sync WhatsApp connection metadata
+                    campaignSyncService.pushMetadata().catch(err => console.error('[Sync] Failed to push metadata on WhatsApp bypass callback:', err.message));
 
                     return res.redirect('http://localhost:5173/#/automation?whatsapp=success');
                 } else {
@@ -95,6 +99,9 @@ router.get('/callback', async (req, res, next) => {
                                 [phoneNumberId, wabaId, permanentToken]
                             );
 
+                            // Sync WhatsApp connection metadata
+                            campaignSyncService.pushMetadata().catch(err => console.error('[Sync] Failed to push metadata on WhatsApp OAuth callback:', err.message));
+
                             return res.redirect('http://localhost:5173/#/automation?whatsapp=success');
                         } else {
                             console.error('[WhatsApp Auth] Failed to fetch phone numbers via user access token:', phoneData);
@@ -141,6 +148,10 @@ router.get('/callback', async (req, res, next) => {
                  VALUES (?, ?, ?, 'Active')`,
                 [defaultPhoneId, defaultWabaId, permanentToken]
             );
+
+            // Sync WhatsApp connection metadata
+            campaignSyncService.pushMetadata().catch(err => console.error('[Sync] Failed to push metadata on WhatsApp fallback connect:', err.message));
+
             return res.redirect('http://localhost:5173/#/automation?whatsapp=success');
         }
 
@@ -186,6 +197,9 @@ router.post('/disconnect', async (req, res, next) => {
 
         db.run("DELETE FROM whatsapp_connections WHERE phone_number_id = ?", [phone_number_id]);
         res.json({ message: "WhatsApp service disconnected successfully." });
+
+        // Sync WhatsApp connection metadata
+        campaignSyncService.pushMetadata().catch(err => console.error('[Sync] Failed to push metadata on WhatsApp disconnect:', err.message));
     } catch (err) {
         next(err);
     }
@@ -281,7 +295,87 @@ router.post('/webhook', (req, res) => {
     const body = req.body;
     console.log('[WhatsApp Webhook] Received Event:', JSON.stringify(body, null, 2));
 
-    // Handle statuses or incoming messages here if necessary.
+    try {
+        if (body.object === 'whatsapp_business_account' && body.entry) {
+            for (const entry of body.entry) {
+                if (entry.changes) {
+                    for (const change of entry.changes) {
+                        if (change.value && change.value.messages) {
+                            for (const message of change.value.messages) {
+                                const fromPhone = message.from;
+                                if (fromPhone) {
+                                    const { updateCustomerSession } = require('../services/whatsappSessionService');
+                                    // Set or update the CSW for this customer
+                                    updateCustomerSession(fromPhone, 'active');
+                                    console.log(`[WhatsApp Webhook] Active CSW updated/stored for phone: ${fromPhone}`);
+
+                                    // Intercept text messages for AI reply
+                                    if (message.type === 'text' && message.text && message.text.body) {
+                                        const messageText = message.text.body;
+
+                                        // Execute matching and auto-reply asynchronously
+                                        (async () => {
+                                            try {
+                                                const cleanFromPhone = fromPhone.replace(/\D/g, '');
+                                                let customer = null;
+                                                if (cleanFromPhone) {
+                                                    const customers = db.all("SELECT * FROM customers WHERE phone IS NOT NULL AND phone != ''");
+                                                    customer = customers.find(c => {
+                                                        const dbPhone = (c.phone || '').replace(/\D/g, '');
+                                                        return dbPhone && (dbPhone === cleanFromPhone || dbPhone.endsWith(cleanFromPhone) || cleanFromPhone.endsWith(dbPhone));
+                                                    });
+                                                }
+
+                                                if (!customer) {
+                                                    const leadName = `AI Lead (${fromPhone})`;
+                                                    const insertRes = db.run(
+                                                        "INSERT INTO customers (name, phone, email, address) VALUES (?, ?, '', '')",
+                                                        [leadName, fromPhone]
+                                                    );
+                                                    customer = { id: insertRes.lastInsertRowid, name: leadName, phone: fromPhone, email: '', address: '' };
+                                                    console.log(`[WhatsApp Webhook] Created new lead placeholder: ${leadName} (ID: ${customer.id})`);
+                                                }
+
+                                                // Log incoming message
+                                                db.run(
+                                                    "INSERT INTO customer_communication_logs (customer_id, type, notes) VALUES (?, 'SMS', ?)",
+                                                    [customer.id, `Received WhatsApp: ${messageText}`]
+                                                );
+
+                                                // Get AI reply
+                                                const { processIncomingMessage } = require('../services/aiReplyService');
+                                                const cleanReplyText = await processIncomingMessage({
+                                                    customerId: customer.id,
+                                                    text: messageText,
+                                                    channel: 'WhatsApp',
+                                                    phone: fromPhone
+                                                });
+
+                                                // Send response
+                                                await whatsappSender.sendText(fromPhone, cleanReplyText);
+
+                                                // Log outgoing AI reply
+                                                db.run(
+                                                    "INSERT INTO customer_communication_logs (customer_id, type, notes) VALUES (?, 'SMS', ?)",
+                                                    [customer.id, `AI Auto-Reply: ${cleanReplyText}`]
+                                                );
+                                                console.log(`[WhatsApp Webhook] Replied to ${fromPhone} using AI`);
+                                            } catch (e) {
+                                                console.error('[WhatsApp Webhook AI Processing Error]', e);
+                                            }
+                                        })();
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    } catch (err) {
+        console.error('[WhatsApp Webhook] Error processing event:', err);
+    }
+
     // Return standard success response to Meta
     res.status(200).send('EVENT_RECEIVED');
 });

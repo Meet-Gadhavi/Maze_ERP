@@ -419,6 +419,17 @@ const api = {
     disconnectWhatsApp: (phone_number_id) => request('/auth/whatsapp/disconnect', { method: 'POST', body: { phone_number_id } }),
     sendWhatsAppTest: (data) => request('/auth/whatsapp/test-message', { method: 'POST', body: data }),
     sendWhatsAppInvoice: (data) => request('/auth/whatsapp/send-invoice', { method: 'POST', body: data }),
+    getInvoiceShareLink: (invoiceId) => request(`/invoices/${invoiceId}/share-link`),
+    
+    // --- Billing ---
+    getBillingStatus: () => request('/billing/status'),
+    addPaymentMethod: (data) => request('/billing/add-payment-method', { method: 'POST', body: data }),
+    buyPhoneNumber: () => request('/billing/buy-number', { method: 'POST' }),
+    buyEmailPackage: () => request('/billing/buy-email-package', { method: 'POST' }),
+    payDues: () => request('/billing/pay-dues', { method: 'POST' }),
+    simulateBillingDay: (day) => request('/billing/simulate-day', { method: 'POST', body: { day } }),
+    upgradeSubscription: (plan) => request('/billing/upgrade', { method: 'POST', body: { plan } }),
+    cancelSubscription: () => request('/billing/cancel-subscription', { method: 'POST' }),
 };
 
 export default api;

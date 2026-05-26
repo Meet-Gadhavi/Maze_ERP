@@ -4,6 +4,7 @@ const googleOAuthService = require('../services/googleOAuthService');
 const EmailConnection = require('../models/EmailConnection');
 const gmailSender = require('../services/email/gmailSender');
 const db = require('../db');
+const campaignSyncService = require('../services/email/campaignSyncService');
 
 // GET /auth/google -> Redirects user to Google Consent page
 router.get('/', (req, res) => {
@@ -45,6 +46,9 @@ router.get('/callback', async (req, res) => {
 
         // Redirect back to Electron application using custom protocol
         res.redirect(`maze-erp://google-auth-callback?status=success&email=${encodeURIComponent(profile.email)}`);
+        
+        // Sync connection metadata to online server
+        campaignSyncService.pushMetadata().catch(err => console.error('[Sync] Failed to push metadata on callback:', err.message));
     } catch (err) {
         console.error('[Google Auth] Callback exchange failed:', err);
         res.redirect(`maze-erp://google-auth-callback?status=error&message=${encodeURIComponent(err.message || 'Authentication exchange failed.')}`);
@@ -85,6 +89,9 @@ router.post('/disconnect', async (req, res, next) => {
     try {
         await EmailConnection.deleteConnection(email);
         res.json({ message: `Successfully disconnected Gmail account: ${email}` });
+
+        // Sync connection metadata to online server
+        campaignSyncService.pushMetadata().catch(err => console.error('[Sync] Failed to push metadata on disconnect:', err.message));
     } catch (err) {
         next(err);
     }
@@ -182,7 +189,8 @@ router.get('/campaigns', async (req, res, next) => {
         const campaigns = db.all('SELECT * FROM email_campaigns ORDER BY created_at DESC');
         res.json(campaigns.map(c => ({
             ...c,
-            customers: JSON.parse(c.customers || '[]')
+            customers: JSON.parse(c.customers || '[]'),
+            customContent: c.custom_content
         })));
     } catch (err) {
         next(err);
@@ -191,7 +199,7 @@ router.get('/campaigns', async (req, res, next) => {
 
 // POST /auth/google/campaigns -> Schedule email campaign
 router.post('/campaigns', async (req, res, next) => {
-    const { name, customers, startDate, endDate, timeToSend, template, channel } = req.body;
+    const { name, customers, startDate, endDate, timeToSend, template, channel, customContent } = req.body;
     if (!name || !customers || !startDate || !timeToSend || !template) {
         return res.status(400).json({ error: 'Missing required campaign scheduling parameters.' });
     }
@@ -199,8 +207,8 @@ router.post('/campaigns', async (req, res, next) => {
     try {
         await db.ready;
         const sql = `
-            INSERT INTO email_campaigns (name, customers, start_date, end_date, time_to_send, template, channel, status)
-            VALUES (?, ?, ?, ?, ?, ?, ?, 'scheduled')
+            INSERT INTO email_campaigns (name, customers, start_date, end_date, time_to_send, template, channel, custom_content, status)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'scheduled')
         `;
         const result = db.run(sql, [
             name, 
@@ -209,9 +217,13 @@ router.post('/campaigns', async (req, res, next) => {
             endDate || null, 
             timeToSend, 
             template,
-            channel || 'email'
+            channel || 'email',
+            customContent || null
         ]);
         res.json({ message: 'Campaign scheduled successfully', id: result.lastInsertRowid });
+
+        // Sync campaigns list to cloud
+        campaignSyncService.pushCampaigns().catch(err => console.error('[Sync] Failed to push campaigns on schedule:', err.message));
     } catch (err) {
         next(err);
     }
@@ -224,6 +236,9 @@ router.delete('/campaigns/:id', async (req, res, next) => {
         await db.ready;
         db.run('DELETE FROM email_campaigns WHERE id = ?', [id]);
         res.json({ message: 'Campaign cancelled successfully.' });
+
+        // Sync campaigns list to cloud
+        campaignSyncService.pushCampaigns().catch(err => console.error('[Sync] Failed to push campaigns on cancel:', err.message));
     } catch (err) {
         next(err);
     }

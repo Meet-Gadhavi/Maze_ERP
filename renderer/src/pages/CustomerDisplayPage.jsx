@@ -1,8 +1,10 @@
 import { useState, useEffect } from 'react';
 import { Icons } from '../components/Icons';
+import api from '../api';
 import './CustomerDisplayPage.css';
 
 export default function CustomerDisplayPage() {
+    const [settings, setSettings] = useState(null);
     const [data, setData] = useState({
         cart: [],
         subtotal: 0,
@@ -12,6 +14,10 @@ export default function CustomerDisplayPage() {
         status: 'idle', // idle, active, completed
         customerName: ''
     });
+
+    useEffect(() => {
+        api.getSettings().then(setSettings).catch(console.error);
+    }, []);
 
     useEffect(() => {
         if (window.maze && window.maze.onCustomerDisplayUpdate) {
@@ -50,8 +56,12 @@ export default function CustomerDisplayPage() {
         return (
             <div className="customer-display-container">
                 <div className="welcome-section">
-                    <img src="./icons/Appicon.ico" alt="Quantro" className="welcome-logo" style={{ width: '120px', height: '120px', marginBottom: '24px' }} />
-                    <h2 style={{ fontSize: '32px', fontWeight: '700', letterSpacing: '-0.02em' }}>Quantro POS</h2>
+                    {settings?.logo_url ? (
+                        <img src={settings.logo_url} alt="Logo" className="welcome-logo" style={{ maxHeight: '120px', maxWidth: '240px', objectFit: 'contain', marginBottom: '24px' }} />
+                    ) : (
+                        <img src="./icons/Appicon.ico" alt="Quantro" className="welcome-logo" style={{ width: '120px', height: '120px', marginBottom: '24px' }} />
+                    )}
+                    <h2 style={{ fontSize: '32px', fontWeight: '700', letterSpacing: '-0.02em' }}>{settings?.company_name || 'Quantro POS'}</h2>
                     <p style={{ fontSize: '18px', color: 'var(--text-secondary)', marginTop: '8px' }}>Ready for your next transaction</p>
                 </div>
             </div>
@@ -62,8 +72,12 @@ export default function CustomerDisplayPage() {
         <div className="customer-display-container">
             <div className="customer-display-header">
                 <div className="brand-section" style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-                    <img src="./icons/Appicon.ico" alt="Quantro" style={{ width: '48px', height: '48px' }} />
-                    <h1>Quantro</h1>
+                    {settings?.logo_url ? (
+                        <img src={settings.logo_url} alt="Logo" style={{ height: '48px', maxWidth: '120px', objectFit: 'contain', borderRadius: '4px' }} />
+                    ) : (
+                        <img src="./icons/Appicon.ico" alt="Quantro" style={{ width: '48px', height: '48px' }} />
+                    )}
+                    <h1>{settings?.company_name || 'Quantro'}</h1>
                 </div>
                 {data.status === 'active' && (
                     <div className="status-indicator">

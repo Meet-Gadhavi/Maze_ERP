@@ -268,7 +268,19 @@ export default function AutomationPage() {
 
                 if (nextStatus !== 'PROVISIONING') {
                     console.log(`[Sync] Updating agent ${agent.name} status to ${nextStatus}`);
-                    const updatedAgent = { ...agent, status: nextStatus, is_active: nextActive };
+                    
+                    let updatedConfig = { ...agent.config };
+                    if (nextStatus === 'ACTIVE') {
+                        const phoneNum = data.notes && data.notes.trim() !== '' ? data.notes.trim() : `+91 99990 ${Math.floor(10000 + Math.random() * 90000)}`;
+                        updatedConfig.phone_number = phoneNum;
+                    }
+                    
+                    const updatedAgent = { 
+                        ...agent, 
+                        status: nextStatus, 
+                        is_active: nextActive,
+                        config: updatedConfig
+                    };
                     await api.saveAgent(updatedAgent);
                     setAgents(prev => prev.map(a => a.id === agent.id ? updatedAgent : a));
                     
@@ -473,7 +485,10 @@ export default function AutomationPage() {
                 metadata: {
                     business_name: formData.business_name
                 },
-                config: formData.providerType === 'OWN_PROVIDER' ? formData.sip_trunk : {}
+                config: formData.providerType === 'OWN_PROVIDER' ? formData.sip_trunk : {
+                    plan: formData.plan,
+                    price: formData.plan === 'starter' ? 600 : formData.plan === 'pro' ? 700 : 1100
+                }
             };
 
             // Save locally
@@ -537,94 +552,13 @@ export default function AutomationPage() {
                 })}
             </div>
 
-            <ConnectedServicesCard />
-
-            <div className="agents-section" style={{ marginTop: '24px' }}>
-                <div className="agents-section-header">
-                    <div className="section-title-wrap">
-                        <h3>Agent List <span className="count-badge">{agents.length} Total</span></h3>
-                        <p>Track status, channel, and performance for every agent.</p>
-                    </div>
-                </div>
-                <div className="agents-list">
-                    {agents.length > 0 ? agents.map(agent => (
-                        <div key={agent.id} className="agent-card">
-                            <div className="agent-main">
-                                <div className="agent-icon-wrap">
-                                    {agent.type === 'Voice' ? <Icons.Smartphone size={24} /> : <Icons.MessageSquare size={24} />}
-                                </div>
-                                <div className="agent-details">
-                                    <div className="agent-title-row" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                        <h4>{agent.name}</h4>
-                                        <span className="agent-id-badge" title={`Full ID: ${agent.id}`}>
-                                            ID: {agent.id.slice(0, 8)}
-                                        </span>
-                                    </div>
-                                    <div className="agent-meta">
-                                        <span>{agent.persona} Persona</span>
-                                        <span>{agent.type} Channel</span>
-                                    </div>
-                                </div>
-                            </div>
-                            <div className="agent-actions">
-                                {agent.status === 'PROVISIONING' && (
-                                    <span className="agent-status-chip provisioning">PROVISIONING</span>
-                                )}
-                                <div className="toggle-wrap">
-                                    <span className={`toggle-state ${agent.is_active ? 'active' : 'inactive'}`}>
-                                        {agent.is_active ? 'Active' : 'Inactive'}
-                                    </span>
-                                    <label className="toggle-switch" title={agent.is_active ? 'Active' : 'Inactive'}>
-                                        <input
-                                            type="checkbox"
-                                            checked={agent.is_active}
-                                            disabled={agent.status === 'PROVISIONING'}
-                                            onChange={() => toggleAgentActive(agent)}
-                                        />
-                                        <span className="toggle-slider"></span>
-                                    </label>
-                                </div>
-                                {(agent.config && Object.keys(agent.config).length > 0) && (
-                                    <SButton
-                                        variant="secondary"
-                                        title="Edit Agent"
-                                        disabled={agent.status !== 'PROVISIONING' && agent.status !== 'FAILED'}
-                                        onClick={() => handleOpenEdit(agent)}
-                                    >
-                                        <Icons.Edit size={16} />
-                                    </SButton>
-                                )}
-                                <SButton
-                                    variant="secondary"
-                                    title="Configure Agent"
-                                    onClick={() => handleOpenConfig(agent)}
-                                >
-                                    <Icons.Settings size={16} />
-                                </SButton>
-                                <SButton
-                                    variant="secondary"
-                                    tone="critical"
-                                    title="Remove Agent"
-                                    onClick={() => handleDeleteAgent(agent)}
-                                >
-                                    <Icons.Trash size={16} />
-                                </SButton>
-                            </div>
-                        </div>
-                    )) : (
-                        <div className="empty-agents-state">
-                            <div className="empty-icon-wrap">
-                                <Icons.Cpu size={48} />
-                            </div>
-                            <h3>Make your first new agent</h3>
-                            <p>Get started by provisioning an AI assistant for your business.</p>
-                            <SButton variant="primary" onClick={handleOpenCreate}>
-                                Create Agent
-                            </SButton>
-                        </div>
-                    )}
-                </div>
-            </div>
+            <ConnectedServicesCard 
+                agents={agents}
+                onCreateVoiceAgent={handleOpenCreate}
+                onOpenConfig={handleOpenConfig}
+                onToggleActive={toggleAgentActive}
+                onDeleteAgent={handleDeleteAgent}
+            />
 
             <Modal
                 open={showModal}

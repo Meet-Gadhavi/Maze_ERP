@@ -428,7 +428,10 @@ ready = (async () => {
         SETTINGS_KEYS.AUTO_WHATSAPP_VOICE_REQUEST, SETTINGS_KEYS.AUTO_WHATSAPP_PAYMENT_RECEIVED, SETTINGS_KEYS.AUTO_WHATSAPP_DUE_REMINDER,
         SETTINGS_KEYS.AUTO_WHATSAPP_DUE_REMINDER_DAYS,
         SETTINGS_KEYS.WHATSAPP_APP_ID, SETTINGS_KEYS.WHATSAPP_APP_SECRET, SETTINGS_KEYS.WHATSAPP_TOKEN,
-        SETTINGS_KEYS.WHATSAPP_PHONE_NUMBER_ID, SETTINGS_KEYS.WHATSAPP_BUSINESS_ACCOUNT_ID, SETTINGS_KEYS.WHATSAPP_WEBHOOK_VERIFY_TOKEN
+        SETTINGS_KEYS.WHATSAPP_PHONE_NUMBER_ID, SETTINGS_KEYS.WHATSAPP_BUSINESS_ACCOUNT_ID, SETTINGS_KEYS.WHATSAPP_WEBHOOK_VERIFY_TOKEN,
+        'billing_payment_method_added', 'billing_phone_number_purchased', 'billing_phone_number_details',
+        'billing_whatsapp_non_csw_count', 'billing_voice_agent_seconds', 'billing_email_sent_count',
+        'billing_email_package_active', 'billing_email_package_due', 'billing_simulated_day'
       ];
       keys.forEach(k => {
         let defaultValue = '';
@@ -466,6 +469,15 @@ ready = (async () => {
         else if (k === SETTINGS_KEYS.WHATSAPP_PHONE_NUMBER_ID) defaultValue = '1117813404753239';
         else if (k === SETTINGS_KEYS.WHATSAPP_BUSINESS_ACCOUNT_ID) defaultValue = '3150419608479658';
         else if (k === SETTINGS_KEYS.WHATSAPP_WEBHOOK_VERIFY_TOKEN) defaultValue = 'maze_secure_verify_2026';
+        else if (k === 'billing_payment_method_added') defaultValue = 'false';
+        else if (k === 'billing_phone_number_purchased') defaultValue = 'false';
+        else if (k === 'billing_phone_number_details') defaultValue = '';
+        else if (k === 'billing_whatsapp_non_csw_count') defaultValue = '0';
+        else if (k === 'billing_voice_agent_seconds') defaultValue = '0';
+        else if (k === 'billing_email_sent_count') defaultValue = '0';
+        else if (k === 'billing_email_package_active') defaultValue = 'false';
+        else if (k === 'billing_email_package_due') defaultValue = '0';
+        else if (k === 'billing_simulated_day') defaultValue = '';
         else if (k.startsWith('enable_') || k.startsWith('require_') || k.startsWith('allow_')) defaultValue = 'false';
         
         db.run('INSERT OR IGNORE INTO settings (key, value) VALUES (?, ?)', [k, defaultValue]);
@@ -911,6 +923,19 @@ ready = (async () => {
       created_at  TEXT    NOT NULL DEFAULT (datetime('now','localtime'))
     )
   `);
+
+  // Migration: Add duration_seconds column to mazeway_orders if missing
+  try {
+    const res = db.exec('PRAGMA table_info(mazeway_orders)');
+    if (res && res.length > 0) {
+      const columns = res[0].values.map(v => v[1]);
+      if (!columns.includes('duration_seconds')) {
+        db.run('ALTER TABLE mazeway_orders ADD COLUMN duration_seconds INTEGER DEFAULT 0');
+      }
+    }
+  } catch (err) {
+    console.error('mazeway_orders duration_seconds column migration failed', err);
+  }
   
   // Mazeway Persistent Agents Table
   db.run(`
@@ -968,6 +993,19 @@ ready = (async () => {
     console.error('Email campaigns channel column migration failed', err);
   }
 
+  // Migration: Add custom_content column if missing in email_campaigns
+  try {
+    const res = db.exec('PRAGMA table_info(email_campaigns)');
+    if (res && res.length > 0) {
+      const columns = res[0].values.map(v => v[1]);
+      if (!columns.includes('custom_content')) {
+        db.run("ALTER TABLE email_campaigns ADD COLUMN custom_content TEXT DEFAULT NULL");
+      }
+    }
+  } catch (err) {
+    console.error('Email campaigns custom_content column migration failed', err);
+  }
+
   // Email Daily Usage Table
   db.run(`
     CREATE TABLE IF NOT EXISTS email_daily_usage (
@@ -997,6 +1035,26 @@ ready = (async () => {
       date            TEXT NOT NULL,
       messages_sent   INTEGER DEFAULT 0,
       PRIMARY KEY (phone_number_id, date)
+    )
+  `);
+
+  // WhatsApp Customer Service Window (CSW) Session States Table
+  db.run(`
+    CREATE TABLE IF NOT EXISTS whatsapp_sessions (
+      phone_number                    TEXT PRIMARY KEY,
+      last_customer_message_timestamp INTEGER,
+      csw_expiration_timestamp        INTEGER,
+      conversation_state              TEXT
+    )
+  `);
+
+  // Hosted Invoice Secure Tokens Table
+  db.run(`
+    CREATE TABLE IF NOT EXISTS invoice_tokens (
+      invoice_id INTEGER PRIMARY KEY,
+      token TEXT NOT NULL,
+      expires_at INTEGER,
+      created_at TEXT DEFAULT (datetime('now','localtime'))
     )
   `);
 

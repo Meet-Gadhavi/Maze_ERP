@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const db = require('../db');
+const campaignSyncService = require('../services/email/campaignSyncService');
 
 // Whitelist of permitted settings keys — any key not listed here is silently ignored.
 const ALLOWED_SETTINGS_KEYS = new Set([
@@ -21,7 +22,11 @@ const ALLOWED_SETTINGS_KEYS = new Set([
     'auto_email_order_confirmation', 'auto_email_payment_received', 'auto_email_due_reminder', 'auto_email_due_reminder_days',
     'auto_whatsapp_invoice_created', 'auto_whatsapp_invoice_edited', 'auto_whatsapp_order_confirmation',
     'auto_whatsapp_voice_request', 'auto_whatsapp_payment_received', 'auto_whatsapp_due_reminder', 'auto_whatsapp_due_reminder_days',
-    'whatsapp_app_id', 'whatsapp_app_secret', 'whatsapp_token', 'whatsapp_phone_number_id', 'whatsapp_business_account_id', 'whatsapp_webhook_verify_token'
+    'whatsapp_app_id', 'whatsapp_app_secret', 'whatsapp_token', 'whatsapp_phone_number_id', 'whatsapp_business_account_id', 'whatsapp_webhook_verify_token',
+    'billing_payment_method_added', 'billing_phone_number_purchased', 'billing_phone_number_details',
+    'billing_whatsapp_non_csw_count', 'billing_voice_agent_seconds', 'billing_email_sent_count',
+    'billing_email_package_active', 'billing_email_package_due', 'billing_simulated_day',
+    'license_key', 'license_plan', 'license_status', 'license_user_id'
 ]);
 
 // GET /api/settings
@@ -59,6 +64,13 @@ router.post('/', async (req, res, next) => {
             
             db.run('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)', [key, String(value)]);
         }
+
+        // Trigger background sync for all shared invoices to update settings or logo in cloud DB
+        const { syncAllSharedInvoices } = require('../services/hostedInvoiceService');
+        syncAllSharedInvoices().catch(e => console.error('[Settings Sync] Failed to sync settings for all shared invoices:', e.message));
+
+        // Sync metadata (settings) to cloud
+        campaignSyncService.pushMetadata().catch(err => console.error('[Sync] Failed to push metadata on settings update:', err.message));
 
         res.json({ message: 'Settings updated' });
     } catch (err) {

@@ -46,6 +46,7 @@ app.use('/api/settings', require('./routes/settings'));
 app.use('/api/reports', require('./routes/reports'));
 app.use('/api/mazeway', require('./routes/mazeway'));
 app.use('/api/data', dataRoutes);
+app.use('/api/billing', require('./routes/billing'));
 app.use('/auth/google', require('./routes/googleAuth'));
 app.use('/auth/whatsapp', require('./routes/whatsappAuth'));
 
@@ -140,8 +141,8 @@ function startBackupService() {
  * Start the Express server with auto-kill retry on EADDRINUSE.
  */
 function startServer() {
-    const server = app.listen(PORT, () => {
-        console.log(`[Maze ERP] Backend running on http://localhost:${PORT}`);
+    const onListening = (msg) => {
+        console.log(msg);
         startBackupService();
         try {
             const { startCampaignScheduler } = require('./services/email/campaignScheduler');
@@ -149,6 +150,16 @@ function startServer() {
         } catch (e) {
             console.error('[Maze ERP] Failed to start campaign scheduler:', e.message);
         }
+        try {
+            const { startEmailReceiver } = require('./services/emailReceiver');
+            startEmailReceiver();
+        } catch (e) {
+            console.error('[Maze ERP] Failed to start email receiver:', e.message);
+        }
+    };
+
+    const server = app.listen(PORT, () => {
+        onListening(`[Maze ERP] Backend running on http://localhost:${PORT}`);
     });
 
     server.on('error', async (err) => {
@@ -157,8 +168,12 @@ function startServer() {
             await killProcessOnPort(PORT);
             // Retry once
             try {
-                app.listen(PORT, () => {
-                    console.log(`[Maze ERP] Backend running on http://localhost:${PORT} (after freeing port)`);
+                const retryServer = app.listen(PORT, () => {
+                    onListening(`[Maze ERP] Backend running on http://localhost:${PORT} (after freeing port)`);
+                });
+                retryServer.on('error', (retryErr) => {
+                    console.error(`[Maze ERP] Failed to start server after freeing port: ${retryErr.message}`);
+                    process.exit(1);
                 });
             } catch (retryErr) {
                 console.error(`[Maze ERP] Failed to start server after freeing port: ${retryErr.message}`);

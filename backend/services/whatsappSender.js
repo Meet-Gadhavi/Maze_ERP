@@ -50,6 +50,24 @@ const whatsappSender = {
 
     async sendText(phone, messageText) {
         try {
+            // Check billing block status
+            const { isBillingBlocked } = require('./billingHelper');
+            const blocked = await isBillingBlocked();
+            if (blocked) {
+                throw new Error("WhatsApp Service Blocked: Outstanding dues have not been paid. Please complete payment in the Billing tab.");
+            }
+
+            const { isCustomerSessionActive } = require('./whatsappSessionService');
+            const sessionActive = await isCustomerSessionActive(phone);
+            if (!sessionActive) {
+                // Without CSW check payment method
+                const pmAdded = db.get("SELECT value FROM settings WHERE key = 'billing_payment_method_added'")?.value === 'true';
+                if (!pmAdded) {
+                    throw new Error("Payment Method Required: Please add a payment method in the Billing tab to send WhatsApp messages outside the Customer Service Window.");
+                }
+                console.warn(`[WhatsApp Sender] CSW is inactive for ${phone}. Sending free-form text might be rejected by Meta: "${messageText.substring(0, 50)}..."`);
+            }
+
             const { token, phoneNumberId } = await getCredentials();
             if (!token || !phoneNumberId) {
                 throw new Error("WhatsApp Cloud API credentials not configured.");
@@ -87,10 +105,113 @@ const whatsappSender = {
             }
 
             await incrementDailyUsage(phoneNumberId);
+            
+            if (!sessionActive) {
+                // Increment billing_whatsapp_non_csw_count
+                db.run("UPDATE settings SET value = CAST(CAST(COALESCE((SELECT value FROM settings WHERE key = 'billing_whatsapp_non_csw_count'), '0') AS INTEGER) + 1 AS TEXT) WHERE key = 'billing_whatsapp_non_csw_count'");
+            }
+
             console.log(`[WhatsApp Sender] Text message successfully sent to ${formattedTo}. Message ID: ${data.messages?.[0]?.id}`);
             return data;
         } catch (err) {
             console.error('[WhatsApp Sender] Error sending text:', err);
+            throw err;
+        }
+    },
+
+    async sendTemplate(phone, templateName, variables = [], buttonUrlParam = null, language = 'en') {
+        try {
+            // Check billing block status
+            const { isBillingBlocked } = require('./billingHelper');
+            const blocked = await isBillingBlocked();
+            if (blocked) {
+                throw new Error("WhatsApp Service Blocked: Outstanding dues have not been paid. Please complete payment in the Billing tab.");
+            }
+
+            const { isCustomerSessionActive } = require('./whatsappSessionService');
+            const sessionActive = await isCustomerSessionActive(phone);
+            if (!sessionActive) {
+                const pmAdded = db.get("SELECT value FROM settings WHERE key = 'billing_payment_method_added'")?.value === 'true';
+                if (!pmAdded) {
+                    throw new Error("Payment Method Required: Please add a payment method in the Billing tab to send WhatsApp templates.");
+                }
+            }
+
+            const { token, phoneNumberId } = await getCredentials();
+            if (!token || !phoneNumberId) {
+                throw new Error("WhatsApp Cloud API credentials not configured.");
+            }
+
+            const formattedTo = formatPhone(phone);
+            if (!formattedTo) {
+                throw new Error("Invalid phone number format.");
+            }
+
+            const url = `https://graph.facebook.com/v21.0/${phoneNumberId}/messages`;
+            
+            const components = [
+                {
+                    type: "body",
+                    parameters: variables.map(val => ({
+                        type: "text",
+                        text: String(val)
+                    }))
+                }
+            ];
+
+            if (buttonUrlParam) {
+                components.push({
+                    type: "button",
+                    sub_type: "url",
+                    index: "0",
+                    parameters: [
+                        {
+                            type: "text",
+                            text: String(buttonUrlParam)
+                        }
+                    ]
+                });
+            }
+
+            const payload = {
+                messaging_product: "whatsapp",
+                recipient_type: "individual",
+                to: formattedTo,
+                type: "template",
+                template: {
+                    name: templateName,
+                    language: {
+                        code: language
+                    },
+                    components
+                }
+            };
+
+            const response = await fetch(url, {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(payload)
+            });
+
+            const data = await response.json();
+            if (!response.ok) {
+                throw new Error(data.error?.message || `Error sending WhatsApp template message ${templateName}`);
+            }
+
+            await incrementDailyUsage(phoneNumberId);
+
+            if (!sessionActive) {
+                // Increment billing_whatsapp_non_csw_count
+                db.run("UPDATE settings SET value = CAST(CAST(COALESCE((SELECT value FROM settings WHERE key = 'billing_whatsapp_non_csw_count'), '0') AS INTEGER) + 1 AS TEXT) WHERE key = 'billing_whatsapp_non_csw_count'");
+            }
+
+            console.log(`[WhatsApp Sender] Template "${templateName}" successfully sent to ${formattedTo}. Message ID: ${data.messages?.[0]?.id}`);
+            return data;
+        } catch (err) {
+            console.error(`[WhatsApp Sender] Error sending template ${templateName}:`, err);
             throw err;
         }
     },
@@ -127,7 +248,7 @@ const whatsappSender = {
         return data.id; // Returns the media ID
     },
 
-    async sendInvoicePDF(phone, pdfBuffer, filename, caption = "Please find attached your invoice PDF.") {
+    async sendInvoicePDFDirect(phone, pdfBuffer, filename, caption = "Please find attached your invoice PDF.") {
         try {
             const { token, phoneNumberId } = await getCredentials();
             if (!token || !phoneNumberId) {
@@ -175,6 +296,82 @@ const whatsappSender = {
             return data;
         } catch (err) {
             console.error('[WhatsApp Sender] Error sending PDF:', err);
+            throw err;
+        }
+    },
+
+    async sendInvoicePDF(phone, pdfBuffer, filename, caption = "Please find attached your invoice PDF.", metadata = {}) {
+        try {
+            const { isCustomerSessionActive } = require('./whatsappSessionService');
+            const sessionActive = await isCustomerSessionActive(phone);
+
+            // Resolve metadata details
+            let customerName = metadata.customerName;
+            let invoiceNumber = metadata.invoiceNumber;
+            let companyName = metadata.companyName;
+
+            // Resolve invoiceId from metadata or filename regex
+            let invoiceId = metadata.invoiceId;
+            if (!invoiceId) {
+                const match = filename.match(/Invoice_(\d+)/i);
+                if (match) {
+                    invoiceId = parseInt(match[1], 10);
+                }
+            }
+
+            if (!invoiceId) {
+                throw new Error("Could not determine invoice ID to generate hosted link.");
+            }
+
+            // Sync invoice to public cloud DB and get sharing link
+            const hostedInvoiceService = require('./hostedInvoiceService');
+            const { url: invoiceUrl, token: secureToken } = await hostedInvoiceService.generateHostedInvoice(invoiceId);
+
+            if (!customerName || !invoiceNumber || !companyName) {
+                await db.ready;
+                const cleanPhone = formatPhone(phone);
+                
+                // Find customer
+                let customer = null;
+                if (cleanPhone) {
+                    const customers = db.all("SELECT * FROM customers WHERE phone IS NOT NULL AND phone != ''");
+                    customer = customers.find(c => {
+                        const dbPhone = (c.phone || '').replace(/\D/g, '');
+                        return dbPhone && (dbPhone === cleanPhone || dbPhone.endsWith(cleanPhone) || cleanPhone.endsWith(dbPhone));
+                    });
+                }
+                
+                if (!customerName) {
+                    customerName = customer ? customer.name : "Valued Customer";
+                }
+                
+                if (!invoiceNumber) {
+                    // Try to fetch specific invoice
+                    const inv = db.get("SELECT * FROM invoices WHERE id = ?", [invoiceId]);
+                    invoiceNumber = inv ? (inv.invoice_number || `#${inv.id}`) : `Invoice #${invoiceId}`;
+                }
+                
+                if (!companyName) {
+                    companyName = db.get("SELECT value FROM settings WHERE key = 'company_name'")?.value || "Quantro";
+                }
+            }
+
+            if (sessionActive) {
+                console.log(`[WhatsApp Sender] Active CSW exists for ${phone}. Sending free-form invoice text message with link.`);
+                const messageText = `Hello ${customerName}, your invoice ${invoiceNumber} from ${companyName} is ready. View it here: ${invoiceUrl}`;
+                return await this.sendText(phone, messageText);
+            } else {
+                console.log(`[WhatsApp Sender] No active CSW for ${phone}. Sending template message with link and URL CTA button.`);
+                
+                // Send approved WhatsApp utility template with body parameters
+                // Variables: [customerName, invoiceNumber, companyName, invoiceUrl]
+                // Dynamic button URL suffix parameter: invoice/{id}?token={token}
+                const buttonUrlParam = `invoice/${invoiceId}?token=${secureToken}`;
+                console.log(`[WhatsApp Sender] Sending utility template "invoice_ready" with button suffix parameter: "${buttonUrlParam}"`);
+                return await this.sendTemplate(phone, "invoice_ready", [customerName, invoiceNumber, companyName, invoiceUrl], buttonUrlParam);
+            }
+        } catch (err) {
+            console.error('[WhatsApp Sender] Error in sendInvoicePDF wrapper:', err);
             throw err;
         }
     }

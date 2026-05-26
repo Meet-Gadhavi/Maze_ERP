@@ -1,25 +1,26 @@
 {
   "name": "quantro",
   "productName": "Quantro",
-  "version": "2.4.2",
+  "version": "2.5.2",
   "description": "Quantro — Professional Desktop ERP by Maze Lab",
   "main": "main/main.js",
   "author": "Maze Lab",
   "license": "MIT",
   "scripts": {
-    "dev:backend": "node --watch backend/server.js",
+    "dev:backend": "node --watch-path=backend backend/server.js",
     "dev:renderer": "npm run dev --prefix renderer",
     "dev:electron": "wait-on http://localhost:5173 && electron .",
     "dev": "concurrently \"npm run dev:backend\" \"npm run dev:renderer\" \"npm run dev:electron\"",
     "build:renderer": "npm run build --prefix renderer",
     "start": "electron .",
-    "build:win": "npm run build:renderer && electron-builder --win"
+    "build:win": "npm run build:renderer && electron-builder --win",
+    "test:billing": "node test_billing_suspension.js"
   },
   "build": {
     "appId": "com.mazelab.quantro",
     "productName": "Quantro",
     "directories": {
-      "output": "Deployment/v2.4.2"
+      "output": "Deployment/v2.5.2"
     },
     "publish": [
       {

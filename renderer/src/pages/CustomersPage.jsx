@@ -197,7 +197,7 @@ const getWhatsAppTemplateText = (templateType, customerName, settings) => {
     return `Special Update from ${companyName}:\n\nDear ${customerName},\n\nWe wanted to share some exciting news regarding our latest products and inventory updates. Contact us for more details!\n\nBest regards,\n${companyName}`;
 };
 
-const getTemplatePreviewHtml = (templateType, customerName, settings) => {
+const getTemplatePreviewHtml = (templateType, customerName, settings, customContent) => {
     const companyName = (settings.company_name && settings.company_name.trim() !== '' && settings.company_name !== 'Quantro')
         ? settings.company_name
         : 'Maze ERP';
@@ -356,8 +356,9 @@ const getTemplatePreviewHtml = (templateType, customerName, settings) => {
                 </div>
                 <div style="padding: 24px; color: #334155; line-height: 1.5; font-size: 13.5px; flex: 1;">
                     <p style="margin: 0 0 12px 0;">Hello <strong>${customerName}</strong>,</p>
-                    <p style="margin: 0 0 16px 0;">We wanted to reach out and share an exciting update regarding our latest products and services. We are continuously working to improve your experience.</p>
+                    <p style="margin: 0 0 16px 0; white-space: pre-wrap;">${customContent || "We wanted to reach out and share an exciting update regarding our latest products and services. We are continuously working to improve your experience."}</p>
                     
+                    ${!customContent ? `
                     <div style="background: #eff6ff; border-radius: 8px; padding: 14px; border: 1px solid #dbeafe; margin-bottom: 16px; color: #1e3a8a;">
                         <p style="margin: 0; font-weight: 600;">What's New?</p>
                         <ul style="margin: 8px 0 0 0; padding-left: 20px; font-size: 12.5px; color: #1e40af;">
@@ -366,6 +367,7 @@ const getTemplatePreviewHtml = (templateType, customerName, settings) => {
                             <li>Real-time campaign tracking and template styling</li>
                         </ul>
                     </div>
+                    ` : ''}
 
                     <p style="margin: 0 0 16px 0;">Thank you for being a valued customer and choosing <strong>${companyName}</strong>!</p>
                     
@@ -1262,6 +1264,10 @@ export default function CustomersPage() {
                                     </p>
                                 </div>
                                 <SButton variant="primary" onClick={() => {
+                                    if (marketingSubTab === 'whatsapp') {
+                                        alert('Coming Soon!');
+                                        return;
+                                    }
                                     setCampaignForm({
                                         name: '',
                                         customers: [],
@@ -1269,7 +1275,8 @@ export default function CustomersPage() {
                                         endDate: '',
                                         timeToSend: '09:00',
                                         template: 'marketing_newsletter',
-                                        channel: marketingSubTab === 'whatsapp' ? 'whatsapp' : 'email'
+                                        channel: 'email',
+                                        customContent: ''
                                     });
                                     setShowCampaignModal(true);
                                 }}>
@@ -1298,6 +1305,10 @@ export default function CustomersPage() {
                                                     : 'Schedule your first email campaign to engage with your customers.'}
                                             </p>
                                             <SButton variant="primary" onClick={() => {
+                                                if (marketingSubTab === 'whatsapp') {
+                                                    alert('Coming Soon!');
+                                                    return;
+                                                }
                                                 setCampaignForm({
                                                     name: '',
                                                     customers: [],
@@ -1305,7 +1316,8 @@ export default function CustomersPage() {
                                                     endDate: '',
                                                     timeToSend: '09:00',
                                                     template: 'marketing_newsletter',
-                                                    channel: marketingSubTab === 'whatsapp' ? 'whatsapp' : 'email'
+                                                    channel: 'email',
+                                                    customContent: ''
                                                 });
                                                 setShowCampaignModal(true);
                                             }}>
@@ -1954,37 +1966,44 @@ export default function CustomersPage() {
                                 autoFocus
                             />
                         </FormGroup>
+                        <FormGroup label="Template Selection" required>
+                            <CustomSelect
+                                value={campaignForm.template}
+                                onChange={template => setCampaignForm({ ...campaignForm, template })}
+                                options={[
+                                    { value: 'marketing_newsletter', label: 'General Marketing Newsletter' },
+                                    { value: 'due_balance', label: 'Due Balance Statement' },
+                                    { value: 'festival_offer', label: 'Festival Offer (Diwali/Holi/Eid Sale)' },
+                                    { value: 'discount_coupon', label: 'Discount Coupon' },
+                                    { value: 'new_arrivals', label: 'New Arrivals' },
+                                    { value: 'flash_sale', label: 'Flash Sale (Limited Offer)' },
+                                    { value: 'clearance_sale', label: 'Clearance Sale (Stock Clearance)' },
+                                    { value: 'back_in_stock', label: 'Back In Stock (Available Again)' }
+                                ]}
+                            />
+                        </FormGroup>
 
-                        <div className="grid-2 gap-16" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-                            <FormGroup label="Campaign Channel" required>
-                                <CustomSelect
-                                    value={campaignForm.channel || 'email'}
-                                    onChange={channel => setCampaignForm({ ...campaignForm, channel, customers: [] })}
-                                    options={[
-                                        { value: 'email', label: 'Gmail Email' },
-                                        { value: 'whatsapp', label: 'Meta WhatsApp' }
-                                    ]}
-                                    disabled={true}
+                        {campaignForm.template === 'marketing_newsletter' && (
+                            <FormGroup label="Newsletter Message Content" required>
+                                <textarea
+                                    value={campaignForm.customContent || ''}
+                                    onChange={e => setCampaignForm({ ...campaignForm, customContent: e.target.value })}
+                                    placeholder="Write your custom newsletter message here..."
+                                    style={{
+                                        width: '100%',
+                                        minHeight: '120px',
+                                        padding: '10px',
+                                        borderRadius: '6px',
+                                        border: '1px solid var(--border-light)',
+                                        background: 'var(--bg-primary)',
+                                        color: 'var(--text-primary)',
+                                        fontFamily: 'inherit',
+                                        fontSize: '13px',
+                                        resize: 'vertical'
+                                    }}
                                 />
                             </FormGroup>
-
-                            <FormGroup label="Template Selection" required>
-                                <CustomSelect
-                                    value={campaignForm.template}
-                                    onChange={template => setCampaignForm({ ...campaignForm, template })}
-                                    options={[
-                                        { value: 'marketing_newsletter', label: 'General Marketing Newsletter' },
-                                        { value: 'due_balance', label: 'Due Balance Statement' },
-                                        { value: 'festival_offer', label: 'Festival Offer (Diwali/Holi/Eid Sale)' },
-                                        { value: 'discount_coupon', label: 'Discount Coupon' },
-                                        { value: 'new_arrivals', label: 'New Arrivals' },
-                                        { value: 'flash_sale', label: 'Flash Sale (Limited Offer)' },
-                                        { value: 'clearance_sale', label: 'Clearance Sale (Stock Clearance)' },
-                                        { value: 'back_in_stock', label: 'Back In Stock (Available Again)' }
-                                    ]}
-                                />
-                            </FormGroup>
-                        </div>
+                        )}
 
                         <div className="grid-2 gap-16" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
                             <FormGroup label="Time to Send" required>
@@ -2342,7 +2361,8 @@ export default function CustomersPage() {
                                          (previewCustomerId && campaignForm.customers.includes(previewCustomerId)
                                              ? (customers.find(c => c.id === previewCustomerId)?.name || 'Valued Customer')
                                              : (customers.find(c => c.id === campaignForm.customers[0])?.name || 'Valued Customer')),
-                                         settings
+                                         settings,
+                                         campaignForm.customContent
                                      )}
                                      style={{ 
                                          width: '100%', 

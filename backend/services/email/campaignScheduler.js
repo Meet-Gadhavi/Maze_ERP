@@ -3,6 +3,7 @@ const EmailConnection = require('../../models/EmailConnection');
 const gmailSender = require('./gmailSender');
 const whatsappSender = require('../whatsappSender');
 const { generateInvoicePDF } = require('../pdfGenerator');
+const campaignSyncService = require('./campaignSyncService');
 
 let lastReminderDate = '';
 
@@ -373,11 +374,12 @@ async function processCampaigns() {
                     } else {
                         // General marketing message or newsletter style
                         subject = `${campaign.name} - Special Update`;
-                        const innerHtml = `
-                            <p>We wanted to reach out and share an exciting update regarding our latest products and services. We are continuously working to improve your experience.</p>
-                        `;
-                        htmlBody = wrapCampaignHtml(campaign.name, customer.name, innerHtml, settings);
-                        textBody = `Special Update from ${companyName}:\n\nDear ${customer.name},\n\nWe wanted to share some exciting news regarding our latest products and inventory updates. Contact us for more details!`;
+                        const messageText = campaign.custom_content || campaign.customContent || "We wanted to reach out and share an exciting update regarding our latest products and services. We are continuously working to improve your experience.";
+                        
+                        const formattedHtmlContent = `<p style="white-space: pre-wrap;">${messageText}</p>`;
+                        htmlBody = wrapCampaignHtml(campaign.name, customer.name, formattedHtmlContent, settings);
+                        
+                        textBody = `Special Update from ${companyName}:\n\nDear ${customer.name},\n\n${messageText}`;
                     }
 
                     if (skipCustomer) {
@@ -424,6 +426,9 @@ async function processCampaigns() {
 function startCampaignScheduler() {
     console.log('[Campaign Scheduler] Starting background campaign and reminder runner...');
     
+    // Start campaigns pulling and cloud syncing
+    campaignSyncService.startSyncSchedule();
+
     // Check campaigns every 60 seconds
     setInterval(processCampaigns, 60000);
     

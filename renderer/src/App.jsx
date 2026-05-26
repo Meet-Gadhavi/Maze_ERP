@@ -12,6 +12,7 @@ import CustomersPage from './pages/CustomersPage';
 import SettingsPage from './pages/SettingsPage';
 import PurchasePage from './pages/PurchasePage';
 import AutomationPage from './pages/AutomationPage';
+import BillingPage from './pages/BillingPage';
 import AuthPage from './pages/AuthPage';
 import CustomerDisplayPage from './pages/CustomerDisplayPage';
 import api from './api';
@@ -72,25 +73,224 @@ class AppErrorBoundary extends Component {
     }
 }
 
+function ActivationGate({ session, onActivated }) {
+    const [keyInput, setKeyInput] = useState('');
+    const [loading, setLoading] = useState(false);
+
+    const handleVerify = async (e) => {
+        e.preventDefault();
+        if (!keyInput.trim()) {
+            toast.error('Please enter your license activation key.');
+            return;
+        }
+
+        setLoading(true);
+        const loadingId = toast.loading('Verifying license activation key in Supabase...');
+
+        try {
+            const { data, error } = await supabase
+                .from('licenses')
+                .select('*')
+                .eq('license_key', keyInput.trim())
+                .eq('user_id', session.user.id)
+                .maybeSingle();
+
+            if (error) throw error;
+
+            if (!data) {
+                toast.error('Invalid key. Make sure the activation code is registered to your current email.', { id: loadingId });
+                setLoading(false);
+                return;
+            }
+
+            if (data.status !== 'Active') {
+                toast.error(`This license key is currently ${data.status}.`, { id: loadingId });
+                setLoading(false);
+                return;
+            }
+
+            // Save details to SQLite settings
+            await api.updateSettings({
+                license_key: data.license_key,
+                license_plan: data.plan,
+                license_status: data.status,
+                license_user_id: data.user_id
+            });
+
+            toast.success(`Welcome to Quantro ERP! Plan unlocked: ${data.plan}`, { id: loadingId });
+            onActivated(data.plan);
+        } catch (err) {
+            console.error('License verification error:', err);
+            toast.error(`Verification failed: ${err.message}`, { id: loadingId });
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleSignOut = async () => {
+        await supabase.auth.signOut();
+        toast.info('Signed out successfully.');
+    };
+
+    return (
+        <div style={{
+            display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+            height: '100vh', background: 'linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%)',
+            padding: '24px', fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
+        }}>
+            <div style={{
+                background: '#ffffff', padding: '40px', borderRadius: '24px',
+                boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)',
+                width: '100%', maxWidth: '480px', textAlign: 'center', border: '1px solid #e2e8f0'
+            }}>
+                <div style={{
+                    width: '64px', height: '64px', borderRadius: '16px',
+                    background: 'rgba(10, 110, 255, 0.1)', color: '#0A6EFF',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    margin: '0 auto 24px auto'
+                }}>
+                    <Icons.KeyRound size={32} />
+                </div>
+
+                <h2 style={{ margin: '0 0 8px 0', fontSize: '24px', fontWeight: 800, color: '#0f172a', letterSpacing: '-0.02em' }}>
+                    Activate Quantro ERP
+                </h2>
+                <p style={{ margin: '0 0 24px 0', color: '#64748b', fontSize: '14px', lineHeight: 1.5 }}>
+                    Please enter the activation key generated after signing in and downloading the installer from the website dashboard.
+                </p>
+
+                <form onSubmit={handleVerify} style={{ display: 'flex', flexDirection: 'column', gap: '16px', textAlign: 'left' }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                        <label style={{ fontSize: '11px', fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                            License Key
+                        </label>
+                        <input
+                            type="text"
+                            placeholder="QTY-XXXX-XXXX-XXXX"
+                            required
+                            value={keyInput}
+                            onChange={(e) => setKeyInput(e.target.value)}
+                            style={{
+                                width: '100%', padding: '12px 16px', borderRadius: '12px',
+                                border: '1px solid #cbd5e1', fontSize: '14px', outline: 'none',
+                                transition: 'border-color 0.2s', fontFamily: 'monospace',
+                                boxSizing: 'border-box'
+                            }}
+                            onFocus={(e) => e.target.style.borderColor = '#0A6EFF'}
+                            onBlur={(e) => e.target.style.borderColor = '#cbd5e1'}
+                        />
+                    </div>
+
+                    <SButton
+                        variant="primary"
+                        style={{ height: '48px', justifyContent: 'center', fontSize: '14px', width: '100%' }}
+                        disabled={loading}
+                        loading={loading}
+                        submit
+                    >
+                        Unlock Application
+                    </SButton>
+                </form>
+
+                <div style={{ marginTop: '24px', paddingTop: '20px', borderTop: '1px solid #f1f5f9', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span style={{ fontSize: '12px', color: '#64748b', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '240px' }}>
+                        Logged in as: <strong style={{ color: '#334155' }}>{session?.user?.email}</strong>
+                    </span>
+                    <button
+                        onClick={handleSignOut}
+                        style={{
+                            background: 'none', border: 'none', color: '#ef4444', fontSize: '12px',
+                            fontWeight: 650, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px'
+                        }}
+                    >
+                        <Icons.LogOut size={14} /> Log Out
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+}
+
 export default function App() {
     const [session, setSession] = useState(null);
     const [loading, setLoading] = useState(true);
+    const [isActivated, setIsActivated] = useState(false);
+    const [checkingActivation, setCheckingActivation] = useState(false);
 
     const [shutdownLoading, setShutdownLoading] = useState(false);
     const [shutdownProgress, setShutdownProgress] = useState(0);
     const [shutdownMessage, setShutdownMessage] = useState('');
 
+    const checkActivation = async (currSession) => {
+        setCheckingActivation(true);
+        try {
+            const settings = await api.getSettings();
+            const localKey = settings.license_key;
+            const localStatus = settings.license_status || '';
+
+            if (!localKey) {
+                setIsActivated(false);
+                setLoading(false);
+                setCheckingActivation(false);
+                return;
+            }
+
+            try {
+                const { data, error } = await supabase
+                    .from('licenses')
+                    .select('*')
+                    .eq('license_key', localKey)
+                    .eq('user_id', currSession.user.id)
+                    .maybeSingle();
+
+                if (!error && data) {
+                    if (data.status === 'Active') {
+                        setIsActivated(true);
+                        await api.updateSettings({
+                            license_plan: data.plan,
+                            license_status: data.status,
+                            license_user_id: data.user_id
+                        });
+                    } else {
+                        setIsActivated(false);
+                        await api.updateSettings({
+                            license_status: data.status
+                        });
+                    }
+                } else {
+                    setIsActivated(localStatus === 'Active');
+                }
+            } catch (netErr) {
+                setIsActivated(localStatus === 'Active');
+            }
+        } catch (err) {
+            console.error('Check activation error:', err);
+        } finally {
+            setCheckingActivation(false);
+            setLoading(false);
+        }
+    };
+
     useEffect(() => {
         // Initial check
         supabase.auth.getSession().then(({ data: { session } }) => {
             setSession(session);
-            setLoading(false);
+            if (session) {
+                checkActivation(session);
+            } else {
+                setLoading(false);
+            }
         });
 
         // Listen for changes
         const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
             setSession(session);
-            setLoading(false);
+            if (session) {
+                checkActivation(session);
+            } else {
+                setIsActivated(false);
+                setLoading(false);
+            }
         });
 
         // Listen for deep links from Electron
@@ -292,6 +492,11 @@ export default function App() {
                         <Route path="/customer-display" element={<CustomerDisplayPage />} />
                         <Route path="*" element={<AuthPage />} />
                     </Routes>
+                ) : !isActivated ? (
+                    <ActivationGate 
+                        session={session} 
+                        onActivated={() => setIsActivated(true)} 
+                    />
                 ) : (
                     <Routes>
                         <Route path="/customer-display" element={<CustomerDisplayPage />} />
@@ -304,6 +509,7 @@ export default function App() {
                                     <Route path="/customers" element={<CustomersPage />} />
                                     <Route path="/purchase" element={<PurchasePage />} />
                                     <Route path="/automation" element={<AutomationPage />} />
+                                    <Route path="/billing" element={<BillingPage />} />
                                     <Route path="/settings" element={<SettingsPage />} />
                                     <Route path="*" element={<Navigate to="/" replace />} />
                                 </Routes>

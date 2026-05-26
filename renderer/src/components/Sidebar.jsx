@@ -3,6 +3,7 @@ import { NavLink } from 'react-router-dom';
 import { APP_COMPANY, APP_NAME, APP_VERSION, PURCHASES_LABEL } from '../constants';
 import { supabase } from '../supabase';
 import { Icons } from './Icons';
+import api from '../api';
 import './Sidebar.css';
 
 const navItems = [
@@ -37,6 +38,11 @@ const navItems = [
         icon: <Icons.Cpu size={20} />
     },
     {
+        to: '/billing',
+        label: 'Billing',
+        icon: <Icons.CreditCard size={20} />
+    },
+    {
         to: '/settings',
         label: 'Settings',
         icon: <Icons.Settings size={20} />
@@ -45,6 +51,16 @@ const navItems = [
 
 export default function Sidebar({ isCollapsed, setIsCollapsed }) {
     const [user, setUser] = useState(null);
+    const [settings, setSettings] = useState(null);
+
+    useEffect(() => {
+        const loadSettings = () => {
+            api.getSettings().then(setSettings).catch(console.error);
+        };
+        loadSettings();
+        window.addEventListener('settings-updated', loadSettings);
+        return () => window.removeEventListener('settings-updated', loadSettings);
+    }, []);
 
     useEffect(() => {
         // Get initial user
@@ -95,17 +111,20 @@ export default function Sidebar({ isCollapsed, setIsCollapsed }) {
 
             <div className="sidebar-footer">
                 <div className="sidebar-footer-content">
-                    <div className="sidebar-footer-info">
-                        {!isCollapsed && <span className="sidebar-footer-text">v{APP_VERSION}</span>}
-                        <div className="user-avatar-wrapper circular" title={userName}>
-                            {userAvatar ? (
-                                <img src={userAvatar} alt="Profile" className="user-avatar-img" />
-                            ) : (
-                                <div className="user-avatar-placeholder">
-                                    <Icons.User size={20} strokeWidth={2} />
-                                </div>
-                            )}
+                    <div className="sidebar-footer-info" style={{ justifyContent: 'space-between', width: '100%', display: 'flex', alignItems: 'center' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                            <div className="user-avatar-wrapper circular" title={userName}>
+                                {userAvatar ? (
+                                    <img src={userAvatar} alt="Profile" className="user-avatar-img" />
+                                ) : (
+                                    <div className="user-avatar-placeholder">
+                                        <Icons.User size={20} strokeWidth={2} />
+                                    </div>
+                                )}
+                            </div>
+                            <span className="user-name" style={{ fontWeight: 600, fontSize: '13px', color: 'var(--text-primary)' }}>{userName}</span>
                         </div>
+                        <span className="app-version" style={{ fontSize: '11px', color: 'var(--text-secondary)', fontWeight: 500 }}>v{APP_VERSION}</span>
                     </div>
                 </div>
             </div>

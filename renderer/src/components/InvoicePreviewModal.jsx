@@ -218,12 +218,21 @@ export default function InvoicePreviewModal({ invoice, onClose, autoOpenShare = 
         }
     }, [showShareModal]);
 
-    const handleCopyLink = () => {
+    const handleCopyLink = async () => {
         if (!invoice) return;
-        const link = `http://localhost:3000/#/sales?preview=${invoice.id}`;
-        navigator.clipboard.writeText(link)
-            .then(() => toast.success('Invoice link copied to clipboard!'))
-            .catch(() => toast.error('Failed to copy link.'));
+        const loadingId = toast.loading('Generating hosted invoice link...');
+        try {
+            const res = await api.getInvoiceShareLink(invoice.id);
+            if (res && res.url) {
+                await navigator.clipboard.writeText(res.url);
+                toast.success('Hosted invoice link copied to clipboard!', { id: loadingId });
+            } else {
+                throw new Error('No URL returned from server');
+            }
+        } catch (err) {
+            console.error('Failed to copy hosted invoice link:', err);
+            toast.error(err.message || 'Failed to generate link.', { id: loadingId });
+        }
     };
 
     const handleSendGmail = async () => {

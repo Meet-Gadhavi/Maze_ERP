@@ -5,7 +5,15 @@ import api from '../../api';
 import { toast } from 'sonner';
 import Modal from '../Modal';
 
-export default function ConnectedServicesCard() {
+export default function ConnectedServicesCard({
+    agents = [],
+    onCreateVoiceAgent,
+    onOpenConfig,
+    onToggleActive,
+    onDeleteAgent
+}) {
+    const voiceAgents = (agents || []).filter(a => a.type?.toLowerCase() === 'voice');
+
     // Gmail States
     const [connections, setConnections] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -349,10 +357,24 @@ export default function ConnectedServicesCard() {
                         </p>
                     </div>
                     {waConnections.length === 0 && !loadingWa && (
-                        <SButton variant="primary" onClick={handleConnectWhatsApp} style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
-                            <Icons.Zap size={16} />
-                            Get WhatsApp Service
-                        </SButton>
+                        <div style={{ display: 'flex', gap: '8px' }}>
+                            <SButton variant="secondary" onClick={() => {
+                                const bypassUrl = 'http://localhost:3001/auth/whatsapp/callback';
+                                if (window.maze?.openExternal) {
+                                    window.maze.openExternal(bypassUrl);
+                                } else {
+                                    window.open(bypassUrl, '_blank');
+                                }
+                            }}>
+                                Direct Connect
+                            </SButton>
+                            <SButton variant="primary" onClick={handleConnectWhatsApp} style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" className="bi bi-whatsapp" viewBox="0 0 16 16">
+                                    <path d="M13.601 2.326A7.85 7.85 0 0 0 7.994 0C3.627 0 .068 3.558.064 7.926c0 1.399.366 2.76 1.057 3.965L0 16l4.204-1.102a7.9 7.9 0 0 0 3.79.965h.004c4.368 0 7.926-3.558 7.93-7.93A7.9 7.9 0 0 0 13.6 2.326zM7.994 14.521a6.6 6.6 0 0 1-3.356-.92l-.24-.144-2.494.654.666-2.433-.156-.251a6.56 6.56 0 0 1-1.007-3.505c0-3.626 2.957-6.584 6.591-6.584a6.56 6.56 0 0 1 4.66 1.931 6.56 6.56 0 0 1 1.928 4.66c-.004 3.639-2.961 6.592-6.592 6.592m3.615-4.934c-.197-.099-1.17-.578-1.353-.646-.182-.065-.315-.099-.445.099-.133.197-.513.646-.627.775-.114.133-.232.148-.43.05-.197-.1-.836-.308-1.592-.985-.59-.525-.985-1.175-1.103-1.372-.114-.198-.011-.304.088-.403.087-.088.197-.232.296-.346.1-.114.133-.198.198-.33.065-.134.034-.248-.015-.347-.05-.099-.445-1.076-.612-1.47-.16-.389-.323-.335-.445-.34-.114-.007-.247-.007-.38-.007a.73.73 0 0 0-.529.247c-.182.198-.691.677-.691 1.654s.71 1.916.81 2.049c.098.133 1.394 2.132 3.383 2.992.47.205.84.326 1.129.418.475.152.904.129 1.246.08.38-.058 1.171-.48 1.338-.943.164-.464.164-.86.114-.943-.049-.084-.182-.133-.38-.232"/>
+                                </svg>
+                                Get WhatsApp Service
+                            </SButton>
+                        </div>
                     )}
                 </div>
 
@@ -422,9 +444,118 @@ export default function ConnectedServicesCard() {
                         </div>
                     ) : (
                         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '32px', border: '1px dashed var(--border)', borderRadius: '12px', background: 'var(--bg-soft)' }}>
-                            <Icons.MessageSquare size={32} style={{ color: 'var(--text-tertiary)', marginBottom: '8px' }} />
+                            <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" fill="currentColor" className="bi bi-whatsapp" viewBox="0 0 16 16" style={{ color: 'var(--text-tertiary)', marginBottom: '8px' }}>
+                                <path d="M13.601 2.326A7.85 7.85 0 0 0 7.994 0C3.627 0 .068 3.558.064 7.926c0 1.399.366 2.76 1.057 3.965L0 16l4.204-1.102a7.9 7.9 0 0 0 3.79.965h.004c4.368 0 7.926-3.558 7.93-7.93A7.9 7.9 0 0 0 13.6 2.326zM7.994 14.521a6.6 6.6 0 0 1-3.356-.92l-.24-.144-2.494.654.666-2.433-.156-.251a6.56 6.56 0 0 1-1.007-3.505c0-3.626 2.957-6.584 6.591-6.584a6.56 6.56 0 0 1 4.66 1.931 6.56 6.56 0 0 1 1.928 4.66c-.004 3.639-2.961 6.592-6.592 6.592m3.615-4.934c-.197-.099-1.17-.578-1.353-.646-.182-.065-.315-.099-.445.099-.133.197-.513.646-.627.775-.114.133-.232.148-.43.05-.197-.1-.836-.308-1.592-.985-.59-.525-.985-1.175-1.103-1.372-.114-.198-.011-.304.088-.403.087-.088.197-.232.296-.346.1-.114.133-.198.198-.33.065-.134.034-.248-.015-.347-.05-.099-.445-1.076-.612-1.47-.16-.389-.323-.335-.445-.34-.114-.007-.247-.007-.38-.007a.73.73 0 0 0-.529.247c-.182.198-.691.677-.691 1.654s.71 1.916.81 2.049c.098.133 1.394 2.132 3.383 2.992.47.205.84.326 1.129.418.475.152.904.129 1.246.08.38-.058 1.171-.48 1.338-.943.164-.464.164-.86.114-.943-.049-.084-.182-.133-.38-.232"/>
+                            </svg>
                             <p style={{ margin: 0, fontSize: '13px', color: 'var(--text-secondary)', textAlign: 'center' }}>
                                 No WhatsApp Business accounts connected yet. Get started with WhatsApp Cloud API to automate customer outreach.
+                            </p>
+                        </div>
+                    )}
+                </div>
+            </div>
+
+            {/* VOICE AGENT SERVICE SECTION */}
+            <div className="agents-section">
+                <div className="agents-section-header" style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
+                    <div style={{
+                        width: '48px',
+                        height: '48px',
+                        borderRadius: '12px',
+                        background: '#f8fafc',
+                        border: '1px solid #e2e8f0',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        padding: '4px',
+                        overflow: 'hidden'
+                    }}>
+                        <img src="/mazeway.png" alt="Voice Agent" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+                    </div>
+                    <div className="section-title-wrap" style={{ flex: 1 }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <h3 style={{ margin: 0, fontSize: '18px', fontWeight: 600 }}>
+                                Voice Agent Service
+                            </h3>
+                        </div>
+                        <p style={{ margin: '4px 0 0 0', fontSize: '13px', color: 'var(--text-secondary)' }}>
+                            Automate customer calling using advanced AI personas, answer queries, perform outbound campaigns, and schedule calls.
+                        </p>
+                    </div>
+                    {voiceAgents.length === 0 && (
+                        <SButton variant="primary" onClick={onCreateVoiceAgent} style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
+                            <Icons.Phone size={16} />
+                            Get Voice Agent
+                        </SButton>
+                    )}
+                </div>
+
+                <div style={{ marginTop: '20px' }}>
+                    {voiceAgents.length > 0 ? (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                            {voiceAgents.map(conn => (
+                                <div key={conn.id} className="agent-card" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px', borderRadius: '14px', border: '1px solid var(--border)', background: '#fff' }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                        <div style={{ display: 'flex', flexDirection: 'column' }}>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                <span style={{ fontWeight: 600, fontSize: '14px', color: 'var(--text-primary)' }}>{conn.name}</span>
+                                                <span className={`agent-status-chip ${conn.status === 'ACTIVE' ? 'active' : conn.status === 'PROVISIONING' ? 'provisioning' : conn.status === 'FAILED' ? 'failed' : 'provisioning'}`} style={{
+                                                    fontSize: '10px',
+                                                    padding: '2px 8px',
+                                                    borderRadius: '999px',
+                                                    fontWeight: 700,
+                                                    background: conn.status === 'ACTIVE' ? 'rgba(52, 199, 89, 0.1)' : conn.status === 'PROVISIONING' ? 'rgba(255, 149, 0, 0.1)' : 'rgba(255, 59, 48, 0.1)',
+                                                    color: conn.status === 'ACTIVE' ? 'var(--success)' : conn.status === 'PROVISIONING' ? '#d69e2e' : 'var(--danger)',
+                                                    border: '1px solid currentColor'
+                                                }}>
+                                                    {conn.status}
+                                                </span>
+                                                <span className={`agent-status-chip ${conn.is_active ? 'active' : 'inactive'}`} style={{
+                                                    fontSize: '10px',
+                                                    padding: '2px 8px',
+                                                    borderRadius: '999px',
+                                                    fontWeight: 700,
+                                                    background: conn.is_active ? 'rgba(52, 199, 89, 0.1)' : 'rgba(100, 116, 139, 0.1)',
+                                                    color: conn.is_active ? 'var(--success)' : 'var(--text-secondary)',
+                                                    border: '1px solid currentColor'
+                                                }}>
+                                                    {conn.is_active ? 'Enabled' : 'Disabled'}
+                                                </span>
+                                            </div>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginTop: '6px', fontSize: '12px', color: 'var(--text-tertiary)' }}>
+                                                <span>Persona: {conn.persona}</span>
+                                                <span>•</span>
+                                                <span>Language: {conn.language}</span>
+                                                <span>•</span>
+                                                <span>Plan: {conn.config?.plan ? conn.config.plan.toUpperCase() : 'STARTER'} (₹{conn.config?.price || 600}/mo)</span>
+                                            </div>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '6px', fontSize: '12px', fontWeight: 500, color: 'var(--text-secondary)' }}>
+                                                <span>VoIP Number:</span>
+                                                <span style={{ color: conn.config?.phone_number ? 'var(--text-primary)' : 'var(--danger)', fontWeight: 600 }}>
+                                                    {conn.config?.phone_number || 'Provisioning Phone Number...'}
+                                                </span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div style={{ display: 'flex', gap: '8px' }}>
+                                        <SButton variant="secondary" size="small" onClick={() => onOpenConfig(conn)}>
+                                            Manage Logs
+                                        </SButton>
+                                        <SButton variant="secondary" size="small" onClick={() => onToggleActive(conn)}>
+                                            {conn.is_active ? 'Deactivate' : 'Activate'}
+                                        </SButton>
+                                        <SButton variant="secondary" tone="critical" size="small" onClick={() => onDeleteAgent(conn)}>
+                                            Delete
+                                        </SButton>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    ) : (
+                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '32px', border: '1px dashed var(--border)', borderRadius: '12px', background: 'var(--bg-soft)' }}>
+                            <Icons.Phone size={32} style={{ color: 'var(--text-tertiary)', marginBottom: '8px' }} />
+                            <p style={{ margin: 0, fontSize: '13px', color: 'var(--text-secondary)', textAlign: 'center', maxWidth: '450px', lineHeight: 1.5 }}>
+                                No AI Voice calling agents created yet. Get started by creating your first AI Voice calling agent to automate customer calling.
                             </p>
                         </div>
                     )}
