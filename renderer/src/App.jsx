@@ -1,6 +1,6 @@
 import './styles/index.css';
 import { HashRouter, Routes, Route, Navigate } from 'react-router-dom';
-import { Toaster } from 'sonner';
+import { Toaster, toast } from 'sonner';
 import { Component, useState, useEffect } from 'react';
 import { supabase } from './supabase';
 import Layout from './components/Layout';

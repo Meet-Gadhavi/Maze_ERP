@@ -4,6 +4,12 @@ All notable changes to the Quantro ERP application will be documented here.
 
 ---
 
+## [2.5.3] - 2026-05-26
+### Fixed
+- **Critical App Crash on Startup**: Resolved a `ReferenceError: toast is not defined` error in `App.jsx` that was caused by a missing import of the `toast` function from `sonner`. This error was being silently caught by the global `AppErrorBoundary`, which displayed the "Something went wrong" fallback screen instead of the actual application. Added the missing `toast` import alongside the existing `Toaster` import.
+
+---
+
 ## [2.5.2] - 2026-05-26
 ### Added
 - **Licensing & Key Activation Gate**:
