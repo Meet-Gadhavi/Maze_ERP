@@ -4,6 +4,12 @@ All notable changes to the Quantro ERP application will be documented here.
 
 ---
 
+## [2.5.4] - 2026-05-26
+### Fixed
+- **Critical App Crash — Missing Icon (KeyRound)**: Resolved a `TypeError: Cannot read properties of undefined` crash in the `ActivationGate` component caused by `Icons.KeyRound` being used in `App.jsx` but never imported or exported in `Icons.jsx`. Added `KeyRound` to both the `lucide-react` import list and the `Icons` export object. This was the primary cause of the "Something went wrong" error boundary screen shown on app startup.
+
+---
+
 ## [2.5.3] - 2026-05-26
 ### Fixed
 - **Critical App Crash on Startup**: Resolved a `ReferenceError: toast is not defined` error in `App.jsx` that was caused by a missing import of the `toast` function from `sonner`. This error was being silently caught by the global `AppErrorBoundary`, which displayed the "Something went wrong" fallback screen instead of the actual application. Added the missing `toast` import alongside the existing `Toaster` import.
