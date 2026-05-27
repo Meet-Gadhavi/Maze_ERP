@@ -92,15 +92,28 @@ function ActivationGate({ session, onActivated }) {
                 .from('licenses')
                 .select('*')
                 .eq('license_key', keyInput.trim())
-                .eq('user_id', session.user.id)
                 .maybeSingle();
 
             if (error) throw error;
 
             if (!data) {
-                toast.error('Invalid key. Make sure the activation code is registered to your current email.', { id: loadingId });
+                toast.error('Invalid key. Make sure the activation code is correct.', { id: loadingId });
                 setLoading(false);
                 return;
+            }
+
+            if (data.user_id !== session.user.id) {
+                if (data.email === session.user.email) {
+                    // Self-correct / sync user_id if email matches
+                    await supabase
+                        .from('licenses')
+                        .update({ user_id: session.user.id })
+                        .eq('id', data.id);
+                } else {
+                    toast.error('This key is registered to a different account.', { id: loadingId });
+                    setLoading(false);
+                    return;
+                }
             }
 
             if (data.status !== 'Active') {
@@ -114,7 +127,7 @@ function ActivationGate({ session, onActivated }) {
                 license_key: data.license_key,
                 license_plan: data.plan,
                 license_status: data.status,
-                license_user_id: data.user_id
+                license_user_id: session.user.id
             });
 
             toast.success(`Welcome to Quantro ERP! Plan unlocked: ${data.plan}`, { id: loadingId });
@@ -229,6 +242,32 @@ export default function App() {
             const localStatus = settings.license_status || '';
 
             if (!localKey) {
+                // Auto-fetch active license from Supabase if we don't have a local key
+                try {
+                    const { data: userLicenses, error: fetchError } = await supabase
+                        .from('licenses')
+                        .select('*')
+                        .eq('user_id', currSession.user.id)
+                        .eq('status', 'Active')
+                        .order('created_at', { ascending: false });
+
+                    if (!fetchError && userLicenses && userLicenses.length > 0) {
+                        const activeLicense = userLicenses[0];
+                        await api.updateSettings({
+                            license_key: activeLicense.license_key,
+                            license_plan: activeLicense.plan,
+                            license_status: activeLicense.status,
+                            license_user_id: activeLicense.user_id
+                        });
+                        setIsActivated(true);
+                        setLoading(false);
+                        setCheckingActivation(false);
+                        return;
+                    }
+                } catch (fetchErr) {
+                    console.error('Failed to auto-fetch license from Supabase:', fetchErr);
+                }
+
                 setIsActivated(false);
                 setLoading(false);
                 setCheckingActivation(false);
@@ -240,25 +279,70 @@ export default function App() {
                     .from('licenses')
                     .select('*')
                     .eq('license_key', localKey)
-                    .eq('user_id', currSession.user.id)
                     .maybeSingle();
 
                 if (!error && data) {
-                    if (data.status === 'Active') {
+                    // Sync user_id if email matches but user_id is outdated
+                    if (data.user_id !== currSession.user.id && data.email === currSession.user.email) {
+                        await supabase
+                            .from('licenses')
+                            .update({ user_id: currSession.user.id })
+                            .eq('id', data.id);
+                    }
+
+                    if (data.status === 'Active' && (data.user_id === currSession.user.id || data.email === currSession.user.email)) {
                         setIsActivated(true);
                         await api.updateSettings({
                             license_plan: data.plan,
                             license_status: data.status,
-                            license_user_id: data.user_id
+                            license_user_id: currSession.user.id
                         });
                     } else {
-                        setIsActivated(false);
-                        await api.updateSettings({
-                            license_status: data.status
-                        });
+                        // The current key is not active. Check if user has another active license in Supabase.
+                        const { data: altLicenses, error: altError } = await supabase
+                            .from('licenses')
+                            .select('*')
+                            .eq('user_id', currSession.user.id)
+                            .eq('status', 'Active')
+                            .order('created_at', { ascending: false });
+
+                        if (!altError && altLicenses && altLicenses.length > 0) {
+                            const activeLicense = altLicenses[0];
+                            await api.updateSettings({
+                                license_key: activeLicense.license_key,
+                                license_plan: activeLicense.plan,
+                                license_status: activeLicense.status,
+                                license_user_id: activeLicense.user_id
+                            });
+                            setIsActivated(true);
+                        } else {
+                            setIsActivated(false);
+                            await api.updateSettings({
+                                license_status: data.status
+                            });
+                        }
                     }
                 } else {
-                    setIsActivated(localStatus === 'Active');
+                    // Key not found or error. Check if they have any active license.
+                    const { data: altLicenses, error: altError } = await supabase
+                        .from('licenses')
+                        .select('*')
+                        .eq('user_id', currSession.user.id)
+                        .eq('status', 'Active')
+                        .order('created_at', { ascending: false });
+
+                    if (!altError && altLicenses && altLicenses.length > 0) {
+                        const activeLicense = altLicenses[0];
+                        await api.updateSettings({
+                            license_key: activeLicense.license_key,
+                            license_plan: activeLicense.plan,
+                            license_status: activeLicense.status,
+                            license_user_id: activeLicense.user_id
+                        });
+                        setIsActivated(true);
+                    } else {
+                        setIsActivated(localStatus === 'Active');
+                    }
                 }
             } catch (netErr) {
                 setIsActivated(localStatus === 'Active');
@@ -283,13 +367,24 @@ export default function App() {
         });
 
         // Listen for changes
-        const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+        const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
             setSession(session);
             if (session) {
                 checkActivation(session);
             } else {
                 setIsActivated(false);
                 setLoading(false);
+                try {
+                    // Clear local settings on sign out
+                    await api.updateSettings({
+                        license_key: '',
+                        license_plan: '',
+                        license_status: '',
+                        license_user_id: ''
+                    });
+                } catch (err) {
+                    console.error('Failed to clear license on sign out:', err);
+                }
             }
         });
 

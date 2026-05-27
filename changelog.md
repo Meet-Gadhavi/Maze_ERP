@@ -8,6 +8,7 @@ All notable changes to the Quantro ERP application will be documented here.
 ### Added
 - **Persistent License Keys & Auto-Transfer**: Configured the website download page and simulator to persist and display the user's existing license key, avoiding generating multiple duplicates.
 - **Subscription Expiration Handling**: Configured automatic expiration checks for active subscriptions (Pro/Professional); once the 30-day billing cycle ends, the subscription is marked as expired and the user is automatically migrated back to their existing or a new Free plan license key.
+- **Automated Client Activation & Session Cleanup**: Configured the desktop application to automatically retrieve and verify the user's active license from Supabase upon login/re-login, bypassing manual activation key prompts. Added self-correcting sync if the user's active session email matches the registered license email. Added secure session cleanup that clears the cached license from local SQLite settings on logout.
 
 ### Fixed
 - **Web Portal License Verification Check**: Resolved a `TypeError` and PostgREST status `400` Bad Request error on the download page when retrieving or generating license keys. Added strict UUID validation on client-side requests to prevent invalid or undefined user ID filters from querying Supabase. Added safety fallbacks to retrieve the user object directly from active Supabase sessions if state propagation is delayed.
