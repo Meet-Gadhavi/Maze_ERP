@@ -7,6 +7,7 @@ All notable changes to the Quantro ERP application will be documented here.
 ## [2.5.5] - 2026-05-27
 ### Fixed
 - **Web Portal License Verification Check**: Resolved a `TypeError` and PostgREST status `400` Bad Request error on the download page when retrieving or generating license keys. Added strict UUID validation on client-side requests to prevent invalid or undefined user ID filters from querying Supabase. Added safety fallbacks to retrieve the user object directly from active Supabase sessions if state propagation is delayed.
+- **Database Not-Null Constraints**: Fixed PostgreSQL `NOT NULL` constraint violations on the `licenses` table by ensuring that the `email`, `price`, and `invoice_id` fields are always populated during license creation and simulation.
 
 ---
 
