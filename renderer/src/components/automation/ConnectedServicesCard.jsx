@@ -470,7 +470,7 @@ export default function ConnectedServicesCard({
                         padding: '4px',
                         overflow: 'hidden'
                     }}>
-                        <img src="/mazeway.png" alt="Voice Agent" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+                        <img src="./mazeway.png" alt="Voice Agent" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
                     </div>
                     <div className="section-title-wrap" style={{ flex: 1 }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
