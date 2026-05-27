@@ -4,7 +4,7 @@ All notable changes to the Quantro ERP application will be documented here.
 
 ---
 
-## [2.5.5] - 2026-05-27
+## [2.5.6] - 2026-05-27
 ### Added
 - **Persistent License Keys & Auto-Transfer**: Configured the website download page and simulator to persist and display the user's existing license key, avoiding generating multiple duplicates.
 - **Subscription Expiration Handling**: Configured automatic expiration checks for active subscriptions (Pro/Professional); once the 30-day billing cycle ends, the subscription is marked as expired and the user is automatically migrated back to their existing or a new Free plan license key.
