@@ -4,6 +4,12 @@ All notable changes to the Quantro ERP application will be documented here.
 
 ---
 
+## [2.5.5] - 2026-05-27
+### Fixed
+- **Web Portal License Verification Check**: Resolved a `TypeError` and PostgREST status `400` Bad Request error on the download page when retrieving or generating license keys. Added strict UUID validation on client-side requests to prevent invalid or undefined user ID filters from querying Supabase. Added safety fallbacks to retrieve the user object directly from active Supabase sessions if state propagation is delayed.
+
+---
+
 ## [2.5.4] - 2026-05-26
 ### Fixed
 - **Critical App Crash — Missing Icon (KeyRound)**: Resolved a `TypeError: Cannot read properties of undefined` crash in the `ActivationGate` component caused by `Icons.KeyRound` being used in `App.jsx` but never imported or exported in `Icons.jsx`. Added `KeyRound` to both the `lucide-react` import list and the `Icons` export object. This was the primary cause of the "Something went wrong" error boundary screen shown on app startup.
@@ -48,6 +54,12 @@ All notable changes to the Quantro ERP application will be documented here.
   - Implemented an interactive browser-based ERP Simulator replicating the actual desktop client's layout (sidebar, stats grid, and vector charts).
   - Integrated Supabase User Authentication gate requiring users to log in or register before downloading the stable desktop installer package.
   - Documented upcoming updates and added an "Upcoming Release" tag for version `v2.4.5`.
+- **Portal Security, Google Auth & Razorpay Upgrades**:
+  - Fully converted the Download page (`Download.jsx`) to a light theme, replacing high-contrast/invisible white text labels and dark glass cards with clean slate typography and light-bordered containers.
+  - Implemented client-side download restrictions, only allowing users to download the desktop ERP installer if they are signed in.
+  - Added an automated licensing integration that retrieves or registers a unique client activation key in the Supabase `licenses` database when a download is requested, displaying the key directly on-screen for the user to copy.
+  - **Google OAuth Redirect & Domain Lock Fix**: Fixed the Google Sign-in redirect flow where clicking "Sign in with Google" would redirect users back to `localhost` even on the live deployment. Dynamically resolved the redirect URL based on `window.location.origin`, ensuring users return to the hosted domain (`https://quantro-web.onrender.com`).
+  - **Razorpay Secure Payment Gateway Integration**: Integrated a production-ready Razorpay Checkout overlay, replacing simulated input forms. Dynamically loads the Razorpay SDK to allow payments via UPI, Cards, Netbanking, or Wallets, which are verified on the Express backend (`server.cjs`) before issuing a license key.
 
 ## [2.5.0] - 2026-05-26
 ### Added
