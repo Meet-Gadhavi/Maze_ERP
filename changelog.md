@@ -4,7 +4,7 @@ All notable changes to the Quantro ERP application will be documented here.
 
 ---
 
-## [2.5.7] - 2026-05-29
+## [2.5.8] - 2026-05-29
 ### Fixed
 - **Billing Page UI Crash**: Resolved a crash inside the Billing page caused by a missing import of the `Award` icon in `Icons.jsx` component mapping.
 - **Voice Calling Agent Logo**: Fixed the voice agent logo visibility inside `ConnectedServicesCard.jsx` by converting the image path to a relative URL (`./mazeway.png`) to load correctly inside the Electron environment.
