@@ -76,10 +76,13 @@ class AppErrorBoundary extends Component {
 function ActivationGate({ session, onActivated }) {
     const [keyInput, setKeyInput] = useState('');
     const [loading, setLoading] = useState(false);
+    const [errorMsg, setErrorMsg] = useState('');
 
     const handleVerify = async (e) => {
         e.preventDefault();
+        setErrorMsg('');
         if (!keyInput.trim()) {
+            setErrorMsg('Please enter your license activation key.');
             toast.error('Please enter your license activation key.');
             return;
         }
@@ -97,7 +100,9 @@ function ActivationGate({ session, onActivated }) {
             if (error) throw error;
 
             if (!data) {
-                toast.error('Invalid key. Make sure the activation code is correct.', { id: loadingId });
+                const invalidError = 'Invalid activation key. Please check the spelling and try again.';
+                setErrorMsg(invalidError);
+                toast.error(invalidError, { id: loadingId });
                 setLoading(false);
                 return;
             }
@@ -110,14 +115,18 @@ function ActivationGate({ session, onActivated }) {
                         .update({ user_id: session.user.id })
                         .eq('id', data.id);
                 } else {
-                    toast.error('This key is registered to a different account.', { id: loadingId });
+                    const diffAccountError = `This key is registered to a different account (${data.email || 'another user'}).`;
+                    setErrorMsg(diffAccountError);
+                    toast.error(diffAccountError, { id: loadingId });
                     setLoading(false);
                     return;
                 }
             }
 
             if (data.status !== 'Active') {
-                toast.error(`This license key is currently ${data.status}.`, { id: loadingId });
+                const inactiveError = `This license key is currently ${data.status}. Please check your plan status.`;
+                setErrorMsg(inactiveError);
+                toast.error(inactiveError, { id: loadingId });
                 setLoading(false);
                 return;
             }
@@ -134,7 +143,9 @@ function ActivationGate({ session, onActivated }) {
             onActivated(data.plan);
         } catch (err) {
             console.error('License verification error:', err);
-            toast.error(`Verification failed: ${err.message}`, { id: loadingId });
+            const failError = `Verification failed: ${err.message}`;
+            setErrorMsg(failError);
+            toast.error(failError, { id: loadingId });
         } finally {
             setLoading(false);
         }
@@ -193,6 +204,24 @@ function ActivationGate({ session, onActivated }) {
                             onBlur={(e) => e.target.style.borderColor = '#cbd5e1'}
                         />
                     </div>
+
+                    {errorMsg && (
+                        <div style={{
+                            padding: '12px 16px',
+                            background: '#fef2f2',
+                            color: '#b91c1c',
+                            border: '1px solid #fee2e2',
+                            borderRadius: '12px',
+                            fontSize: '13px',
+                            lineHeight: '1.4',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '8px'
+                        }}>
+                            <Icons.AlertCircle size={16} style={{ flexShrink: 0, color: '#ef4444' }} />
+                            <span>{errorMsg}</span>
+                        </div>
+                    )}
 
                     <SButton
                         variant="primary"

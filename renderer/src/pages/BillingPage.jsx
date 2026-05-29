@@ -8,6 +8,7 @@ import { supabase } from '../supabase';
 export default function BillingPage() {
     const [status, setStatus] = useState(null);
     const [loading, setLoading] = useState(true);
+    const [error, setError] = useState(null);
     const [showRazorpay, setShowRazorpay] = useState(false);
     const [showPaymentSetupModal, setShowPaymentSetupModal] = useState(false);
     const [enableAutopay, setEnableAutopay] = useState(true);
@@ -19,12 +20,22 @@ export default function BillingPage() {
     });
     const [paying, setPaying] = useState(false);
 
+    // Plan Upgrade Modal States
+    const [showUpgradeModal, setShowUpgradeModal] = useState(false);
+    const [upgradePlan, setUpgradePlan] = useState('');
+    const [newLicenseKey, setNewLicenseKey] = useState('');
+    const [upgradeVerifying, setUpgradeVerifying] = useState(false);
+    const [upgradeError, setUpgradeError] = useState('');
+
     const loadBillingStatus = async () => {
+        setLoading(true);
+        setError(null);
         try {
             const data = await api.getBillingStatus();
             setStatus(data);
         } catch (e) {
             console.error('Failed to load billing status:', e);
+            setError(e.message || 'Failed to retrieve billing status data.');
             toast.error('Failed to retrieve billing status data.');
         } finally {
             setLoading(false);
@@ -84,27 +95,95 @@ export default function BillingPage() {
         return `${mins}m ${secs}s`;
     };
 
-    const handleUpgrade = async (plan) => {
-        const loadingId = toast.loading(`Upgrading subscription to ${plan}...`);
+    const handleUpgrade = (plan) => {
+        setUpgradePlan(plan);
+        setNewLicenseKey('');
+        setUpgradeError('');
+        setShowUpgradeModal(true);
+        window.open('https://quantro-web.onrender.com/pricing', '_blank');
+    };
+
+    const handleVerifyUpgrade = async () => {
+        if (!newLicenseKey.trim()) {
+            setUpgradeError('Please enter your new license activation key.');
+            return;
+        }
+
+        setUpgradeVerifying(true);
+        setUpgradeError('');
+        const loadingId = toast.loading('Verifying updated license key in Supabase...');
+
         try {
             const { data: { user } } = await supabase.auth.getUser();
-            if (user && status.licenseKey) {
-                const price = plan === 'Pro' ? 499 : 1199;
-                const { error: supabaseError } = await supabase
-                    .from('licenses')
-                    .update({ plan, price, status: 'Active' })
-                    .eq('license_key', status.licenseKey)
-                    .eq('user_id', user.id);
-                
-                if (supabaseError) throw supabaseError;
+            if (!user) {
+                throw new Error('No active user session found. Please re-login.');
             }
 
-            await api.upgradeSubscription(plan);
-            toast.success(`Plan upgraded to ${plan} successfully!`, { id: loadingId });
+            const { data, error } = await supabase
+                .from('licenses')
+                .select('*')
+                .eq('license_key', newLicenseKey.trim())
+                .maybeSingle();
+
+            if (error) throw error;
+
+            if (!data) {
+                const invalidErr = 'Invalid activation key. Please check the spelling and try again.';
+                setUpgradeError(invalidErr);
+                toast.error(invalidErr, { id: loadingId });
+                setUpgradeVerifying(false);
+                return;
+            }
+
+            if (data.user_id !== user.id) {
+                if (data.email === user.email) {
+                    // Sync user_id if email matches
+                    await supabase
+                        .from('licenses')
+                        .update({ user_id: user.id })
+                        .eq('id', data.id);
+                } else {
+                    const diffAccountError = `This key is registered to a different account (${data.email || 'another user'}).`;
+                    setUpgradeError(diffAccountError);
+                    toast.error(diffAccountError, { id: loadingId });
+                    setUpgradeVerifying(false);
+                    return;
+                }
+            }
+
+            if (data.status !== 'Active') {
+                const inactiveError = `This license key is currently ${data.status}.`;
+                setUpgradeError(inactiveError);
+                toast.error(inactiveError, { id: loadingId });
+                setUpgradeVerifying(false);
+                return;
+            }
+
+            // Save details to SQLite settings
+            await api.updateSettings({
+                license_key: data.license_key,
+                license_plan: data.plan,
+                license_status: data.status,
+                license_user_id: user.id
+            });
+
+            // Sync with local backend
+            try {
+                await api.upgradeSubscription(data.plan);
+            } catch (err) {
+                console.warn('Local API update failed:', err.message);
+            }
+
+            toast.success(`Welcome to Quantro ${data.plan}! Plan activated successfully.`, { id: loadingId });
+            setShowUpgradeModal(false);
             loadBillingStatus();
-        } catch (e) {
-            console.error('Upgrade failed:', e);
-            toast.error(e.message || 'Failed to upgrade subscription.', { id: loadingId });
+        } catch (err) {
+            console.error('Upgrade verification error:', err);
+            const failError = `Verification failed: ${err.message}`;
+            setUpgradeError(failError);
+            toast.error(failError, { id: loadingId });
+        } finally {
+            setUpgradeVerifying(false);
         }
     };
 
@@ -134,10 +213,25 @@ export default function BillingPage() {
         }
     };
 
-    if (loading || !status) {
+    if (loading) {
         return (
             <div className="page-content" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '80vh' }}>
                 <div className="spinner" style={{ width: '40px', height: '40px', borderTopColor: 'var(--accent)' }}></div>
+            </div>
+        );
+    }
+
+    if (error || !status) {
+        return (
+            <div className="page-content" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '80vh', gap: '16px' }}>
+                <Icons.AlertTriangle size={48} style={{ color: 'var(--danger)' }} />
+                <h3 style={{ margin: 0, fontSize: '18px', fontWeight: 700 }}>Connection Error</h3>
+                <p style={{ margin: 0, color: 'var(--text-secondary)', fontSize: '14px', textAlign: 'center', maxWidth: '360px' }}>
+                    {error || 'Failed to retrieve billing status data. Please verify the backend service is running.'}
+                </p>
+                <SButton variant="primary" onClick={loadBillingStatus}>
+                    Retry Connection
+                </SButton>
             </div>
         );
     }
@@ -769,6 +863,76 @@ export default function BillingPage() {
                             </SButton>
                         </div>
 
+                    </div>
+                </div>
+            )}
+
+            {/* Plan Upgrade Verification Input Modal */}
+            {showUpgradeModal && (
+                <div style={{
+                    position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+                    background: 'rgba(15, 23, 42, 0.6)', backdropFilter: 'blur(4px)',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    zIndex: 1000
+                }}>
+                    <div style={{
+                        background: '#ffffff', width: '420px', borderRadius: '16px',
+                        overflow: 'hidden', boxShadow: '0 20px 25px -5px rgba(0,0,0,0.15)'
+                    }}>
+                        {/* Header */}
+                        <div style={{ background: 'var(--accent)', color: '#ffffff', padding: '20px 24px' }}>
+                            <h3 style={{ margin: 0, fontSize: '18px', fontWeight: 800 }}>Activate Upgraded Plan</h3>
+                            <p style={{ margin: '4px 0 0 0', color: 'rgba(255,255,255,0.8)', fontSize: '12px' }}>
+                                Unlock {upgradePlan} tier features
+                            </p>
+                        </div>
+                        
+                        {/* Body */}
+                        <div style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                            <div style={{ fontSize: '13px', color: 'var(--text-secondary)', lineHeight: 1.5 }}>
+                                We have redirected you to the website to purchase your <strong>{upgradePlan}</strong> upgrade. After completing the payment, please paste your new activation key below to activate the plan tier.
+                            </div>
+
+                            <div>
+                                <label style={{ display: 'block', fontSize: '11px', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '6px' }}>License Key</label>
+                                <input 
+                                    type="text" 
+                                    className="input-text" 
+                                    value={newLicenseKey} 
+                                    onChange={(e) => setNewLicenseKey(e.target.value)} 
+                                    placeholder="QTY-XXXX-XXXX-XXXX" 
+                                    style={{ height: '38px', fontSize: '13.5px', fontFamily: 'monospace' }} 
+                                />
+                            </div>
+
+                            {upgradeError && (
+                                <div style={{
+                                    padding: '10px 14px',
+                                    background: '#fef2f2',
+                                    color: '#b91c1c',
+                                    border: '1px solid #fee2e2',
+                                    borderRadius: '8px',
+                                    fontSize: '12px',
+                                    lineHeight: '1.4',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '8px'
+                                }}>
+                                    <Icons.AlertCircle size={16} style={{ flexShrink: 0, color: '#ef4444' }} />
+                                    <span>{upgradeError}</span>
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Footer */}
+                        <div style={{ background: '#f8fafc', padding: '16px 20px', display: 'flex', justifyContent: 'flex-end', gap: '12px', borderTop: '1px solid var(--border)' }}>
+                            <SButton variant="secondary" disabled={upgradeVerifying} onClick={() => setShowUpgradeModal(false)}>
+                                Cancel
+                            </SButton>
+                            <SButton variant="primary" style={{ background: 'var(--accent)', borderColor: 'var(--accent)' }} disabled={upgradeVerifying} onClick={handleVerifyUpgrade}>
+                                {upgradeVerifying ? 'Activating Plan...' : 'Verify & Activate'}
+                            </SButton>
+                        </div>
                     </div>
                 </div>
             )}
