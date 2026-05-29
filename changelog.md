@@ -4,6 +4,16 @@ All notable changes to the Quantro ERP application will be documented here.
 
 ---
 
+## [2.5.9] - 2026-05-29
+### Added
+- **Upload Purchase Invoice OCR & Catalog Matching**:
+  - Implemented a new drag-and-drop file upload tab ("Upload Invoice") as the default view in the Purchases module.
+  - Connected the uploader to a backend parser using OpenCode Zen's vision/multimodal model `mimo-v2.5-free` to process low-quality scans, hand-written, and computer-printed receipts.
+  - Integrated local SQLite database queries to auto-match extracted supplier names and items to the local ERP catalogs.
+  - Added an unresolved catalog resolution modal popup allowing users to register new suppliers or new products in one click, pre-filling details from the AI parsed invoice, before automatically populating the cart.
+
+---
+
 ## [2.5.8] - 2026-05-29
 ### Fixed
 - **Billing Page UI Crash**: Resolved a crash inside the Billing page caused by a missing import of the `Award` icon in `Icons.jsx` component mapping.

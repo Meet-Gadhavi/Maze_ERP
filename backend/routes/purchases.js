@@ -424,5 +424,150 @@ router.post('/:id/return', async (req, res, next) => {
         next(err);
     }
 });
+// POST /api/purchases/upload-invoice
+router.post('/upload-invoice', async (req, res, next) => {
+    try {
+        const { image } = req.body;
+        if (!image) {
+            return res.status(400).json({ error: 'No invoice image provided' });
+        }
+
+        // Format image base64 URL
+        let imageUrl = image;
+        if (!imageUrl.startsWith('data:')) {
+            imageUrl = `data:image/jpeg;base64,${image}`;
+        }
+
+        const API_KEY = 'sk-k5fhJ3AfyQ4VJdsVaWzW78qQgVye8KwWjLIqrxYe1gfYvVA37bVmlHjRyCPYh10e';
+        const BASE_URL = 'https://opencode.ai/zen/v1';
+
+        console.log('[Invoice OCR] Calling mimo-v2.5-free vision endpoint...');
+        const response = await fetch(`${BASE_URL}/chat/completions`, {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${API_KEY}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                model: 'mimo-v2.5-free',
+                messages: [
+                    {
+                        role: 'system',
+                        content: 'You are a specialized ERP invoice parsing AI. Extract text from the invoice image (even if messy, tilted, low resolution, or handwritten). Return ONLY a JSON object containing:\n{\n  "supplier_name": "...",\n  "bill_number": "...",\n  "purchase_date": "YYYY-MM-DD or null",\n  "items": [\n    {\n      "product_name": "...",\n      "quantity": number,\n      "purchase_price": number,\n      "gst_percent": number\n    }\n  ]\n}\nDo not return any conversational text, markdown formatting blocks (like ```json), or explanation. Just return the JSON object.'
+                    },
+                    {
+                        role: 'user',
+                        content: [
+                            {
+                                type: 'text',
+                                text: 'Parse this invoice image and return the structured JSON object.'
+                            },
+                            {
+                                type: 'image_url',
+                                image_url: {
+                                    url: imageUrl
+                                }
+                            }
+                        ]
+                    }
+                ],
+                temperature: 0.1
+            })
+        });
+
+        if (!response.ok) {
+            const errText = await response.text();
+            throw new Error(`OCR Vision Model API failed: Status ${response.status} - ${errText}`);
+        }
+
+        const data = await response.json();
+        const content = data.choices?.[0]?.message?.content;
+        if (!content) {
+            throw new Error('Vision model returned an empty response.');
+        }
+
+        console.log('[Invoice OCR] Received content:', content);
+
+        // Clean out markdown blocks if present
+        let cleanJsonStr = content.trim();
+        if (cleanJsonStr.startsWith('```')) {
+            cleanJsonStr = cleanJsonStr.replace(/^```json\s*/i, '').replace(/```$/, '').trim();
+        }
+
+        let parsedOcr;
+        try {
+            parsedOcr = JSON.parse(cleanJsonStr);
+        } catch (parseErr) {
+            console.error('[Invoice OCR] JSON parsing failed for response:', content);
+            throw new Error('Failed to parse JSON from OCR response. Make sure the image is clear.');
+        }
+
+        // Query database to match supplier and items
+        await db.ready;
+        
+        let supplierResult = {
+            name: parsedOcr.supplier_name || '',
+            id: null,
+            matched: false
+        };
+
+        if (supplierResult.name) {
+            // Find matched supplier
+            const matchedSupplier = db.get(
+                'SELECT * FROM suppliers WHERE LOWER(name) = LOWER(?) OR name LIKE ?',
+                [supplierResult.name.trim(), `%${supplierResult.name.trim()}%`]
+            );
+            if (matchedSupplier) {
+                supplierResult.id = matchedSupplier.id;
+                supplierResult.name = matchedSupplier.name;
+                supplierResult.matched = true;
+            }
+        }
+
+        const itemsResult = [];
+        const itemsToProcess = parsedOcr.items || [];
+        for (const item of itemsToProcess) {
+            const pName = item.product_name || '';
+            let resolvedProduct = null;
+            if (pName) {
+                resolvedProduct = db.get(
+                    'SELECT * FROM products WHERE LOWER(name) = LOWER(?) OR LOWER(product_code) = LOWER(?)',
+                    [pName.trim(), pName.trim()]
+                );
+                if (!resolvedProduct) {
+                    // Try partial match
+                    resolvedProduct = db.get(
+                        'SELECT * FROM products WHERE name LIKE ?',
+                        [`%${pName.trim()}%`]
+                    );
+                }
+            }
+
+            itemsResult.push({
+                product_name: pName,
+                quantity: Number(item.quantity || 1),
+                purchase_price: Number(item.purchase_price || 0),
+                gst_percent: Number(item.gst_percent || 0),
+                product_id: resolvedProduct ? resolvedProduct.id : null,
+                matched: !!resolvedProduct,
+                // Include other defaults from product if matched
+                category: resolvedProduct ? resolvedProduct.category : 'General',
+                unit: resolvedProduct ? resolvedProduct.unit : 'PCS',
+                product_code: resolvedProduct ? resolvedProduct.product_code : ''
+            });
+        }
+
+        res.json({
+            supplier: supplierResult,
+            bill_number: parsedOcr.bill_number || '',
+            purchase_date: parsedOcr.purchase_date || null,
+            items: itemsResult
+        });
+
+    } catch (err) {
+        next(err);
+    }
+});
 
 module.exports = router;
+

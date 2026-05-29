@@ -11,7 +11,7 @@ import { EMPTY_SUPPLIER, EMPTY_EXPENSE } from '../constants';
 import './PurchasePage.css';
 
 export default function PurchasePage() {
-    const [activeTab, setActiveTab] = useState('bill'); // 'bill', 'history', 'suppliers', 'payments', 'returns'
+    const [activeTab, setActiveTab] = useState('upload_invoice'); // 'upload_invoice', 'bill', 'history', 'suppliers', 'payments', 'returns'
     const [suppliers, setSuppliers] = useState([]);
     const [products, setProducts] = useState([]);
     const [purchases, setPurchases] = useState([]);
@@ -46,6 +46,14 @@ export default function PurchasePage() {
     const [showSerialModal, setShowSerialModal] = useState(false);
     const [currentCartIndex, setCurrentCartIndex] = useState(null);
     const [serialInputText, setSerialInputText] = useState('');
+
+    // OCR / Invoice Upload States
+    const [ocrResult, setOcrResult] = useState(null);
+    const [showOcrUnmatchedModal, setShowOcrUnmatchedModal] = useState(false);
+    const [ocrUploading, setOcrUploading] = useState(false);
+    const [ocrProgressText, setOcrProgressText] = useState('');
+    const [dragActive, setDragActive] = useState(false);
+    const [ocrResolvingItemIndex, setOcrResolvingItemIndex] = useState(null);
 
     // Expense Form States
     const [expenseForm, setExpenseForm] = useState(EMPTY_EXPENSE);
@@ -88,11 +96,28 @@ export default function PurchasePage() {
             
         toast.promise(promise, {
             loading: editingSupplier ? 'Updating supplier details...' : 'Adding new supplier...',
-            success: () => {
+            success: (newSup) => {
                 setShowSupplierModal(false);
                 setEditingSupplier(null);
                 setSupplierForm(EMPTY_SUPPLIER);
                 loadData();
+                
+                if (ocrResult && newSup) {
+                    setOcrResult(prev => {
+                        const updated = {
+                            ...prev,
+                            supplier: {
+                                ...prev.supplier,
+                                id: newSup.id,
+                                matched: true
+                            }
+                        };
+                        setSelectedSupplier(newSup.id.toString());
+                        setTimeout(() => checkOcrResolution(updated), 0);
+                        return updated;
+                    });
+                }
+                
                 return editingSupplier ? 'Supplier updated successfully' : 'Supplier added successfully';
             },
             error: (err) => err.message || 'Failed to save supplier'
@@ -125,18 +150,29 @@ export default function PurchasePage() {
     };
 
     const handleInlineProductCreate = () => {
+        let qty = 1;
+        let pPrice = newProductForm.purchase_price;
+        let gst = 18;
         const tempId = `new-${Date.now()}`;
+
+        if (ocrResult && ocrResolvingItemIndex !== null) {
+            const ocrItem = ocrResult.items[ocrResolvingItemIndex];
+            qty = ocrItem.quantity;
+            pPrice = ocrItem.purchase_price;
+            gst = ocrItem.gst_percent;
+        }
+
         setCart([...cart, {
             product_id: null,
             product_name: newProductForm.name,
-            quantity: 1,
+            quantity: qty,
             unit: newProductForm.unit,
-            purchase_price: newProductForm.purchase_price,
+            purchase_price: pPrice,
             selling_price: newProductForm.selling_price,
             category: newProductForm.category,
             product_code: newProductForm.product_code,
             discount_percent: 0,
-            gst_percent: 18,
+            gst_percent: gst,
             is_new_product: true,
             track_batches: false,
             batch_number: '',
@@ -145,11 +181,256 @@ export default function PurchasePage() {
             serials: [],
             tempId
         }]);
+
         setShowProductModal(false);
         setNewProductForm({ name: '', category: 'General', purchase_price: 0, selling_price: 0, product_code: '', unit: 'PCS' });
         setProductSearch('');
         setCartPulse(true);
         setTimeout(() => setCartPulse(false), 500);
+
+        if (ocrResult && ocrResolvingItemIndex !== null) {
+            setOcrResult(prev => {
+                const updatedItems = [...prev.items];
+                updatedItems[ocrResolvingItemIndex] = {
+                    ...updatedItems[ocrResolvingItemIndex],
+                    matched: true,
+                    is_new_product: true,
+                    tempId
+                };
+                const updated = {
+                    ...prev,
+                    items: updatedItems
+                };
+                setTimeout(() => checkOcrResolution(updated), 0);
+                return updated;
+            });
+            setOcrResolvingItemIndex(null);
+        }
+    };
+
+    const checkOcrResolution = (result) => {
+        const allSupplierMatched = result.supplier.matched || selectedSupplier;
+        const allItemsMatched = result.items.every(item => item.matched);
+        
+        if (allSupplierMatched && allItemsMatched) {
+            toast.success("Supplier and all products resolved! Populating bill...");
+            
+            if (result.supplier.id) {
+                setSelectedSupplier(result.supplier.id.toString());
+            }
+            
+            if (result.bill_number) setBillNumber(result.bill_number);
+            if (result.purchase_date) setPurchaseDate(result.purchase_date);
+            
+            const newCartItems = result.items.map(item => {
+                if (item.product_id) {
+                    const matchedProduct = products.find(p => p.id === item.product_id);
+                    return {
+                        product_id: item.product_id,
+                        product_name: item.product_name,
+                        quantity: item.quantity,
+                        unit: item.unit || 'PCS',
+                        purchase_price: item.purchase_price,
+                        discount_percent: 0,
+                        gst_percent: item.gst_percent || 18,
+                        is_new_product: false,
+                        track_batches: matchedProduct ? !!matchedProduct.track_batches : false,
+                        batch_number: '',
+                        expiry_date: '',
+                        track_serials: matchedProduct ? !!matchedProduct.track_serials : false,
+                        serials: []
+                    };
+                } else {
+                    return {
+                        product_id: null,
+                        product_name: item.product_name,
+                        quantity: item.quantity,
+                        unit: item.unit || 'PCS',
+                        purchase_price: item.purchase_price,
+                        selling_price: Math.round(item.purchase_price * 1.2),
+                        category: item.category || 'General',
+                        product_code: item.product_code || '',
+                        discount_percent: 0,
+                        gst_percent: item.gst_percent || 18,
+                        is_new_product: true,
+                        track_batches: false,
+                        batch_number: '',
+                        expiry_date: '',
+                        track_serials: false,
+                        serials: [],
+                        tempId: item.tempId
+                    };
+                }
+            });
+            
+            setCart(newCartItems);
+            setShowOcrUnmatchedModal(false);
+            setOcrResult(null);
+            setActiveTab('bill');
+        }
+    };
+
+    const handleDrag = (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        if (e.type === "dragenter" || e.type === "dragover") {
+            setDragActive(true);
+        } else if (e.type === "dragleave") {
+            setDragActive(false);
+        }
+    };
+
+    const handleDrop = async (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        setDragActive(false);
+        if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+            await processInvoiceFile(e.dataTransfer.files[0]);
+        }
+    };
+
+    const handleFileChange = async (e) => {
+        if (e.target.files && e.target.files[0]) {
+            await processInvoiceFile(e.target.files[0]);
+        }
+    };
+
+    const processInvoiceFile = async (file) => {
+        if (!file.type.startsWith('image/')) {
+            toast.error('Please upload an image file (PNG, JPG, JPEG)');
+            return;
+        }
+
+        const reader = new FileReader();
+        reader.onloadstart = () => {
+            setOcrUploading(true);
+            setOcrProgressText('Reading file...');
+        };
+        reader.onload = async (event) => {
+            try {
+                const base64 = event.target.result;
+                setOcrProgressText('Running OCR parsing...');
+                
+                const response = await api.uploadPurchaseInvoice(base64);
+                setOcrUploading(false);
+
+                const allSupplierMatched = response.supplier.matched;
+                const allItemsMatched = response.items.every(item => item.matched);
+
+                if (allSupplierMatched && allItemsMatched) {
+                    toast.success("Invoice parsed and matched successfully!");
+                    
+                    if (response.supplier.id) {
+                        setSelectedSupplier(response.supplier.id.toString());
+                    }
+                    if (response.bill_number) setBillNumber(response.bill_number);
+                    if (response.purchase_date) setPurchaseDate(response.purchase_date);
+                    
+                    const newCartItems = response.items.map(item => {
+                        const matchedProduct = products.find(p => p.id === item.product_id);
+                        return {
+                            product_id: item.product_id,
+                            product_name: item.product_name,
+                            quantity: item.quantity,
+                            unit: item.unit || 'PCS',
+                            purchase_price: item.purchase_price,
+                            discount_percent: 0,
+                            gst_percent: item.gst_percent || 18,
+                            is_new_product: false,
+                            track_batches: matchedProduct ? !!matchedProduct.track_batches : false,
+                            batch_number: '',
+                            expiry_date: '',
+                            track_serials: matchedProduct ? !!matchedProduct.track_serials : false,
+                            serials: []
+                        };
+                    });
+                    setCart(newCartItems);
+                    setActiveTab('bill');
+                } else {
+                    setOcrResult(response);
+                    setShowOcrUnmatchedModal(true);
+                    toast.warning("Invoice parsed, but contains unregistered products or suppliers.");
+                }
+            } catch (err) {
+                setOcrUploading(false);
+                toast.error(err.message || 'OCR parsing failed.');
+            }
+        };
+        reader.onerror = () => {
+            setOcrUploading(false);
+            toast.error('Failed to read file.');
+        };
+        reader.readAsDataURL(file);
+    };
+
+    const renderUploadInvoiceTab = () => {
+        return (
+            <div className="tab-content upload-invoice-tab">
+                <div className="upload-container-wrapper">
+                    <div 
+                        className={`upload-dropzone ${dragActive ? 'drag-active' : ''} ${ocrUploading ? 'uploading' : ''}`}
+                        onDragEnter={handleDrag}
+                        onDragOver={handleDrag}
+                        onDragLeave={handleDrag}
+                        onDrop={handleDrop}
+                    >
+                        {ocrUploading ? (
+                            <div className="uploader-loading">
+                                <div className="spinner-premium"></div>
+                                <h4>Processing Invoice</h4>
+                                <p className="loading-text-animation">{ocrProgressText}</p>
+                                <div className="loading-bar-container">
+                                    <div className="loading-bar-fill"></div>
+                                </div>
+                            </div>
+                        ) : (
+                            <div className="uploader-prompt">
+                                <div className="uploader-icon-box">
+                                    <Icons.Upload size={40} />
+                                </div>
+                                <h3>Upload Purchase Invoice</h3>
+                                <p className="upload-subtitle">Drag and drop your invoice image here, or browse files</p>
+                                <p className="upload-helper">Supports handwriting, low-quality scans, photos, and computer-printed receipts</p>
+                                
+                                <label className="browse-button-label">
+                                    Browse Files
+                                    <input 
+                                        type="file" 
+                                        accept="image/*" 
+                                        onChange={handleFileChange} 
+                                        style={{ display: 'none' }} 
+                                    />
+                                </label>
+                            </div>
+                        )}
+                    </div>
+                </div>
+
+                <div className="ocr-features-info">
+                    <div className="info-feature-card">
+                        <div className="feature-icon"><Icons.Zap size={20} /></div>
+                        <div>
+                            <h4>Smart Auto-Fill</h4>
+                            <p>Automatically maps items and vendors to your catalog and populates quantities and costs.</p>
+                        </div>
+                    </div>
+                    <div className="info-feature-card">
+                        <div className="feature-icon"><Icons.CheckCircle size={20} /></div>
+                        <div>
+                            <h4>Handwriting Recognition</h4>
+                            <p>Powered by mimo-v2.5 vision model capable of reading complex and messy handwritten slips.</p>
+                        </div>
+                    </div>
+                    <div className="info-feature-card">
+                        <div className="feature-icon"><Icons.Shield size={20} /></div>
+                        <div>
+                            <h4>Catalog Sync</h4>
+                            <p>Alerts you about new suppliers or items, letting you register them with pre-filled details in one click.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        );
     };
 
     const updateCartItem = (index, field, value) => {
@@ -1121,6 +1402,7 @@ export default function PurchasePage() {
             </div>
 
             <div className="tabs">
+                <button className={`tab-item ${activeTab === 'upload_invoice' ? 'active' : ''}`} onClick={() => setActiveTab('upload_invoice')}>Upload Invoice</button>
                 <button className={`tab-item ${activeTab === 'bill' ? 'active' : ''}`} onClick={() => setActiveTab('bill')}>Bill Center</button>
                 <button className={`tab-item ${activeTab === 'history' ? 'active' : ''}`} onClick={() => setActiveTab('history')}>Purchase History</button>
                 <button className={`tab-item ${activeTab === 'suppliers' ? 'active' : ''}`} onClick={() => setActiveTab('suppliers')}>Suppliers</button>
@@ -1129,6 +1411,7 @@ export default function PurchasePage() {
                 <button className={`tab-item ${activeTab === 'expenses' ? 'active' : ''}`} onClick={() => setActiveTab('expenses')}>Expenses</button>
             </div>
 
+            {activeTab === 'upload_invoice' && renderUploadInvoiceTab()}
             {activeTab === 'bill' && renderBillForm()}
             {activeTab === 'history' && renderHistory()}
             {activeTab === 'suppliers' && renderSuppliers()}
@@ -1447,6 +1730,101 @@ export default function PurchasePage() {
             </Modal>
 
             <Modal
+                open={showOcrUnmatchedModal}
+                onClose={() => {
+                    setShowOcrUnmatchedModal(false);
+                    setOcrResult(null);
+                }}
+                heading="Resolve Unmatched Catalog Items"
+                size="medium"
+            >
+                <div className="ocr-unmatched-modal-body">
+                    <div className="ocr-unmatched-intro">
+                        <Icons.AlertCircle size={24} className="color-warning" />
+                        <p>We parsed the invoice details, but found some items or suppliers that are not registered in your catalog. Please register them to add to cart.</p>
+                    </div>
+
+                    {/* Supplier Section */}
+                    {ocrResult?.supplier && (
+                        <div className="ocr-unmatched-section">
+                            <h4 className="section-title">Supplier / Dealer</h4>
+                            <div className="unmatched-item-row supplier-row">
+                                <div className="item-details">
+                                    <Icons.Users size={18} className="item-icon" />
+                                    <div>
+                                        <div className="item-name">{ocrResult.supplier.name}</div>
+                                        <span className={`badge ${ocrResult.supplier.matched ? 'badge-success' : 'badge-danger'}`}>
+                                            {ocrResult.supplier.matched ? 'Registered' : 'New Supplier'}
+                                        </span>
+                                    </div>
+                                </div>
+                                <div className="item-actions">
+                                    {ocrResult.supplier.matched ? (
+                                        <div className="matched-indicator"><Icons.Check size={16} /> Ready</div>
+                                    ) : (
+                                        <SButton variant="primary" onClick={() => {
+                                            setSupplierForm({
+                                                ...EMPTY_SUPPLIER,
+                                                name: ocrResult.supplier.name
+                                            });
+                                            setShowSupplierModal(true);
+                                        }}>
+                                            Add Supplier
+                                        </SButton>
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Items Section */}
+                    {ocrResult?.items && (
+                        <div className="ocr-unmatched-section" style={{ marginTop: '24px' }}>
+                            <h4 className="section-title">Items / Products</h4>
+                            <div className="unmatched-items-list">
+                                {ocrResult.items.map((item, index) => (
+                                    <div key={index} className="unmatched-item-row">
+                                        <div className="item-details">
+                                            <Icons.Package size={18} className="item-icon" />
+                                            <div>
+                                                <div className="item-name">{item.product_name}</div>
+                                                <div className="item-meta">
+                                                    Qty: {item.quantity} | Price: ₹{item.purchase_price} | GST: {item.gst_percent}%
+                                                </div>
+                                                <span className={`badge ${item.matched ? 'badge-success' : 'badge-danger'}`}>
+                                                    {item.matched ? 'Registered' : 'New Product'}
+                                                </span>
+                                            </div>
+                                        </div>
+                                        <div className="item-actions">
+                                            {item.matched ? (
+                                                <div className="matched-indicator"><Icons.Check size={16} /> Ready</div>
+                                            ) : (
+                                                <SButton variant="primary" onClick={() => {
+                                                    setOcrResolvingItemIndex(index);
+                                                    setNewProductForm({
+                                                        name: item.product_name,
+                                                        category: 'General',
+                                                        purchase_price: item.purchase_price,
+                                                        selling_price: Math.round(item.purchase_price * 1.2),
+                                                        product_code: '',
+                                                        unit: 'PCS'
+                                                    });
+                                                    setShowProductModal(true);
+                                                }}>
+                                                    Add Product
+                                                </SButton>
+                                            )}
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+                </div>
+            </Modal>
+
+            <Modal
                 open={showSerialModal}
                 onClose={() => setShowSerialModal(false)}
                 heading={`Enter Serial / IMEI Numbers for ${currentCartIndex !== null ? cart[currentCartIndex]?.product_name : ''}`}
@@ -1463,7 +1841,7 @@ export default function PurchasePage() {
                     </p>
                     {currentCartIndex !== null && (
                         <div style={{ padding: '8px 12px', background: 'rgba(0, 113, 227, 0.05)', color: 'var(--accent)', borderRadius: '6px', fontSize: '0.9em', fontWeight: 600, marginBottom: 16 }}>
-                            Required: {cart[currentCartIndex]?.quantity} serials | Entered: {serialInputText.split(/[\n,]+/).map(s => s.trim()).filter(Boolean).length}
+                             Required: {cart[currentCartIndex]?.quantity} serials | Entered: {serialInputText.split(/[\n,]+/).map(s => s.trim()).filter(Boolean).length}
                         </div>
                     )}
                     <FormGroup label="Serial Numbers / IMEI">

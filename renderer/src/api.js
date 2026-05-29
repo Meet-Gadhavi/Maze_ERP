@@ -144,6 +144,7 @@ const api = {
     createPurchase: (data) => request('/purchases', { method: 'POST', body: data }),
     paySupplier: (supplierId, data) => request(`/purchases/suppliers/${supplierId}/pay`, { method: 'POST', body: data }),
     returnPurchase: (id, data) => request(`/purchases/${id}/return`, { method: 'POST', body: data }),
+    uploadPurchaseInvoice: (imageBase64) => request('/purchases/upload-invoice', { method: 'POST', body: { image: imageBase64 } }),
 
     // Expenses
     getExpenses: (params = {}) => {
