@@ -228,7 +228,7 @@ function ActivationGate({ session, onActivated }) {
                         style={{ height: '48px', justifyContent: 'center', fontSize: '14px', width: '100%' }}
                         disabled={loading}
                         loading={loading}
-                        submit
+                        type="submit"
                     >
                         Unlock Application
                     </SButton>

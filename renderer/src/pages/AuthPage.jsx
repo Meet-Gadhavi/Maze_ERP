@@ -140,7 +140,7 @@ export default function AuthPage() {
                             style={{ height: '48px', marginTop: '12px', width: '100%', justifyContent: 'center' }}
                             disabled={loading}
                             loading={loading}
-                            submit
+                            type="submit"
                         >
                             {isLogin ? 'Sign In' : 'Create Account'}
                         </SButton>

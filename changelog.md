@@ -4,10 +4,13 @@ All notable changes to the Quantro ERP application will be documented here.
 
 ---
 
-## [2.5.7] - 2026-05-27
+## [2.5.7] - 2026-05-29
 ### Fixed
 - **Billing Page UI Crash**: Resolved a crash inside the Billing page caused by a missing import of the `Award` icon in `Icons.jsx` component mapping.
 - **Voice Calling Agent Logo**: Fixed the voice agent logo visibility inside `ConnectedServicesCard.jsx` by converting the image path to a relative URL (`./mazeway.png`) to load correctly inside the Electron environment.
+- **Authentication Submission Fix**: Fixed a bug on the login and registration page (`AuthPage.jsx`) where clicking "Sign In" or "Create Account" did nothing. This was caused by the custom `SButton` defaulting to `type="button"` and not receiving the correct `type="submit"` attribute required to trigger form submission.
+- **Activation Gate Verification Button**: Fixed the verify button in the desktop `ActivationGate` (inside `App.jsx`) to correctly use `type="submit"` instead of the invalid `submit` attribute, allowing the verification process to trigger.
+- **Web Portal License Persistence & Error Handling**: Refactored the web portal's `Download.jsx` to capture, throw, and alert Supabase transaction errors (such as RLS policy violations or constraint issues) during license queries and insertions. This prevents the page from silently swallowing database failures and randomly regenerating duplicate license keys on reload.
 
 ---
 
