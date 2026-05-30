@@ -52,7 +52,7 @@ router.get('/callback', async (req, res, next) => {
                     // Sync WhatsApp connection metadata
                     campaignSyncService.pushMetadata().catch(err => console.error('[Sync] Failed to push metadata on WhatsApp bypass callback:', err.message));
 
-                    return res.redirect('http://localhost:5173/#/automation?whatsapp=success');
+                    return res.redirect('http://localhost:5175/#/automation?whatsapp=success');
                 } else {
                     console.error('[WhatsApp Auth] Failed to fetch phone numbers via permanent token:', phoneData);
                 }
@@ -102,7 +102,7 @@ router.get('/callback', async (req, res, next) => {
                             // Sync WhatsApp connection metadata
                             campaignSyncService.pushMetadata().catch(err => console.error('[Sync] Failed to push metadata on WhatsApp OAuth callback:', err.message));
 
-                            return res.redirect('http://localhost:5173/#/automation?whatsapp=success');
+                            return res.redirect('http://localhost:5175/#/automation?whatsapp=success');
                         } else {
                             console.error('[WhatsApp Auth] Failed to fetch phone numbers via user access token:', phoneData);
                             return res.status(400).send(`
@@ -152,7 +152,7 @@ router.get('/callback', async (req, res, next) => {
             // Sync WhatsApp connection metadata
             campaignSyncService.pushMetadata().catch(err => console.error('[Sync] Failed to push metadata on WhatsApp fallback connect:', err.message));
 
-            return res.redirect('http://localhost:5173/#/automation?whatsapp=success');
+            return res.redirect('http://localhost:5175/#/automation?whatsapp=success');
         }
 
         return res.status(400).send(`

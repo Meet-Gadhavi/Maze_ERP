@@ -1571,11 +1571,43 @@ export default function SettingsPage() {
                                         </div>
                                     )}
 
-                                    {/* Timeline Item: v2.5.0 */}
+                                    {/* Timeline Item: v2.6.4 */}
                                     <div style={{ position: 'relative' }}>
                                         <div style={{ position: 'absolute', left: '-22px', top: '4px', width: '12px', height: '12px', borderRadius: '50%', background: 'var(--accent)', border: '2px solid var(--bg-primary)' }}></div>
                                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                            <strong style={{ fontSize: '15px' }}>Version 2.5.0 {updateState.status !== 'available' && '(Latest)'}</strong>
+                                            <strong style={{ fontSize: '15px' }}>Version 2.6.4 {updateState.status !== 'available' && '(Latest)'}</strong>
+                                            <span style={{ fontSize: '11px', color: 'var(--text-tertiary)', background: 'var(--bg-secondary)', padding: '2px 8px', borderRadius: '12px' }}>May 30, 2026</span>
+                                        </div>
+                                        <div style={{ fontSize: '13px', color: 'var(--text-secondary)', marginTop: '8px', lineHeight: 1.6 }}>
+                                            <ul style={{ margin: 0, paddingLeft: '16px' }}>
+                                                <li><strong>GitHub Models OCR Integration:</strong> Switched OCR parser to utilize the official GitHub Models API. Added `openai/gpt-4o-mini`, `openai/gpt-4o`, and `deepseek-ai/DeepSeek-V3-0324` fallback text/vision models, deprecating rate-limited OpenCode models.</li>
+                                                <li><strong>Supplier Address & Contact Auto-Fill:</strong> Automatically extracts physical address and contact phone details from invoices, pre-filling them during new supplier registration inside the catalog resolution modal.</li>
+                                                <li><strong>Premium OCR Filtering & Cleaning:</strong> Added Javascript boundary filters (`isAddressOrContactLine`) and regex cleaners to prevent billing addresses and customer names from leaking as items, while stripping out noise symbols (`*` and `|`).</li>
+                                            </ul>
+                                        </div>
+                                    </div>
+
+                                    {/* Timeline Item: v2.6.0 */}
+                                    <div style={{ position: 'relative' }}>
+                                        <div style={{ position: 'absolute', left: '-22px', top: '4px', width: '12px', height: '12px', borderRadius: '50%', background: 'var(--text-tertiary)', border: '2px solid var(--bg-primary)' }}></div>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                            <strong style={{ fontSize: '15px' }}>Version 2.6.0</strong>
+                                            <span style={{ fontSize: '11px', color: 'var(--text-tertiary)', background: 'var(--bg-secondary)', padding: '2px 8px', borderRadius: '12px' }}>May 30, 2026</span>
+                                        </div>
+                                        <div style={{ fontSize: '13px', color: 'var(--text-secondary)', marginTop: '8px', lineHeight: 1.6 }}>
+                                            <ul style={{ margin: 0, paddingLeft: '16px' }}>
+                                                <li><strong>Resilient OCR Fallback:</strong> Added multi-model vision sequence try list and a hybrid local OCR engine (`tesseract.js`) with LLM text structure auto-correction and offline regex parsing fallback.</li>
+                                                <li><strong>Gmail AI Reply Constraints:</strong> Restrained email receiver to only auto-reply on threads containing at least one sent message by us, protecting user accounts from spam loops.</li>
+                                                <li><strong>Expanded Purchase Modals:</strong> Restructured purchases product registration to a complete tabbed modal matching the full inventory catalog view with SKUs & variant generation.</li>
+                                            </ul>
+                                        </div>
+                                    </div>
+
+                                    {/* Timeline Item: v2.5.0 */}
+                                    <div style={{ position: 'relative' }}>
+                                        <div style={{ position: 'absolute', left: '-22px', top: '4px', width: '12px', height: '12px', borderRadius: '50%', background: 'var(--text-tertiary)', border: '2px solid var(--bg-primary)' }}></div>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                            <strong style={{ fontSize: '15px' }}>Version 2.5.0</strong>
                                             <span style={{ fontSize: '11px', color: 'var(--text-tertiary)', background: 'var(--bg-secondary)', padding: '2px 8px', borderRadius: '12px' }}>May 26, 2026</span>
                                         </div>
                                         <div style={{ fontSize: '13px', color: 'var(--text-secondary)', marginTop: '8px', lineHeight: 1.6 }}>

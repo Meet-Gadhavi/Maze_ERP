@@ -24,7 +24,8 @@ export default function AuthPage() {
                 toast.success('Welcome back!');
             } else {
                 const isLocal = window.location.origin.includes('localhost');
-                const redirectTo = isLocal ? 'http://localhost:5173' : 'maze-erp://auth-callback';
+                const isElectron = !!(window.maze || navigator.userAgent.toLowerCase().includes('electron'));
+                const redirectTo = isElectron ? 'maze-erp://auth-callback' : (isLocal ? 'http://localhost:5175' : 'maze-erp://auth-callback');
 
                 const { error } = await supabase.auth.signUp({
                     email,
@@ -46,16 +47,21 @@ export default function AuthPage() {
     const handleGoogleLogin = async () => {
         try {
             const isLocal = window.location.origin.includes('localhost');
-            const redirectTo = isLocal ? 'http://localhost:5173' : 'maze-erp://auth-callback';
+            const isElectron = !!(window.maze || navigator.userAgent.toLowerCase().includes('electron'));
+            const redirectTo = isElectron ? 'maze-erp://auth-callback' : (isLocal ? 'http://localhost:5175' : 'maze-erp://auth-callback');
 
-            const { error } = await supabase.auth.signInWithOAuth({
+            const { data, error } = await supabase.auth.signInWithOAuth({
                 provider: 'google',
                 options: {
                     redirectTo: redirectTo,
-                    skipBrowserRedirect: false
+                    skipBrowserRedirect: isElectron
                 }
             });
             if (error) throw error;
+
+            if (isElectron && data?.url) {
+                window.maze.openExternal(data.url);
+            }
         } catch (error) {
             toast.error('Authentication failed: ' + error.message);
             console.error('OAuth Error:', error);

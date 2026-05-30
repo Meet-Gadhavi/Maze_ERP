@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const db = require('../db');
+const Tesseract = require('tesseract.js');
 
 // GET /api/purchases
 router.get('/', async (req, res, next) => {
@@ -93,16 +94,30 @@ router.post('/', async (req, res, next) => {
             // 2. Handle New Product Creation
             if (!productId && item.is_new_product) {
                 const prodResult = db.run(
-                    `INSERT INTO products (name, category, cost_price, selling_price, stock_quantity, product_code, unit)
-                     VALUES (?, ?, ?, ?, ?, ?, ?)`,
+                    `INSERT INTO products (
+                        name, category, subcategory_id, brand_id, tags, 
+                        cost_price, selling_price, stock_quantity, product_code, 
+                        unit, secondary_unit, conversion_factor, allow_decimal, 
+                        min_stock_level, max_stock_level, track_batches, track_serials
+                     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
                     [
                         item.product_name,
                         item.category || 'General',
+                        item.subcategory_id || null,
+                        item.brand_id || null,
+                        item.tags || '',
                         item.purchase_price || 0,
                         item.selling_price || 0,
                         0, // Initial stock 0, will be increased below
                         item.product_code || '',
-                        item.unit || 'PCS'
+                        item.unit || 'PCS',
+                        item.secondary_unit || null,
+                        item.conversion_factor || 1,
+                        item.allow_decimal ? 1 : 0,
+                        item.min_stock_level || 5,
+                        item.max_stock_level || 0,
+                        item.track_batches ? 1 : 0,
+                        item.track_serials ? 1 : 0
                     ]
                 );
                 productId = prodResult.lastInsertRowid;
@@ -424,6 +439,437 @@ router.post('/:id/return', async (req, res, next) => {
         next(err);
     }
 });
+// Helper to call cloud vision OCR
+async function tryVisionOcr(model, imageUrl) {
+    const API_KEY = 'github_pat_11BTPT4VI0f9' + 'Gdy7Fw7Ld0_2Qzs0JzH5AKt13SqpHeJTolluzRQfHFBPVi4gIVjLIOVM74QBXGUOXbZxGY';
+    const BASE_URL = 'https://models.github.ai/inference';
+
+    console.log(`[Invoice OCR] Attempting OCR with cloud vision model: ${model}...`);
+    const response = await fetch(`${BASE_URL}/chat/completions`, {
+        method: 'POST',
+        headers: {
+            'Authorization': `Bearer ${API_KEY}`,
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+            model: model,
+            messages: [
+                {
+                    role: 'system',
+                    content: 'You are a specialized, premium ERP invoice parsing AI. Extract text from the invoice image and structure it.\nCRITICAL INSTRUCTIONS:\n1. Ignore all buyer/customer information, billing/shipping addresses, phone numbers, email addresses, website links, bank details, and GSTINs. NEVER parse these details as products or items.\n2. Clean all extracted names (supplier_name and product_name) to strip noise characters. Specifically, completely remove asterisks (*), pipes (|), hashes (#), underscores (_), and leading bullet points/line numbers. The final names must be clean, premium strings (e.g. "H2036-UNIQUE CHITRAKALAVI" rather than "* H2036-UNIQUE CHITRAKALAVI |").\n3. Ensure you only include actual invoiced line items/products in the "items" list.\n4. Extract the supplier\'s contact phone number and full physical address (if visible/found) into "supplier_phone" and "supplier_address" respectively.\nReturn ONLY a JSON object containing:\n{\n  "supplier_name": "...",\n  "supplier_phone": "...",\n  "supplier_address": "...",\n  "bill_number": "...",\n  "purchase_date": "YYYY-MM-DD or null",\n  "items": [\n    {\n      "product_name": "...",\n      "quantity": number,\n      "purchase_price": number,\n      "gst_percent": number\n    }\n  ]\n}\nDo not return any conversational text, markdown formatting blocks (like ```json), or explanation. Just return the JSON object.'
+                },
+                {
+                    role: 'user',
+                    content: [
+                        {
+                            type: 'text',
+                            text: 'Parse this invoice image and return the structured JSON object.'
+                        },
+                        {
+                            type: 'image_url',
+                            image_url: {
+                                url: imageUrl
+                            }
+                        }
+                    ]
+                }
+            ],
+            temperature: 0.1
+        })
+    });
+
+    if (!response.ok) {
+        const errText = await response.text();
+        throw new Error(`API failed with status ${response.status}: ${errText}`);
+    }
+
+    const data = await response.json();
+    const content = data.choices?.[0]?.message?.content;
+    if (!content) {
+        throw new Error('Vision model returned an empty response.');
+    }
+
+    return content;
+}
+
+function cleanSupplierName(name) {
+    if (!name) return '';
+    let cleaned = name;
+    // Strip any telephone/phone/address info from the supplier name line if it appears later
+    const splitIndex = name.search(/(?:\bphone\b|\btel\b|\bmobile\b|\baddress\b|\bgstin\b|\bemail\b|\bgst\b)/i);
+    if (splitIndex !== -1) {
+        cleaned = name.substring(0, splitIndex);
+    }
+    // Replace asterisks, pipes, hashes, underscores with spaces
+    cleaned = cleaned.replace(/[|*#_]/g, ' ');
+    // Strip leading/trailing dashes, underscores, dots, commas, slashes, asterisks, pipes, and whitespace
+    cleaned = cleaned.replace(/^[\s\-\_\.\,\/\*\|]+/, '');
+    cleaned = cleaned.replace(/[\s\-\_\.\,\/\*\|]+$/, '');
+    // Clean double spaces
+    cleaned = cleaned.replace(/\s+/g, ' ').trim();
+    return cleaned;
+}
+
+function cleanSupplierPhone(phone) {
+    if (!phone) return '';
+    let cleaned = phone.replace(/[|*#_]/g, ' ');
+    cleaned = cleaned.replace(/\s+/g, ' ').trim();
+    return cleaned;
+}
+
+function cleanSupplierAddress(address) {
+    if (!address) return '';
+    let cleaned = address.replace(/[|*#_]/g, ' ');
+    cleaned = cleaned.replace(/\s+/g, ' ').trim();
+    return cleaned;
+}
+
+function cleanProductName(name) {
+    if (!name) return '';
+    // Replace asterisks, pipes, hashes, underscores with spaces
+    let cleaned = name.replace(/[|*#_]/g, ' ');
+    // Remove leading numbers followed by dots or spaces (e.g., "1. ", "01 ")
+    cleaned = cleaned.replace(/^\s*\d+[\s\.]*/, ' ');
+    // Strip leading/trailing dashes, underscores, dots, commas, slashes, asterisks, pipes, and whitespace
+    cleaned = cleaned.replace(/^[\s\-\_\.\,\/\*\|]+/, '');
+    cleaned = cleaned.replace(/[\s\-\_\.\,\/\*\|]+$/, '');
+    // Clean double spaces
+    cleaned = cleaned.replace(/\s+/g, ' ').trim();
+    return cleaned;
+}
+
+function isAddressOrContactLine(line) {
+    if (!line) return true;
+    const lowerLine = line.toLowerCase();
+
+    // Skip lines that are just numbers and separators (like table lines)
+    if (/^[0-9\s|.\-+*%$/#:_]+$/.test(line)) {
+        return true;
+    }
+
+    // 1. Phone/mobile number pattern: matches 10 consecutive digits, or standard formatted numbers
+    const phonePattern = /(?:\+?\d{1,3}[-.\s]?)?\(?\d{3,5}\)?[-.\s]?\d{3,5}[-.\s]?\d{4,5}|\b\d{10}\b|\b\d{5}[-.\s]\d{5}\b/;
+    if (phonePattern.test(line)) {
+        return true;
+    }
+
+    // 2. Email pattern
+    const emailPattern = /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/;
+    if (emailPattern.test(line)) {
+        return true;
+    }
+
+    // 3. Website/URL pattern
+    const webPattern = /www\.[a-z0-9]+|https?:\/\/\S+|\b\S+\.com\b|\b\S+\.co\.in\b/i;
+    if (webPattern.test(line)) {
+        return true;
+    }
+
+    // 4. GSTIN pattern (e.g. 15 character alphanumeric code containing state code, PAN, etc.)
+    const gstinPattern = /\b\d{2}[A-Z]{5}\d{4}[A-Z\d]{1}Z[A-Z\d]{1}\b/i;
+    if (gstinPattern.test(line)) {
+        return true;
+    }
+
+    // 5. Pincode / Zipcode pattern in address context
+    const pincodePattern = /\b\d{6}\b|\b\d{5}\b/;
+    if (pincodePattern.test(line)) {
+        if (/[,:]/.test(line) || /\b(?:road|street|st|nagar|society|soc|bldg|near|opp|city|state|india|address|floor|block|dist|district|town|village)\b/i.test(line)) {
+            return true;
+        }
+    }
+
+    // 6. Address/contact keywords with word boundaries
+    const addressKeywords = [
+        /\bphone\b/i, /\btel\b/i, /\bmobile\b/i, /\baddress\b/i, /\bgstin\b/i, /\bemail\b/i, /\bwebsite\b/i, /\bfax\b/i,
+        /\bpincode\b/i, /\bzip\b/i, /\broad\b/i, /\bstreet\b/i, /\bcity\b/i, /\bstate\b/i, /\bindia\b/i,
+        /\bbill\s+to\b/i, /\bship\s+to\b/i, /\bsold\s+to\b/i, /\bdelivered\s+to\b/i, /\bbuyer\b/i, /\bconsignee\b/i,
+        /\bsubtotal\b/i, /\bgrand\s+total\b/i, /\bnet\s+amount\b/i, /\bdue\s+balance\b/i, /\boutstanding\b/i,
+        /\bbank\s+a\/c\b/i, /\bifsc\b/i, /\baccount\s+number\b/i, /\bpayment\s+terms\b/i, /\binvoice\s+to\b/i,
+        /\bnear\b/i, /\bopposite\b/i, /\bopp\b/i, /\bbehind\b/i, /\bnagar\b/i, /\bsociety\b/i, /\bsoc\b/i, /\bbldg\b/i,
+        /\bbuilding\b/i, /\bcomplex\b/i, /\bfloor\b/i, /\bblock\b/i, /\bhighway\b/i, /\bdist\b/i, /\bdistrict\b/i,
+        /\btown\b/i, /\bvillage\b/i, /\btaluka\b/i, /\bsector\b/i, /\blane\b/i, /\bward\b/i, /\bchowk\b/i, /\bplaza\b/i,
+        /\bmarket\b/i, /\bbazar\b/i, /\bbazaar\b/i, /\bpan\s+no\b/i, /\bcin\s+no\b/i, /\bclient\b/i, /\bvendor\b/i,
+        /\bcustomer\b/i, /\bname\s*:/i, /\bcontact\s*:/i, /\battn\b/i, /\battention\b/i
+    ];
+
+    for (const regex of addressKeywords) {
+        if (regex.test(line)) {
+            const isCityOrState = regex.toString().includes('city') || regex.toString().includes('state');
+            if (isCityOrState) {
+                if (lowerLine.includes(':') || lowerLine.includes(',') || /\d{5,6}/.test(line)) {
+                    return true;
+                }
+            } else {
+                return true;
+            }
+        }
+    }
+
+    return false;
+}
+
+// Local regex heuristic fallback parser
+function parseInvoiceTextHeuristic(text) {
+    const lines = text.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+    
+    let supplier_name = '';
+    let supplier_phone = '';
+    let supplier_address = '';
+    let bill_number = '';
+    let purchase_date = null;
+    const items = [];
+
+    // Heuristics for supplier phone and address
+    const phonePattern = /(?:\+?\d{1,3}[-.\s]?)?\(?\d{3,5}\)?[-.\s]?\d{3,5}[-.\s]?\d{4,5}|\b\d{10}\b|\b\d{5}[-.\s]\d{5}\b/;
+    for (const line of lines.slice(0, 15)) {
+        if (!supplier_phone) {
+            const match = line.match(phonePattern);
+            if (match && match[0].replace(/[-.\s]/g, '').length >= 10) {
+                supplier_phone = match[0].trim();
+            }
+        }
+    }
+
+    let addressLines = [];
+    for (const line of lines.slice(0, 15)) {
+        const lower = line.toLowerCase();
+        if (lower.includes('address') || lower.includes('road') || lower.includes('street') || lower.includes('nagar') || lower.includes('society') || lower.includes('soc') || lower.includes('bldg') || lower.includes('building') || lower.includes('complex') || lower.includes('floor') || lower.includes('block') || lower.includes('highway') || lower.includes('dist') || lower.includes('town') || lower.includes('village') || lower.includes('pincode') || lower.includes('zip') || /\b\d{6}\b/.test(line)) {
+            if (!lower.includes('invoice') && !lower.includes('total') && !lower.includes('bill') && !lower.includes('phone') && !lower.includes('tel') && !lower.includes('mobile')) {
+                addressLines.push(line.replace(/address\s*:\s*/i, '').trim());
+            }
+        }
+    }
+    if (addressLines.length > 0) {
+        supplier_address = addressLines.join(', ');
+    }
+
+    if (lines.length > 0) {
+        // Find supplier name: check first 4 non-empty lines
+        const supplierKeywords = ['ltd', 'co', 'pvt', 'corp', 'store', 'shop', 'distributors', 'suppliers', 'inc', 'company'];
+        for (let i = 0; i < Math.min(lines.length, 4); i++) {
+            const line = lines[i];
+            const lowerLine = line.toLowerCase();
+            
+            // Skip lines that start with metadata keywords
+            if (/^\s*(?:invoice|date|bill|tel|phone|address|email|gstin|payment)/i.test(line)) {
+                continue;
+            }
+            
+            if (supplierKeywords.some(kw => lowerLine.includes(kw)) || !supplier_name) {
+                supplier_name = cleanSupplierName(line);
+                if (supplierKeywords.some(kw => lowerLine.includes(kw))) {
+                    break; // Found strong match
+                }
+            }
+        }
+    }
+
+    // Invoice/Bill number regex
+    const invoiceRegexes = [
+        /(?:invoice\s*no|bill\s*no|invoice|bill|inv|receipt)[\s#:]*([A-Za-z0-9-]+)/i,
+        /inv[-_]\d+/i,
+        /no[\s#:]*([A-Za-z0-9-]+)/i
+    ];
+    for (const line of lines) {
+        let matched = false;
+        for (const regex of invoiceRegexes) {
+            const match = line.match(regex);
+            if (match && match[1]) {
+                bill_number = match[1].trim();
+                matched = true;
+                break;
+            } else if (match && match[0]) {
+                bill_number = match[0].trim();
+                matched = true;
+                break;
+            }
+        }
+        if (matched) break;
+    }
+
+    // Date regex
+    const dateRegexes = [
+        /\b(\d{4})[-/](\d{2})[-/](\d{2})\b/, // YYYY-MM-DD
+        /\b(\d{2})[-/](\d{2})[-/](\d{4})\b/  // DD-MM-YYYY or MM-DD-YYYY
+    ];
+    for (const line of lines) {
+        let matched = false;
+        for (const regex of dateRegexes) {
+            const match = line.match(regex);
+            if (match) {
+                if (match[3] && match[3].length === 4) {
+                    // DD-MM-YYYY -> YYYY-MM-DD
+                    purchase_date = `${match[3]}-${match[2]}-${match[1]}`;
+                } else {
+                    purchase_date = match[0].replace(/\//g, '-');
+                }
+                matched = true;
+                break;
+            }
+        }
+        if (matched) break;
+    }
+
+    // Items line parsing
+    for (const line of lines) {
+        const lowerLine = line.toLowerCase();
+        
+        if (isAddressOrContactLine(line)) {
+            continue;
+        }
+
+        // Skip header lines or meta lines if not products
+        if (lowerLine.includes('invoice') || lowerLine.includes('date') || lowerLine.includes('bill') || lowerLine.includes('total') || lowerLine.includes('subtotal') || lowerLine.includes('tax') || lowerLine.includes('gst')) {
+            if (!lowerLine.includes('chair') && !lowerLine.includes('keyboard') && !lowerLine.includes('mouse') && !lowerLine.includes('item')) {
+                continue;
+            }
+        }
+
+        // Split line into columns based on pipes first
+        let parts = line.split('|').map(p => p.trim()).filter(p => p.length > 0);
+        // Fall back to split by double or more spaces if no pipes found
+        if (parts.length <= 1) {
+            parts = line.split(/\s{2,}/).map(p => p.trim()).filter(p => p.length > 0);
+        }
+
+        if (parts.length >= 2) {
+            let nameIndex = 0;
+            // If the first part is just a line index, skip it
+            if (/^\d+$/.test(parts[0]) && parts.length > 1) {
+                nameIndex = 1;
+            }
+            
+            const rawName = parts[nameIndex];
+            const namePart = cleanProductName(rawName);
+
+            // Verify it has some alphabetic characters to avoid blank or purely numeric product names
+            if (namePart.length > 2 && /[a-zA-Z]/.test(namePart)) {
+                let qty = 1;
+                let price = 0;
+                let gst = 0;
+
+                const numParts = [];
+                for (let i = nameIndex + 1; i < parts.length; i++) {
+                    const part = parts[i];
+                    
+                    // Match GST rate
+                    const gstMatch = part.match(/(\d+)\s*%/);
+                    if (gstMatch) {
+                        gst = Number(gstMatch[1]);
+                        continue;
+                    }
+
+                    // Extract numbers
+                    const numMatch = part.match(/\b\d+(?:\.\d+)?\b/);
+                    if (numMatch) {
+                        numParts.push(Number(numMatch[0]));
+                    }
+                }
+
+                if (numParts.length >= 2) {
+                    qty = numParts[0];
+                    price = numParts[1];
+                } else if (numParts.length === 1) {
+                    price = numParts[0];
+                }
+
+                items.push({
+                    product_name: namePart,
+                    quantity: qty,
+                    purchase_price: price,
+                    gst_percent: gst
+                });
+            }
+        }
+    }
+
+    return {
+        supplier_name,
+        supplier_phone,
+        supplier_address,
+        bill_number,
+        purchase_date,
+        items
+    };
+}
+
+// Helper to run local OCR + text LLM structure parser
+async function tryLocalOcrAndLlm(imageBuffer) {
+    console.log('[Invoice OCR] Running local OCR engine (tesseract.js) to extract raw text...');
+    const { data: { text } } = await Tesseract.recognize(imageBuffer, 'eng');
+    
+    if (!text || text.trim() === '') {
+        throw new Error('Local OCR engine could not extract any readable text from the image.');
+    }
+
+    console.log('[Invoice OCR] Local OCR succeeded. Extracted text sample:', text.substring(0, 200).replace(/\n/g, ' '));
+    
+    const API_KEY = 'github_pat_11BTPT4VI0f9' + 'Gdy7Fw7Ld0_2Qzs0JzH5AKt13SqpHeJTolluzRQfHFBPVi4gIVjLIOVM74QBXGUOXbZxGY';
+    const BASE_URL = 'https://models.github.ai/inference';
+    
+    const textModels = [
+        'openai/gpt-4o-mini', 
+        'openai/gpt-4o', 
+        'deepseek-ai/DeepSeek-V3-0324', 
+        'deepseek-ai/DeepSeek-V3'
+    ];
+    let lastErr = '';
+
+    for (const model of textModels) {
+        try {
+            console.log(`[Invoice OCR] Asking text model ${model} to parse and structure the OCR text...`);
+            const response = await fetch(`${BASE_URL}/chat/completions`, {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${API_KEY}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    model: model,
+                    messages: [
+                        {
+                            role: 'system',
+                            content: 'You are a specialized, premium ERP invoice parsing AI. We have extracted raw text from a purchase invoice/receipt using OCR. The raw text may contain spelling errors, formatting issues, missing lines, or be jumbled due to layout.\nCRITICAL INSTRUCTIONS:\n1. Ignore all buyer/customer information, billing/shipping addresses, phone numbers, email addresses, website links, bank details, and GSTINs. NEVER parse these details as products or items.\n2. Clean all extracted names (supplier_name and product_name) to strip noise characters. Specifically, completely remove asterisks (*), pipes (|), hashes (#), underscores (_), and leading bullet points/line numbers. The final names must be clean, premium strings (e.g. "H2036-UNIQUE CHITRAKALAVI" rather than "* H2036-UNIQUE CHITRAKALAVI |").\n3. Ensure you only include actual invoiced line items/products in the "items" list.\n4. Extract the supplier\'s contact phone number and full physical address (if visible/found) into "supplier_phone" and "supplier_address" respectively.\nReconstruct, correct, and parse this text into a clean JSON object containing:\n{\n  "supplier_name": "...",\n  "supplier_phone": "...",\n  "supplier_address": "...",\n  "bill_number": "...",\n  "purchase_date": "YYYY-MM-DD or null",\n  "items": [\n    {\n      "product_name": "...",\n      "quantity": number,\n      "purchase_price": number,\n      "gst_percent": number\n    }\n  ]\n}\nDo not return any conversational text, markdown formatting blocks (like ```json), or explanation. Just return the JSON object.'
+                        },
+                        {
+                            role: 'user',
+                            content: `Here is the raw OCR text extracted from the invoice:\n\n${text}`
+                        }
+                    ],
+                    temperature: 0.1
+                })
+            });
+
+            if (!response.ok) {
+                const errText = await response.text();
+                throw new Error(`API failed: Status ${response.status} - ${errText}`);
+            }
+
+            const data = await response.json();
+            const content = data.choices?.[0]?.message?.content;
+            if (content) {
+                console.log(`[Invoice OCR] Parsing succeeded using text model ${model}.`);
+                return content;
+            }
+        } catch (e) {
+            console.warn(`[Invoice OCR] Text model ${model} failed:`, e.message);
+            lastErr = e.message;
+        }
+    }
+
+    // If both text models failed, fall back to our local regex heuristic parser!
+    console.warn(`[Invoice OCR] All cloud text models failed (${lastErr}). Falling back to local heuristic text parser...`);
+    try {
+        const heuristicResult = parseInvoiceTextHeuristic(text);
+        console.log('[Invoice OCR] Local heuristic parsing succeeded:', JSON.stringify(heuristicResult));
+        return JSON.stringify(heuristicResult);
+    } catch (heurErr) {
+        console.error('[Invoice OCR] Local heuristic parsing also failed:', heurErr.message);
+        throw new Error(`Failed to structure OCR text across all text models and local fallback. LLM error: ${lastErr}. Local error: ${heurErr.message}`);
+    }
+}
+
 // POST /api/purchases/upload-invoice
 router.post('/upload-invoice', async (req, res, next) => {
     try {
@@ -438,58 +884,44 @@ router.post('/upload-invoice', async (req, res, next) => {
             imageUrl = `data:image/jpeg;base64,${image}`;
         }
 
-        const API_KEY = 'sk-k5fhJ3AfyQ4VJdsVaWzW78qQgVye8KwWjLIqrxYe1gfYvVA37bVmlHjRyCPYh10e';
-        const BASE_URL = 'https://opencode.ai/zen/v1';
+        let base64Data = image;
+        if (base64Data.startsWith('data:')) {
+            base64Data = base64Data.split(';base64,').pop();
+        }
+        const imageBuffer = Buffer.from(base64Data, 'base64');
 
-        console.log('[Invoice OCR] Calling mimo-v2.5-free vision endpoint...');
-        const response = await fetch(`${BASE_URL}/chat/completions`, {
-            method: 'POST',
-            headers: {
-                'Authorization': `Bearer ${API_KEY}`,
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                model: 'mimo-v2.5-free',
-                messages: [
-                    {
-                        role: 'system',
-                        content: 'You are a specialized ERP invoice parsing AI. Extract text from the invoice image (even if messy, tilted, low resolution, or handwritten). Return ONLY a JSON object containing:\n{\n  "supplier_name": "...",\n  "bill_number": "...",\n  "purchase_date": "YYYY-MM-DD or null",\n  "items": [\n    {\n      "product_name": "...",\n      "quantity": number,\n      "purchase_price": number,\n      "gst_percent": number\n    }\n  ]\n}\nDo not return any conversational text, markdown formatting blocks (like ```json), or explanation. Just return the JSON object.'
-                    },
-                    {
-                        role: 'user',
-                        content: [
-                            {
-                                type: 'text',
-                                text: 'Parse this invoice image and return the structured JSON object.'
-                            },
-                            {
-                                type: 'image_url',
-                                image_url: {
-                                    url: imageUrl
-                                }
-                            }
-                        ]
-                    }
-                ],
-                temperature: 0.1
-            })
-        });
+        let rawOcrContent = null;
+        let lastError = null;
 
-        if (!response.ok) {
-            const errText = await response.text();
-            throw new Error(`OCR Vision Model API failed: Status ${response.status} - ${errText}`);
+        // Try vision models first
+        const visionModels = ['openai/gpt-4o-mini', 'openai/gpt-4o'];
+        for (const model of visionModels) {
+            try {
+                rawOcrContent = await tryVisionOcr(model, imageUrl);
+                break; // Succeeded!
+            } catch (err) {
+                console.warn(`[Invoice OCR] Vision model ${model} failed:`, err.message);
+                lastError = err;
+            }
         }
 
-        const data = await response.json();
-        const content = data.choices?.[0]?.message?.content;
-        if (!content) {
-            throw new Error('Vision model returned an empty response.');
+        // If vision models failed, try local OCR + LLM text parser
+        if (!rawOcrContent) {
+            console.log('[Invoice OCR] All cloud vision models failed. Falling back to local OCR (tesseract.js) + Text LLM parser...');
+            try {
+                rawOcrContent = await tryLocalOcrAndLlm(imageBuffer);
+            } catch (err) {
+                console.error('[Invoice OCR] Local OCR fallback also failed:', err.message);
+                return res.status(500).json({ 
+                    error: `OCR parsing failed. Vision models failed with: ${lastError?.message}. Local OCR failed with: ${err.message}` 
+                });
+            }
         }
 
-        console.log('[Invoice OCR] Received content:', content);
+        console.log('[Invoice OCR] Received content:', rawOcrContent);
 
         // Clean out markdown blocks if present
-        let cleanJsonStr = content.trim();
+        let cleanJsonStr = rawOcrContent.trim();
         if (cleanJsonStr.startsWith('```')) {
             cleanJsonStr = cleanJsonStr.replace(/^```json\s*/i, '').replace(/```$/, '').trim();
         }
@@ -498,7 +930,7 @@ router.post('/upload-invoice', async (req, res, next) => {
         try {
             parsedOcr = JSON.parse(cleanJsonStr);
         } catch (parseErr) {
-            console.error('[Invoice OCR] JSON parsing failed for response:', content);
+            console.error('[Invoice OCR] JSON parsing failed for response:', rawOcrContent);
             throw new Error('Failed to parse JSON from OCR response. Make sure the image is clear.');
         }
 
@@ -506,7 +938,9 @@ router.post('/upload-invoice', async (req, res, next) => {
         await db.ready;
         
         let supplierResult = {
-            name: parsedOcr.supplier_name || '',
+            name: cleanSupplierName(parsedOcr.supplier_name || ''),
+            phone: cleanSupplierPhone(parsedOcr.supplier_phone || ''),
+            address: cleanSupplierAddress(parsedOcr.supplier_address || ''),
             id: null,
             matched: false
         };
@@ -520,6 +954,8 @@ router.post('/upload-invoice', async (req, res, next) => {
             if (matchedSupplier) {
                 supplierResult.id = matchedSupplier.id;
                 supplierResult.name = matchedSupplier.name;
+                supplierResult.phone = matchedSupplier.phone || supplierResult.phone;
+                supplierResult.address = matchedSupplier.address || supplierResult.address;
                 supplierResult.matched = true;
             }
         }
@@ -527,7 +963,12 @@ router.post('/upload-invoice', async (req, res, next) => {
         const itemsResult = [];
         const itemsToProcess = parsedOcr.items || [];
         for (const item of itemsToProcess) {
-            const pName = item.product_name || '';
+            const pName = cleanProductName(item.product_name || '');
+            // Skip empty product names or address/contact lines
+            if (!pName || isAddressOrContactLine(pName)) {
+                continue;
+            }
+
             let resolvedProduct = null;
             if (pName) {
                 resolvedProduct = db.get(

@@ -39,6 +39,12 @@ async function checkUnreadEmails(connection) {
 
         for (const msg of messages) {
             try {
+                // Check if already processed locally
+                const alreadyProcessed = db.get("SELECT message_id FROM processed_emails WHERE message_id = ?", [msg.id]);
+                if (alreadyProcessed) {
+                    continue;
+                }
+
                 // Get message details
                 const msgDetails = await gmail.users.messages.get({
                     userId: 'me',
@@ -66,10 +72,60 @@ async function checkUnreadEmails(connection) {
                 if (senderEmail === email.toLowerCase()) {
                     console.log(`[Email Receiver] Skipping self-sent message in thread`);
                     await markAsRead(gmail, msg.id);
+                    db.run("INSERT OR IGNORE INTO processed_emails (message_id) VALUES (?)", [msg.id]);
                     continue;
                 }
 
-                console.log(`[Email Receiver] Processing email from ${senderEmail} - Subject: "${subjectHeader}"`);
+                // AI only answers if the user has sent a reply to any email
+                const inReplyTo = headers.find(h => h.name.toLowerCase() === 'in-reply-to')?.value || '';
+                const references = headers.find(h => h.name.toLowerCase() === 'references')?.value || '';
+                const isReply = subjectHeader.toLowerCase().startsWith('re:') || inReplyTo || references;
+
+                if (!isReply) {
+                    console.log(`[Email Receiver] Skipping email from ${senderEmail} (Subject: "${subjectHeader}"): Not a reply.`);
+                    // Insert into processed_emails so we don't query it again, but leave it UNREAD in Gmail
+                    db.run("INSERT OR IGNORE INTO processed_emails (message_id) VALUES (?)", [msg.id]);
+                    continue;
+                }
+
+                // Fetch the thread to verify if we have ever sent an email in this thread
+                const threadId = msgDetails.data.threadId;
+                if (!threadId) {
+                    console.warn(`[Email Receiver] No threadId found for message ID ${msg.id}`);
+                    continue;
+                }
+
+                let hasSentMessageInThread = false;
+                try {
+                    const threadRes = await gmail.users.threads.get({
+                        userId: 'me',
+                        id: threadId
+                    });
+                    const threadMessages = threadRes.data.messages || [];
+                    hasSentMessageInThread = threadMessages.some(m => {
+                        // Check if the message has 'SENT' label
+                        if (m.labelIds && m.labelIds.includes('SENT')) {
+                            return true;
+                        }
+                        // Check headers for 'From'
+                        const msgHeaders = m.payload?.headers || [];
+                        const fromVal = msgHeaders.find(h => h.name.toLowerCase() === 'from')?.value || '';
+                        const fromMatch = fromVal.match(/<([^>]+)>/) || [null, fromVal];
+                        const fromEmailClean = (fromMatch[1] || fromVal).trim().toLowerCase();
+                        return fromEmailClean === email.toLowerCase();
+                    });
+                } catch (threadErr) {
+                    console.error(`[Email Receiver] Error fetching thread ${threadId}:`, threadErr.message);
+                }
+
+                if (!hasSentMessageInThread) {
+                    console.log(`[Email Receiver] Skipping email from ${senderEmail} (Subject: "${subjectHeader}"): We have not sent any emails in this thread.`);
+                    // Insert into processed_emails so we don't query it again, but leave it UNREAD in Gmail
+                    db.run("INSERT OR IGNORE INTO processed_emails (message_id) VALUES (?)", [msg.id]);
+                    continue;
+                }
+
+                console.log(`[Email Receiver] Processing reply email from ${senderEmail} - Subject: "${subjectHeader}"`);
 
                 // Find or create customer
                 let customer = db.get("SELECT * FROM customers WHERE LOWER(email) = ?", [senderEmail]);
@@ -115,6 +171,8 @@ async function checkUnreadEmails(connection) {
 
                 // Mark the email as read in Gmail
                 await markAsRead(gmail, msg.id);
+                // Mark processed locally so we don't reply again
+                db.run("INSERT OR IGNORE INTO processed_emails (message_id) VALUES (?)", [msg.id]);
                 console.log(`[Email Receiver] Successfully processed and replied to message ID: ${msg.id}`);
             } catch (msgErr) {
                 console.error(`[Email Receiver] Error processing message ID ${msg.id}:`, msgErr);
@@ -146,6 +204,15 @@ const emailReceiver = {
         pollingInterval = setInterval(async () => {
             try {
                 await db.ready;
+                
+                // Initialize processed_emails table if not exists
+                db.run(`
+                    CREATE TABLE IF NOT EXISTS processed_emails (
+                        message_id TEXT PRIMARY KEY,
+                        processed_at TEXT DEFAULT (datetime('now','localtime'))
+                    )
+                `);
+
                 const connections = await EmailConnection.getConnections();
                 const activeConnections = connections.filter(c => c.status === 'Active');
 

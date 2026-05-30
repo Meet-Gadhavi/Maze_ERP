@@ -6,8 +6,8 @@ import { FormGroup, Input } from '../components/FormComponents';
 import Modal from '../components/Modal';
 import SButton from '../components/SButton';
 import Icons from '../components/Icons';
-import { formatDate, amountToWords } from '../utils';
-import { EMPTY_SUPPLIER, EMPTY_EXPENSE } from '../constants';
+import { formatDate, amountToWords, validateProduct } from '../utils';
+import { EMPTY_SUPPLIER, EMPTY_EXPENSE, EMPTY_PRODUCT, UNIT_CATEGORIES, DECIMAL_UNITS } from '../constants';
 import './PurchasePage.css';
 
 export default function PurchasePage() {
@@ -40,7 +40,21 @@ export default function PurchasePage() {
     const [deleteSupplier, setDeleteSupplier] = useState(null); // supplier to confirm-delete
 
     const [showProductModal, setShowProductModal] = useState(false);
-    const [newProductForm, setNewProductForm] = useState({ name: '', category: 'General', purchase_price: 0, selling_price: 0, product_code: '', unit: 'PCS' });
+    const [newProductForm, setNewProductForm] = useState(EMPTY_PRODUCT);
+    const [subcategories, setSubcategories] = useState([]);
+    const [brands, setBrands] = useState([]);
+    const [activeModalTab, setActiveModalTab] = useState('basic');
+    const [tempVariants, setTempVariants] = useState([]);
+    const [variantForm, setVariantForm] = useState({ name: '', sku: '', selling_price: '', cost_price: '', stock_quantity: 0 });
+    const [savingProduct, setSavingProduct] = useState(false);
+
+    // Inner modal states for quick creation
+    const [showCatModal, setShowCatModal] = useState(false);
+    const [newCatName, setNewCatName] = useState('');
+    const [showSubCatModal, setShowSubCatModal] = useState(false);
+    const [newSubCatName, setNewSubCatName] = useState('');
+    const [showBrandModal, setShowBrandModal] = useState(false);
+    const [newBrandName, setNewBrandName] = useState('');
 
     // Serial/IMEI modal states for purchases
     const [showSerialModal, setShowSerialModal] = useState(false);
@@ -65,14 +79,16 @@ export default function PurchasePage() {
 
     const loadData = async () => {
         try {
-            const [sData, pData, purData, catData, expData, expCatData, setts] = await Promise.all([
+            const [sData, pData, purData, catData, expData, expCatData, setts, subcatData, brandData] = await Promise.all([
                 api.getSuppliers(),
                 api.getProducts(),
                 api.getPurchases(),
                 api.getCategories(),
                 api.getExpenses(),
                 api.getExpenseCategories(),
-                api.getSettings()
+                api.getSettings(),
+                api.getSubcategories ? api.getSubcategories() : [],
+                api.getBrands ? api.getBrands() : []
             ]);
             setSuppliers(sData);
             setProducts(pData);
@@ -81,6 +97,8 @@ export default function PurchasePage() {
             setExpenses(expData);
             setExpenseCategories(expCatData);
             setSettings(setts);
+            setSubcategories(subcatData);
+            setBrands(brandData);
         } catch (err) {
             console.error('Failed to load purchase system data', err);
         }
@@ -149,63 +167,162 @@ export default function PurchasePage() {
         setTimeout(() => setCartPulse(false), 500);
     };
 
-    const handleInlineProductCreate = () => {
-        let qty = 1;
-        let pPrice = newProductForm.purchase_price;
-        let gst = 18;
-        const tempId = `new-${Date.now()}`;
-
-        if (ocrResult && ocrResolvingItemIndex !== null) {
-            const ocrItem = ocrResult.items[ocrResolvingItemIndex];
-            qty = ocrItem.quantity;
-            pPrice = ocrItem.purchase_price;
-            gst = ocrItem.gst_percent;
+    const handleInlineProductCreate = async () => {
+        const errors = validateProduct(newProductForm);
+        if (errors && errors.length > 0) {
+            errors.forEach(err => toast.error(err));
+            return;
         }
 
-        setCart([...cart, {
-            product_id: null,
-            product_name: newProductForm.name,
-            quantity: qty,
-            unit: newProductForm.unit,
-            purchase_price: pPrice,
-            selling_price: newProductForm.selling_price,
-            category: newProductForm.category,
-            product_code: newProductForm.product_code,
-            discount_percent: 0,
-            gst_percent: gst,
-            is_new_product: true,
-            track_batches: false,
-            batch_number: '',
-            expiry_date: '',
-            track_serials: false,
-            serials: [],
-            tempId
-        }]);
+        const payload = {
+            name: newProductForm.name.trim(),
+            category: newProductForm.category.trim() || 'General',
+            subcategory_id: newProductForm.subcategory_id || null,
+            brand_id: newProductForm.brand_id || null,
+            tags: (newProductForm.tags || '').trim(),
+            cost_price: parseFloat(newProductForm.cost_price) || 0,
+            selling_price: parseFloat(newProductForm.selling_price) || 0,
+            stock_quantity: parseFloat(newProductForm.stock_quantity) || 0,
+            product_code: (newProductForm.product_code || '').trim(),
+            unit: newProductForm.unit || 'PCS',
+            secondary_unit: newProductForm.secondary_unit || null,
+            conversion_factor: parseFloat(newProductForm.conversion_factor) || 1,
+            allow_decimal: !!newProductForm.allow_decimal,
+            min_stock_level: parseFloat(newProductForm.min_stock_level) || 0,
+            max_stock_level: parseFloat(newProductForm.max_stock_level) || 0,
+            track_batches: !!newProductForm.track_batches,
+            track_serials: !!newProductForm.track_serials
+        };
 
-        setShowProductModal(false);
-        setNewProductForm({ name: '', category: 'General', purchase_price: 0, selling_price: 0, product_code: '', unit: 'PCS' });
-        setProductSearch('');
-        setCartPulse(true);
-        setTimeout(() => setCartPulse(false), 500);
+        setSavingProduct(true);
+        try {
+            const product = await api.createProduct(payload);
 
-        if (ocrResult && ocrResolvingItemIndex !== null) {
-            setOcrResult(prev => {
-                const updatedItems = [...prev.items];
-                updatedItems[ocrResolvingItemIndex] = {
-                    ...updatedItems[ocrResolvingItemIndex],
-                    matched: true,
-                    is_new_product: true,
-                    tempId
-                };
-                const updated = {
-                    ...prev,
-                    items: updatedItems
-                };
-                setTimeout(() => checkOcrResolution(updated), 0);
-                return updated;
-            });
-            setOcrResolvingItemIndex(null);
+            // If we have temp variants, create them
+            if (tempVariants.length > 0) {
+                for (const v of tempVariants) {
+                    await api.createVariant(product.id, v);
+                }
+            }
+
+            toast.success('Product created and registered in inventory');
+            
+            // Reload all products and category lists
+            await loadData();
+
+            let qty = 1;
+            let pPrice = Number(newProductForm.cost_price || 0);
+            let gst = 18;
+
+            if (ocrResult && ocrResolvingItemIndex !== null) {
+                const ocrItem = ocrResult.items[ocrResolvingItemIndex];
+                qty = ocrItem.quantity;
+                pPrice = ocrItem.purchase_price;
+                gst = ocrItem.gst_percent;
+            }
+
+            setCart([...cart, {
+                product_id: product.id,
+                product_name: product.name,
+                quantity: qty,
+                unit: product.unit || 'PCS',
+                purchase_price: pPrice,
+                discount_percent: 0,
+                gst_percent: gst,
+                is_new_product: false,
+                track_batches: !!product.track_batches,
+                batch_number: '',
+                expiry_date: '',
+                track_serials: !!product.track_serials,
+                serials: []
+            }]);
+
+            setShowProductModal(false);
+            setNewProductForm(EMPTY_PRODUCT);
+            setTempVariants([]);
+            setVariantForm({ name: '', sku: '', selling_price: '', cost_price: '', stock_quantity: 0 });
+            setActiveModalTab('basic');
+            setProductSearch('');
+            setCartPulse(true);
+            setTimeout(() => setCartPulse(false), 500);
+
+            if (ocrResult && ocrResolvingItemIndex !== null) {
+                setOcrResult(prev => {
+                    const updatedItems = [...prev.items];
+                    updatedItems[ocrResolvingItemIndex] = {
+                        ...updatedItems[ocrResolvingItemIndex],
+                        matched: true,
+                        product_id: product.id,
+                        is_new_product: false
+                    };
+                    const updated = {
+                        ...prev,
+                        items: updatedItems
+                    };
+                    setTimeout(() => checkOcrResolution(updated), 0);
+                    return updated;
+                });
+                setOcrResolvingItemIndex(null);
+            }
+        } catch (err) {
+            toast.error(err.message || 'Failed to create product');
+        } finally {
+            setSavingProduct(false);
         }
+    };
+
+    const handleProceedWithOcr = (proceedAll = false) => {
+        if (!ocrResult) return;
+
+        // Determine which items to proceed with
+        const itemsToProceed = proceedAll 
+            ? ocrResult.items 
+            : ocrResult.items.filter(item => item.matched);
+
+        if (itemsToProceed.length === 0) {
+            toast.error("No matched items to proceed with. Please register at least one item first.");
+            return;
+        }
+
+        // Handle supplier selection: only select if it is matched, or if they are already selected
+        const isSupplierMatched = ocrResult.supplier.matched || selectedSupplier;
+        if (isSupplierMatched) {
+            const supplierId = ocrResult.supplier.id || selectedSupplier;
+            if (supplierId) {
+                setSelectedSupplier(supplierId.toString());
+            }
+        }
+
+        // Set bill number and date if present
+        if (ocrResult.bill_number) setBillNumber(ocrResult.bill_number);
+        if (ocrResult.purchase_date) setPurchaseDate(ocrResult.purchase_date);
+
+        // Populate the cart
+        const newCartItems = itemsToProceed.map(item => {
+            const matchedProduct = products.find(p => p.id === item.product_id);
+            return {
+                product_id: item.product_id,
+                product_name: item.product_name,
+                quantity: item.quantity,
+                unit: item.unit || 'PCS',
+                purchase_price: item.purchase_price,
+                discount_percent: 0,
+                gst_percent: item.gst_percent || 18,
+                is_new_product: false,
+                track_batches: matchedProduct ? !!matchedProduct.track_batches : false,
+                batch_number: '',
+                expiry_date: '',
+                track_serials: matchedProduct ? !!matchedProduct.track_serials : false,
+                serials: []
+            };
+        });
+
+        setCart(newCartItems);
+        setShowOcrUnmatchedModal(false);
+        setOcrResult(null);
+        setActiveTab('bill');
+        
+        toast.success(proceedAll ? "All items added to cart! Proceeding to bill..." : `${newCartItems.length} matched items added to cart! Proceeding to bill...`);
     };
 
     const checkOcrResolution = (result) => {
@@ -213,60 +330,7 @@ export default function PurchasePage() {
         const allItemsMatched = result.items.every(item => item.matched);
         
         if (allSupplierMatched && allItemsMatched) {
-            toast.success("Supplier and all products resolved! Populating bill...");
-            
-            if (result.supplier.id) {
-                setSelectedSupplier(result.supplier.id.toString());
-            }
-            
-            if (result.bill_number) setBillNumber(result.bill_number);
-            if (result.purchase_date) setPurchaseDate(result.purchase_date);
-            
-            const newCartItems = result.items.map(item => {
-                if (item.product_id) {
-                    const matchedProduct = products.find(p => p.id === item.product_id);
-                    return {
-                        product_id: item.product_id,
-                        product_name: item.product_name,
-                        quantity: item.quantity,
-                        unit: item.unit || 'PCS',
-                        purchase_price: item.purchase_price,
-                        discount_percent: 0,
-                        gst_percent: item.gst_percent || 18,
-                        is_new_product: false,
-                        track_batches: matchedProduct ? !!matchedProduct.track_batches : false,
-                        batch_number: '',
-                        expiry_date: '',
-                        track_serials: matchedProduct ? !!matchedProduct.track_serials : false,
-                        serials: []
-                    };
-                } else {
-                    return {
-                        product_id: null,
-                        product_name: item.product_name,
-                        quantity: item.quantity,
-                        unit: item.unit || 'PCS',
-                        purchase_price: item.purchase_price,
-                        selling_price: Math.round(item.purchase_price * 1.2),
-                        category: item.category || 'General',
-                        product_code: item.product_code || '',
-                        discount_percent: 0,
-                        gst_percent: item.gst_percent || 18,
-                        is_new_product: true,
-                        track_batches: false,
-                        batch_number: '',
-                        expiry_date: '',
-                        track_serials: false,
-                        serials: [],
-                        tempId: item.tempId
-                    };
-                }
-            });
-            
-            setCart(newCartItems);
-            setShowOcrUnmatchedModal(false);
-            setOcrResult(null);
-            setActiveTab('bill');
+            toast.success("All items and supplier resolved! Click 'Next' to proceed.");
         }
     };
 
@@ -687,7 +751,13 @@ export default function PurchasePage() {
                                         {p.name} - ₹{p.cost_price} ({p.stock_quantity} {p.unit})
                                     </div>
                                 ))}
-                                <div className="create-new-prompt" onClick={() => { setNewProductForm({ ...newProductForm, name: productSearch }); setShowProductModal(true); }}>
+                                <div className="create-new-prompt" onClick={() => {
+                                    setNewProductForm({ ...EMPTY_PRODUCT, name: productSearch });
+                                    setTempVariants([]);
+                                    setVariantForm({ name: '', sku: '', selling_price: '', cost_price: '', stock_quantity: 0 });
+                                    setActiveModalTab('basic');
+                                    setShowProductModal(true);
+                                }}>
                                     + Product NOT found? Create & Add to Inventory
                                 </div>
                             </div>
@@ -1652,39 +1722,397 @@ export default function PurchasePage() {
             <Modal
                 open={showProductModal}
                 onClose={() => setShowProductModal(false)}
-                heading="Quick Add Product"
+                heading="Add New Product"
+                size="large"
                 primaryAction={
-                    <SButton variant="primary" onClick={handleInlineProductCreate}>Confirm & Add</SButton>
+                    <SButton variant="primary" disabled={savingProduct} onClick={handleInlineProductCreate}>
+                        {savingProduct ? 'Creating...' : 'Confirm & Add'}
+                    </SButton>
                 }
                 secondaryAction={
                     <SButton onClick={() => setShowProductModal(false)}>Cancel</SButton>
                 }
             >
-                <div className="form-grid mb-24">
-                    <FormGroup label="Name">
-                        <Input value={newProductForm.name} onChange={e => setNewProductForm({ ...newProductForm, name: e.target.value })} />
-                    </FormGroup>
-                    <FormGroup label="Category">
-                        <CustomSelect
-                            value={newProductForm.category}
-                            onChange={val => setNewProductForm({ ...newProductForm, category: val })}
-                            options={categories.map(c => ({ value: c, label: c }))}
-                        />
-                    </FormGroup>
-                    <FormGroup label="Purchase Price">
-                        <Input type="number" value={newProductForm.purchase_price} onChange={e => setNewProductForm({ ...newProductForm, purchase_price: parseFloat(e.target.value) })} suffix="₹" />
-                    </FormGroup>
-                    <FormGroup label="Selling Price">
-                        <Input type="number" value={newProductForm.selling_price} onChange={e => setNewProductForm({ ...newProductForm, selling_price: parseFloat(e.target.value) })} suffix="₹" />
-                    </FormGroup>
-                    <FormGroup label="Unit">
-                        <Input value={newProductForm.unit} onChange={e => setNewProductForm({ ...newProductForm, unit: e.target.value })} placeholder="PCS, KG..." />
-                    </FormGroup>
-                    <FormGroup label="Item Code">
-                        <Input value={newProductForm.product_code} onChange={e => setNewProductForm({ ...newProductForm, product_code: e.target.value })} placeholder="SKU001" />
-                    </FormGroup>
+                <div className="modal-tabs" style={{ marginBottom: 20 }}>
+                    <button className={`modal-tab ${activeModalTab === 'basic' ? 'active' : ''}`} onClick={() => setActiveModalTab('basic')}>Basic Details</button>
+                    <button className={`modal-tab ${activeModalTab === 'variants' ? 'active' : ''}`} onClick={() => setActiveModalTab('variants')}>Variants & SKUs</button>
+                </div>
+
+                <div className="modal-body-scroll" style={{ maxHeight: '65vh', overflowY: 'auto', paddingRight: 20 }}>
+                    {activeModalTab === 'basic' && (
+                        <>
+                            {/* Identity */}
+                            <div className="modal-section-title">Product Identity</div>
+                            <div className="grid grid-2 gap-12" style={{ marginBottom: 14 }}>
+                                <FormGroup label="Product Name" required>
+                                    <Input value={newProductForm.name || ''} onChange={e => setNewProductForm({ ...newProductForm, name: e.target.value })} placeholder="e.g. Engine Oil 1L" autoFocus />
+                                </FormGroup>
+                                <FormGroup label="Product Code / SKU">
+                                    <Input value={newProductForm.product_code || ''} onChange={e => setNewProductForm({ ...newProductForm, product_code: e.target.value })} placeholder="e.g. SKU-101" />
+                                </FormGroup>
+                            </div>
+
+                            <FormGroup label="Tags" style={{ marginBottom: 20 }}>
+                                <Input value={newProductForm.tags || ''} onChange={e => setNewProductForm({ ...newProductForm, tags: e.target.value })} placeholder="e.g. electronics, premium (comma separated)" />
+                            </FormGroup>
+
+                            {/* Classification */}
+                            <div className="modal-section-title">Classification</div>
+                            <FormGroup label="Category">
+                                <div className="field-with-add">
+                                    <div className="flex-1">
+                                        <CustomSelect
+                                            value={newProductForm.category || 'General'}
+                                            onChange={val => setNewProductForm({ ...newProductForm, category: val, subcategory_id: '' })}
+                                            options={[
+                                                { value: 'General', label: 'General' },
+                                                ...categories.filter(c => c !== 'General').map(c => ({ value: c, label: c }))
+                                            ]}
+                                        />
+                                    </div>
+                                    <SButton variant="secondary" onClick={(e) => { e.stopPropagation(); setShowCatModal(true); }} style={{ height: '42px', whiteSpace: 'nowrap' }}>
+                                        + Add
+                                    </SButton>
+                                </div>
+                            </FormGroup>
+
+                            <div className="grid grid-2 gap-12" style={{ marginBottom: 20 }}>
+                                <FormGroup label="Sub-category">
+                                    <div className="field-with-add">
+                                        <div className="flex-1">
+                                            <CustomSelect
+                                                value={newProductForm.subcategory_id || ''}
+                                                onChange={val => setNewProductForm({ ...newProductForm, subcategory_id: val })}
+                                                options={[
+                                                    { value: '', label: 'None' },
+                                                    ...subcategories.filter(sc => newProductForm.category === 'All' || sc.category_name === newProductForm.category).map(sc => ({ value: sc.id, label: sc.name }))
+                                                ]}
+                                            />
+                                        </div>
+                                        <SButton variant="secondary" onClick={(e) => { e.stopPropagation(); setShowSubCatModal(true); }} style={{ height: '42px', whiteSpace: 'nowrap' }}>
+                                            + Add
+                                        </SButton>
+                                    </div>
+                                </FormGroup>
+                                <FormGroup label="Brand">
+                                    <div className="field-with-add">
+                                        <div className="flex-1">
+                                            <CustomSelect
+                                                value={newProductForm.brand_id || ''}
+                                                onChange={val => setNewProductForm({ ...newProductForm, brand_id: val })}
+                                                options={[
+                                                    { value: '', label: 'None' },
+                                                    ...brands.map(b => ({ value: b.id, label: b.name }))
+                                                ]}
+                                            />
+                                        </div>
+                                        <SButton variant="secondary" onClick={(e) => { e.stopPropagation(); setShowBrandModal(true); }} style={{ height: '42px', whiteSpace: 'nowrap' }}>
+                                            + Add
+                                        </SButton>
+                                    </div>
+                                </FormGroup>
+                            </div>
+
+                            {/* Measurement Units */}
+                            <div className="modal-section-title">Units & Measurement</div>
+                            <div className="grid grid-3 gap-12" style={{ marginBottom: 20 }}>
+                                <FormGroup label="Base Unit">
+                                    <CustomSelect
+                                        value={newProductForm.unit || 'PCS'}
+                                        onChange={val => {
+                                            const unit = val;
+                                            const allow_decimal = DECIMAL_UNITS.includes(unit);
+                                            setNewProductForm({ ...newProductForm, unit, allow_decimal });
+                                        }}
+                                        options={Object.entries(UNIT_CATEGORIES).map(([cat, units]) => ({
+                                            group: cat,
+                                            items: units.map(u => ({ value: u, label: u }))
+                                        }))}
+                                    />
+                                </FormGroup>
+                                <FormGroup label="Secondary Unit">
+                                    <CustomSelect
+                                        value={newProductForm.secondary_unit || ''}
+                                        onChange={val => setNewProductForm({ ...newProductForm, secondary_unit: val })}
+                                        options={[
+                                            { value: '', label: 'None' },
+                                            ...Object.values(UNIT_CATEGORIES).flat().map(u => ({ value: u, label: u }))
+                                        ]}
+                                    />
+                                </FormGroup>
+                                <FormGroup label="Conv. Factor">
+                                    <Input
+                                        type="number"
+                                        min="1"
+                                        value={newProductForm.conversion_factor || 1}
+                                        onFocus={e => e.target.select()}
+                                        onChange={e => setNewProductForm({ ...newProductForm, conversion_factor: e.target.value })}
+                                        disabled={!newProductForm.secondary_unit}
+                                        placeholder="1"
+                                    />
+                                </FormGroup>
+                            </div>
+
+                            {/* Pricing & Stock */}
+                            <div className="modal-section-title">Pricing & Stock</div>
+                            <div className="grid grid-2 gap-12">
+                                <FormGroup label="Purchase Cost (₹)">
+                                    <Input type="number" min="0" step="0.01" value={newProductForm.cost_price || ''} onChange={e => setNewProductForm({ ...newProductForm, cost_price: e.target.value })} placeholder="0.00" />
+                                </FormGroup>
+                                <FormGroup label="Selling Price (₹)">
+                                    <Input type="number" min="0" step="0.01" value={newProductForm.selling_price || ''} onChange={e => setNewProductForm({ ...newProductForm, selling_price: e.target.value })} placeholder="0.00" />
+                                </FormGroup>
+                            </div>
+                            <div className="grid grid-3 gap-12" style={{ marginBottom: 20 }}>
+                                <FormGroup label="Current Stock">
+                                    <Input type="number" min="0" value={newProductForm.stock_quantity || ''} onChange={e => setNewProductForm({ ...newProductForm, stock_quantity: e.target.value })} placeholder="0" />
+                                </FormGroup>
+                                <FormGroup label="Min Stock Alert">
+                                    <Input type="number" min="0" value={newProductForm.min_stock_level || ''} onChange={e => setNewProductForm({ ...newProductForm, min_stock_level: e.target.value })} placeholder="5" />
+                                </FormGroup>
+                                <FormGroup label="Max Stock Level">
+                                    <Input type="number" min="0" value={newProductForm.max_stock_level || ''} onChange={e => setNewProductForm({ ...newProductForm, max_stock_level: e.target.value })} placeholder="0" />
+                                </FormGroup>
+                            </div>
+
+                            {/* Settings */}
+                            <div className="modal-section-title">Settings</div>
+                            <div className="modal-section bg-tinted" style={{ marginBottom: 20 }}>
+                                <label className="option-row">
+                                    <input
+                                        type="checkbox"
+                                        checked={!!newProductForm.allow_decimal}
+                                        onChange={e => setNewProductForm({ ...newProductForm, allow_decimal: e.target.checked })}
+                                    />
+                                    <div className="option-row-label">
+                                        <span>Allow decimal quantities</span>
+                                        <small>Enables fractional values in stock, sales and purchase entries</small>
+                                    </div>
+                                </label>
+                                <label className="option-row">
+                                    <input
+                                        type="checkbox"
+                                        checked={!!newProductForm.track_batches}
+                                        onChange={e => setNewProductForm({ ...newProductForm, track_batches: e.target.checked })}
+                                    />
+                                    <div className="option-row-label">
+                                        <span>Track Batches &amp; Expiry dates</span>
+                                        <small>Assigns batch numbers and expiry tracking for this product</small>
+                                    </div>
+                                </label>
+                                {settings.enable_serial_tracking === 'true' && (
+                                    <label className="option-row">
+                                        <input
+                                            type="checkbox"
+                                            checked={!!newProductForm.track_serials}
+                                            onChange={e => setNewProductForm({ ...newProductForm, track_serials: e.target.checked })}
+                                        />
+                                        <div className="option-row-label">
+                                            <span>Track Serial / IMEI Numbers</span>
+                                            <small>Track unique individual serial numbers for this product</small>
+                                        </div>
+                                    </label>
+                                )}
+                            </div>
+                        </>
+                    )}
+
+                    {activeModalTab === 'variants' && (
+                        <div className="variants-section">
+                            <div className="p-20 bg-secondary rounded-8 mb-24">
+                                <h4 className="size-14 fw-600 mb-16">Quick Add Variant</h4>
+                                <div className="grid grid-5 gap-12">
+                                    <FormGroup label="Name" className="m-0">
+                                        <Input 
+                                            className="h-42"
+                                            placeholder="Red, XL, etc." 
+                                            value={variantForm.name}
+                                            onChange={e => setVariantForm({ ...variantForm, name: e.target.value })}
+                                        />
+                                    </FormGroup>
+                                    <FormGroup label="Price" className="m-0">
+                                        <Input 
+                                            type="number" 
+                                            className="h-42"
+                                            placeholder="0.00" 
+                                            value={variantForm.selling_price}
+                                            onChange={e => setVariantForm({ ...variantForm, selling_price: e.target.value })}
+                                        />
+                                    </FormGroup>
+                                    <FormGroup label="Stock" className="m-0">
+                                        <Input 
+                                            type="number" 
+                                            className="h-42"
+                                            placeholder="0" 
+                                            value={variantForm.stock_quantity}
+                                            onChange={e => setVariantForm({ ...variantForm, stock_quantity: e.target.value })}
+                                        />
+                                    </FormGroup>
+                                    <FormGroup label="Code" className="m-0">
+                                        <Input 
+                                            className="h-42"
+                                            placeholder="Variant SKU" 
+                                            value={variantForm.sku}
+                                            onChange={e => setVariantForm({ ...variantForm, sku: e.target.value })}
+                                        />
+                                    </FormGroup>
+                                    <FormGroup label="&nbsp;" className="m-0">
+                                        <SButton 
+                                            variant="primary"
+                                            onClick={() => {
+                                                if (!variantForm.name.trim()) return toast.error('Variant name required');
+                                                const newV = { 
+                                                    ...variantForm, 
+                                                    selling_price: parseFloat(variantForm.selling_price) || parseFloat(newProductForm.selling_price) || 0,
+                                                    cost_price: parseFloat(newProductForm.cost_price) || 0,
+                                                    stock_quantity: parseFloat(variantForm.stock_quantity) || 0
+                                                };
+                                                setTempVariants([...tempVariants, newV]);
+                                                setVariantForm({ name: '', sku: '', selling_price: '', cost_price: '', stock_quantity: 0 });
+                                                toast.success('Variant queued');
+                                            }}
+                                        >
+                                            Add Variant
+                                        </SButton>
+                                    </FormGroup>
+                                </div>
+                            </div>
+
+                            <div className="premium-table-wrap">
+                                <table className="premium-table compact">
+                                    <thead>
+                                        <tr>
+                                            <th>Variant Name</th>
+                                            <th>SKU/Code</th>
+                                            <th>Price (₹)</th>
+                                            <th>Stock</th>
+                                            <th className="text-right">Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {tempVariants.length === 0 ? (
+                                            <tr>
+                                                <td colSpan={5} className="text-center p-24 text-secondary italic">No variants defined</td>
+                                            </tr>
+                                        ) : (
+                                            tempVariants.map((v, idx) => (
+                                                <tr key={idx}>
+                                                    <td className="fw-600">{v.name}</td>
+                                                    <td>{v.sku || '—'}</td>
+                                                    <td>{v.selling_price}</td>
+                                                    <td>{v.stock_quantity}</td>
+                                                    <td className="text-right">
+                                                        <SButton tone="critical" onClick={() => {
+                                                            setTempVariants(tempVariants.filter((_, i) => i !== idx));
+                                                        }}>
+                                                            Delete
+                                                        </SButton>
+                                                    </td>
+                                                </tr>
+                                            ))
+                                        )}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    )}
                 </div>
             </Modal>
+
+            {/* Inner Modals for Category, Sub-category, and Brand */}
+            {showCatModal && (
+                <Modal
+                    open={showCatModal}
+                    onClose={() => setShowCatModal(false)}
+                    heading="Add Category"
+                    primaryAction={
+                        <SButton variant="primary" onClick={async () => {
+                            try {
+                                await api.createCategory({ name: newCatName.trim() });
+                                const cats = await api.getCategories();
+                                setCategories(cats);
+                                setNewProductForm(f => ({ ...f, category: newCatName.trim() }));
+                                setNewCatName('');
+                                setShowCatModal(false);
+                                toast.success('Category created');
+                            } catch(err) {
+                                toast.error(err.message);
+                            }
+                        }}>Confirm</SButton>
+                    }
+                    secondaryAction={
+                        <SButton onClick={() => { setShowCatModal(false); setNewCatName(''); }}>Cancel</SButton>
+                    }
+                >
+                    <FormGroup label="Category Name" required>
+                        <Input value={newCatName} onChange={e => setNewCatName(e.target.value)} placeholder="e.g. Fluids" autoFocus />
+                    </FormGroup>
+                </Modal>
+            )}
+
+            {showSubCatModal && (
+                <Modal
+                    open={showSubCatModal}
+                    onClose={() => setShowSubCatModal(false)}
+                    heading="Add Sub-category"
+                    primaryAction={
+                        <SButton variant="primary" onClick={async () => {
+                            const catId = categories.findIndex(c => c === newProductForm.category) + 1;
+                            try {
+                                const r = await api.createSubcategory({ name: newSubCatName.trim(), category_id: catId, category_name: newProductForm.category });
+                                const subs = await api.getSubcategories();
+                                setSubcategories(subs);
+                                setNewProductForm(f => ({ ...f, subcategory_id: r.id }));
+                                setNewSubCatName('');
+                                setShowSubCatModal(false);
+                                toast.success('Sub-category created');
+                            } catch(err) {
+                                toast.error(err.message);
+                            }
+                        }}>Confirm</SButton>
+                    }
+                    secondaryAction={
+                        <SButton onClick={() => { setShowSubCatModal(false); setNewSubCatName(''); }}>Cancel</SButton>
+                    }
+                >
+                    <div style={{ marginBottom: 12, fontSize: '0.9em', color: 'var(--text-secondary)' }}>
+                        Parent Category: <strong style={{ color: 'var(--accent)' }}>{newProductForm.category || 'General'}</strong>
+                    </div>
+                    <FormGroup label="Sub-category Name" required>
+                        <Input value={newSubCatName} onChange={e => setNewSubCatName(e.target.value)} placeholder="e.g. Synthetic Oil" autoFocus />
+                    </FormGroup>
+                </Modal>
+            )}
+
+            {showBrandModal && (
+                <Modal
+                    open={showBrandModal}
+                    onClose={() => setShowBrandModal(false)}
+                    heading="Add Brand"
+                    primaryAction={
+                        <SButton variant="primary" onClick={async () => {
+                            try {
+                                const r = await api.createBrand({ name: newBrandName.trim() });
+                                const brs = await api.getBrands();
+                                setBrands(brs);
+                                setNewProductForm(f => ({ ...f, brand_id: r.id }));
+                                setNewBrandName('');
+                                setShowBrandModal(false);
+                                toast.success('Brand created');
+                            } catch(err) {
+                                toast.error(err.message);
+                            }
+                        }}>Confirm</SButton>
+                    }
+                    secondaryAction={
+                        <SButton onClick={() => { setShowBrandModal(false); setNewBrandName(''); }}>Cancel</SButton>
+                    }
+                >
+                    <FormGroup label="Brand Name" required>
+                        <Input value={newBrandName} onChange={e => setNewBrandName(e.target.value)} placeholder="e.g. Mobil1" autoFocus />
+                    </FormGroup>
+                </Modal>
+            )}
 
             <Modal
                 open={!!deleteSupplier}
@@ -1736,7 +2164,28 @@ export default function PurchasePage() {
                     setOcrResult(null);
                 }}
                 heading="Resolve Unmatched Catalog Items"
-                size="medium"
+                size="large"
+                primaryAction={
+                    (ocrResult && (ocrResult.supplier?.matched || !!selectedSupplier) && ocrResult.items?.every(item => item.matched)) ? (
+                        <SButton variant="primary" onClick={() => handleProceedWithOcr(true)}>
+                            Next (Proceed to Bill)
+                        </SButton>
+                    ) : null
+                }
+                secondaryAction={
+                    !(ocrResult && (ocrResult.supplier?.matched || !!selectedSupplier) && ocrResult.items?.every(item => item.matched)) ? (
+                        <SButton variant="secondary" onClick={() => handleProceedWithOcr(false)}>
+                            Skip (Proceed with Matched)
+                        </SButton>
+                    ) : (
+                        <SButton variant="secondary" onClick={() => {
+                            setShowOcrUnmatchedModal(false);
+                            setOcrResult(null);
+                        }}>
+                            Close
+                        </SButton>
+                    )
+                }
             >
                 <div className="ocr-unmatched-modal-body">
                     <div className="ocr-unmatched-intro">
@@ -1749,12 +2198,18 @@ export default function PurchasePage() {
                         <div className="ocr-unmatched-section">
                             <h4 className="section-title">Supplier / Dealer</h4>
                             <div className="unmatched-item-row supplier-row">
-                                <div className="item-details">
-                                    <Icons.Users size={18} className="item-icon" />
-                                    <div>
-                                        <div className="item-name">{ocrResult.supplier.name}</div>
+                                <div className="item-details-grid">
+                                    <div className="detail-col item-name-col">
+                                        <Icons.Users size={18} className="item-icon" />
+                                        <span className="item-name-text" title={ocrResult.supplier.name}>{ocrResult.supplier.name}</span>
+                                    </div>
+                                    <div className="detail-col text-center" style={{ flex: 2 }}>
+                                        <span className="col-label">Party Type</span>
+                                        <span className="col-val">Supplier / Dealer</span>
+                                    </div>
+                                    <div className="detail-col item-status-col text-center">
                                         <span className={`badge ${ocrResult.supplier.matched ? 'badge-success' : 'badge-danger'}`}>
-                                            {ocrResult.supplier.matched ? 'Registered' : 'New Supplier'}
+                                            {ocrResult.supplier.matched ? 'Registered' : 'New'}
                                         </span>
                                     </div>
                                 </div>
@@ -1765,7 +2220,9 @@ export default function PurchasePage() {
                                         <SButton variant="primary" onClick={() => {
                                             setSupplierForm({
                                                 ...EMPTY_SUPPLIER,
-                                                name: ocrResult.supplier.name
+                                                name: ocrResult.supplier.name,
+                                                phone: ocrResult.supplier.phone || '',
+                                                address: ocrResult.supplier.address || ''
                                             });
                                             setShowSupplierModal(true);
                                         }}>
@@ -1784,15 +2241,26 @@ export default function PurchasePage() {
                             <div className="unmatched-items-list">
                                 {ocrResult.items.map((item, index) => (
                                     <div key={index} className="unmatched-item-row">
-                                        <div className="item-details">
-                                            <Icons.Package size={18} className="item-icon" />
-                                            <div>
-                                                <div className="item-name">{item.product_name}</div>
-                                                <div className="item-meta">
-                                                    Qty: {item.quantity} | Price: ₹{item.purchase_price} | GST: {item.gst_percent}%
-                                                </div>
+                                        <div className="item-details-grid">
+                                            <div className="detail-col item-name-col">
+                                                <Icons.Package size={18} className="item-icon" />
+                                                <span className="item-name-text" title={item.product_name}>{item.product_name}</span>
+                                            </div>
+                                            <div className="detail-col item-qty-col text-center">
+                                                <span className="col-label">Qty</span>
+                                                <span className="col-val">{item.quantity}</span>
+                                            </div>
+                                            <div className="detail-col item-price-col text-center">
+                                                <span className="col-label">Price</span>
+                                                <span className="col-val">₹{Number(item.purchase_price).toFixed(2)}</span>
+                                            </div>
+                                            <div className="detail-col item-gst-col text-center">
+                                                <span className="col-label">GST</span>
+                                                <span className="col-val">{item.gst_percent}%</span>
+                                            </div>
+                                            <div className="detail-col item-status-col text-center">
                                                 <span className={`badge ${item.matched ? 'badge-success' : 'badge-danger'}`}>
-                                                    {item.matched ? 'Registered' : 'New Product'}
+                                                    {item.matched ? 'Registered' : 'New'}
                                                 </span>
                                             </div>
                                         </div>
@@ -1803,13 +2271,16 @@ export default function PurchasePage() {
                                                 <SButton variant="primary" onClick={() => {
                                                     setOcrResolvingItemIndex(index);
                                                     setNewProductForm({
+                                                        ...EMPTY_PRODUCT,
                                                         name: item.product_name,
                                                         category: 'General',
-                                                        purchase_price: item.purchase_price,
+                                                        cost_price: item.purchase_price,
                                                         selling_price: Math.round(item.purchase_price * 1.2),
-                                                        product_code: '',
                                                         unit: 'PCS'
                                                     });
+                                                    setTempVariants([]);
+                                                    setVariantForm({ name: '', sku: '', selling_price: '', cost_price: '', stock_quantity: 0 });
+                                                    setActiveModalTab('basic');
                                                     setShowProductModal(true);
                                                 }}>
                                                     Add Product

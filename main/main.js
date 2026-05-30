@@ -70,7 +70,7 @@ ipcMain.on('open-customer-window', () => {
     });
 
     if (isDev) {
-        customerWindow.loadURL('http://localhost:5173/#/customer-display');
+        customerWindow.loadURL('http://localhost:5175/#/customer-display');
     } else {
         customerWindow.loadFile(path.join(__dirname, '..', 'renderer', 'dist', 'index.html'), { hash: '/customer-display' });
     }
@@ -232,7 +232,12 @@ function createWindow() {
     });
 
     if (isDev) {
-        mainWindow.loadURL('http://localhost:5173');
+        const { session } = require('electron');
+        session.defaultSession.clearStorageData()
+            .catch(err => console.error('[Maze ERP] Failed to clear storage:', err))
+            .finally(() => {
+                mainWindow.loadURL('http://localhost:5175');
+            });
     } else {
         mainWindow.loadFile(path.join(__dirname, '..', 'renderer', 'dist', 'index.html'));
     }

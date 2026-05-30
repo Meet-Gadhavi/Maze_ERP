@@ -4,6 +4,59 @@ All notable changes to the Quantro ERP application will be documented here.
 
 ---
 
+## [2.6.4] - 2026-05-30
+### Added
+- **Auto-Extract and Pre-Fill Supplier Address & Phone**:
+  - Upgraded OCR system prompts (for Vision models and text LLMs) to extract the supplier's contact phone number and full physical address into `supplier_phone` and `supplier_address`.
+  - Added contact/address parsing heuristics (first 15 lines scan) to the local Javascript regex fallback parser.
+  - Configured backend response to clean and include these properties in the `supplierResult` object.
+  - Linked the details to the frontend "Add Supplier" action, pre-filling the registration modal form with the parsed phone number and address automatically.
+
+---
+
+## [2.6.3] - 2026-05-30
+### Added
+- **DeepSeek V3 Fallback for OCR Text Structuring**:
+  - Integrated `deepseek-ai/DeepSeek-V3-0324` and `deepseek-ai/DeepSeek-V3` directly into the OCR pipeline fallback sequence.
+  - They are called using the same GitHub Models API endpoint and token if the OpenAI GPT-4o models hit rate limits or are exhausted, adding another layer of free cloud capability before local offline fallback triggers.
+
+---
+
+## [2.6.2] - 2026-05-30
+### Changed
+- **GitHub Models Integration for Invoice OCR**:
+  - Deprecated and removed all rate-limited OpenCode Zen model URLs and keys from the OCR parser.
+  - Switched the OCR parser to utilize the official GitHub Models API (`https://models.github.ai/inference`) with the user's free GitHub Personal Access Token (PAT).
+  - Configured `openai/gpt-4o-mini` and `openai/gpt-4o` as primary models for vision-based invoice scanning and local text structuring, ensuring extremely fast, premium, and rate-limit-free parsing.
+
+---
+
+## [2.6.1] - 2026-05-30
+### Fixed
+- **Premium OCR Parser & Post-Processing Filters**:
+  - Upgraded OCR system prompts (for both Vision models and local OCR fallback LLMs) to ignore buyer billing/shipping addresses, customer/user names, email addresses, websites, phone numbers, and GSTINs, preventing them from being incorrectly parsed as products.
+  - Implemented a robust unified Javascript helper `isAddressOrContactLine` that dynamically filters out phone numbers, emails, websites, GSTINs, pincodes (in address contexts), and address keywords with precise word boundary matching.
+  - Refactored `cleanSupplierName` and `cleanProductName` to completely strip out formatting symbols (`*`, `|`, `_`, `#`, etc.) from both product and supplier names, ensuring high-end, clean output strings (e.g., `H2036-UNIQUE CHITRAKALAVI` rather than `* H2036-UNIQUE CHITRAKALAVI |`).
+  - Added post-processing validation that runs both cleaners and the address filters on the output of all models, completely preventing address blocks from leaking as cart items.
+
+---
+
+## [2.6.0] - 2026-05-30
+### Added
+- **Resilient OCR Bill Scanner Fallback**:
+  - Implemented a multi-model vision try-sequence (`mimo-v2.5-free` -> `qwen3.6-plus-free` -> `minimax-m2.5-free`) to handle 429 Rate Limit Exceeded or other API errors when uploading purchase invoice images.
+  - Integrated a hybrid local-cloud OCR fallback engine: if all vision models are rate-limited or fail, the system runs local text extraction via `tesseract.js` directly on the machine.
+  - Automatically dispatches the raw extracted text to highly available text LLMs (`deepseek-v4-flash-free` or `nemotron-3-super-free`) to structure and correct spelling/layout errors into standard invoice JSON format.
+  - Added a last-resort local regex/heuristic-based text parser: if all online text LLM models are also rate-limited (Status 429) or unavailable, the backend parses the raw OCR text completely offline in Javascript using regex patterns to extract supplier, date, bill number, and items, guaranteeing 100% offline uploader resilience.
+
+### Fixed
+- **Gmail AI Integration Auto-Reply Check**:
+  - Restrained the background AI email receiver from auto-replying to random unread emails or unauthorized threads.
+  - Implemented a thread validation check that queries the Gmail API to verify if the connected email address has previously sent a message in the thread.
+  - The AI will now strictly only auto-reply to threads we initiated (e.g. via campaigns, invoice notifications, or manual outgoing emails). Any other unread emails are skipped and left unread in Gmail.
+
+---
+
 ## [2.5.9] - 2026-05-29
 ### Added
 - **Upload Purchase Invoice OCR & Catalog Matching**:
