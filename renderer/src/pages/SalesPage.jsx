@@ -1646,19 +1646,19 @@ export default function SalesPage() {
 
                                 <div className="cart-table" style={{ marginTop: '20px' }}>
                                     <h4 style={{ fontSize: '12px', color: 'var(--text-tertiary)', marginBottom: '10px', textTransform: 'uppercase' }}>Items in Cart</h4>
-                                    <table style={{ width: '100%', fontSize: '13px' }}>
+                                    <table style={{ width: '100%', fontSize: '13px', tableLayout: 'fixed' }}>
                                         <thead>
                                             <tr style={{ textAlign: 'left', color: 'var(--text-secondary)' }}>
-                                                <th>Product</th>
-                                                {settings.enable_sku === 'true' && <th>SKU</th>}
-                                                <th style={{ textAlign: 'center' }}>Unit</th>
-                                                <th style={{ textAlign: 'center' }}>Batch</th>
-                                                <th style={{ textAlign: 'center' }}>Qty</th>
-                                                <th style={{ textAlign: 'right' }}>Price</th>
-                                                {settings.enable_gst_per_item === 'true' && <th style={{ textAlign: 'center' }}>GST</th>}
-                                                {settings.enable_discount_per_item === 'true' && <th style={{ textAlign: 'center' }}>Disc</th>}
-                                                <th style={{ textAlign: 'right' }}>Total</th>
-                                                <th style={{ textAlign: 'right' }}>Action</th>
+                                                <th style={{ width: 'auto' }}>Product</th>
+                                                {settings.enable_sku === 'true' && <th style={{ width: '90px' }}>SKU</th>}
+                                                <th style={{ width: '60px', textAlign: 'center' }}>Unit</th>
+                                                <th style={{ width: '100px', textAlign: 'center' }}>Batch</th>
+                                                <th style={{ width: '60px', textAlign: 'center' }}>Qty</th>
+                                                <th style={{ width: '90px', textAlign: 'right' }}>Price</th>
+                                                {settings.enable_gst_per_item === 'true' && <th style={{ width: '85px', textAlign: 'center' }}>GST</th>}
+                                                {settings.enable_discount_per_item === 'true' && <th style={{ width: '85px', textAlign: 'center' }}>Disc</th>}
+                                                <th style={{ width: '100px', textAlign: 'right' }}>Total</th>
+                                                <th style={{ width: '90px', textAlign: 'right' }}>Action</th>
                                             </tr>
                                         </thead>
                                         <tbody>

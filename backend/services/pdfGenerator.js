@@ -19,14 +19,54 @@ function generateInvoicePDF(invoice, settings) {
         const gstin = settings.gstin || '';
         const upiId = settings.upi_id || '';
 
-        // Draw Header
-        doc.fillColor('#0f172a').fontSize(20).text(companyName, 50, 50);
-        doc.fontSize(10).fillColor('#64748b');
-        if (address) doc.text(address);
-        if (phone || email) doc.text(`${phone ? `Phone: ${phone}` : ''} ${email ? `| Email: ${email}` : ''}`);
-        if (gstin) doc.text(`GSTIN: ${gstin}`);
+        // Decode logo if present
+        let logoBuffer = null;
+        const logoUrl = settings.logo_url || settings.company_logo;
+        if (logoUrl) {
+            try {
+                if (logoUrl.startsWith('data:image/')) {
+                    const base64Data = logoUrl.replace(/^data:image\/\w+;base64,/, "");
+                    logoBuffer = Buffer.from(base64Data, 'base64');
+                } else if (!logoUrl.startsWith('http://') && !logoUrl.startsWith('https://')) {
+                    const fs = require('fs');
+                    if (fs.existsSync(logoUrl)) {
+                        logoBuffer = fs.readFileSync(logoUrl);
+                    }
+                }
+            } catch (e) {
+                console.error('Failed to parse logo for PDF:', e.message);
+            }
+        }
 
-        doc.moveDown();
+        // Draw Header
+        let companyX = 50;
+        if (logoBuffer) {
+            try {
+                doc.image(logoBuffer, 50, 45, { fit: [120, 50] });
+                companyX = 190;
+            } catch (imageErr) {
+                console.error('Error drawing logo image on PDF:', imageErr.message);
+                companyX = 50;
+            }
+        }
+
+        doc.fillColor('#0f172a').fontSize(18).text(companyName, companyX, 50, { width: 340 - companyX });
+        doc.fontSize(9).fillColor('#64748b');
+        let headerY = 72;
+        if (address) {
+            doc.text(address, companyX, headerY, { width: 340 - companyX });
+            headerY += doc.heightOfString(address, { width: 340 - companyX }) + 2;
+        }
+        const contactInfo = `${phone ? `Phone: ${phone}` : ''} ${email ? `| Email: ${email}` : ''}`.trim();
+        if (contactInfo) {
+            doc.text(contactInfo, companyX, headerY, { width: 340 - companyX });
+            headerY += doc.heightOfString(contactInfo, { width: 340 - companyX }) + 2;
+        }
+        if (gstin) {
+            doc.text(`GSTIN: ${gstin}`, companyX, headerY, { width: 340 - companyX });
+            headerY += 12;
+        }
+
 
         // Invoice Title and Info (Right side)
         doc.fillColor('#0f172a').fontSize(16).text('TAX INVOICE', 400, 50, { align: 'right' });
@@ -56,6 +96,11 @@ function generateInvoicePDF(invoice, settings) {
         if (customerPhone) doc.text(`Phone: ${customerPhone}`);
         if (customerEmail) doc.text(`Email: ${customerEmail}`);
         if (invoice.customer_gstin || invoice.gstin) doc.text(`GSTIN: ${invoice.customer_gstin || invoice.gstin}`);
+        
+        if (settings.show_category_in_invoice !== 'false') {
+            const billedCategories = [...new Set((invoice.items || []).map(item => item.category).filter(Boolean))].join(', ') || 'General';
+            doc.text(`Product Cat: ${billedCategories}`);
+        }
 
         doc.moveDown(2);
 
@@ -74,7 +119,7 @@ function generateInvoicePDF(invoice, settings) {
         const items = invoice.items || [];
         items.forEach(item => {
             doc.fillColor('#334155').fontSize(9);
-            const itemName = `${item.product_name || item.name || ''} ${item.variant_name ? `(${item.variant_name})` : ''}`;
+            let itemName = `${item.product_name || item.name || ''} ${item.variant_name ? `(${item.variant_name})` : ''}`;
             doc.text(itemName, 60, currentY + 6, { width: 250 });
             doc.text(String(item.quantity), 320, currentY + 6, { width: 40, align: 'center' });
             doc.text(`₹${Number(item.price).toFixed(2)}`, 370, currentY + 6, { width: 80, align: 'right' });

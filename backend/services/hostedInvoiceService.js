@@ -67,7 +67,8 @@ async function generateHostedInvoice(invoiceId) {
         'terms_and_conditions',
         'invoice_style',
         'company_logo',
-        'logo_url'
+        'logo_url',
+        'show_category_in_invoice'
     ];
     settingsRows.forEach(r => {
         if (allowedSettingsKeys.includes(r.key)) {

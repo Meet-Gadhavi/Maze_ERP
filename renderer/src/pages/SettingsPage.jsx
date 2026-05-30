@@ -46,7 +46,9 @@ export default function SettingsPage() {
         auto_update_enabled: 'false',
         default_currency: 'INR',
         invoice_language: 'en',
-        enable_serial_tracking: 'true'
+        enable_serial_tracking: 'true',
+        show_category_in_invoice: 'true',
+        enable_realtime_price_update: 'false'
     });
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
@@ -522,12 +524,52 @@ export default function SettingsPage() {
 
     async function handleSave(e) {
         if (e) e.preventDefault();
-        const promise = api.updateSettings(settings);
+        
+        let settingsToSave = { ...settings };
+        if (settingsToSave.logo_url && settingsToSave.logo_url.startsWith('data:image/') && settingsToSave.logo_url.length > 100000) {
+            try {
+                const compressed = await new Promise((resolve) => {
+                    const img = new Image();
+                    img.onload = () => {
+                        const canvas = document.createElement('canvas');
+                        let width = img.width;
+                        let height = img.height;
+                        const maxWidth = 300;
+                        const maxHeight = 150;
+                        if (width > maxWidth) {
+                            height = (maxWidth / width) * height;
+                            width = maxWidth;
+                        }
+                        if (height > maxHeight) {
+                            width = (maxHeight / height) * width;
+                            height = maxHeight;
+                        }
+                        canvas.width = width;
+                        canvas.height = height;
+                        const ctx = canvas.getContext('2d');
+                        ctx.drawImage(img, 0, 0, width, height);
+                        try {
+                            resolve(canvas.toDataURL('image/jpeg', 0.75));
+                        } catch {
+                            resolve(settingsToSave.logo_url);
+                        }
+                    };
+                    img.onerror = () => resolve(settingsToSave.logo_url);
+                    img.src = settingsToSave.logo_url;
+                });
+                settingsToSave.logo_url = compressed;
+                setSettings(prev => ({ ...prev, logo_url: compressed }));
+            } catch (err) {
+                console.error('Failed to compress logo on save:', err);
+            }
+        }
+
+        const promise = api.updateSettings(settingsToSave);
 
         toast.promise(promise, {
             loading: 'Saving settings...',
             success: () => {
-                window.dispatchEvent(new CustomEvent('settings-updated', { detail: settings }));
+                window.dispatchEvent(new CustomEvent('settings-updated', { detail: settingsToSave }));
                 return 'Settings saved successfully!';
             },
             error: (err) => 'Failed to save settings: ' + err.message,
@@ -706,7 +748,6 @@ export default function SettingsPage() {
                                                         reader.onloadend = () => {
                                                             const base64Str = reader.result;
                                                             const img = new Image();
-                                                            img.src = base64Str;
                                                             img.onload = () => {
                                                                 const canvas = document.createElement('canvas');
                                                                 let width = img.width;
@@ -734,6 +775,7 @@ export default function SettingsPage() {
                                                             img.onerror = () => {
                                                                 setSettings({ ...settings, logo_url: base64Str });
                                                             };
+                                                            img.src = base64Str;
                                                         };
                                                         reader.readAsDataURL(file);
                                                     }
@@ -793,7 +835,9 @@ export default function SettingsPage() {
                                     {[
                                         { key: 'enable_gst_per_item', label: 'Enable GST per item', desc: 'Allows adding GST percentage for individual products during sale' },
                                         { key: 'enable_discount_per_item', label: 'Enable Discount per item', desc: 'Allows adding discount for individual products during sale' },
-                                        { key: 'enable_sku', label: 'Enable SKU / Product Code', desc: 'Shows SKU/Code in the invoice and checkout' }
+                                        { key: 'enable_sku', label: 'Enable SKU / Product Code', desc: 'Shows SKU/Code in the invoice and checkout' },
+                                        { key: 'show_category_in_invoice', label: 'Show Product Category', desc: 'Displays the product category in invoice previews, PDFs, and shared links' },
+                                        { key: 'enable_realtime_price_update', label: 'Real-time Price Dynamic Sync', desc: 'Automatically updates 0-priced products on existing invoices when their inventory selling price is updated' }
                                     ].map(item => (
                                         <div key={item.key} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 16px', background: 'var(--bg-primary)', borderRadius: '8px', border: '1px solid var(--border-light)' }}>
                                             <div>
@@ -1570,18 +1614,35 @@ export default function SettingsPage() {
                                             </div>
                                         </div>
                                     )}
-                                    {/* Timeline Item: v2.6.5 */}
+                                    {/* Timeline Item: v2.6.6 */}
                                     <div style={{ position: 'relative' }}>
                                         <div style={{ position: 'absolute', left: '-22px', top: '4px', width: '12px', height: '12px', borderRadius: '50%', background: 'var(--accent)', border: '2px solid var(--bg-primary)' }}></div>
                                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                            <strong style={{ fontSize: '15px' }}>Version 2.6.5 {updateState.status !== 'available' && '(Latest)'}</strong>
+                                            <strong style={{ fontSize: '15px' }}>Version 2.6.6 {updateState.status !== 'available' && '(Latest)'}</strong>
                                             <span style={{ fontSize: '11px', color: 'var(--text-tertiary)', background: 'var(--bg-secondary)', padding: '2px 8px', borderRadius: '12px' }}>May 30, 2026</span>
                                         </div>
                                         <div style={{ fontSize: '13px', color: 'var(--text-secondary)', marginTop: '8px', lineHeight: 1.6 }}>
                                             <ul style={{ margin: 0, paddingLeft: '16px' }}>
-                                                <li><strong>Secure Card Authorization & Autopay:</strong> Added standard ₹1.00 card authorization flow via Razorpay, automatic dues scheduler checks on Day 5 of the month, and relative local asset path fixes.</li>
+                                                <li><strong>Real-time Price Dynamic Sync:</strong> New toggle in Business &amp; Invoice settings — when on, updating a product's inventory price auto-updates existing unpaid invoices where that item's price was 0, recalculates totals, and syncs to cloud-hosted links.</li>
+                                                <li><strong>Invoice Product Category Control:</strong> New toggle to show/hide the unique list of billed product categories at the top of invoice previews, PDFs, and cloud-hosted invoice pages.</li>
+                                                <li><strong>Logo Auto-Compression &amp; PDF Rendering:</strong> Logos are now canvas-compressed on upload and startup to under 15KB, eliminating cloud sync failures. Company logo now renders on generated PDF invoices with smart layout shifting.</li>
+                                                <li><strong>Dynamic Cloud Invoice Sync Fix:</strong> Resolved oversized payload errors — all invoice and settings updates now propagate in real-time to shared hosted links without needing regeneration.</li>
+                                            </ul>
+                                        </div>
+                                    </div>
+
+                                    {/* Timeline Item: v2.6.5 */}
+                                    <div style={{ position: 'relative' }}>
+                                        <div style={{ position: 'absolute', left: '-22px', top: '4px', width: '12px', height: '12px', borderRadius: '50%', background: 'var(--text-tertiary)', border: '2px solid var(--bg-primary)' }}></div>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                            <strong style={{ fontSize: '15px' }}>Version 2.6.5</strong>
+                                            <span style={{ fontSize: '11px', color: 'var(--text-tertiary)', background: 'var(--bg-secondary)', padding: '2px 8px', borderRadius: '12px' }}>May 30, 2026</span>
+                                        </div>
+                                        <div style={{ fontSize: '13px', color: 'var(--text-secondary)', marginTop: '8px', lineHeight: 1.6 }}>
+                                            <ul style={{ margin: 0, paddingLeft: '16px' }}>
+                                                <li><strong>Secure Card Authorization &amp; Autopay:</strong> Added standard ₹1.00 card authorization flow via Razorpay, automatic dues scheduler checks on Day 5 of the month, and relative local asset path fixes.</li>
                                                 <li><strong>Cancellation Email Verification:</strong> Configured secure 6-digit email confirmation code dispatching to verify client paid-tier subscription downgrades.</li>
-                                                <li><strong>Layout & Button Updates:</strong> Renamed the Gmail service action button to "Get Email Service" and resolved general overlapping display issues on the Settings and sidebar layout panel.</li>
+                                                <li><strong>Layout &amp; Button Updates:</strong> Renamed the Gmail service action button to "Get Email Service" and resolved general overlapping display issues on the Settings and sidebar layout panel.</li>
                                             </ul>
                                         </div>
                                     </div>

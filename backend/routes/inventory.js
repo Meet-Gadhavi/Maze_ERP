@@ -411,6 +411,20 @@ router.put('/:id', async (req, res, next) => {
         }
 
         product = db.get('SELECT * FROM products WHERE id = ?', [Number(req.params.id)]);
+
+        // M060: Check if real-time price sync toggle is on, and update 0-price invoice items
+        const syncToggle = db.get("SELECT value FROM settings WHERE key = 'enable_realtime_price_update'");
+        if (syncToggle && syncToggle.value === 'true' && selling_price !== undefined && Number(selling_price) > 0) {
+            const productId = Number(req.params.id);
+            const zeroPriceItems = db.all("SELECT id, invoice_id, quantity FROM invoice_items WHERE product_id = ? AND price = 0", [productId]);
+            if (zeroPriceItems && zeroPriceItems.length > 0) {
+                for (const item of zeroPriceItems) {
+                    const newTotal = Number(item.quantity) * Number(selling_price);
+                    db.run("UPDATE invoice_items SET price = ?, total = ? WHERE id = ?", [Number(selling_price), newTotal, item.id]);
+                    recalculateInvoiceTotalsInline(item.invoice_id);
+                }
+            }
+        }
         }); // End transaction
         res.json(product);
         } catch (txnErr) {
@@ -635,5 +649,42 @@ router.delete('/serials/:serialId', async (req, res, next) => {
         next(err);
     }
 });
+
+function recalculateInvoiceTotalsInline(invoiceId) {
+    const invoice = db.get("SELECT * FROM invoices WHERE id = ?", [invoiceId]);
+    if (!invoice) return;
+
+    const items = db.all("SELECT price, quantity FROM invoice_items WHERE invoice_id = ?", [invoiceId]);
+    const subtotal = items.reduce((sum, item) => sum + (Number(item.price) * Number(item.quantity)), 0);
+
+    const discountRate = Number(invoice.discount_rate || 0);
+    const discountAmount = invoice.discount_amount || (subtotal * (discountRate / 100));
+    const couponDiscountAmount = Number(invoice.coupon_discount_amount || 0);
+    const paidAmount = Number(invoice.paid_amount || 0);
+    const returnedAmount = Number(invoice.total_returned_amount || 0);
+
+    const calculatedTotal = subtotal - discountAmount - couponDiscountAmount;
+    const gstRate = Number(invoice.gst_rate || 0);
+    const gstAmount = calculatedTotal * (gstRate / 100);
+    const finalTotal = Math.max(0, calculatedTotal + gstAmount);
+    const effectiveTotal = Math.max(0, finalTotal - returnedAmount);
+
+    let paymentStatus = 'PAID';
+    if (paidAmount === 0) paymentStatus = 'UNPAID';
+    else if (paidAmount < effectiveTotal) paymentStatus = 'PARTIAL';
+    else paymentStatus = 'PAID';
+
+    db.run(
+        "UPDATE invoices SET total = ?, payment_status = ?, financial_status = ? WHERE id = ?",
+        [finalTotal, paymentStatus, paymentStatus, invoiceId]
+    );
+
+    // Sync cloud DB asynchronously if shared
+    const tokenRow = db.get("SELECT token FROM invoice_tokens WHERE invoice_id = ?", [invoiceId]);
+    if (tokenRow) {
+        const { generateHostedInvoice } = require('../services/hostedInvoiceService');
+        generateHostedInvoice(invoiceId).catch(e => console.error('[Realtime Sync] Failed to sync updated invoice:', e.message));
+    }
+}
 
 module.exports = router;

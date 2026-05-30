@@ -203,6 +203,7 @@ router.post('/', async (req, res, next) => {
         const settings = {};
         settingsRows.forEach(r => { settings[r.key] = r.value; });
 
+        const { mazeway_order_id = null } = validatedData;
         let invoice;
         try {
         db.transaction(() => {
@@ -219,8 +220,7 @@ router.post('/', async (req, res, next) => {
                 advance_amount = 0,
                 payments = [],
                 coupon_code = null,
-                coupon_discount_amount = 0,
-                mazeway_order_id = null
+                coupon_discount_amount = 0
             } = validatedData;
 
             // Determine initial paid amount from multiple payments or fallback to legacy paid_amount
@@ -556,7 +556,12 @@ router.post('/', async (req, res, next) => {
             WHERE i.id = ?
         `, [invoiceId]);
         if (invoice) {
-            invoice.items = db.all('SELECT * FROM invoice_items WHERE invoice_id = ?', [invoiceId]);
+            invoice.items = db.all(`
+                SELECT ii.*, p.product_code, p.category
+                FROM invoice_items ii
+                LEFT JOIN products p ON ii.product_id = p.id
+                WHERE ii.invoice_id = ?
+            `, [invoiceId]);
             invoice.payments = db.all('SELECT * FROM invoice_payments WHERE invoice_id = ? ORDER BY payment_date DESC', [invoiceId]);
         }
         }); // End transaction
@@ -565,7 +570,12 @@ router.post('/', async (req, res, next) => {
             // Invoice was created but could not be fetched back — fetch it now
             invoice = db.get('SELECT i.*, c.name AS customer_name, c.email AS customer_email FROM invoices i LEFT JOIN customers c ON i.customer_id = c.id ORDER BY i.id DESC LIMIT 1');
             if (invoice) {
-                invoice.items = db.all('SELECT * FROM invoice_items WHERE invoice_id = ?', [invoice.id]);
+                invoice.items = db.all(`
+                    SELECT ii.*, p.product_code, p.category
+                    FROM invoice_items ii
+                    LEFT JOIN products p ON ii.product_id = p.id
+                    WHERE ii.invoice_id = ?
+                `, [invoice.id]);
                 invoice.payments = db.all('SELECT * FROM invoice_payments WHERE invoice_id = ? ORDER BY payment_date DESC', [invoice.id]);
             }
         }
@@ -974,7 +984,12 @@ router.put('/:id/payment', async (req, res, next) => {
         `, [invoiceId]);
 
         if (updated) {
-            updated.items = db.all('SELECT * FROM invoice_items WHERE invoice_id = ?', [invoiceId]);
+            updated.items = db.all(`
+                SELECT ii.*, p.product_code, p.category
+                FROM invoice_items ii
+                LEFT JOIN products p ON ii.product_id = p.id
+                WHERE ii.invoice_id = ?
+            `, [invoiceId]);
         }
 
         triggerAutoEmail(invoiceId, true);

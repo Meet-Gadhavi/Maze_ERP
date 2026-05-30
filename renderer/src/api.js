@@ -33,6 +33,38 @@ async function request(endpoint, options = {}) {
     }
 }
 
+function compressBase64Image(base64Str, maxWidth = 300, maxHeight = 150) {
+    return new Promise((resolve) => {
+        const img = new Image();
+        img.onload = () => {
+            const canvas = document.createElement('canvas');
+            let width = img.width;
+            let height = img.height;
+            if (width > maxWidth) {
+                height = (maxWidth / width) * height;
+                width = maxWidth;
+            }
+            if (height > maxHeight) {
+                width = (maxHeight / height) * width;
+                height = maxHeight;
+            }
+            canvas.width = width;
+            canvas.height = height;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(img, 0, 0, width, height);
+            try {
+                const compressed = canvas.toDataURL('image/jpeg', 0.75);
+                resolve(compressed);
+            } catch (err) {
+                console.error('[API Sync] Canvas toDataURL failed:', err);
+                resolve(base64Str);
+            }
+        };
+        img.onerror = () => resolve(base64Str);
+        img.src = base64Str;
+    });
+}
+
 const api = {
     // Dashboard
     getDashboard: (params = {}) => {
@@ -117,6 +149,23 @@ const api = {
         if (settings) {
             localStorage.setItem('maze_currency', settings.default_currency || 'INR');
             localStorage.setItem('maze_language', settings.invoice_language || 'en');
+
+            // Auto-heal/compress oversized logo in local DB to prevent sync limits from omitting it
+            if (settings.logo_url && settings.logo_url.startsWith('data:image/') && settings.logo_url.length > 100000) {
+                console.log('[API Settings Sync] Auto-compressing oversized settings logo...');
+                try {
+                    const compressed = await compressBase64Image(settings.logo_url);
+                    if (compressed && compressed.length < settings.logo_url.length) {
+                        settings.logo_url = compressed;
+                        // Fire-and-forget background update to save compressed logo to SQLite db
+                        request('/settings', { method: 'POST', body: { logo_url: compressed } })
+                            .then(() => console.log('[API Settings Sync] Compressed settings logo successfully saved locally.'))
+                            .catch(err => console.error('[API Settings Sync] Failed to save compressed logo settings:', err));
+                    }
+                } catch (e) {
+                    console.error('[API Settings Sync] Failed to compress logo on load:', e);
+                }
+            }
         }
         return settings;
     },

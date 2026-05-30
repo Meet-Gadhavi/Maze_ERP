@@ -1146,6 +1146,7 @@
 
         function renderMinimalistTemplate(invoice, settings, items, subtotal, discountAmount, discountRate, couponDiscountAmount, gstAmount, gstRate, displayTotal, effectiveTotal, paidAmount, dueAmount, formatCurrency) {
             const customerName = invoice.customer_name || invoice.walk_in_name || 'Walk-in Guest';
+            const billedCategories = [...new Set(items.map(item => item.category).filter(Boolean))].join(', ') || 'General';
             const customerPhone = invoice.customer_phone || invoice.walk_in_phone || '—';
             const customerEmail = invoice.customer_email || '—';
             const customerGstin = invoice.customer_gstin || invoice.gstin || '';
@@ -1160,6 +1161,7 @@
                     <td>
                         ${item.product_name || 'Product'}
                         ${item.variant_name ? ` (${item.variant_name})` : ''}
+
                         ${item.is_free ? '<span style="margin-left: 8px; font-size: 0.8em; color: #166534; background: #dcfce7; padding: 2px 6px; border-radius: 4px;">FREE</span>' : ''}
                     </td>
                     <td>${formatCurrency(item.price)}</td>
@@ -1194,6 +1196,7 @@
                             ${customerEmail !== '—' ? `<p>${customerEmail}</p>` : ''}
                             ${customerPhone !== '—' ? `<p>${customerPhone}</p>` : ''}
                             ${customerGstin ? `<p>GSTIN: ${customerGstin}</p>` : ''}
+                            ${settings.show_category_in_invoice !== 'false' ? `<p style="margin-top: 4px; font-size: 11px; color: #64748b;">Product Cat: ${billedCategories}</p>` : ''}
                         </div>
                         <div>
                             <div class="section-title">SHIPPING ADDRESS</div>
@@ -1269,6 +1272,7 @@
 
         function renderFormalTemplate(invoice, settings, items, subtotal, discountAmount, discountRate, couponDiscountAmount, gstAmount, gstRate, displayTotal, effectiveTotal, paidAmount, dueAmount, taxSummary, formatCurrency) {
             const customerName = invoice.customer_name || invoice.walk_in_name || 'Walk-in Guest';
+            const billedCategories = [...new Set(items.map(item => item.category).filter(Boolean))].join(', ') || 'General';
             const customerPhone = invoice.customer_phone || invoice.walk_in_phone || '—';
             const customerEmail = invoice.customer_email || '—';
             const customerGstin = invoice.customer_gstin || invoice.gstin || '';
@@ -1278,7 +1282,10 @@
             const itemsRows = items.map((item, idx) => `
                 <tr>
                     <td class="col-idx">${idx + 1}</td>
-                    <td class="col-name text-left">${item.product_name || 'Product'} ${item.variant_name ? `(${item.variant_name})` : ''}</td>
+                    <td class="col-name text-left">
+                        ${item.product_name || 'Product'} ${item.variant_name ? `(${item.variant_name})` : ''}
+
+                    </td>
                     <td class="col-hsn">${item.hsn_sac || item.product_hsn || '—'}</td>
                     <td class="col-qty">${item.quantity}</td>
                     <td class="col-unit">${item.unit || 'Pcs'}</td>
@@ -1336,6 +1343,7 @@
                                 <div class="detail-row"><span>INVOICE NO:</span> <strong>${invoiceNumber}</strong></div>
                                 <div class="detail-row"><span>DATE:</span> <strong>${invoice.date || invoice.created_at || '—'}</strong></div>
                                 <div class="detail-row"><span>STATE:</span> <strong>${invoice.customer_state || settings.default_place_of_supply || '—'}</strong></div>
+                                ${settings.show_category_in_invoice !== 'false' ? `<div class="detail-row"><span>PRODUCT CAT:</span> <strong>${billedCategories}</strong></div>` : ''}
                             </div>
                         </div>
                     </div>
@@ -1468,12 +1476,16 @@
 
         function renderPOSTemplate(invoice, settings, items, subtotal, discountAmount, discountRate, couponDiscountAmount, gstAmount, gstRate, displayTotal, effectiveTotal, paidAmount, dueAmount, taxSummary, formatCurrency) {
             const customerName = invoice.customer_name || invoice.walk_in_name || 'Walk-in Guest';
+            const billedCategories = [...new Set(items.map(item => item.category).filter(Boolean))].join(', ') || 'General';
             const invoiceNumber = invoice.invoice_number || `INV-${String(invoice.id).padStart(4, '0')}`;
 
             const itemsRows = items.map((item, idx) => `
                 <tr>
                     <td class="text-left" colSpan="4">
-                        <div style="margin-bottom: 2px;">${item.product_name || 'Product'} ${item.variant_name ? `(${item.variant_name})` : ''}</div>
+                        <div style="margin-bottom: 2px;">
+                            ${item.product_name || 'Product'} ${item.variant_name ? `(${item.variant_name})` : ''}
+
+                        </div>
                         <div style="display: flex; justify-content: space-between; font-size: 10px; color: #444;">
                             <span>${item.quantity} ${item.unit || 'PCS'} x ${formatCurrency(item.price)}</span>
                             <span>${formatCurrency(item.total)}</span>
@@ -1506,6 +1518,7 @@
                         <div class="row"><span>BILL NO: ${invoiceNumber}</span></div>
                         <div class="row"><span>DATE: ${invoice.date || invoice.created_at || '—'}</span></div>
                         <div class="row"><span>CUSTOMER: ${customerName}</span></div>
+                        ${settings.show_category_in_invoice !== 'false' ? `<div class="row"><span>PRODUCT CAT: ${billedCategories}</span></div>` : ''}
                     </div>
 
                     <div class="pos-divider-solid"></div>
@@ -1609,6 +1622,7 @@
 
         function renderClassicTemplate(invoice, settings, items, subtotal, discountAmount, discountRate, couponDiscountAmount, gstAmount, gstRate, displayTotal, effectiveTotal, paidAmount, dueAmount, formatCurrency) {
             const customerName = invoice.customer_name || invoice.walk_in_name || 'Walk-in Guest';
+            const billedCategories = [...new Set(items.map(item => item.category).filter(Boolean))].join(', ') || 'General';
             const customerPhone = invoice.customer_phone || invoice.walk_in_phone || '—';
             const customerEmail = invoice.customer_email || '—';
             const customerGstin = invoice.customer_gstin || invoice.gstin || '';
@@ -1626,6 +1640,7 @@
                 }
 
                 const variantText = item.variant_name ? `<span class="item-variant">Variant: ${item.variant_name}</span>` : '';
+                const categoryText = '';
                 const itemTotal = Number(item.total) || (Number(item.price) * Number(item.quantity));
 
                 return `
@@ -1633,6 +1648,7 @@
                         <td>
                             <div class="item-description">${item.product_name || item.name || 'Product'}</div>
                             ${variantText}
+                            ${categoryText}
                         </td>
                         <td class="text-center">${item.quantity} ${item.unit || 'PCS'}</td>
                         <td class="text-right">${formatCurrency(item.price)}</td>
@@ -1675,6 +1691,7 @@
                                 ${customerPhone !== '—' ? `<span id="customer-phone" style="display: block;">Phone: ${customerPhone}</span>` : ''}
                                 ${customerEmail !== '—' ? `<span id="customer-email" style="display: block;">Email: ${customerEmail}</span>` : ''}
                                 ${customerGstin ? `<span id="customer-gstin" style="display: block; font-weight: 600;">GSTIN: ${customerGstin}</span>` : ''}
+                                ${settings.show_category_in_invoice !== 'false' ? `<span id="customer-categories" style="display: block; margin-top: 4px; font-size: 13px; color: var(--text-light);">Product Cat: ${billedCategories}</span>` : ''}
                             </div>
                         </div>
                     </div>

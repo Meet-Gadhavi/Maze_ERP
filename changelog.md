@@ -4,7 +4,26 @@ All notable changes to the Quantro ERP application will be documented here.
 
 ---
 
+## [2.6.6] - 2026-05-30
+### Added
+- **Real-time Price Dynamic Sync Toggle**:
+  - Added a new configuration toggle under the "Business & Invoice" tab in settings (`enable_realtime_price_update`) to enable automatic price synchronization across existing invoices.
+  - When enabled, updating a product's selling price in the inventory catalog automatically finds all existing unpaid invoices where that product's line-item price was set to `0`, updates it to the new price, recalculates totals, adjusts payment status, and syncs changes to cloud-hosted shared invoice links.
+- **Invoice Product Category Configuration Toggle**:
+  - Added a configuration toggle (`show_category_in_invoice`) under the "Business & Invoice" tab in settings to allow users to show or hide product categories on generated invoices.
+  - When enabled, the unique list of categories billed on the invoice is displayed in the customer/invoice metadata section at the top across all desktop preview templates, PDF templates, and all four cloud-hosted viewer styles.
+
+### Fixed
+- **Company Logo Auto-Compression & PDF Rendering**:
+  - Implemented canvas-based logo auto-compression on upload and on startup/settings load, reducing base64 payload sizes from ~8.5MB to under 15KB to prevent cloud sync failures (HTTP 413 Payload Too Large).
+  - Fixed company logo rendering in PDF invoices — the logo now draws at the top-left of the document and the business details text block shifts right automatically to avoid overlap.
+- **Fully Dynamic Cloud Invoice Syncing**:
+  - Resolved cloud database sync payloads failing due to oversized logo data. All settings and invoice updates (returns, payments, fulfillments, price changes) now successfully propagate to the cloud database in real-time, making shared hosted invoice links update dynamically without needing regeneration.
+
+---
+
 ## [2.6.5] - 2026-05-30
+
 ### Added
 - **Centralized Secure Payment Method Authorization**:
   - Implemented ₹1.00 secure verification payment flow via Razorpay SDK on the Quantro Web Portal (`?page=add-card`).
@@ -19,11 +38,24 @@ All notable changes to the Quantro ERP application will be documented here.
   - Displays subscription end dates (30 days from `created_at`) on active paid plans.
   - Forces "Free Starter" plan to always show "Active" alongside active paid plans.
   - Restricts paid users (Pro/Professional) from buying a different plan directly, displaying a warning message: `Cancel your [Plan] plan before switching`.
+- **Invoice Product Category Configuration Toggle**:
+  - Added a configuration toggle under the "Business & Invoice" tab in settings (`show_category_in_invoice`) to allow users to easily show or hide product categories on generated invoices.
+  - Automatically respects this preference by showing the unique list of categories billed on the invoice in the invoice/customer details metadata section at the top, and removing category descriptors from individual item row tables to avoid row clutter across all local desktop preview templates, printed PDF templates, and all four cloud-hosted template styles in the online viewer.
+- **Real-time Price Dynamic Sync Toggle**:
+  - Added a configuration toggle under the "Business & Invoice" tab in settings (`enable_realtime_price_update`) to enable/disable real-time product price updates on existing unpaid invoices.
+  - When enabled, editing a product's price in the inventory catalog automatically updates all occurrences of that product in existing unpaid/draft invoices where the original price was 0 to the new selling price, dynamically recalculating the invoice totals, payment status, and syncing changes to the cloud-hosted portals.
 - **Terms Checkbox & Policy Links**:
   - Embedded mandatory Terms of Service, Privacy Policy, and Refund Policy check agreement on the payment authorization modal. Links open in the system default web browser.
 - **Visual Enhancements**:
   - Corrected image assets path resolution to relative paths (e.g. `./gmail-icon.png`) on the desktop BillingPage to fix broken icons post-installation.
   - Refined margins and padding to resolve overlapping text and buttons on card displays.
+### Fixed
+- **Oversized Logo Storage & Cloud Sync**:
+  - Implemented canvas-based auto-compression for uploaded business logos on the Settings page to resize images to a maximum of 300x150 pixels and encode as JPEG (quality 0.75), reducing base64 payload size from ~8.5MB to <15KB.
+  - Added global client-side self-healing to automatically compress and re-save oversized logos on app startup or settings load, enabling successful synchronization of the company logo to the cloud-hosted viewer database without triggering HTTP 413 Payload Too Large errors.
+  - Implemented company logo rendering at the top-left of generated PDF invoices, dynamically shifting the billing details block to the right.
+- **Fully Dynamic Cloud Invoice Syncing**:
+  - Resolved cloud database sync payloads failing due to oversized logo data. Now, all settings and invoice updates (returns, payments, fulfillments) successfully propagate to the cloud database in real-time, making the shared hosted invoice links update dynamically without needing regeneration.
 
 ---
 

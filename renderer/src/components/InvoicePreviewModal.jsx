@@ -451,6 +451,8 @@ export default function InvoicePreviewModal({ invoice, onClose, autoOpenShare = 
         : [invoice.payment_method || 'Unpaid'];
     const paymentMethodDisplay = uniqueMethods.join(' + ');
 
+    const billedCategories = [...new Set((invoice.items || []).map(item => item.category).filter(Boolean))].join(', ') || 'General';
+
     const renderClassic = () => (
         <>
             <div className="invoice-header">
@@ -484,6 +486,11 @@ export default function InvoicePreviewModal({ invoice, onClose, autoOpenShare = 
                     <div className="ic-label">{t.billTo}</div>
                     <div className="ic-name">{displayName}</div>
                     {invoice.customer_gstin && <div style={{ fontSize: '10px', color: 'var(--text-secondary)', marginTop: '2px' }}>{t.gstin}: {invoice.customer_gstin}</div>}
+                    {settings?.show_category_in_invoice !== 'false' && (
+                        <div style={{ fontSize: '10px', color: 'var(--text-secondary)', marginTop: '4px' }}>
+                            Product Cat: {billedCategories}
+                        </div>
+                    )}
                 </div>
                 <div className="invoice-status-section" style={{ display: 'flex', flexDirection: 'row', gap: '10px', alignItems: 'center', justifyContent: 'flex-end', flexWrap: 'wrap' }}>
                     <span className={`payment-status-badge badge-${(invoice.fulfillment_status || 'CONFIRMED').toLowerCase().replace(/_/g, '-')}`}>
@@ -524,6 +531,7 @@ export default function InvoicePreviewModal({ invoice, onClose, autoOpenShare = 
                             <td style={{ fontWeight: 400 }}>
                                 {item.product_name}
                                 {item.variant_name ? ` (${item.variant_name})` : ''}
+
                                 {item.is_free ? <span style={{ marginLeft: 8, fontSize: '0.7em', color: 'var(--success)', fontWeight: 400, background: 'rgba(34, 197, 94, 0.1)', padding: '2px 6px', borderRadius: '4px', verticalAlign: 'middle' }}>🟢 FREE</span> : ''}
                                 {item.pending_qty > 0 && <span style={{ marginLeft: 8, fontSize: '0.8em', color: 'var(--warning)', fontWeight: 400 }}>(Pending: {item.pending_qty})</span>}
                             </td>
@@ -647,6 +655,9 @@ export default function InvoicePreviewModal({ invoice, onClose, autoOpenShare = 
                         <div className="detail-row"><span>{t.invoiceNo}:</span> <strong>{invoiceNumber}</strong></div>
                         <div className="detail-row"><span>{t.date}:</span> <strong>{invoice.date}</strong></div>
                         <div className="detail-row"><span>{t.state}:</span> <strong>{invoice.customer_state || settings?.default_place_of_supply || '—'}</strong></div>
+                        {settings?.show_category_in_invoice !== 'false' && (
+                            <div className="detail-row"><span>Product Cat:</span> <strong>{billedCategories}</strong></div>
+                        )}
                     </div>
                 </div>
             </div>
@@ -678,7 +689,10 @@ export default function InvoicePreviewModal({ invoice, onClose, autoOpenShare = 
                     {(invoice.items || []).map((item, idx) => (
                         <tr key={item.id || idx}>
                             <td className="col-idx">{idx + 1}</td>
-                            <td className="col-name text-left">{item.product_name} {item.variant_name ? `(${item.variant_name})` : ''}</td>
+                            <td className="col-name text-left">
+                                {item.product_name} {item.variant_name ? `(${item.variant_name})` : ''}
+
+                            </td>
                             <td className="col-hsn">{item.hsn_sac || item.product_hsn || '—'}</td>
                             <td className="col-qty">{item.quantity}</td>
                             <td className="col-unit">{item.unit || 'Pcs'}</td>
@@ -846,6 +860,9 @@ export default function InvoicePreviewModal({ invoice, onClose, autoOpenShare = 
                 <div className="row"><span>{t.billNo}: {invoiceNumber}</span></div>
                 <div className="row"><span>{t.date}: {invoice.date}</span></div>
                 <div className="row"><span>{t.customer}: {displayName}</span></div>
+                {settings?.show_category_in_invoice !== 'false' && (
+                    <div className="row"><span>Product Cat: {billedCategories}</span></div>
+                )}
             </div>
 
             <div className="pos-divider-solid"></div>
@@ -863,7 +880,10 @@ export default function InvoicePreviewModal({ invoice, onClose, autoOpenShare = 
                     {(invoice.items || []).map((item, idx) => (
                         <tr key={item.id || idx}>
                             <td className="text-left" colSpan="4">
-                                <div style={{ marginBottom: '2px' }}>{item.product_name} {item.variant_name ? `(${item.variant_name})` : ''}</div>
+                                <div style={{ marginBottom: '2px' }}>
+                                    {item.product_name} {item.variant_name ? `(${item.variant_name})` : ''}
+
+                                </div>
                                 <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '10px', color: '#444' }}>
                                     <span>{item.quantity} {item.unit || 'PCS'} x {formatCurrency(item.price)}</span>
                                     <span>{formatCurrency(item.total)}</span>
@@ -1078,6 +1098,9 @@ export default function InvoicePreviewModal({ invoice, onClose, autoOpenShare = 
                         {invoice.customer_email && <p>{invoice.customer_email}</p>}
                         {invoice.customer_phone && <p>{invoice.customer_phone}</p>}
                         {invoice.customer_gstin && <p>{t.gstin}: {invoice.customer_gstin}</p>}
+                        {settings?.show_category_in_invoice !== 'false' && (
+                            <p style={{ marginTop: '4px', fontSize: '11px', color: '#64748b' }}>Product Cat: {billedCategories}</p>
+                        )}
                     </div>
                     <div>
                         <div className="section-title">Shipping Address</div>
@@ -1114,6 +1137,7 @@ export default function InvoicePreviewModal({ invoice, onClose, autoOpenShare = 
                                     <td>
                                         {item.product_name}
                                         {item.variant_name ? ` (${item.variant_name})` : ''}
+
                                         {item.is_free ? <span style={{ marginLeft: 8, fontSize: '0.8em', color: '#166534', background: '#dcfce7', padding: '2px 6px', borderRadius: '4px' }}>FREE</span> : ''}
                                     </td>
                                     <td>{formatCurrency(item.price)}</td>
