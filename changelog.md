@@ -4,6 +4,29 @@ All notable changes to the Quantro ERP application will be documented here.
 
 ---
 
+## [2.6.5] - 2026-05-30
+### Added
+- **Centralized Secure Payment Method Authorization**:
+  - Implemented ₹1.00 secure verification payment flow via Razorpay SDK on the Quantro Web Portal (`?page=add-card`).
+  - Automatically synchronizes verified payment method details (mocked card brand, last4, and expiry) from the Web Portal client directly to the running local Maze ERP desktop backend server.
+- **Subscription Cancellation Verification Emails**:
+  - Integrated 6-digit confirmation code verification flow when a user cancels their subscription from either the desktop ERP or the online Web Portal.
+  - Automatically generates and sends the cancellation code email using the configured Google OAuth Gmail API connection matching the user's active tenant connections. If offline or no connection exists, the code is printed to the system logs/console.
+  - Verification of the code downgrades the active license in the Supabase `licenses` table (setting `plan = 'Free'`, `price = 0`, and `status = 'Active'`) and local settings.
+- **Auto-pay Scheduler on Day 5**:
+  - Added a scheduler routine in the ERP backend that checks for outstanding dues on simulated or actual Day 5. If card payment and autopay are enabled, outstanding dues are automatically paid and usage counters are reset.
+- **Pricing Tier Navigation Restrictions**:
+  - Displays subscription end dates (30 days from `created_at`) on active paid plans.
+  - Forces "Free Starter" plan to always show "Active" alongside active paid plans.
+  - Restricts paid users (Pro/Professional) from buying a different plan directly, displaying a warning message: `Cancel your [Plan] plan before switching`.
+- **Terms Checkbox & Policy Links**:
+  - Embedded mandatory Terms of Service, Privacy Policy, and Refund Policy check agreement on the payment authorization modal. Links open in the system default web browser.
+- **Visual Enhancements**:
+  - Corrected image assets path resolution to relative paths (e.g. `./gmail-icon.png`) on the desktop BillingPage to fix broken icons post-installation.
+  - Refined margins and padding to resolve overlapping text and buttons on card displays.
+
+---
+
 ## [2.6.4] - 2026-05-30
 ### Added
 - **Auto-Extract and Pre-Fill Supplier Address & Phone**:

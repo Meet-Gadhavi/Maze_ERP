@@ -55,6 +55,32 @@ router.get('/callback', async (req, res) => {
     }
 });
 
+// GET /auth/google/callback-bypass -> Direct connect bypass for local testing
+router.get('/callback-bypass', async (req, res) => {
+    try {
+        const email = req.query.email || 'gadhavimeet63@gmail.com';
+        console.log(`[Google Auth] Bypassing OAuth flow. Registering direct connection for: ${email}...`);
+        
+        await EmailConnection.createOrUpdateConnection({
+            provider: 'gmail',
+            email: email,
+            accessToken: 'mock_access_token',
+            refreshToken: 'mock_refresh_token',
+            expiryDate: Date.now() + 3600000,
+            status: 'Active'
+        });
+
+        // Sync connection metadata to online server
+        campaignSyncService.pushMetadata().catch(err => console.error('[Sync] Failed to push metadata on bypass callback:', err.message));
+        
+        res.redirect(`maze-erp://google-auth-callback?status=success&email=${encodeURIComponent(email)}`);
+    } catch (err) {
+        console.error('[Google Auth] Bypass callback failed:', err);
+        res.redirect(`maze-erp://google-auth-callback?status=error&message=${encodeURIComponent(err.message || 'Bypass authentication failed.')}`);
+    }
+});
+
+
 // GET /auth/google/connections -> Get all connected Gmail accounts
 router.get('/connections', async (req, res, next) => {
     try {

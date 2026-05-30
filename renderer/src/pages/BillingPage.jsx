@@ -27,6 +27,44 @@ export default function BillingPage() {
     const [upgradeVerifying, setUpgradeVerifying] = useState(false);
     const [upgradeError, setUpgradeError] = useState('');
 
+    const [termsAccepted, setTermsAccepted] = useState(false);
+    const [licenseDetails, setLicenseDetails] = useState(null);
+
+    // Cancellation Code Modal States
+    const [showCancelModal, setShowCancelModal] = useState(false);
+    const [cancellationCode, setCancellationCode] = useState('');
+    const [cancelVerifying, setCancelVerifying] = useState(false);
+    const [cancelError, setCancelError] = useState('');
+
+    useEffect(() => {
+        async function fetchLicense() {
+            if (status && status.licenseKey && status.licensePlan !== 'Free') {
+                try {
+                    const { data, error } = await supabase
+                        .from('licenses')
+                        .select('*')
+                        .eq('license_key', status.licenseKey)
+                        .maybeSingle();
+                    if (!error && data) {
+                        setLicenseDetails(data);
+                    }
+                } catch (e) {
+                    console.error('Failed to fetch license details:', e);
+                }
+            } else {
+                setLicenseDetails(null);
+            }
+        }
+        fetchLicense();
+    }, [status]);
+
+    const getSubscriptionEndDate = () => {
+        if (!licenseDetails || !licenseDetails.created_at) return '';
+        const createdDate = new Date(licenseDetails.created_at);
+        createdDate.setDate(createdDate.getDate() + 30);
+        return createdDate.toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' });
+    };
+
     const loadBillingStatus = async () => {
         setLoading(true);
         setError(null);
@@ -42,25 +80,29 @@ export default function BillingPage() {
         }
     };
 
+    const openExternalLink = (url) => {
+        if (window.maze && typeof window.maze.openExternal === 'function') {
+            window.maze.openExternal(url);
+        } else {
+            window.open(url, '_blank');
+        }
+    };
+
     useEffect(() => {
         loadBillingStatus();
     }, []);
 
-    const handleConfirmPaymentSetup = async () => {
+    const handleConfirmPaymentSetup = () => {
+        if (!termsAccepted) {
+            toast.error('You must accept the Terms & Conditions, Privacy Policy, and Refund Policy to proceed.');
+            return;
+        }
         setShowPaymentSetupModal(false);
-        const loadingId = toast.loading('Processing ₹1.00 card authorization securely...');
-        setTimeout(async () => {
-            try {
-                await api.addPaymentMethod({ enableAutopay });
-                toast.success('Card authorized successfully! ₹1.00 charged and default payment method set.', { id: loadingId });
-                if (enableAutopay) {
-                    toast.success('Autopay has been configured for future invoices.');
-                }
-                loadBillingStatus();
-            } catch (e) {
-                toast.error(e.message || 'Failed to add payment method.', { id: loadingId });
-            }
-        }, 1500);
+        setTermsAccepted(false);
+
+        const url = `http://localhost:5180/?page=add-card&syncId=${status?.syncId || ''}&email=${encodeURIComponent(status?.email || '')}&autopay=${enableAutopay ? 'true' : 'false'}`;
+        openExternalLink(url);
+        toast.info('Opening Quantro Web Portal to complete 1 Rupee verification checkout.');
     };
 
     const handleBuyEmailPackage = async () => {
@@ -100,7 +142,7 @@ export default function BillingPage() {
         setNewLicenseKey('');
         setUpgradeError('');
         setShowUpgradeModal(true);
-        window.open('https://quantro-web.onrender.com/pricing', '_blank');
+        openExternalLink('https://quantro-web.onrender.com/pricing');
     };
 
     const handleVerifyUpgrade = async () => {
@@ -191,8 +233,36 @@ export default function BillingPage() {
         if (!window.confirm('Are you sure you want to cancel your subscription? You will be downgraded to the Free tier.')) {
             return;
         }
-        const loadingId = toast.loading('Cancelling subscription...');
+        setCancellationCode('');
+        setCancelError('');
+        setCancelVerifying(false);
+        setShowCancelModal(true);
+        const loadingId = toast.loading('Sending cancellation verification code to your email...');
         try {
+            const res = await api.sendCancellationCode();
+            if (res.success) {
+                toast.success(res.message || 'Verification code sent to your email.', { id: loadingId });
+            } else {
+                toast.error(res.message || 'Failed to send verification code.', { id: loadingId });
+            }
+        } catch (e) {
+            console.error('Failed to send cancellation code:', e);
+            toast.error(e.message || 'Failed to send verification code.', { id: loadingId });
+        }
+    };
+
+    const handleConfirmCancellation = async () => {
+        if (!cancellationCode.trim()) {
+            setCancelError('Please enter the 6-digit confirmation code.');
+            return;
+        }
+        setCancelVerifying(true);
+        setCancelError('');
+        const loadingId = toast.loading('Confirming cancellation...');
+
+        try {
+            await api.confirmCancellation(cancellationCode.trim());
+
             const { data: { user } } = await supabase.auth.getUser();
             if (user && status.licenseKey) {
                 const { error: supabaseError } = await supabase
@@ -204,12 +274,30 @@ export default function BillingPage() {
                 if (supabaseError) throw supabaseError;
             }
 
-            await api.cancelSubscription();
             toast.success('Subscription cancelled successfully. Plan is now Free Starter.', { id: loadingId });
+            setShowCancelModal(false);
+            loadBillingStatus();
+        } catch (err) {
+            console.error('Cancellation confirmation error:', err);
+            const failError = err.message || 'Verification failed.';
+            setCancelError(failError);
+            toast.error(failError, { id: loadingId });
+        } finally {
+            setCancelVerifying(false);
+        }
+    };
+
+    const handleRemoveCard = async () => {
+        if (!window.confirm('Are you sure you want to remove your saved payment method? WhatsApp template alerts and Voice Agent calling will be disabled.')) {
+            return;
+        }
+        const loadingId = toast.loading('Removing payment method securely...');
+        try {
+            await api.removePaymentMethod();
+            toast.success('Payment method successfully removed.', { id: loadingId });
             loadBillingStatus();
         } catch (e) {
-            console.error('Cancellation failed:', e);
-            toast.error(e.message || 'Failed to cancel subscription.', { id: loadingId });
+            toast.error(e.message || 'Failed to remove payment method.', { id: loadingId });
         }
     };
 
@@ -302,9 +390,16 @@ export default function BillingPage() {
                                     <h3 style={{ margin: 0, fontSize: '15px', fontWeight: 700 }}>
                                         Active Plan: {status.licensePlan === 'Free' ? 'Free Starter' : status.licensePlan === 'Pro' ? 'Business PRO' : 'AI Professional'}
                                     </h3>
-                                    <span style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>
-                                        License key: <code style={{ fontFamily: 'monospace', background: 'var(--bg-secondary)', padding: '2px 4px', borderRadius: '4px' }}>{status.licenseKey || 'N/A'}</code>
-                                    </span>
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', marginTop: '2px' }}>
+                                        <span style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>
+                                            License key: <code style={{ fontFamily: 'monospace', background: 'var(--bg-secondary)', padding: '2px 4px', borderRadius: '4px' }}>{status.licenseKey || 'N/A'}</code>
+                                        </span>
+                                        {status.licensePlan !== 'Free' && getSubscriptionEndDate() && (
+                                            <span style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>
+                                                End of subscription: <strong style={{ color: 'var(--text-primary)' }}>{getSubscriptionEndDate()}</strong>
+                                            </span>
+                                        )}
+                                    </div>
                                 </div>
                             </div>
                             <span style={{ 
@@ -359,7 +454,7 @@ export default function BillingPage() {
                                     width: '36px', height: '36px', borderRadius: '8px', background: '#f8fafc',
                                     border: '1px solid #e2e8f0', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '4px'
                                 }}>
-                                    <img src="/gmail-icon.png" alt="Gmail" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+                                    <img src="./gmail-icon.png" alt="Gmail" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
                                 </div>
                                 <div>
                                     <h3 style={{ margin: 0, fontSize: '15px', fontWeight: 700 }}>Gmail API Delivery Service</h3>
@@ -378,7 +473,7 @@ export default function BillingPage() {
                                         width: '36px', height: '36px', borderRadius: '8px', background: '#f8fafc',
                                         border: '1px solid #e2e8f0', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '4px'
                                     }}>
-                                        <img src="/gmail-icon.png" alt="Gmail" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+                                        <img src="./gmail-icon.png" alt="Gmail" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
                                     </div>
                                     <div>
                                         <h3 style={{ margin: 0, fontSize: '15px', fontWeight: 700 }}>Gmail API Delivery Service</h3>
@@ -427,7 +522,7 @@ export default function BillingPage() {
                                     width: '36px', height: '36px', borderRadius: '8px', background: '#f8fafc',
                                     border: '1px solid #e2e8f0', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '4px'
                                 }}>
-                                    <img src="/whatsapp-icon.png" alt="WhatsApp" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+                                    <img src="./whatsapp-icon.png" alt="WhatsApp" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
                                 </div>
                                 <div>
                                     <h3 style={{ margin: 0, fontSize: '15px', fontWeight: 700 }}>WhatsApp Service</h3>
@@ -446,7 +541,7 @@ export default function BillingPage() {
                                         width: '36px', height: '36px', borderRadius: '8px', background: '#f8fafc',
                                         border: '1px solid #e2e8f0', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '4px'
                                     }}>
-                                        <img src="/whatsapp-icon.png" alt="WhatsApp" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+                                        <img src="./whatsapp-icon.png" alt="WhatsApp" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
                                     </div>
                                     <div>
                                         <h3 style={{ margin: 0, fontSize: '15px', fontWeight: 700 }}>WhatsApp Out-of-CSW Templates</h3>
@@ -489,7 +584,7 @@ export default function BillingPage() {
                                     width: '36px', height: '36px', borderRadius: '8px', background: '#f8fafc',
                                     border: '1px solid #e2e8f0', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '4px'
                                 }}>
-                                    <img src="/mazeway.png" alt="Voice Agent" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+                                    <img src="./mazeway.png" alt="Voice Agent" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
                                 </div>
                                 <div>
                                     <h3 style={{ margin: 0, fontSize: '15px', fontWeight: 700 }}>AI Voice Agent Calling</h3>
@@ -507,7 +602,7 @@ export default function BillingPage() {
                                     width: '36px', height: '36px', borderRadius: '8px', background: '#f8fafc',
                                     border: '1px solid #e2e8f0', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '4px'
                                 }}>
-                                    <img src="/mazeway.png" alt="Voice Agent" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+                                    <img src="./mazeway.png" alt="Voice Agent" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
                                 </div>
                                 <div>
                                     <h3 style={{ margin: 0, fontSize: '15px', fontWeight: 700 }}>AI Voice Agent Calling</h3>
@@ -526,7 +621,7 @@ export default function BillingPage() {
                                         width: '36px', height: '36px', borderRadius: '8px', background: '#f8fafc',
                                         border: '1px solid #e2e8f0', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '4px'
                                     }}>
-                                        <img src="/mazeway.png" alt="Voice Agent" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+                                        <img src="./mazeway.png" alt="Voice Agent" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
                                     </div>
                                     <div>
                                         <h3 style={{ margin: 0, fontSize: '15px', fontWeight: 700 }}>AI Voice Agent Calling</h3>
@@ -569,7 +664,7 @@ export default function BillingPage() {
                                     width: '36px', height: '36px', borderRadius: '8px', background: '#f8fafc',
                                     border: '1px solid #e2e8f0', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '4px'
                                 }}>
-                                    <img src="/mazeway.png" alt="VoIP Number" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+                                    <img src="./mazeway.png" alt="VoIP Number" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
                                 </div>
                                 <div>
                                     <h3 style={{ margin: 0, fontSize: '15px', fontWeight: 700 }}>Dedicated VoIP Number</h3>
@@ -677,13 +772,19 @@ export default function BillingPage() {
                         {status.paymentMethodAdded ? (
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '12px', background: 'var(--bg-secondary)', padding: '10px 14px', borderRadius: '8px', border: '1px solid var(--border)' }}>
-                                    <img src="/mazeway.png" alt="Razorpay" style={{ width: '20px', height: '20px', objectFit: 'contain' }} />
+                                    <img src="./mazeway.png" alt="Razorpay" style={{ width: '20px', height: '20px', objectFit: 'contain' }} />
                                     <div style={{ flex: 1 }}>
-                                        <div style={{ fontSize: '13px', fontWeight: 600 }}>Visa ending in 4242</div>
-                                        <div style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>Expires 12/28</div>
+                                        <div style={{ fontSize: '13px', fontWeight: 600 }}>{status.paymentMethodBrand} ending in {status.paymentMethodLast4}</div>
+                                        <div style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>Expires {status.paymentMethodExpiry}</div>
                                     </div>
-                                    <span style={{ fontSize: '10px', fontWeight: 700, background: 'rgba(52, 199, 89, 0.1)', color: '#278a3e', padding: '2px 6px', borderRadius: '10px' }}>
+                                    <span style={{ fontSize: '10px', fontWeight: 700, background: 'rgba(52, 199, 89, 0.1)', color: '#278a3e', padding: '2px 6px', borderRadius: '10px', marginRight: '8px' }}>
                                         Default
+                                    </span>
+                                    <span 
+                                        onClick={handleRemoveCard}
+                                        style={{ fontSize: '11px', fontWeight: 650, color: 'var(--danger)', cursor: 'pointer', textDecoration: 'underline', marginLeft: 'auto' }}
+                                    >
+                                        Remove Card
                                     </span>
                                 </div>
                                 <div style={{ fontSize: '11px', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: '6px' }}>
@@ -696,9 +797,9 @@ export default function BillingPage() {
                                 </div>
                             </div>
                         ) : (
-                            <div style={{ textAlign: 'center', padding: '16px', border: '1px dashed var(--border)', borderRadius: '8px' }}>
-                                <span style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>No payment method configured</span>
-                                <SButton variant="secondary" style={{ marginTop: '12px', width: '100%' }} onClick={() => setShowPaymentSetupModal(true)}>
+                            <div style={{ textAlign: 'center', padding: '20px 16px', border: '1px dashed var(--border)', borderRadius: '12px' }}>
+                                <div style={{ fontSize: '13.5px', color: 'var(--text-secondary)', marginBottom: '14px', fontWeight: 500 }}>No payment method configured</div>
+                                <SButton variant="secondary" style={{ width: '100%' }} onClick={() => setShowPaymentSetupModal(true)}>
                                     Setup Payment Method (Visa / Master Card)
                                 </SButton>
                             </div>
@@ -724,25 +825,33 @@ export default function BillingPage() {
                         <div style={{ background: 'var(--accent)', color: '#ffffff', padding: '20px 24px' }}>
                             <h3 style={{ margin: 0, fontSize: '18px', fontWeight: 800 }}>Set Up Payment Method</h3>
                             <p style={{ margin: '4px 0 0 0', color: 'rgba(255,255,255,0.8)', fontSize: '12px' }}>
-                                Authorize your card securely via Razorpay
+                                Link your card securely on the Quantro Web Portal
                             </p>
                         </div>
                         
                         {/* Body */}
                         <div style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
                             <div style={{ fontSize: '13px', color: 'var(--text-secondary)', lineHeight: 1.5 }}>
-                                Setting up your payment method requires a <strong>₹1.00</strong> authorization charge to verify your card details. This amount is fully refundable.
+                                Setting up your payment method requires a refundable <strong>₹1.00</strong> transaction to verify card details. This process will happen securely on the Quantro Web Portal.
                             </div>
 
                             {/* Terms Checkbox */}
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', background: 'var(--bg-secondary)', padding: '16px', borderRadius: '10px' }}>
                                 <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-primary)' }}>Legal Agreements</div>
-                                <div style={{ fontSize: '12px', color: 'var(--text-secondary)', lineHeight: 1.4 }}>
-                                    By proceeding, you agree to our{' '}
-                                    <a href="https://mazelabs.in/terms" target="_blank" rel="noreferrer" style={{ color: 'var(--accent)', fontWeight: 600, textDecoration: 'underline' }}>Terms & Conditions</a>,{' '}
-                                    <a href="https://mazelabs.in/privacy" target="_blank" rel="noreferrer" style={{ color: 'var(--accent)', fontWeight: 600, textDecoration: 'underline' }}>Privacy Policy</a>, and{' '}
-                                    <a href="https://mazelabs.in/refund" target="_blank" rel="noreferrer" style={{ color: 'var(--accent)', fontWeight: 600, textDecoration: 'underline' }}>Refund Policy</a>.
-                                </div>
+                                <label style={{ display: 'flex', gap: '8px', alignItems: 'flex-start', cursor: 'pointer', userSelect: 'none' }}>
+                                    <input 
+                                        type="checkbox" 
+                                        checked={termsAccepted} 
+                                        onChange={(e) => setTermsAccepted(e.target.checked)} 
+                                        style={{ marginTop: '3px' }}
+                                    />
+                                    <div style={{ fontSize: '12px', color: 'var(--text-secondary)', lineHeight: 1.4 }}>
+                                        I have read and agree to Quantro's{' '}
+                                        <a href="#" onClick={(e) => { e.preventDefault(); openExternalLink('http://localhost:5180/?page=terms'); }} style={{ color: 'var(--accent)', fontWeight: 650, textDecoration: 'underline' }}>Terms of Service</a>,{' '}
+                                        <a href="#" onClick={(e) => { e.preventDefault(); openExternalLink('http://localhost:5180/?page=privacy'); }} style={{ color: 'var(--accent)', fontWeight: 650, textDecoration: 'underline' }}>Privacy Policy</a>, and{' '}
+                                        <a href="#" onClick={(e) => { e.preventDefault(); openExternalLink('http://localhost:5180/?page=refund'); }} style={{ color: 'var(--accent)', fontWeight: 650, textDecoration: 'underline' }}>Refund Policy</a>.
+                                    </div>
+                                </label>
                             </div>
 
                             {/* Autopay Checkbox */}
@@ -756,7 +865,7 @@ export default function BillingPage() {
                                 <div>
                                     <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-primary)' }}>Enable Autopay</span>
                                     <p style={{ margin: '2px 0 0 0', fontSize: '11px', color: 'var(--text-secondary)', lineHeight: 1.4 }}>
-                                        Automatically pay future outstanding usage balances via Razorpay when they become due.
+                                        Automatically charge future outstanding balances via Razorpay on the 5th of the month.
                                     </p>
                                 </div>
                             </label>
@@ -764,11 +873,82 @@ export default function BillingPage() {
 
                         {/* Footer */}
                         <div style={{ background: '#f8fafc', padding: '16px 20px', display: 'flex', justifyContent: 'flex-end', gap: '12px', borderTop: '1px solid var(--border)' }}>
-                            <SButton variant="secondary" onClick={() => setShowPaymentSetupModal(false)}>
+                            <SButton variant="secondary" onClick={() => { setShowPaymentSetupModal(false); setTermsAccepted(false); }}>
                                 Cancel
                             </SButton>
-                            <SButton variant="primary" style={{ background: 'var(--accent)', borderColor: 'var(--accent)' }} onClick={handleConfirmPaymentSetup}>
-                                Authorize & Pay ₹1.00
+                            <SButton variant="primary" style={{ background: 'var(--accent)', borderColor: 'var(--accent)' }} disabled={!termsAccepted} onClick={handleConfirmPaymentSetup}>
+                                Link Card on Website (₹1.00)
+                            </SButton>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Subscription Cancellation Verification Code Modal */}
+            {showCancelModal && (
+                <div style={{
+                    position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+                    background: 'rgba(15, 23, 42, 0.6)', backdropFilter: 'blur(4px)',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    zIndex: 1000
+                }}>
+                    <div style={{
+                        background: '#ffffff', width: '420px', borderRadius: '16px',
+                        overflow: 'hidden', boxShadow: '0 20px 25px -5px rgba(0,0,0,0.15)'
+                    }}>
+                        {/* Header */}
+                        <div style={{ background: 'var(--danger)', color: '#ffffff', padding: '20px 24px' }}>
+                            <h3 style={{ margin: 0, fontSize: '18px', fontWeight: 800 }}>Confirm Subscription Cancellation</h3>
+                            <p style={{ margin: '4px 0 0 0', color: 'rgba(255,255,255,0.8)', fontSize: '12px' }}>
+                                Enter verification code sent to your email
+                            </p>
+                        </div>
+                        
+                        {/* Body */}
+                        <div style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                            <div style={{ fontSize: '13px', color: 'var(--text-secondary)', lineHeight: 1.5 }}>
+                                We have sent a 6-digit confirmation code to your email. Please enter it below to authorize the cancellation of your paid tier.
+                            </div>
+
+                            <div>
+                                <label style={{ display: 'block', fontSize: '11px', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '6px' }}>6-Digit Code</label>
+                                <input 
+                                    type="text" 
+                                    className="input-text" 
+                                    value={cancellationCode} 
+                                    onChange={(e) => setCancellationCode(e.target.value)} 
+                                    placeholder="Enter 6-digit code" 
+                                    maxLength={6}
+                                    style={{ height: '38px', fontSize: '16px', fontWeight: 'bold', textAlign: 'center', letterSpacing: '4px' }} 
+                                />
+                            </div>
+
+                            {cancelError && (
+                                <div style={{
+                                    padding: '10px 14px',
+                                    background: '#fef2f2',
+                                    color: '#b91c1c',
+                                    border: '1px solid #fee2e2',
+                                    borderRadius: '8px',
+                                    fontSize: '12px',
+                                    lineHeight: '1.4',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '8px'
+                                }}>
+                                    <Icons.AlertCircle size={16} style={{ flexShrink: 0, color: '#ef4444' }} />
+                                    <span>{cancelError}</span>
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Footer */}
+                        <div style={{ background: '#f8fafc', padding: '16px 20px', display: 'flex', justifyContent: 'flex-end', gap: '12px', borderTop: '1px solid var(--border)' }}>
+                            <SButton variant="secondary" disabled={cancelVerifying} onClick={() => setShowCancelModal(false)}>
+                                Cancel
+                            </SButton>
+                            <SButton variant="primary" style={{ background: 'var(--danger)', borderColor: 'var(--danger)' }} disabled={cancelVerifying} onClick={handleConfirmCancellation}>
+                                {cancelVerifying ? 'Downgrading...' : 'Verify & Downgrade Plan'}
                             </SButton>
                         </div>
                     </div>

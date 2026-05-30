@@ -95,11 +95,76 @@ async function calculateCurrentDue(settings) {
     };
 }
 
+async function checkAndRunAutopay(settings) {
+    if (settings.billing_payment_method_added !== 'true' || settings.billing_payment_method_autopay !== 'true') {
+        return;
+    }
+    
+    let isDay5 = false;
+    const simDay = settings.billing_simulated_day;
+    if (simDay && !isNaN(simDay) && simDay !== '') {
+        isDay5 = parseInt(simDay, 10) === 5;
+    } else {
+        isDay5 = new Date().getDate() === 5;
+    }
+
+    if (!isDay5) {
+        return;
+    }
+
+    const lastPayment = settings.billing_last_payment_date;
+    let alreadyPaidThisCycle = false;
+    if (lastPayment) {
+        try {
+            const parts = lastPayment.split(/[-/]/);
+            if (parts.length >= 3) {
+                const payMonth = parseInt(parts[1], 10);
+                const payYear = parseInt(parts[2], 10);
+                const currentMonth = new Date().getMonth() + 1;
+                const currentYear = new Date().getFullYear();
+                if (payMonth === currentMonth && payYear === currentYear) {
+                    alreadyPaidThisCycle = true;
+                }
+            }
+        } catch (e) {
+            console.error('[Autopay Helper] Error parsing payment date:', e);
+        }
+    }
+
+    if (alreadyPaidThisCycle) {
+        return;
+    }
+
+    const dues = await calculateCurrentDue(settings);
+    if (dues.totalDue > 0) {
+        console.log(`[Autopay Helper] Day 5 detected with outstanding dues of ₹${dues.totalDue}. Executing autopay...`);
+        await db.ready;
+        db.run("INSERT OR REPLACE INTO settings (key, value) VALUES ('billing_whatsapp_non_csw_count', '0')");
+        db.run("INSERT OR REPLACE INTO settings (key, value) VALUES ('billing_voice_agent_seconds', '0')");
+        db.run("INSERT OR REPLACE INTO settings (key, value) VALUES ('billing_email_sent_count', '0')");
+        db.run("INSERT OR REPLACE INTO settings (key, value) VALUES ('billing_email_package_due', '0')");
+        
+        const todayStr = new Date().toLocaleDateString('en-IN');
+        db.run("INSERT OR REPLACE INTO settings (key, value) VALUES ('billing_last_payment_date', ?)", [todayStr]);
+        console.log(`[Autopay Helper] Autopay payment of ₹${dues.totalDue} successful. Last payment date updated to ${todayStr}.`);
+        
+        // Update settings map in-place so calculation downstream knows it is cleared
+        settings.billing_whatsapp_non_csw_count = '0';
+        settings.billing_voice_agent_seconds = '0';
+        settings.billing_email_sent_count = '0';
+        settings.billing_email_package_due = '0';
+        settings.billing_last_payment_date = todayStr;
+    }
+}
+
 async function isBillingBlocked() {
     await db.ready;
     const rows = db.all("SELECT key, value FROM settings");
     const settings = {};
     rows.forEach(r => { settings[r.key] = r.value; });
+
+    // Run autopay check before deciding block state
+    await checkAndRunAutopay(settings);
 
     const day = getDayOfMonth(settings);
     const dues = await calculateCurrentDue(settings);
@@ -114,6 +179,7 @@ async function isBillingBlocked() {
 module.exports = {
     getDayOfMonth,
     calculateCurrentDue,
-    isBillingBlocked
+    isBillingBlocked,
+    checkAndRunAutopay
 };
 

@@ -431,6 +431,9 @@ const api = {
     simulateBillingDay: (day) => request('/billing/simulate-day', { method: 'POST', body: { day } }),
     upgradeSubscription: (plan) => request('/billing/upgrade', { method: 'POST', body: { plan } }),
     cancelSubscription: () => request('/billing/cancel-subscription', { method: 'POST' }),
+    removePaymentMethod: () => request('/billing/remove-payment-method', { method: 'POST' }),
+    sendCancellationCode: () => request('/billing/send-cancellation-code', { method: 'POST' }),
+    confirmCancellation: (code) => request('/billing/confirm-cancellation', { method: 'POST', body: { code } }),
 };
 
 export default api;
