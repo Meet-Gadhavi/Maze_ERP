@@ -946,6 +946,64 @@
         .navbar-logo-img { width: 32px; height: 32px; object-fit: contain; border-radius: 8px; }
         .pay-cta { display: flex; flex-direction: column; align-items: center; gap: 10px; margin-top: 40px; padding: 24px; border-radius: var(--radius-lg); background: linear-gradient(135deg, var(--primary-light), var(--primary)); color: #fff; text-align: center; }
         .btn-primary.upi-button { background-color: #22c55e; font-size: 15px; padding: 12px 28px; }
+
+        /* ==========================================
+           Classic ERP-Matching Invoice Style
+           ========================================== */
+        .classic-invoice-wrap { background: #fff; border-radius: 12px; padding: 32px; box-shadow: 0 4px 24px rgba(15,23,42,0.07); }
+        .classic-inv-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 28px; padding-bottom: 20px; border-bottom: 2px solid #2563eb; }
+        .classic-brand { display: flex; gap: 16px; align-items: flex-start; }
+        .classic-brand-logo { width: 72px; height: 72px; object-fit: contain; border-radius: 6px; background: #f8fafc; }
+        .classic-brand-name { font-size: 1.7rem; font-weight: 800; color: #2563eb; letter-spacing: -0.03em; margin: 0 0 4px 0; }
+        .classic-brand-details { font-size: 12px; color: #64748b; line-height: 1.5; }
+        .classic-brand-details span { display: block; }
+        .classic-brand-details .company-title { font-size: 1.25rem; font-weight: 700; color: #0f172a; margin-bottom: 4px; }
+        .classic-inv-meta { text-align: right; }
+        .classic-inv-meta .inv-title { font-size: 1.4rem; font-weight: 800; color: #2563eb; letter-spacing: 0.05em; margin-bottom: 8px; }
+        .classic-inv-meta .inv-number { font-size: 1rem; font-weight: 700; color: #0f172a; }
+        .classic-inv-meta .inv-date { font-size: 13px; color: #64748b; margin-top: 4px; }
+        .classic-inv-meta .inv-badges { margin-top: 12px; display: flex; gap: 6px; justify-content: flex-end; flex-wrap: wrap; }
+        .classic-status-badge { padding: 5px 14px; border-radius: 20px; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; display: inline-block; }
+        .classic-badge-paid { background: #dcfce7; color: #15803d; }
+        .classic-badge-partial { background: #fef9c3; color: #a16207; }
+        .classic-badge-unpaid { background: #fee2e2; color: #b91c1c; }
+        .classic-badge-confirmed { background: rgba(37,99,235,0.1); color: #2563eb; }
+        .classic-badge-completed { background: rgba(22,163,74,0.1); color: #16a34a; }
+        .classic-customer-bar { background: #f8fafc; border-radius: 8px; padding: 14px 18px; display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; }
+        .classic-customer-bar .label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: #94a3b8; margin-bottom: 4px; }
+        .classic-customer-bar .cust-name { font-size: 15px; font-weight: 700; color: #0f172a; }
+        .classic-customer-bar .cust-meta { font-size: 12px; color: #64748b; margin-top: 2px; }
+        .classic-items-table { width: 100%; border-collapse: collapse; margin-bottom: 24px; }
+        .classic-items-table thead th { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; color: #94a3b8; padding: 8px 12px; border-bottom: 1px solid #e2e8f0; background: transparent; }
+        .classic-items-table thead th:last-child { text-align: right; }
+        .classic-items-table tbody td { padding: 11px 12px; font-size: 14px; border-bottom: 1px solid #f1f5f9; color: #0f172a; }
+        .classic-items-table tbody td:last-child { text-align: right; font-weight: 600; }
+        .classic-items-table .col-center { text-align: center; }
+        .classic-items-table .col-right { text-align: right; }
+        .classic-items-table .col-num { color: #94a3b8; }
+        .classic-footer-layout { display: flex; justify-content: space-between; align-items: flex-start; margin-top: 24px; gap: 32px; }
+        .classic-payment-breakdown { flex: 1; max-width: 260px; padding: 14px; background: #f8fafc; border-radius: 8px; border: 1px dashed #cbd5e1; }
+        .classic-breakdown-title { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: #94a3b8; margin-bottom: 8px; border-bottom: 1px solid #e2e8f0; padding-bottom: 6px; }
+        .classic-breakdown-row { display: flex; justify-content: space-between; align-items: center; font-size: 11px; padding: 3px 0; }
+        .classic-breakdown-row .label { color: #64748b; font-weight: 600; text-transform: uppercase; letter-spacing: 0.02em; }
+        .classic-breakdown-row .value { font-size: 13px; font-weight: 700; color: #0f172a; }
+        .classic-breakdown-row.success .value { color: #16a34a; }
+        .classic-breakdown-row.danger .value { color: #dc2626; }
+        .classic-breakdown-row.total-row { border-top: 1px solid #e2e8f0; margin-top: 4px; padding-top: 6px; }
+        .classic-totals-box { width: 260px; }
+        .classic-totals-row { display: flex; justify-content: space-between; padding: 8px 0; font-size: 14px; color: #64748b; }
+        .classic-totals-row.discount { color: #dc2626; }
+        .classic-totals-row.grand { border-top: 2px solid #0f172a; margin-top: 4px; padding-top: 12px; font-size: 15px; font-weight: 700; color: #0f172a; }
+        .classic-totals-row.grand .amt { color: #2563eb; font-size: 1.1rem; }
+        .classic-totals-divider { height: 1px; background: #e2e8f0; margin: 4px 0; }
+        .classic-footer-sections { display: grid; grid-template-columns: 1fr 1fr; gap: 28px; margin-top: 32px; text-align: left; }
+        .classic-footer-section h4 { font-size: 10px; font-weight: 700; text-transform: uppercase; color: #94a3b8; margin-bottom: 6px; border-bottom: 1px solid #e2e8f0; padding-bottom: 4px; }
+        .classic-footer-section p, .classic-footer-section pre { font-size: 11px; color: #64748b; line-height: 1.4; white-space: pre-wrap; font-family: inherit; margin: 0; }
+        .classic-thank-you { text-align: center; font-size: 13px; font-style: italic; color: #94a3b8; margin-top: 20px; }
+        .classic-payment-info { background: #f8fafc; border-radius: 8px; border: 1px dashed #cbd5e1; padding: 16px; margin-top: 32px; }
+        .classic-payment-info-title { font-weight: 700; font-size: 12px; color: #0f172a; margin-bottom: 10px; text-transform: uppercase; letter-spacing: 0.05em; }
+        .classic-payment-info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; font-size: 13px; }
+        .classic-payment-info-grid p { margin: 2px 0; color: #334155; }
     </style>
 </head>
 <body>
@@ -1110,7 +1168,7 @@
             } else if (style === 'pos') {
                 htmlContent = renderPOSTemplate(invoice, settings, items, subtotal, discountAmount, discountRate, couponDiscountAmount, gstAmount, gstRate, displayTotal, effectiveTotal, paidAmount, dueAmount, taxSummary, formatCurrency);
             } else {
-                htmlContent = renderClassicTemplate(invoice, settings, items, subtotal, discountAmount, discountRate, couponDiscountAmount, gstAmount, gstRate, displayTotal, effectiveTotal, paidAmount, dueAmount, formatCurrency);
+                htmlContent = renderClassicTemplate(invoice, settings, items, payments, subtotal, discountAmount, discountRate, couponDiscountAmount, gstAmount, gstRate, displayTotal, effectiveTotal, paidAmount, dueAmount, returnedAmount, formatCurrency);
             }
 
             target.innerHTML = htmlContent;
@@ -1620,171 +1678,161 @@
             `;
         }
 
-        function renderClassicTemplate(invoice, settings, items, subtotal, discountAmount, discountRate, couponDiscountAmount, gstAmount, gstRate, displayTotal, effectiveTotal, paidAmount, dueAmount, formatCurrency) {
+        function renderClassicTemplate(invoice, settings, items, payments, subtotal, discountAmount, discountRate, couponDiscountAmount, gstAmount, gstRate, displayTotal, effectiveTotal, paidAmount, dueAmount, returnedAmount, formatCurrency) {
             const customerName = invoice.customer_name || invoice.walk_in_name || 'Walk-in Guest';
             const billedCategories = [...new Set(items.map(item => item.category).filter(Boolean))].join(', ') || 'General';
             const customerPhone = invoice.customer_phone || invoice.walk_in_phone || '—';
             const customerEmail = invoice.customer_email || '—';
             const customerGstin = invoice.customer_gstin || invoice.gstin || '';
             const invoiceNumber = invoice.invoice_number || `INV-${String(invoice.id).padStart(4, '0')}`;
-            const paymentStatusBadge = (invoice.financial_status === 'PAID' || invoice.financial_status === 'Settled') ? '<span id="invoice-payment-status" class="status-badge status-paid">PAID</span>' : 
-                                      (invoice.financial_status === 'PARTIAL' || invoice.financial_status === 'Partially Returned') ? '<span id="invoice-payment-status" class="status-badge status-partial">PARTIAL</span>' : 
-                                      '<span id="invoice-payment-status" class="status-badge status-unpaid">UNPAID</span>';
+            const logoSrc = settings.company_logo || settings.logo_url;
 
-            const itemsRows = items.map(item => {
-                let taxHtml = '0%';
-                const gst = Number(item.item_gst_rate || 0);
-                if (gst > 0) {
-                    const singleTax = gst / 2;
-                    taxHtml = `${gst}%<span class="item-variant">CGST ${singleTax}% | SGST ${singleTax}%</span>`;
-                }
+            const finStatus = invoice.financial_status || 'UNPAID';
+            const finBadge = (finStatus === 'PAID' || finStatus === 'Settled')
+                ? `<span class="classic-status-badge classic-badge-paid">Paid</span>`
+                : (finStatus === 'PARTIAL' || finStatus === 'Partially Returned')
+                ? `<span class="classic-status-badge classic-badge-partial">⚠ Partial</span>`
+                : `<span class="classic-status-badge classic-badge-unpaid">✖ Unpaid</span>`;
+            const fulStatus = invoice.fulfillment_status || 'CONFIRMED';
+            const fulLabel = fulStatus === 'PENDING_PRODUCT' ? 'Pending Product' : fulStatus === 'CONFIRMED' ? 'Confirmed' : fulStatus === 'COMPLETED' ? 'Completed' : fulStatus;
+            const fulBadge = fulStatus === 'COMPLETED'
+                ? `<span class="classic-status-badge classic-badge-completed">${fulLabel}</span>`
+                : `<span class="classic-status-badge classic-badge-confirmed">${fulLabel}</span>`;
 
-                const variantText = item.variant_name ? `<span class="item-variant">Variant: ${item.variant_name}</span>` : '';
-                const categoryText = '';
+            const itemsRows = items.map((item, idx) => {
                 const itemTotal = Number(item.total) || (Number(item.price) * Number(item.quantity));
-
+                const isFreeTag = item.is_free ? `<span style="margin-left:8px;font-size:0.75em;color:#166534;background:#dcfce7;padding:2px 6px;border-radius:4px;">FREE</span>` : '';
                 return `
                     <tr>
-                        <td>
-                            <div class="item-description">${item.product_name || item.name || 'Product'}</div>
-                            ${variantText}
-                            ${categoryText}
-                        </td>
-                        <td class="text-center">${item.quantity} ${item.unit || 'PCS'}</td>
-                        <td class="text-right">${formatCurrency(item.price)}</td>
-                        <td class="text-right">${taxHtml}</td>
-                        <td class="text-right">${formatCurrency(itemTotal)}</td>
+                        <td class="col-num">${idx + 1}</td>
+                        <td>${item.product_name || 'Product'}${item.variant_name ? ` (${item.variant_name})` : ''}${isFreeTag}</td>
+                        <td class="col-center">${item.quantity}</td>
+                        <td class="col-center">${item.unit || 'PCS'}</td>
+                        <td class="col-right">${formatCurrency(item.price)}</td>
+                        <td class="col-right" style="font-weight:600;">${formatCurrency(itemTotal)}</td>
                     </tr>
                 `;
             }).join('');
 
             return `
-                <article class="invoice-card">
-                    <!-- Header Section -->
-                    <div class="invoice-header">
-                        <div class="merchant-details">
-                                ${(settings.company_logo || settings.logo_url) ? `<img src="${settings.company_logo || settings.logo_url}" alt="Logo" class="invoice-logo" style="max-height: 70px; max-width: 150px; margin-bottom: 12px; object-fit: contain; align-self: flex-start;" />` : ''}
-                            <h1 id="merchant-name" class="merchant-name">${settings.company_name || 'Quantro ERP'}</h1>
-                            <span id="merchant-address" style="font-size: 13px; color: var(--text-light);">${settings.address || ''}</span>
-                            ${settings.phone ? `<span id="merchant-phone" style="font-size: 13px; color: var(--text-light);">Phone: ${settings.phone}</span>` : ''}
-                            ${settings.email ? `<span id="merchant-email" style="font-size: 13px; color: var(--text-light);">Email: ${settings.email}</span>` : ''}
-                            ${settings.gstin ? `<span id="merchant-gstin" style="font-size: 13px; color: var(--text-light); font-weight: 600;">GSTIN: ${settings.gstin}</span>` : ''}
+                <div class="classic-invoice-wrap">
+                    <!-- Header -->
+                    <div class="classic-inv-header">
+                        <div class="classic-brand">
+                            ${logoSrc ? `<img src="${logoSrc}" alt="Logo" class="classic-brand-logo" />` : ''}
+                            <div class="classic-brand-details">
+                                ${logoSrc
+                                    ? `<span class="company-title">${settings.company_name || 'Quantro ERP'}</span>`
+                                    : `<span style="font-size:1.7rem;font-weight:800;color:#2563eb;letter-spacing:-0.03em;">${settings.company_name || 'Quantro ERP'}</span>`
+                                }
+                                ${settings.address ? `<span>${settings.address}</span>` : ''}
+                                ${(settings.phone || settings.email) ? `<span>${settings.phone ? 'Ph: ' + settings.phone : ''}${settings.phone && settings.email ? ' | ' : ''}${settings.email ? 'Email: ' + settings.email : ''}</span>` : ''}
+                                ${settings.gstin ? `<span>GSTIN: ${settings.gstin}</span>` : ''}
+                            </div>
                         </div>
-                        <div class="invoice-meta">
-                            <div class="invoice-title">Tax Invoice</div>
-                            <span class="invoice-meta-item">Invoice No: <strong id="invoice-number">${invoiceNumber}</strong></span>
-                            <span class="invoice-meta-item">Date: <strong id="invoice-date">${invoice.date || invoice.created_at || '—'}</strong></span>
-                            <div style="margin-top: 12px;">
-                                ${paymentStatusBadge}
+                        <div class="classic-inv-meta">
+                            <div class="inv-title">TAX INVOICE</div>
+                            <div class="inv-number">${invoiceNumber}</div>
+                            <div class="inv-date">${invoice.date || invoice.created_at || '—'}</div>
+                            <div class="inv-badges">
+                                ${fulBadge}
+                                ${invoice.customer_id ? finBadge : ''}
                             </div>
                         </div>
                     </div>
 
-                    <div class="divider"></div>
-
-                    <!-- Billing Grid -->
-                    <div class="billing-grid">
+                    <!-- Customer Info Bar -->
+                    <div class="classic-customer-bar">
                         <div>
-                            <div class="billing-title">Billed To</div>
-                            <div class="billing-details">
-                                <div id="customer-name" class="billing-name">${customerName}</div>
-                                ${customerPhone !== '—' ? `<span id="customer-phone" style="display: block;">Phone: ${customerPhone}</span>` : ''}
-                                ${customerEmail !== '—' ? `<span id="customer-email" style="display: block;">Email: ${customerEmail}</span>` : ''}
-                                ${customerGstin ? `<span id="customer-gstin" style="display: block; font-weight: 600;">GSTIN: ${customerGstin}</span>` : ''}
-                                ${settings.show_category_in_invoice !== 'false' ? `<span id="customer-categories" style="display: block; margin-top: 4px; font-size: 13px; color: var(--text-light);">Product Cat: ${billedCategories}</span>` : ''}
-                            </div>
+                            <div class="label">Bill To</div>
+                            <div class="cust-name">${customerName}</div>
+                            ${customerPhone !== '—' ? `<div class="cust-meta">Phone: ${customerPhone}</div>` : ''}
+                            ${customerEmail !== '—' ? `<div class="cust-meta">Email: ${customerEmail}</div>` : ''}
+                            ${customerGstin ? `<div class="cust-meta" style="font-weight:600;">GSTIN: ${customerGstin}</div>` : ''}
+                            ${settings.show_category_in_invoice !== 'false' ? `<div class="cust-meta" style="margin-top:4px;">Product Cat: ${billedCategories}</div>` : ''}
                         </div>
                     </div>
 
                     <!-- Items Table -->
-                    <div class="invoice-table-wrapper">
-                        <table class="invoice-table">
-                            <thead>
-                                <tr>
-                                    <th>Item & Description</th>
-                                    <th class="text-center" style="width: 100px;">Quantity</th>
-                                    <th class="text-right" style="width: 120px;">Price</th>
-                                    <th class="text-right" style="width: 140px;">GST Tax</th>
-                                    <th class="text-right" style="width: 140px;">Total</th>
-                                </tr>
-                            </thead>
-                            <tbody id="invoice-items-body">
-                                ${itemsRows}
-                            </tbody>
-                        </table>
-                    </div>
+                    <table class="classic-items-table">
+                        <thead>
+                            <tr>
+                                <th style="width:32px;">#</th>
+                                <th>Product</th>
+                                <th class="col-center" style="width:70px;">Qty</th>
+                                <th class="col-center" style="width:60px;">Unit</th>
+                                <th class="col-right" style="width:100px;">Price</th>
+                                <th style="width:110px;">Total</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${itemsRows}
+                        </tbody>
+                    </table>
 
-                    <!-- Summary / Totals -->
-                    <div class="summary-container">
-                        <table class="summary-table">
-                            <tr>
-                                <td>Subtotal</td>
-                                <td id="summary-subtotal" class="amount-cell">${formatCurrency(subtotal)}</td>
-                            </tr>
-                            ${discountAmount > 0 ? `
-                                <tr id="summary-discount-row">
-                                    <td>Discount (${discountRate.toFixed(1)}%)</td>
-                                    <td id="summary-discount" class="amount-cell">-${formatCurrency(discountAmount)}</td>
-                                </tr>
-                            ` : ''}
-                            ${couponDiscountAmount > 0 ? `
-                                <tr id="summary-coupon-row">
-                                    <td>Coupon (${invoice.coupon_code})</td>
-                                    <td id="summary-coupon" class="amount-cell">-${formatCurrency(couponDiscountAmount)}</td>
-                                </tr>
-                            ` : ''}
-                            <tr id="summary-gst-row">
-                                <td>GST Tax Amount</td>
-                                <td id="summary-gst" class="amount-cell">${formatCurrency(gstAmount)}</td>
-                            </tr>
-                            <tr class="total-row">
-                                <td class="grand-total">Grand Total</td>
-                                <td id="summary-grand-total" class="amount-cell grand-total">${formatCurrency(effectiveTotal)}</td>
-                            </tr>
-                            <tr>
-                                <td>Total Paid</td>
-                                <td id="summary-paid" class="amount-cell">${formatCurrency(paidAmount)}</td>
-                            </tr>
-                            ${dueAmount > 0 ? `
-                                <tr id="summary-due-row" class="due-row">
-                                    <td>Outstanding Balance</td>
-                                    <td id="summary-due" class="amount-cell">${formatCurrency(dueAmount)}</td>
-                                </tr>
-                            ` : ''}
-                        </table>
+                    <!-- Footer Layout: Payment Breakdown Left + Totals Right -->
+                    <div class="classic-footer-layout">
+                        <div class="classic-payment-breakdown">
+                            <div class="classic-breakdown-title">Payment History</div>
+                            ${payments && payments.length > 0
+                                ? payments.map(p => `
+                                    <div class="classic-breakdown-row">
+                                        <span class="label">${p.method || 'Payment'}${p.transaction_id ? ' (' + p.transaction_id + ')' : ''}</span>
+                                        <span class="value">${formatCurrency(p.amount)}</span>
+                                    </div>`).join('')
+                                : `<div style="font-size:11px;font-style:italic;color:#94a3b8;">No payments recorded</div>`
+                            }
+                            <div class="classic-breakdown-row total-row success">
+                                <span class="label">Total Paid</span>
+                                <span class="value">${formatCurrency(paidAmount)}</span>
+                            </div>
+                            <div class="classic-breakdown-row ${dueAmount > 0 ? 'danger' : 'success'}">
+                                <span class="label">Outstanding Due</span>
+                                <span class="value">${formatCurrency(dueAmount)}</span>
+                            </div>
+                        </div>
+
+                        <div class="classic-totals-box">
+                            <div class="classic-totals-row"><span>Subtotal</span><span>${formatCurrency(subtotal)}</span></div>
+                            ${discountAmount > 0 ? `<div class="classic-totals-row discount"><span>Discount (${discountRate.toFixed(1)}%)</span><span>-${formatCurrency(discountAmount)}</span></div>` : ''}
+                            ${couponDiscountAmount > 0 ? `<div class="classic-totals-row discount"><span>Coupon (${invoice.coupon_code})</span><span>-${formatCurrency(couponDiscountAmount)}</span></div>` : ''}
+                            ${gstAmount > 0 ? `<div class="classic-totals-row"><span>GST (${gstRate.toFixed(1)}%)</span><span>+${formatCurrency(gstAmount)}</span></div>` : ''}
+                            <div class="classic-totals-divider"></div>
+                            <div class="classic-totals-row grand"><span>${returnedAmount > 0 ? 'Effective Total' : 'Grand Total'}</span><span class="amt">${formatCurrency(effectiveTotal)}</span></div>
+                        </div>
                     </div>
 
                     <!-- Payment Information -->
                     ${(settings.bank_name || settings.upi_id) ? `
-                        <div id="payment-info" class="payment-info-box">
-                            <div class="payment-info-title">Payment Information</div>
-                            <div class="payment-info-grid">
+                        <div class="classic-payment-info">
+                            <div class="classic-payment-info-title">Payment Information</div>
+                            <div class="classic-payment-info-grid">
                                 <div>
-                                    ${settings.bank_name ? `<p id="bank-name"><strong>Bank Name:</strong> <span>${settings.bank_name}</span></p>` : ''}
-                                    ${settings.account_number ? `<p id="bank-acc"><strong>Acc No:</strong> <span>${settings.account_number}</span></p>` : ''}
-                                    ${settings.ifsc_code ? `<p id="bank-ifsc"><strong>IFSC Code:</strong> <span>${settings.ifsc_code}</span></p>` : ''}
-                                    ${settings.account_holder_name ? `<p id="bank-holder"><strong>Holder:</strong> <span>${settings.account_holder_name}</span></p>` : ''}
+                                    ${settings.bank_name ? `<p><strong>Bank Name:</strong> ${settings.bank_name}</p>` : ''}
+                                    ${settings.account_number ? `<p><strong>Acc No:</strong> ${settings.account_number}</p>` : ''}
+                                    ${settings.ifsc_code ? `<p><strong>IFSC:</strong> ${settings.ifsc_code}</p>` : ''}
+                                    ${settings.account_holder_name ? `<p><strong>Holder:</strong> ${settings.account_holder_name}</p>` : ''}
                                 </div>
                                 <div>
-                                    ${settings.upi_id ? `<p id="upi-id"><strong>UPI Address:</strong> <span>${settings.upi_id}</span></p>` : ''}
-                                    ${settings.payment_qr_url ? `
-                                        <div style="margin-top: 10px;">
-                                            <img src="${settings.payment_qr_url}" alt="QR" style="width: 70px; height: 70px; object-fit: contain; border: 1px solid #e2e8f0; border-radius: 4px; padding: 2px;" />
-                                        </div>
-                                    ` : ''}
+                                    ${settings.upi_id ? `<p><strong>UPI:</strong> ${settings.upi_id}</p>` : ''}
+                                    ${settings.payment_qr_url ? `<div style="margin-top:8px;"><img src="${settings.payment_qr_url}" alt="QR" style="width:64px;height:64px;object-fit:contain;border:1px solid #e2e8f0;border-radius:4px;" /></div>` : ''}
                                 </div>
                             </div>
                         </div>
                     ` : ''}
 
-                    <!-- Terms and Conditions -->
+                    <!-- Terms -->
                     ${settings.terms_and_conditions ? `
-                        <div id="terms-box" class="terms-section">
-                            <div class="terms-title">Terms & Conditions</div>
-                            <div id="terms-content" class="terms-content">${settings.terms_and_conditions.replace(/\n/g, '<br>')}</div>
+                        <div class="classic-footer-sections">
+                            <div class="classic-footer-section">
+                                <h4>Terms &amp; Conditions</h4>
+                                <pre>${settings.terms_and_conditions}</pre>
+                            </div>
                         </div>
                     ` : ''}
-                </article>
+
+                    <div class="classic-thank-you">Thank you for your business!</div>
+                </div>
             `;
         }
 

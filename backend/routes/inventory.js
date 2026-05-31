@@ -412,16 +412,25 @@ router.put('/:id', async (req, res, next) => {
 
         product = db.get('SELECT * FROM products WHERE id = ?', [Number(req.params.id)]);
 
-        // M060: Check if real-time price sync toggle is on, and update 0-price invoice items
+        // M060: Check if real-time price sync toggle is on, and update invoice items
         const syncToggle = db.get("SELECT value FROM settings WHERE key = 'enable_realtime_price_update'");
         if (syncToggle && syncToggle.value === 'true' && selling_price !== undefined && Number(selling_price) > 0) {
             const productId = Number(req.params.id);
-            const zeroPriceItems = db.all("SELECT id, invoice_id, quantity FROM invoice_items WHERE product_id = ? AND price = 0", [productId]);
-            if (zeroPriceItems && zeroPriceItems.length > 0) {
-                for (const item of zeroPriceItems) {
-                    const newTotal = Number(item.quantity) * Number(selling_price);
-                    db.run("UPDATE invoice_items SET price = ?, total = ? WHERE id = ?", [Number(selling_price), newTotal, item.id]);
+            // Update ALL invoice items for this product that are on unpaid/partial invoices
+            const affectedItems = db.all(`
+                SELECT ii.id, ii.invoice_id, ii.quantity
+                FROM invoice_items ii
+                JOIN invoices inv ON ii.invoice_id = inv.id
+                WHERE ii.product_id = ?
+                AND inv.financial_status IN ('UNPAID', 'PARTIAL', 'Unpaid', 'Partial')
+            `, [productId]);
+            if (affectedItems && affectedItems.length > 0) {
+                for (const item of affectedItems) {
+                    const newPrice = Number(selling_price);
+                    const newTotal = Number(item.quantity) * newPrice;
+                    db.run("UPDATE invoice_items SET price = ?, total = ? WHERE id = ?", [newPrice, newTotal, item.id]);
                     recalculateInvoiceTotalsInline(item.invoice_id);
+                    console.log(`[Realtime Sync] Updated invoice #${item.invoice_id} item #${item.id} price → ₹${newPrice}`);
                 }
             }
         }
