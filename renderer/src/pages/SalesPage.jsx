@@ -113,6 +113,15 @@ export default function SalesPage() {
         if (tab === 'ai-sales') loadMazewayOrders();
     }, [tab]);
 
+    // Auto-reload invoices when product prices are updated from Inventory page
+    useEffect(() => {
+        const handleProductPriceUpdate = () => {
+            loadHistory();
+        };
+        window.addEventListener('maze:product-price-updated', handleProductPriceUpdate);
+        return () => window.removeEventListener('maze:product-price-updated', handleProductPriceUpdate);
+    }, []);
+
     useEffect(() => {
         const params = new URLSearchParams(window.location.search || (window.location.hash.includes('?') ? window.location.hash.split('?')[1] : ''));
         const previewId = params.get('preview');
@@ -122,6 +131,7 @@ export default function SalesPage() {
             handleViewInvoice(Number(previewId));
         }
     }, [invoices]);
+
 
     const handleSelectCustomer = (customer) => {
         if (!customer) {

@@ -317,6 +317,9 @@ export default function InventoryPage() {
             setShowModal(false);
             loadProducts();
             api.getCategories().then(setCategories).catch(() => { });
+            // Notify other pages (e.g. SalesPage) that product prices may have changed
+            window.dispatchEvent(new CustomEvent('maze:product-price-updated', { detail: { productId: product.id } }));
+
         } catch (err) {
             toast.error(err.message || 'Failed to save product');
         } finally {
