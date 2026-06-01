@@ -4,91 +4,37 @@ All notable changes to the Quantro ERP application will be documented here.
 
 ---
 
-## [2.6.14] - 2026-06-01
-### Changed
-- **Credit Invoice Naming**:
-  - Dynamically updates the document title to "CREDIT INVOICE" or "CREDIT INVOICE DETAILS" for all unpaid or partially-paid invoices (replacing "TAX INVOICE" or "INVOICE DETAILS" headers).
-  - Applied across Classic, Minimalist, and Formal templates in both the desktop ERP invoice preview modal and the public client-facing billing portals.
-
-### Fixed
-- **Modal Scroll Layout Fixes**:
-  - Resolved double scrollbar render errors and subtle column/grid shifting inside the invoice preview modal by removing redundant overflow and viewport height constraints from `.invoice-preview-content`. Modal scrolling is now handled cleanly by the parent container wrapper.
-
-## [2.6.13] - 2026-06-01
-### Changed
-- **Modal Footer Status Badges**:
-  - Rendered both the primary fulfillment status badge (Pending Product, Confirmed, Completed, or Advance) and the secondary payment status badge (Paid, Partial, Unpaid, Settled) side-by-side at the bottom-left of the invoice preview modal.
-  - Copied corresponding primary status colors and style classes from the sales directory list layout into `InvoicePreviewModal.css` for visual consistency.
-
-## [2.6.12] - 2026-06-01
-### Changed
-- **Payment Status Relocated**:
-  - Moved the payment status badge (e.g. PAID, PARTIAL, UNPAID, etc.) from the Sales Page history table list directly into the invoice preview modal.
-  - Placed the badge inside the modal's bottom-left footer opposite the print and download actions, creating a cleaner table view while keeping status context prominent during review.
-
-### Fixed
-- **POS Template Hosted Exclusions**:
-  - Removed pending quantity tags from the POS template inside the cloud billing page (`Billing.maze/index.html`), ensuring it remains clean and prints correctly.
-
-## [2.6.11] - 2026-06-01
-### Fixed
-- **Pending Product Display in Minimalist/Formal Templates**:
-  - Added pending quantity displays next to product names in minimalist and formal invoice templates in both local preview panels and online client pages.
-- **Hosted Link Payment QR Code**:
-  - Added the `payment_qr_url` setting key to the allowed settings payload whitelist when generating public invoice links, enabling client browsers to render UPI and invoice payment QR codes successfully.
-
-### Changed
-- **Customer Directory Layout Cleaned**:
-  - Cleaned up tab buttons inside the customers page, changing the label from "Marketing (Coupons)" to simply "Marketing".
-
-## [2.6.10] - 2026-06-01
-### Fixed
-- **Reference Errors and Tab Crashes Fixed**:
-  - Resolved Hook Order / Rules of Hooks violation in conditional renderers `renderSuppliers` and `renderExpenses` inside `PurchasePage.jsx` by handling search page reset logic inside search input onChange events instead of conditional useRef declarations.
-  - Fixed `ReferenceError: React is not defined` crash inside `CustomersPage.jsx` by using the imported `useRef` hook directly instead of `React.useRef` for caching selection count values.
-- **Real-Time Price Sync for Paid Invoices**:
-  - Removed the financial status restriction from the product and variant inventory price update queries. Selling price modifications in inventory now sync to all related invoices regardless of their payment status, recalculating totals and updating payment statuses automatically.
-
-### Changed
-- **Smooth Popup Transition for Bulk Actions Bar**:
-  - Redesigned the floating bulk action toolbar in both the Invoices list and Customer Directory to use CSS transition values (`max-height`, `opacity`, `transform: translateY`, and `padding/margin`) for an extremely fluid sliding and fading entry/exit animation.
-
-## [2.6.9] - 2026-06-01
-### Changed
-- **Smooth Selection Checkbox Transitions**:
-  - Implemented high-quality spring scale transitions (`cubic-bezier` animations) for custom-styled select-all and table row checkboxes across Customers and Sales history tabs.
-  - Added click press shrinking states and subtle shadows for visual feedback.
-- **Suppliers, Expenses, and Returns Pagination**:
-  - Added paginated layouts and our premium orange-accent pagination footers to the Suppliers directory, Expenses tracker list, and active Return invoice items table inside the Purchase page.
-
-## [2.6.8] - 2026-05-31
-### Changed
-- **Custom Pagination Footer Styling**:
-  - Redesigned pagination footers across the Customer Directory, Sales History, and Purchase History tables to match premium accent designs.
-  - Numbers are now bolded and styled with orange/accent color (`var(--accent)`), and the separator is updated from an en-dash to the word "to".
-  - Replaced secondary styled button arrows with borderless/transparent navigation arrows (` < currentPage / totalPages > `) on the right side.
-  - Ensured pagination footers show whenever there are records in the list.
-
-### Fixed
-- **Variant Real-Time Price Sync**:
-  - Implemented real-time dynamic selling price sync for product variants during editing inside `PUT /api/products/variants/:id`.
-  - Restricted main product price dynamic sync in `PUT /api/products/:id` to exclude variants (using `(ii.variant_id IS NULL OR ii.variant_id = 0)`), preventing product selling price updates from overriding variant-specific line item prices on unpaid/partial invoices.
-- **Browser Favicon for Billing.maze**:
-  - Linked the favicon in the browser tab for the cloud-hosted shared invoice viewer (`billing.maze`).
-
-## [2.6.7] - 2026-05-31
+## [2.6.7] - 2026-06-01
 ### Added
 - **Merge Invoices Feature**:
   - Added checkbox selections next to invoices in the Sales Page history tab.
   - Enabled merging of two or more selected invoices into a single combined invoice with an interactive modal to assign a customer (registered or walk-in) for the merged invoice.
   - Aggregates invoice items and quantities, automatically restores and re-deducts inventory stock to prevent double deduction, updates batch quantities, relinks serial numbers, and copies all payments to preserve payment history.
-- **Bulk Invoice Deletion**:
-  - Added a premium custom-styled actions toolbar to bulk delete selected invoices from the history tab.
-- **Bulk Customer Deletion**:
-  - Added checkbox selections next to customers in the Customer Directory.
-  - Added a premium custom-styled actions toolbar to bulk delete selected customers from the directory.
+- **Bulk Invoices & Customers Deletion**:
+  - Added checkboxes and premium custom-styled actions toolbars to delete multiple invoices or customers simultaneously.
 - **Table Pagination**:
-  - Added modern `< current_page / total_pages >` pagination layout (50 records per page) for the Customer Directory, Sales History, and Purchase History tables to browse large datasets seamlessly.
+  - Added modern paginated layouts (50 records per page) and orange-accent pagination footers to Customer Directory, Sales History, Purchase History, Suppliers, Expenses, and Returns tables.
+- **Real-Time Variant Price Sync**:
+  - Implemented selling price synchronization for main products and variants across all related invoices when catalog prices change.
+
+### Changed
+- **Credit Invoice Naming**:
+  - Dynamically updates the document title to "CREDIT INVOICE" or "CREDIT INVOICE DETAILS" for all unpaid or partially-paid invoices (replacing "TAX INVOICE" or "INVOICE DETAILS" headers) across Classic, Minimalist, and Formal templates in both the desktop preview and public billing pages.
+- **Fulfillment & Payment Badges**:
+  - Rendered both primary fulfillment and secondary payment status badges side-by-side at the bottom-left of the invoice preview modal.
+- **Smooth Animations**:
+  - Redesigned selection checkboxes with spring-scale transitions and added floating sliding/fading animation entry/exit effects for the bulk action toolbar.
+- **Customer Directory Layout Cleaned**:
+  - Simplified Customer Page tabs, changing the label "Marketing (Coupons)" to "Marketing".
+
+### Fixed
+- **Modal Scroll Layout Fixes**:
+  - Resolved double scrollbar render errors and subtle column/grid shifting inside the invoice preview modal for the Formal template by removing redundant local height and scroll container rules.
+- **Hosted Link Improvements**:
+  - Restored payment QR code rendering on client-facing billing pages.
+  - Enabled pending product quantity indicators on minimalist and formal templates, while excluding POS template billing view.
+- **Tab Reference & Hook Crashes**:
+  - Resolved Rules of Hooks violation inside Suppliers and Expenses renderers that caused crashes.
 
 ---
 

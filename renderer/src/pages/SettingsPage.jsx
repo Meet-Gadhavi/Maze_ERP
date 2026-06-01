@@ -1615,123 +1615,23 @@ export default function SettingsPage() {
                                         </div>
                                     )}
 
-                                    {/* Timeline Item: v2.6.14 */}
+                                    {/* Timeline Item: v2.6.7 */}
                                     <div style={{ position: 'relative' }}>
                                         <div style={{ position: 'absolute', left: '-22px', top: '4px', width: '12px', height: '12px', borderRadius: '50%', background: 'var(--accent)', border: '2px solid var(--bg-primary)' }}></div>
                                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                            <strong style={{ fontSize: '15px' }}>Version 2.6.14 {updateState.status !== 'available' && '(Latest)'}</strong>
+                                            <strong style={{ fontSize: '15px' }}>Version 2.6.7 {updateState.status !== 'available' && '(Latest)'}</strong>
                                             <span style={{ fontSize: '11px', color: 'var(--text-tertiary)', background: 'var(--bg-secondary)', padding: '2px 8px', borderRadius: '12px' }}>June 1, 2026</span>
                                         </div>
                                         <div style={{ fontSize: '13px', color: 'var(--text-secondary)', marginTop: '8px', lineHeight: 1.6 }}>
                                             <ul style={{ margin: 0, paddingLeft: '16px' }}>
-                                                <li><strong>Credit Invoice Naming:</strong> Dynamic header renaming for unpaid or partially-paid invoices to show "Credit Invoice" instead of "Tax Invoice" across all templates in local preview and cloud portals.</li>
-                                                <li><strong>Scroll Shifting Fixed:</strong> Eliminated double scrollbars and layout shifts in the invoice preview modal for the Formal template by removing redundant local height and scroll container rules.</li>
-                                            </ul>
-                                        </div>
-                                    </div>
-
-                                    {/* Timeline Item: v2.6.13 */}
-                                    <div style={{ position: 'relative' }}>
-                                        <div style={{ position: 'absolute', left: '-22px', top: '4px', width: '12px', height: '12px', borderRadius: '50%', background: 'var(--text-tertiary)', border: '2px solid var(--bg-primary)' }}></div>
-                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                            <strong style={{ fontSize: '15px' }}>Version 2.6.13</strong>
-                                            <span style={{ fontSize: '11px', color: 'var(--text-tertiary)', background: 'var(--bg-secondary)', padding: '2px 8px', borderRadius: '12px' }}>June 1, 2026</span>
-                                        </div>
-                                        <div style={{ fontSize: '13px', color: 'var(--text-secondary)', marginTop: '8px', lineHeight: 1.6 }}>
-                                            <ul style={{ margin: 0, paddingLeft: '16px' }}>
-                                                <li><strong>Fulfillment & Payment Badges:</strong> Display both primary fulfillment (or Advance) and secondary payment status badges side-by-side at the bottom-left of the invoice preview modal.</li>
-                                            </ul>
-                                        </div>
-                                    </div>
-
-                                    {/* Timeline Item: v2.6.12 */}
-                                    <div style={{ position: 'relative' }}>
-                                        <div style={{ position: 'absolute', left: '-22px', top: '4px', width: '12px', height: '12px', borderRadius: '50%', background: 'var(--text-tertiary)', border: '2px solid var(--bg-primary)' }}></div>
-                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                            <strong style={{ fontSize: '15px' }}>Version 2.6.12</strong>
-                                            <span style={{ fontSize: '11px', color: 'var(--text-tertiary)', background: 'var(--bg-secondary)', padding: '2px 8px', borderRadius: '12px' }}>June 1, 2026</span>
-                                        </div>
-                                        <div style={{ fontSize: '13px', color: 'var(--text-secondary)', marginTop: '8px', lineHeight: 1.6 }}>
-                                            <ul style={{ margin: 0, paddingLeft: '16px' }}>
-                                                <li><strong>Payment Status Moved:</strong> Relocated the payment status badge from the main sales invoices table to the bottom-left of the invoice preview modal for a cleaner list view.</li>
-                                                <li><strong>Public Invoice Pending Qty:</strong> Excluded POS template from showing pending product quantity notifications in hosted invoices portal.</li>
-                                            </ul>
-                                        </div>
-                                    </div>
-
-                                    {/* Timeline Item: v2.6.11 */}
-                                    <div style={{ position: 'relative' }}>
-                                        <div style={{ position: 'absolute', left: '-22px', top: '4px', width: '12px', height: '12px', borderRadius: '50%', background: 'var(--text-tertiary)', border: '2px solid var(--bg-primary)' }}></div>
-                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                            <strong style={{ fontSize: '15px' }}>Version 2.6.11</strong>
-                                            <span style={{ fontSize: '11px', color: 'var(--text-tertiary)', background: 'var(--bg-secondary)', padding: '2px 8px', borderRadius: '12px' }}>June 1, 2026</span>
-                                        </div>
-                                        <div style={{ fontSize: '13px', color: 'var(--text-secondary)', marginTop: '8px', lineHeight: 1.6 }}>
-                                            <ul style={{ margin: 0, paddingLeft: '16px' }}>
-                                                <li><strong>Marketing Tab Cleaned:</strong> Removed " (Coupons)" label from the customer page tab button.</li>
-                                                <li><strong>Pending Qty Display:</strong> Enabled pending product qty tags in minimalist and formal invoice templates across both the desktop ERP and the cloud viewer.</li>
-                                                <li><strong>QR Code Hosted Sync:</strong> Fixed payment QR code missing from the public billing hosted page by adding payment_qr_url to allowed settings sync keys.</li>
-                                            </ul>
-                                        </div>
-                                    </div>
-
-                                    {/* Timeline Item: v2.6.10 */}
-                                    <div style={{ position: 'relative' }}>
-                                        <div style={{ position: 'absolute', left: '-22px', top: '4px', width: '12px', height: '12px', borderRadius: '50%', background: 'var(--text-tertiary)', border: '2px solid var(--bg-primary)' }}></div>
-                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                            <strong style={{ fontSize: '15px' }}>Version 2.6.10</strong>
-                                            <span style={{ fontSize: '11px', color: 'var(--text-tertiary)', background: 'var(--bg-secondary)', padding: '2px 8px', borderRadius: '12px' }}>June 1, 2026</span>
-                                        </div>
-                                        <div style={{ fontSize: '13px', color: 'var(--text-secondary)', marginTop: '8px', lineHeight: 1.6 }}>
-                                            <ul style={{ margin: 0, paddingLeft: '16px' }}>
-                                                <li><strong>Tab Crashes Fixed:</strong> Resolved Rules of Hooks violation inside Suppliers and Expenses renderers that caused crashes.</li>
-                                                <li><strong>Real-time Price Sync:</strong> Removed payment status restriction from price sync queries so that invoice pricing updates automatically for all invoices when catalog prices change.</li>
-                                                <li><strong>Smooth Bulk Actions Bar:</strong> Replaced abrupt mount/unmount behavior with elegant height expansion, transform translation, and opacity transitions.</li>
-                                            </ul>
-                                        </div>
-                                    </div>
-
-                                    {/* Timeline Item: v2.6.9 */}
-                                    <div style={{ position: 'relative' }}>
-                                        <div style={{ position: 'absolute', left: '-22px', top: '4px', width: '12px', height: '12px', borderRadius: '50%', background: 'var(--text-tertiary)', border: '2px solid var(--bg-primary)' }}></div>
-                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                            <strong style={{ fontSize: '15px' }}>Version 2.6.9</strong>
-                                            <span style={{ fontSize: '11px', color: 'var(--text-tertiary)', background: 'var(--bg-secondary)', padding: '2px 8px', borderRadius: '12px' }}>June 1, 2026</span>
-                                        </div>
-                                        <div style={{ fontSize: '13px', color: 'var(--text-secondary)', marginTop: '8px', lineHeight: 1.6 }}>
-                                            <ul style={{ margin: 0, paddingLeft: '16px' }}>
-                                                <li><strong>Smooth Checkbox Transitions:</strong> Implemented bounce/spring-scaling transitions on click and state updates for table select checkboxes.</li>
-                                                <li><strong>Purchase Tab Paginations:</strong> Added pagination sliders to Suppliers directory, Expenses tracker list, and Returns table.</li>
-                                            </ul>
-                                        </div>
-                                    </div>
-
-                                    {/* Timeline Item: v2.6.8 */}
-                                    <div style={{ position: 'relative' }}>
-                                        <div style={{ position: 'absolute', left: '-22px', top: '4px', width: '12px', height: '12px', borderRadius: '50%', background: 'var(--text-tertiary)', border: '2px solid var(--bg-primary)' }}></div>
-                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                            <strong style={{ fontSize: '15px' }}>Version 2.6.8</strong>
-                                            <span style={{ fontSize: '11px', color: 'var(--text-tertiary)', background: 'var(--bg-secondary)', padding: '2px 8px', borderRadius: '12px' }}>May 31, 2026</span>
-                                        </div>
-                                        <div style={{ fontSize: '13px', color: 'var(--text-secondary)', marginTop: '8px', lineHeight: 1.6 }}>
-                                            <ul style={{ margin: 0, paddingLeft: '16px' }}>
-                                                <li><strong>Custom Pagination Footer Styling:</strong> Bolded and colored page numbers, replaced text ranges, and styled buttons borderless/transparent.</li>
-                                                <li><strong>Favicon Support:</strong> Configured standard favicons inside cloud-hosted billing viewer.</li>
-                                            </ul>
-                                        </div>
-                                    </div>
-
-                                    {/* Timeline Item: v2.6.7 */}
-                                    <div style={{ position: 'relative' }}>
-                                        <div style={{ position: 'absolute', left: '-22px', top: '4px', width: '12px', height: '12px', borderRadius: '50%', background: 'var(--text-tertiary)', border: '2px solid var(--bg-primary)' }}></div>
-                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                            <strong style={{ fontSize: '15px' }}>Version 2.6.7</strong>
-                                            <span style={{ fontSize: '11px', color: 'var(--text-tertiary)', background: 'var(--bg-secondary)', padding: '2px 8px', borderRadius: '12px' }}>May 31, 2026</span>
-                                        </div>
-                                        <div style={{ fontSize: '13px', color: 'var(--text-secondary)', marginTop: '8px', lineHeight: 1.6 }}>
-                                            <ul style={{ margin: 0, paddingLeft: '16px' }}>
-                                                <li><strong>Invoice Merge Feature:</strong> Select two or more invoices and merge them into a single new invoice. Choose customer (registered or walk-in) in a modal, aggregate line items/quantities, automatically restore and re-deduct inventory/batch stock, relink serial numbers, and copy payments to preserve history.</li>
-                                                <li><strong>Bulk Invoices &amp; Customers Deletion:</strong> Added checkboxes and premium custom-styled actions toolbars to delete multiple invoices or customers simultaneously.</li>
+                                                <li><strong>Merge Invoices &amp; Bulk Actions:</strong> Select and merge multiple invoices with automatic inventory/batch restoral and payment history copying. Bulk delete invoices and customers using our premium action toolbars.</li>
+                                                <li><strong>Table Pagination:</strong> Modern paginated tables and custom footer controls added to Invoices, Customers, Suppliers, Expenses, and Returns tabs.</li>
+                                                <li><strong>Credit Invoice Naming:</strong> Automatically renames unpaid or partially-paid invoices to "Credit Invoice" across Classic, Minimalist, and Formal templates.</li>
+                                                <li><strong>Fulfillment &amp; Payment Badges:</strong> Relocated payment status to the bottom-left footer of the Invoice Preview Modal, rendering side-by-side with fulfillment status.</li>
+                                                <li><strong>Real-Time Variant Price Sync:</strong> Modifying catalog/variant prices dynamically syncs with existing invoices.</li>
+                                                <li><strong>Smooth Transitions:</strong> Spring-scale checkbox animations and sliding/fading bulk action toolbars.</li>
+                                                <li><strong>Scroll Shifting Fix:</strong> Eliminated nested scrollbars and layout shifts in the formal invoice preview modal.</li>
+                                                <li><strong>Cloud Sync QR Code:</strong> Fixed hosted invoice QR code missing by whitelisting the payment_qr_url key.</li>
                                             </ul>
                                         </div>
                                     </div>
