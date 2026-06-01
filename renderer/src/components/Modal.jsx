@@ -96,7 +96,8 @@ export default function Modal({
             minWidth: size === 'small' ? '300px' : size === 'large' ? '600px' : '400px',
             maxWidth: '90vw',
             maxHeight: '90vh',
-            overflow: 'auto'
+            overflow: 'auto',
+            position: 'relative'
         };
 
         return (

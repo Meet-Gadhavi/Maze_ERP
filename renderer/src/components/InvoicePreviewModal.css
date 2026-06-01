@@ -1190,4 +1190,22 @@
     border: 1px solid rgba(255, 159, 10, 0.2);
 }
 
+/* Position s-modal and align container absolutely to modal bottom-left footer */
+s-modal,
+.maze-modal-fallback-content {
+    position: relative !important;
+}
+
+.modal-footer-status-badge-container {
+    position: absolute !important;
+    left: 20px !important;
+    bottom: 20px !important;
+    z-index: 100 !important;
+    display: flex !important;
+    align-items: center !important;
+    gap: 8px !important;
+    pointer-events: auto !important;
+}
+
+
 

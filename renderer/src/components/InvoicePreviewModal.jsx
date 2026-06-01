@@ -1211,7 +1211,7 @@ export default function InvoicePreviewModal({ invoice, onClose, autoOpenShare = 
                 </SButton>
             }
             secondaryActions={[
-                <div key="payment-status" style={{ marginRight: 'auto', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <div key="payment-status" className="modal-footer-status-badge-container">
                     <span className={`payment-badge badge-${(invoice?.fulfillment_status || 'CONFIRMED').toLowerCase().replace(/_/g, '-')}`} style={{ fontSize: '11px', padding: '4px 8px', borderRadius: '4px', textTransform: 'uppercase', fontWeight: 700 }}>
                         {invoice?.payment_status === 'ADVANCE' ? '🟠 Advance' :
                             invoice?.fulfillment_status === 'PENDING_PRODUCT' ? '🟣 Pending Product' :
