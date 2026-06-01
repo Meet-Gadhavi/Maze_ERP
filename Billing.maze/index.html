@@ -1543,7 +1543,6 @@
                     <td class="text-left" colSpan="4">
                         <div style="margin-bottom: 2px;">
                             ${item.product_name || 'Product'} ${item.variant_name ? `(${item.variant_name})` : ''}
-                            ${item.pending_qty > 0 ? `<span style="margin-left: 8px; font-size: 0.8em; color: #b45309; font-weight: 400;">(Pending: ${item.pending_qty})</span>` : ''}
                         </div>
                         <div style="display: flex; justify-content: space-between; font-size: 10px; color: #444;">
                             <span>${item.quantity} ${item.unit || 'PCS'} x ${formatCurrency(item.price)}</span>

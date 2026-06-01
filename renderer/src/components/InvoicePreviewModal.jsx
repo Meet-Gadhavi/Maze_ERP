@@ -499,14 +499,6 @@ export default function InvoicePreviewModal({ invoice, onClose, autoOpenShare = 
                             invoice.fulfillment_status === 'CONFIRMED' ? 'Confirmed' :
                                 invoice.fulfillment_status === 'COMPLETED' ? 'Completed' : invoice.fulfillment_status}
                     </span>
-                    {invoice.customer_id && (
-                        <span className={`secondary-status-badge badge-${(invoice.financial_status || 'PAID').toLowerCase()}`}>
-                            {invoice.financial_status === 'PAID' ? <span className="badge-dot"></span> : ''}
-                            {invoice.financial_status === 'PAID' ? 'Paid' :
-                                invoice.financial_status === 'PARTIAL' ? '⚠ Partial' :
-                                    invoice.financial_status === 'UNPAID' ? '✖ Unpaid' : invoice.financial_status}
-                        </span>
-                    )}
                 </div>
             </div>
 
@@ -882,7 +874,7 @@ export default function InvoicePreviewModal({ invoice, onClose, autoOpenShare = 
                             <td className="text-left" colSpan="4">
                                 <div style={{ marginBottom: '2px' }}>
                                     {item.product_name} {item.variant_name ? `(${item.variant_name})` : ''}
-                                    {item.pending_qty > 0 && <span style={{ marginLeft: 8, fontSize: '0.8em', color: 'var(--warning)', fontWeight: 400 }}>(Pending: {item.pending_qty})</span>}
+
                                 </div>
                                 <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '10px', color: '#444' }}>
                                     <span>{item.quantity} {item.unit || 'PCS'} x {formatCurrency(item.price)}</span>
@@ -1106,17 +1098,6 @@ export default function InvoicePreviewModal({ invoice, onClose, autoOpenShare = 
                         <div className="section-title">Shipping Address</div>
                         <p>{invoice.customer_address || '—'}</p>
                     </div>
-                    <div>
-                        <div className="section-title">{t.paymentStatus}</div>
-                        <span className={`badge ${
-                            invoice.financial_status === 'PAID' ? 'badge-paid' :
-                            invoice.financial_status === 'PARTIAL' ? 'badge-partial' :
-                            invoice.financial_status === 'UNPAID' ? 'badge-unpaid' : 'badge-pending'
-                        }`}>
-                            {invoice.financial_status || 'UNPAID'}
-                        </span>
-                        <p style={{ marginTop: '6px', color: '#64748b', fontSize: '12px' }}>Method: {paymentMethodDisplay || 'Pay Later'}</p>
-                    </div>
                 </div>
 
                 <div className="section">
@@ -1193,6 +1174,68 @@ export default function InvoicePreviewModal({ invoice, onClose, autoOpenShare = 
         </div>
     );
 
+    const renderPaymentStatusFooter = () => {
+        const status = (invoice.financial_status || 'UNPAID').toUpperCase();
+        let bg = 'var(--bg-secondary)';
+        let color = 'var(--text-secondary)';
+        let border = '1px solid var(--border)';
+        let label = status;
+
+        if (status === 'PAID' || status === 'SETTLED') {
+            bg = '#dcfce7';
+            color = '#166534';
+            border = '1px solid #bbf7d0';
+            label = 'PAID';
+        } else if (status === 'PARTIAL' || status === 'PARTIALLY RETURNED') {
+            bg = '#dbeafe';
+            color = '#1d4ed8';
+            border = '1px solid #bfdbfe';
+            label = 'PARTIAL';
+        } else if (status === 'UNPAID') {
+            bg = '#fee2e2';
+            color = '#991b1b';
+            border = '1px solid #fecaca';
+            label = 'UNPAID';
+        }
+
+        return (
+            <div key="payment-status" style={{
+                position: 'absolute',
+                left: '24px',
+                bottom: '16px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                zIndex: 10
+            }}>
+                <span style={{
+                    fontSize: '11px',
+                    fontWeight: '700',
+                    color: 'var(--text-tertiary)',
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.5px'
+                }}>Payment Status:</span>
+                <span style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '5px',
+                    background: bg,
+                    color: color,
+                    border: border,
+                    padding: '4px 12px',
+                    borderRadius: '6px',
+                    fontSize: '12px',
+                    fontWeight: '700',
+                    textTransform: 'uppercase',
+                    boxShadow: '0 1px 2px rgba(0, 0, 0, 0.02)'
+                }}>
+                    {(status === 'PAID' || status === 'SETTLED') && <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#22c55e' }}></span>}
+                    {label}
+                </span>
+            </div>
+        );
+    };
+
     return (
         <>
             <Modal
@@ -1211,6 +1254,7 @@ export default function InvoicePreviewModal({ invoice, onClose, autoOpenShare = 
                 </SButton>
             }
             secondaryActions={[
+                renderPaymentStatusFooter(),
                 <SButton key="share" variant="secondary" onClick={() => setShowShareModal(true)}>Share</SButton>,
                 <SButton key="print" onClick={handlePrint}>Print / PDF</SButton>
             ]}
