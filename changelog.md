@@ -4,6 +4,12 @@ All notable changes to the Quantro ERP application will be documented here.
 
 ---
 
+## [2.6.13] - 2026-06-01
+### Changed
+- **Modal Footer Status Badges**:
+  - Rendered both the primary fulfillment status badge (Pending Product, Confirmed, Completed, or Advance) and the secondary payment status badge (Paid, Partial, Unpaid, Settled) side-by-side at the bottom-left of the invoice preview modal.
+  - Copied corresponding primary status colors and style classes from the sales directory list layout into `InvoicePreviewModal.css` for visual consistency.
+
 ## [2.6.12] - 2026-06-01
 ### Changed
 - **Payment Status Relocated**:

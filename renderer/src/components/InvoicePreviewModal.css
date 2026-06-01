@@ -1154,3 +1154,40 @@
     border: 1px solid rgba(239, 68, 68, 0.1);
 }
 
+/* Primary payment-badge style copied from SalesPage.css */
+.payment-badge {
+    padding: 4px 10px;
+    border-radius: 20px;
+    font-size: var(--font-size-xs);
+    font-weight: 600;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    white-space: nowrap;
+}
+
+.payment-badge.badge-pending-product {
+    background: #F3E8FF;
+    color: #7C3AED;
+    border: 1px solid rgba(124, 58, 237, 0.1);
+}
+
+.payment-badge.badge-confirmed {
+    background: #E0F2FE;
+    color: #0369A1;
+    border: 1px solid rgba(3, 105, 161, 0.1);
+}
+
+.payment-badge.badge-completed {
+    background: #DCFCE7;
+    color: #15803D;
+    border: 1px solid rgba(21, 128, 61, 0.1);
+}
+
+.payment-badge.badge-advance {
+    background: var(--warning-bg);
+    color: #92400E;
+    border: 1px solid rgba(255, 159, 10, 0.2);
+}
+
+
