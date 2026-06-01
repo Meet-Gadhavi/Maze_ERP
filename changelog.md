@@ -4,6 +4,16 @@ All notable changes to the Quantro ERP application will be documented here.
 
 ---
 
+## [2.6.12] - 2026-06-01
+### Changed
+- **Payment Status Relocated**:
+  - Moved the payment status badge (e.g. PAID, PARTIAL, UNPAID, etc.) from the Sales Page history table list directly into the invoice preview modal.
+  - Placed the badge inside the modal's bottom-left footer opposite the print and download actions, creating a cleaner table view while keeping status context prominent during review.
+
+### Fixed
+- **POS Template Hosted Exclusions**:
+  - Removed pending quantity tags from the POS template inside the cloud billing page (`Billing.maze/index.html`), ensuring it remains clean and prints correctly.
+
 ## [2.6.11] - 2026-06-01
 ### Fixed
 - **Pending Product Display in Minimalist/Formal Templates**:

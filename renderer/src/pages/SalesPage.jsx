@@ -2610,10 +2610,6 @@ export default function SalesPage() {
                                                                         inv.fulfillment_status === 'CONFIRMED' ? '🔵 Confirmed' :
                                                                             inv.fulfillment_status === 'COMPLETED' ? '🟢 Completed' : inv.fulfillment_status}
                                                             </span>
-                                                            {/* Payment Status (Secondary) */}
-                                                            <span className={`secondary-badge badge-${(inv.financial_status || 'PAID').toLowerCase().replace(/_/g, '-').replace(/ /g, '-')}`}>
-                                                                {inv.financial_status}
-                                                            </span>
                                                         </div>
                                                     </td>
                                                     <td className="text-secondary">{formatDate(inv.date)}</td>
