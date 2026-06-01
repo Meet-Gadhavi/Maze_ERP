@@ -4,6 +4,19 @@ All notable changes to the Quantro ERP application will be documented here.
 
 ---
 
+## [2.6.9] - 2026-06-01
+### Fixed
+- **Invoice Return & Refund Logic**:
+  - Corrected the invoice return uploader/processor to only hide the "Return" button on the Sales page when the entire invoice is fully returned (matching total items sold to total items returned).
+  - Resolved an issue where a partial return with a refund balance erroneously set the invoice's financial status to "Returned"; it now correctly marks it as "Partially Returned".
+  - Properly sets the status of fully returned/refunded invoices to "Returned".
+- **Hosted/Shared Invoice Quantity & Badge Rendering**:
+  - Synced local invoice returns to the cloud database payload, enabling dynamic remaining quantity tracking on client-facing hosted pages.
+  - Pre-calculates net quantities and renders them inside a bold red span on all four cloud-hosted styles (Classic, Minimalist, Formal, and POS).
+  - Supports displaying "Returned" status badges across all public hosted templates.
+- **Return / Refund Dashboard Analytics**:
+  - Corrected the dashboard database query inside the backend controller to sum `return_amount` instead of the non-existent `total_returned_amount` column. This resolves the empty state bug, allowing the Sales and Payment tab charts to load Return / Refund counts and refund amount trends over time.
+
 ## [2.6.8] - 2026-06-01
 ### Added
 - **Variant Catalog Enhancements**:

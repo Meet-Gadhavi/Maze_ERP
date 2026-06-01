@@ -690,6 +690,18 @@ ready = (async () => {
     }
   } catch (err) { }
 
+  // Migration: Add invoice_item_id to invoice_returns (for precise variant tracking)
+  try {
+    const res = db.exec('PRAGMA table_info(invoice_returns)');
+    if (res && res.length > 0) {
+      const columns = res[0].values.map(v => v[1]);
+      if (!columns.includes('invoice_item_id')) {
+        db.run('ALTER TABLE invoice_returns ADD COLUMN invoice_item_id INTEGER DEFAULT NULL');
+      }
+    }
+  } catch (err) { }
+
+
   // Audit Logs Table
   db.run(`
     CREATE TABLE IF NOT EXISTS audit_logs (

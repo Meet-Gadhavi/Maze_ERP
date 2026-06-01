@@ -98,12 +98,16 @@ async function generateHostedInvoice(invoiceId) {
     // Fetch payments
     const payments = db.all('SELECT * FROM invoice_payments WHERE invoice_id = ? ORDER BY payment_date DESC', [invoiceId]);
 
+    // Fetch returns
+    const returns = db.all('SELECT * FROM invoice_returns WHERE invoice_id = ?', [invoiceId]);
+
     // 3. Prepare full payload for synchronization
     const invoicePayload = {
         invoice,
         items,
         settings,
-        payments
+        payments,
+        returns
     };
 
     // 4. Synchronize to public dbmz endpoint

@@ -137,7 +137,7 @@ router.get('/', async (req, res, next) => {
                 return db.all(`
                     SELECT date(return_date) AS date,
                            COUNT(*) AS count,
-                           COALESCE(SUM(total_returned_amount), 0) AS amount
+                           COALESCE(SUM(return_amount), 0) AS amount
                     FROM invoice_returns
                     WHERE return_date >= date('now', 'localtime', ${rangeSql})
                     GROUP BY date(return_date)

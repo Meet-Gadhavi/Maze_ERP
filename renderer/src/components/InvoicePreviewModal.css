@@ -425,6 +425,16 @@
     color: var(--danger);
 }
 
+.secondary-status-badge.badge-returned {
+    background: rgba(220, 38, 38, 0.1);
+    color: #dc2626;
+}
+
+.secondary-status-badge.badge-partially-returned {
+    background: rgba(217, 119, 6, 0.1);
+    color: #d97706;
+}
+
 /* ---- Print Button ---- */
 .btn-print {
     background: var(--accent);

@@ -1228,7 +1228,16 @@ export default function SalesPage() {
         if (!returningInvoice) return;
         const itemsToReturn = Object.entries(returnQuantities)
             .filter(([_, qty]) => Number(qty) > 0)
-            .map(([pid, qty]) => ({ product_id: Number(pid), quantity: Number(qty) }));
+            .map(([itemId, qty]) => {
+                // Find the invoice item by its row ID
+                const invoiceItem = returningInvoice.items.find(i => String(i.id) === String(itemId));
+                return {
+                    product_id: invoiceItem ? Number(invoiceItem.product_id) : null,
+                    invoice_item_id: Number(itemId),
+                    quantity: Number(qty)
+                };
+            })
+            .filter(r => r.product_id !== null);
 
         if (itemsToReturn.length === 0) return;
 
@@ -2663,16 +2672,22 @@ export default function SalesPage() {
                                                             <SButton variant="secondary" onClick={() => { handleViewInvoice(inv.id); }} title="View Invoice">
                                                                 <Icons.Eye size={14} />
                                                             </SButton>
-                                                            {(inv.items && inv.items.length > 0) && (
-                                                                <SButton variant="secondary" onClick={() => {
-                                                                    setReturningInvoice(inv);
-                                                                    const initialQtys = {};
-                                                                    inv.items.forEach(item => initialQtys[item.product_id] = 0);
-                                                                    setReturnQuantities(initialQtys);
-                                                                }} title="Return Items">
-                                                                    <Icons.RotateCcw size={14} />
-                                                                </SButton>
-                                                            )}
+                                                            {(inv.items && inv.items.length > 0) && (() => {
+                                                                const isFullyReturned =
+                                                                    inv.return_type === 'full' ||
+                                                                    (inv.financial_status || '').toUpperCase() === 'RETURNED';
+                                                                if (isFullyReturned) return null;
+                                                                return (
+                                                                    <SButton variant="secondary" onClick={() => {
+                                                                        setReturningInvoice(inv);
+                                                                        const initialQtys = {};
+                                                                        inv.items.forEach(item => initialQtys[item.id] = 0);
+                                                                        setReturnQuantities(initialQtys);
+                                                                    }} title="Return Items">
+                                                                        <Icons.RotateCcw size={14} />
+                                                                    </SButton>
+                                                                );
+                                                            })()}
                                                             <SButton variant="secondary" tone="critical" onClick={() => setDeleteId(inv.id)} title="Delete Invoice" aria-label={`Delete invoice INV-${String(inv.id).padStart(4, '0')}`}>
                                                                 <Icons.Trash size={14} />
                                                             </SButton>
@@ -2772,8 +2787,11 @@ export default function SalesPage() {
                     </thead>
                     <tbody>
                         {returningInvoice?.items.map(item => (
-                            <tr key={item.product_id} style={{ borderTop: '1px solid var(--border)' }}>
-                                <td style={{ padding: '12px 0' }}>{item.product_name}</td>
+                            <tr key={item.id} style={{ borderTop: '1px solid var(--border)' }}>
+                                <td style={{ padding: '12px 0' }}>
+                                    {item.product_name}
+                                    {item.variant_name ? <span style={{ fontSize: '0.82em', color: 'var(--text-secondary)', marginLeft: 6 }}>({item.variant_name})</span> : null}
+                                </td>
                                 <td style={{ padding: '12px 0' }}>{item.qty_delivered || item.quantity}</td>
                                 <td style={{ padding: '12px 0' }}>
                                     <input
@@ -2781,15 +2799,15 @@ export default function SalesPage() {
                                         className="modal-qty-input"
                                         min="0"
                                         max={item.qty_delivered || item.quantity}
-                                        value={returnQuantities[item.product_id] || 0}
+                                        value={returnQuantities[item.id] || 0}
                                         onChange={e => {
                                             const val = e.target.value;
                                             if (val === '') {
-                                                setReturnQuantities({ ...returnQuantities, [item.product_id]: '' });
+                                                setReturnQuantities({ ...returnQuantities, [item.id]: '' });
                                             } else {
                                                 setReturnQuantities({
                                                     ...returnQuantities,
-                                                    [item.product_id]: Math.min((item.qty_delivered || item.quantity), Math.max(0, parseInt(val) || 0))
+                                                    [item.id]: Math.min((item.qty_delivered || item.quantity), Math.max(0, parseInt(val) || 0))
                                                 });
                                             }
                                         }}
@@ -2804,8 +2822,8 @@ export default function SalesPage() {
                 <div className="mt-20" style={{ display: 'flex', flexDirection: 'column', gap: '12px', alignItems: 'flex-end' }}>
                     {(() => {
                         if (!returningInvoice) return null;
-                        const subtotal = Object.entries(returnQuantities).reduce((sum, [pid, qty]) => {
-                            const original = returningInvoice.items.find(i => String(i.product_id) === pid);
+                        const subtotal = Object.entries(returnQuantities).reduce((sum, [itemId, qty]) => {
+                            const original = returningInvoice.items.find(i => String(i.id) === String(itemId));
                             return sum + (Number(original?.price || 0) * (Number(qty) || 0));
                         }, 0);
                         const discount = subtotal * (returningInvoice.discount_rate / 100);
@@ -2820,7 +2838,7 @@ export default function SalesPage() {
                         const currentDue = Math.max(0, currentEffectiveTotal - currentPaid);
 
                         const isFullReturnNow = returningInvoice.items.every(item => {
-                            const qtyRet = Number(returnQuantities[item.product_id] || 0);
+                            const qtyRet = Number(returnQuantities[item.id] || 0);
                             return qtyRet === item.quantity;
                         });
 
@@ -3400,18 +3418,19 @@ export default function SalesPage() {
             </Modal>
 
             <Modal
-                show={showMergeModal}
+                open={showMergeModal}
                 onClose={() => setShowMergeModal(false)}
-                title="Merge Invoices"
-                footer={
-                    <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
-                        <SButton variant="secondary" onClick={() => setShowMergeModal(false)}>
-                            Cancel
-                        </SButton>
-                        <SButton variant="primary" onClick={submitMergeInvoices} disabled={merging}>
-                            {merging ? 'Merging...' : 'Merge Invoices'}
-                        </SButton>
-                    </div>
+                heading="Merge Invoices"
+                size="base"
+                primaryAction={
+                    <SButton variant="primary" onClick={submitMergeInvoices} disabled={merging} loading={merging}>
+                        {merging ? 'Merging...' : 'Merge Invoices'}
+                    </SButton>
+                }
+                secondaryAction={
+                    <SButton variant="secondary" onClick={() => setShowMergeModal(false)}>
+                        Cancel
+                    </SButton>
                 }
             >
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>

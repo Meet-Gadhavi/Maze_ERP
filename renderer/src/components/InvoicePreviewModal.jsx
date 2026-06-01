@@ -408,6 +408,23 @@ export default function InvoicePreviewModal({ invoice, onClose, autoOpenShare = 
     const returnedAmount = Number(invoice.total_returned_amount || 0);
     const paidAmount = Number(invoice.paid_amount || 0);
     const hasPerItem = (invoice.items || []).some(i => (i.item_gst_rate > 0 || i.item_discount_rate > 0));
+    const isFullyReturned = invoice.return_type === 'full' ||
+        (invoice.financial_status || '').toUpperCase() === 'RETURNED';
+
+    // Build a map of returned qty per invoice_item_id and per product_id from invoice.returns
+    const returnedByItemId = {};
+    const returnedByProductId = {};
+    (invoice.returns || []).forEach(r => {
+        if (r.invoice_item_id) {
+            returnedByItemId[r.invoice_item_id] = (returnedByItemId[r.invoice_item_id] || 0) + (r.return_qty || 0);
+        }
+        returnedByProductId[r.product_id] = (returnedByProductId[r.product_id] || 0) + (r.return_qty || 0);
+    });
+    // Helper: get returned qty for an item
+    const getItemReturnedQty = (item) => {
+        if (item.id && returnedByItemId[item.id]) return returnedByItemId[item.id];
+        return returnedByProductId[item.product_id] || 0;
+    };
 
     const subtotal = (invoice.items || []).reduce((s, i) => {
         const base = Number(i.price || 0) * Number(i.quantity || 0);
@@ -502,11 +519,12 @@ export default function InvoicePreviewModal({ invoice, onClose, autoOpenShare = 
                                 invoice.fulfillment_status === 'COMPLETED' ? 'Completed' : invoice.fulfillment_status}
                     </span>
                     {invoice.customer_id && (
-                        <span className={`secondary-status-badge badge-${(invoice.financial_status || 'PAID').toLowerCase()}`}>
-                            {invoice.financial_status === 'PAID' ? <span className="badge-dot"></span> : ''}
-                            {invoice.financial_status === 'PAID' ? 'Paid' :
-                                invoice.financial_status === 'PARTIAL' ? '⚠ Partial' :
-                                    invoice.financial_status === 'UNPAID' ? '✖ Unpaid' : invoice.financial_status}
+                        <span className={`secondary-status-badge badge-${(invoice.financial_status || 'PAID').toLowerCase().replace(/ /g, '-')}`}>
+                            {(invoice.financial_status || '').toUpperCase() === 'PAID' ? <span className="badge-dot"></span> : ''}
+                            {(invoice.financial_status || '').toUpperCase() === 'PAID' ? 'Paid' :
+                                (invoice.financial_status || '').toUpperCase() === 'PARTIAL' ? '⚠ Partial' :
+                                    (invoice.financial_status || '').toUpperCase() === 'UNPAID' ? '✖ Unpaid' :
+                                        (invoice.financial_status || '').toUpperCase() === 'RETURNED' ? 'Returned' : invoice.financial_status}
                         </span>
                     )}
                 </div>
@@ -533,7 +551,6 @@ export default function InvoicePreviewModal({ invoice, onClose, autoOpenShare = 
                             <td style={{ fontWeight: 400 }}>
                                 {item.product_name}
                                 {item.variant_name ? ` (${item.variant_name})` : ''}
-
                                 {item.is_free ? <span style={{ marginLeft: 8, fontSize: '0.7em', color: 'var(--success)', fontWeight: 400, background: 'rgba(34, 197, 94, 0.1)', padding: '2px 6px', borderRadius: '4px', verticalAlign: 'middle' }}>🟢 FREE</span> : ''}
                                 {item.pending_qty > 0 && <span style={{ marginLeft: 8, fontSize: '0.8em', color: 'var(--warning)', fontWeight: 400 }}>(Pending: {item.pending_qty})</span>}
                             </td>
@@ -542,7 +559,16 @@ export default function InvoicePreviewModal({ invoice, onClose, autoOpenShare = 
                                     {item.product_code || '—'}
                                 </td>
                             )}
-                            <td className="item-qty">{item.qty_delivered || item.quantity}</td>
+                            <td className="item-qty">
+                                {(() => {
+                                    const retQty = getItemReturnedQty(item);
+                                    const displayQty = item.qty_delivered || item.quantity;
+                                    const netQty = displayQty - retQty;
+                                    return retQty > 0
+                                        ? <span style={{ color: '#dc2626', fontWeight: 700 }}>{netQty}</span>
+                                        : displayQty;
+                                })()}
+                            </td>
                             <td className="item-qty" style={{ fontWeight: 400 }}>{item.unit || 'PCS'}</td>
                             <td className="item-price">{formatCurrency(item.price)}</td>
                             {settings?.enable_gst_per_item === 'true' && (
@@ -696,7 +722,15 @@ export default function InvoicePreviewModal({ invoice, onClose, autoOpenShare = 
                                 {item.pending_qty > 0 && <span style={{ marginLeft: 8, fontSize: '0.8em', color: '#b45309', fontWeight: 400 }}>(Pending: {item.pending_qty})</span>}
                             </td>
                             <td className="col-hsn">{item.hsn_sac || item.product_hsn || '—'}</td>
-                            <td className="col-qty">{item.quantity}</td>
+                            <td className="col-qty">
+                                {(() => {
+                                    const retQty = getItemReturnedQty(item);
+                                    const netQty = item.quantity - retQty;
+                                    return retQty > 0
+                                        ? <span style={{ color: '#dc2626', fontWeight: 700 }}>{netQty}</span>
+                                        : item.quantity;
+                                })()}
+                            </td>
                             <td className="col-unit">{item.unit || 'Pcs'}</td>
                             <td className="col-price text-right">{formatCurrency(item.price)}</td>
                             <td className="col-gst text-right">
@@ -1111,9 +1145,10 @@ export default function InvoicePreviewModal({ invoice, onClose, autoOpenShare = 
                     <div>
                         <div className="section-title">{t.paymentStatus}</div>
                         <span className={`badge ${
-                            invoice.financial_status === 'PAID' ? 'badge-paid' :
-                            invoice.financial_status === 'PARTIAL' ? 'badge-partial' :
-                            invoice.financial_status === 'UNPAID' ? 'badge-unpaid' : 'badge-pending'
+                            (invoice.financial_status || '').toUpperCase() === 'PAID' ? 'badge-paid' :
+                            (invoice.financial_status || '').toUpperCase() === 'PARTIAL' ? 'badge-partial' :
+                            (invoice.financial_status || '').toUpperCase() === 'UNPAID' ? 'badge-unpaid' :
+                            (invoice.financial_status || '').toUpperCase() === 'RETURNED' ? 'badge-unpaid' : 'badge-pending'
                         }`}>
                             {invoice.financial_status || 'UNPAID'}
                         </span>
@@ -1143,7 +1178,15 @@ export default function InvoicePreviewModal({ invoice, onClose, autoOpenShare = 
                                         {item.pending_qty > 0 && <span style={{ marginLeft: 8, fontSize: '0.8em', color: '#b45309', fontWeight: 400 }}>(Pending: {item.pending_qty})</span>}
                                     </td>
                                     <td>{formatCurrency(item.price)}</td>
-                                    <td>{item.quantity} {item.unit || 'PCS'}</td>
+                                    <td>
+                                        {(() => {
+                                            const retQty = getItemReturnedQty(item);
+                                            const netQty = item.quantity - retQty;
+                                            return retQty > 0
+                                                ? <span style={{ color: '#dc2626', fontWeight: 700 }}>{netQty} {item.unit || 'PCS'}</span>
+                                                : `${item.quantity} ${item.unit || 'PCS'}`;
+                                        })()}
+                                    </td>
                                     <td>{formatCurrency(item.total)}</td>
                                 </tr>
                             ))}

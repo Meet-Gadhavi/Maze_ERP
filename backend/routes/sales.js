@@ -166,6 +166,7 @@ router.get('/:id', async (req, res, next) => {
         });
 
         invoice.payments = db.all('SELECT * FROM invoice_payments WHERE invoice_id = ? ORDER BY payment_date DESC', [invoice.id]);
+        invoice.returns = db.all('SELECT * FROM invoice_returns WHERE invoice_id = ? ORDER BY id ASC', [invoice.id]);
         res.json(invoice);
     } catch (err) {
         next(err);
@@ -664,7 +665,7 @@ router.post('/:id/return', async (req, res, next) => {
     try {
         await db.ready;
         const invoiceId = Number(req.params.id);
-        const { items: returns, refund_method } = req.body; // Array of { product_id, quantity }, refund_method: 'refund' | 'p_credit'
+        const { items: returns, refund_method } = req.body; // Array of { product_id, invoice_item_id?, quantity }, refund_method: 'refund' | 'p_credit'
 
         if (!returns || !returns.length) {
             return res.status(400).json({ error: 'No items provided for return' });
@@ -718,7 +719,10 @@ router.post('/:id/return', async (req, res, next) => {
                 }
             }
 
-            const productItems = originalItems.filter(i => i.product_id === ret.product_id);
+            // If invoice_item_id is provided, filter to just that specific line; otherwise all lines with this product
+            const productItems = ret.invoice_item_id
+                ? originalItems.filter(i => i.id === Number(ret.invoice_item_id))
+                : originalItems.filter(i => i.product_id === ret.product_id);
             if (productItems.length === 0) {
                 res.status(400).json({ error: `Product ${ret.product_id} was not in this invoice` });
                 const err = new Error('Abort');
@@ -727,7 +731,10 @@ router.post('/:id/return', async (req, res, next) => {
             }
 
             const totalOriginalQty = productItems.reduce((acc, curr) => acc + curr.quantity, 0);
-            const alreadyReturned = invoiceReturnedRecords.find(r => r.product_id === ret.product_id)?.total_returned || 0;
+            // Track already returned per item-id if we have it, else per product
+            const alreadyReturned = ret.invoice_item_id
+                ? (db.get('SELECT SUM(return_qty) as total FROM invoice_returns WHERE invoice_id = ? AND invoice_item_id = ?', [invoiceId, Number(ret.invoice_item_id)])?.total || 0)
+                : (invoiceReturnedRecords.find(r => r.product_id === ret.product_id)?.total_returned || 0);
             if (ret.quantity + alreadyReturned > totalOriginalQty) {
                 res.status(400).json({ error: `Cannot return more than sold for this product` });
                 const err = new Error('Abort');
@@ -756,22 +763,31 @@ router.post('/:id/return', async (req, res, next) => {
 
                     totalReturnAmount += lineFinalReturnAmount;
 
-                    // Log return record
+                    // Log return record (store invoice_item_id for precise tracking)
                     db.run(
-                        'INSERT INTO invoice_returns (invoice_id, product_id, return_qty, return_amount, refund_method, batch_id) VALUES (?, ?, ?, ?, ?, ?)',
-                        [invoiceId, ret.product_id, returnQtyForLine, lineFinalReturnAmount, 'pending', line.batch_id || null]
+                        'INSERT INTO invoice_returns (invoice_id, product_id, invoice_item_id, return_qty, return_amount, refund_method, batch_id) VALUES (?, ?, ?, ?, ?, ?, ?)',
+                        [invoiceId, ret.product_id, line.id || null, returnQtyForLine, lineFinalReturnAmount, 'pending', line.batch_id || null]
                     );
 
-                    // Restore product stock
-                    db.run(
-                        'UPDATE products SET stock_quantity = stock_quantity + ? WHERE id = ?',
-                        [returnQtyForLine, ret.product_id]
-                    );
+                    // Restore product stock (always restore parent product for non-variant items)
+                    if (line.variant_id) {
+                        // Item was sold as a variant — restore variant stock
+                        db.run(
+                            'UPDATE product_variants SET stock_quantity = stock_quantity + ? WHERE id = ?',
+                            [returnQtyForLine, line.variant_id]
+                        );
+                    } else {
+                        // No variant — restore parent product stock directly
+                        db.run(
+                            'UPDATE products SET stock_quantity = stock_quantity + ? WHERE id = ?',
+                            [returnQtyForLine, ret.product_id]
+                        );
+                    }
 
-                    // Record stock movement for return
+                    // Record stock movement for return (include variant_id for audit trail)
                     db.run(
-                        'INSERT INTO stock_movements (product_id, type, quantity, reference_type, reference_id, batch_id, notes) VALUES (?, ?, ?, ?, ?, ?, ?)',
-                        [ret.product_id, 'RETURN', returnQtyForLine, 'Invoice Return', invoiceId, line.batch_id || null, 'Sale Return']
+                        'INSERT INTO stock_movements (product_id, variant_id, type, quantity, reference_type, reference_id, batch_id, notes) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+                        [ret.product_id, line.variant_id || null, 'RETURN', returnQtyForLine, 'Invoice Return', invoiceId, line.batch_id || null, 'Sale Return']
                     );
 
                     if (line.batch_id) {
@@ -805,11 +821,9 @@ router.post('/:id/return', async (req, res, next) => {
 
         // Check if fully returned
         const allItems = db.all('SELECT * FROM invoice_items WHERE invoice_id = ?', [invoiceId]);
-        const allReturns = db.all('SELECT product_id, SUM(return_qty) as total_returned FROM invoice_returns WHERE invoice_id = ? GROUP BY product_id', [invoiceId]);
-        const isFullReturn = allItems.every(item => {
-            const retRecord = allReturns.find(r => r.product_id === item.product_id);
-            return retRecord && retRecord.total_returned === item.quantity;
-        });
+        const totalItemsQty = allItems.reduce((sum, item) => sum + item.quantity, 0);
+        const totalReturnedQty = db.get('SELECT COALESCE(SUM(return_qty), 0) AS total FROM invoice_returns WHERE invoice_id = ?', [invoiceId]).total;
+        const isFullReturn = totalReturnedQty === totalItemsQty;
 
         if (isFullReturn) {
             returnType = 'full';
@@ -833,7 +847,7 @@ router.post('/:id/return', async (req, res, next) => {
 
             // Refined financial status based on return impact
             if (refundBalance > 0) {
-                financialStatus = (refund_method === 'p_credit') ? 'P-Credited' : 'Returned';
+                financialStatus = (refund_method === 'p_credit') ? 'P-Credited' : 'Partially Returned';
             } else if (effectiveDue < (originalTotal - currentPaid)) {
                 // If the new due is less than the old due, it was adjusted
                 financialStatus = (effectiveDue === 0) ? 'Settled' : 'Credit Adjusted';
