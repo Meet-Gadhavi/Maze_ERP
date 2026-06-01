@@ -17,7 +17,9 @@ router.get('/', async (req, res, next) => {
         await db.ready;
         const { search, category, subcategory_id, brand_id } = req.query;
         let sql = `
-            SELECT p.*, c.name as category_name, sc.name as subcategory_name, b.name as brand_name 
+            SELECT p.*, c.name as category_name, sc.name as subcategory_name, b.name as brand_name,
+                   (SELECT COUNT(*) FROM product_variants WHERE product_id = p.id) as variants_count,
+                   (SELECT SUM(stock_quantity) FROM product_variants WHERE product_id = p.id) as variants_stock
             FROM products p
             LEFT JOIN categories c ON p.category = c.name
             LEFT JOIN sub_categories sc ON p.subcategory_id = sc.id
@@ -533,12 +535,12 @@ router.get('/:id/variants', async (req, res, next) => {
 router.post('/:id/variants', async (req, res, next) => {
     try {
         await db.ready;
-        const { name, sku, cost_price, selling_price, stock_quantity, attributes } = req.body;
+        const { name, sku, cost_price, selling_price, stock_quantity, min_stock_level, max_stock_level, attributes } = req.body;
         const result = db.run(
-            'INSERT INTO product_variants (product_id, name, sku, cost_price, selling_price, stock_quantity, attributes) VALUES (?, ?, ?, ?, ?, ?, ?)',
-            [Number(req.params.id), name, sku || '', cost_price || 0, selling_price || 0, stock_quantity || 0, JSON.stringify(attributes || {})]
+            'INSERT INTO product_variants (product_id, name, sku, cost_price, selling_price, stock_quantity, min_stock_level, max_stock_level, attributes) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+            [Number(req.params.id), name, sku || '', cost_price || 0, selling_price || 0, stock_quantity || 0, min_stock_level || 0, max_stock_level || 0, JSON.stringify(attributes || {})]
         );
-        res.status(201).json({ id: result.lastInsertRowid, product_id: Number(req.params.id), name, sku, cost_price, selling_price, stock_quantity, attributes });
+        res.status(201).json({ id: result.lastInsertRowid, product_id: Number(req.params.id), name, sku, cost_price, selling_price, stock_quantity, min_stock_level, max_stock_level, attributes });
     } catch (err) {
         next(err);
     }
@@ -547,7 +549,7 @@ router.post('/:id/variants', async (req, res, next) => {
 router.put('/variants/:id', async (req, res, next) => {
     try {
         await db.ready;
-        const { name, sku, cost_price, selling_price, stock_quantity, attributes } = req.body;
+        const { name, sku, cost_price, selling_price, stock_quantity, min_stock_level, max_stock_level, attributes } = req.body;
         const variantId = Number(req.params.id);
 
         db.transaction(() => {
@@ -560,13 +562,15 @@ router.put('/variants/:id', async (req, res, next) => {
             }
 
             db.run(
-                'UPDATE product_variants SET name = ?, sku = ?, cost_price = ?, selling_price = ?, stock_quantity = ?, attributes = ? WHERE id = ?',
+                'UPDATE product_variants SET name = ?, sku = ?, cost_price = ?, selling_price = ?, stock_quantity = ?, min_stock_level = ?, max_stock_level = ?, attributes = ? WHERE id = ?',
                 [
                     name !== undefined ? name : existing.name,
                     sku !== undefined ? sku : existing.sku,
                     cost_price !== undefined ? cost_price : existing.cost_price,
                     selling_price !== undefined ? selling_price : existing.selling_price,
                     stock_quantity !== undefined ? stock_quantity : existing.stock_quantity,
+                    min_stock_level !== undefined ? min_stock_level : existing.min_stock_level,
+                    max_stock_level !== undefined ? max_stock_level : existing.max_stock_level,
                     attributes !== undefined ? JSON.stringify(attributes || {}) : existing.attributes,
                     variantId
                 ]

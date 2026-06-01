@@ -570,11 +570,29 @@ ready = (async () => {
       cost_price  REAL    NOT NULL DEFAULT 0,
       selling_price REAL  NOT NULL DEFAULT 0,
       stock_quantity REAL NOT NULL DEFAULT 0,
+      min_stock_level REAL DEFAULT 0,
+      max_stock_level REAL DEFAULT 0,
       attributes  TEXT    DEFAULT '{}', -- JSON string
       created_at  TEXT    NOT NULL DEFAULT (datetime('now','localtime')),
       FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE
     )
   `);
+
+  // Migration: Add min_stock_level and max_stock_level to product_variants if missing
+  try {
+    const res = db.exec('PRAGMA table_info(product_variants)');
+    if (res && res.length > 0) {
+      const columns = res[0].values.map(v => v[1]);
+      if (!columns.includes('min_stock_level')) {
+        db.run('ALTER TABLE product_variants ADD COLUMN min_stock_level REAL DEFAULT 0');
+      }
+      if (!columns.includes('max_stock_level')) {
+        db.run('ALTER TABLE product_variants ADD COLUMN max_stock_level REAL DEFAULT 0');
+      }
+    }
+  } catch (err) {
+    console.error('Failed to migrate product_variants:', err);
+  }
 
   // Migration: Add total to invoice_items if missing (for existing users)
   try {

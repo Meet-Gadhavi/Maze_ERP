@@ -53,7 +53,7 @@ export default function PurchasePage() {
     const [brands, setBrands] = useState([]);
     const [activeModalTab, setActiveModalTab] = useState('basic');
     const [tempVariants, setTempVariants] = useState([]);
-    const [variantForm, setVariantForm] = useState({ name: '', sku: '', selling_price: '', cost_price: '', stock_quantity: 0 });
+    const [variantForm, setVariantForm] = useState({ name: '', sku: '', selling_price: '', cost_price: '', stock_quantity: 0, min_stock_level: 0, max_stock_level: 0 });
     const [savingProduct, setSavingProduct] = useState(false);
 
     // Inner modal states for quick creation
@@ -252,7 +252,7 @@ export default function PurchasePage() {
             setShowProductModal(false);
             setNewProductForm(EMPTY_PRODUCT);
             setTempVariants([]);
-            setVariantForm({ name: '', sku: '', selling_price: '', cost_price: '', stock_quantity: 0 });
+            setVariantForm({ name: '', sku: '', selling_price: '', cost_price: '', stock_quantity: 0, min_stock_level: 0, max_stock_level: 0 });
             setActiveModalTab('basic');
             setProductSearch('');
             setCartPulse(true);
@@ -829,7 +829,7 @@ export default function PurchasePage() {
                                 <div className="create-new-prompt" onClick={() => {
                                     setNewProductForm({ ...EMPTY_PRODUCT, name: productSearch });
                                     setTempVariants([]);
-                                    setVariantForm({ name: '', sku: '', selling_price: '', cost_price: '', stock_quantity: 0 });
+                                    setVariantForm({ name: '', sku: '', selling_price: '', cost_price: '', stock_quantity: 0, min_stock_level: 0, max_stock_level: 0 });
                                     setActiveModalTab('basic');
                                     setShowProductModal(true);
                                 }}>
@@ -2181,7 +2181,7 @@ export default function PurchasePage() {
                         <div className="variants-section">
                             <div className="p-20 bg-secondary rounded-8 mb-24">
                                 <h4 className="size-14 fw-600 mb-16">Quick Add Variant</h4>
-                                <div className="grid grid-5 gap-12">
+                                <div className="grid grid-4 gap-12 mb-12">
                                     <FormGroup label="Name" className="m-0">
                                         <Input 
                                             className="h-42"
@@ -2190,7 +2190,24 @@ export default function PurchasePage() {
                                             onChange={e => setVariantForm({ ...variantForm, name: e.target.value })}
                                         />
                                     </FormGroup>
-                                    <FormGroup label="Price" className="m-0">
+                                    <FormGroup label="Code / SKU" className="m-0">
+                                        <Input 
+                                            className="h-42"
+                                            placeholder="Variant SKU" 
+                                            value={variantForm.sku}
+                                            onChange={e => setVariantForm({ ...variantForm, sku: e.target.value })}
+                                        />
+                                    </FormGroup>
+                                    <FormGroup label="Buying Price (₹)" className="m-0">
+                                        <Input 
+                                            type="number"
+                                            className="h-42"
+                                            placeholder="0.00" 
+                                            value={variantForm.cost_price}
+                                            onChange={e => setVariantForm({ ...variantForm, cost_price: e.target.value })}
+                                        />
+                                    </FormGroup>
+                                    <FormGroup label="Selling Price (₹)" className="m-0">
                                         <Input 
                                             type="number" 
                                             className="h-42"
@@ -2199,7 +2216,9 @@ export default function PurchasePage() {
                                             onChange={e => setVariantForm({ ...variantForm, selling_price: e.target.value })}
                                         />
                                     </FormGroup>
-                                    <FormGroup label="Stock" className="m-0">
+                                </div>
+                                <div className="grid grid-4 gap-12">
+                                    <FormGroup label="Initial Stock" className="m-0">
                                         <Input 
                                             type="number" 
                                             className="h-42"
@@ -2208,27 +2227,40 @@ export default function PurchasePage() {
                                             onChange={e => setVariantForm({ ...variantForm, stock_quantity: e.target.value })}
                                         />
                                     </FormGroup>
-                                    <FormGroup label="Code" className="m-0">
+                                    <FormGroup label="Min Stock Alert" className="m-0">
                                         <Input 
+                                            type="number" 
                                             className="h-42"
-                                            placeholder="Variant SKU" 
-                                            value={variantForm.sku}
-                                            onChange={e => setVariantForm({ ...variantForm, sku: e.target.value })}
+                                            placeholder="0" 
+                                            value={variantForm.min_stock_level}
+                                            onChange={e => setVariantForm({ ...variantForm, min_stock_level: e.target.value })}
                                         />
                                     </FormGroup>
-                                    <FormGroup label="&nbsp;" className="m-0">
+                                    <FormGroup label="Max Stock Alert" className="m-0">
+                                        <Input 
+                                            type="number" 
+                                            className="h-42"
+                                            placeholder="0" 
+                                            value={variantForm.max_stock_level}
+                                            onChange={e => setVariantForm({ ...variantForm, max_stock_level: e.target.value })}
+                                        />
+                                    </FormGroup>
+                                    <FormGroup label="&nbsp;" className="m-0 flex align-end">
                                         <SButton 
                                             variant="primary"
+                                            style={{ height: '42px', width: '100%' }}
                                             onClick={() => {
                                                 if (!variantForm.name.trim()) return toast.error('Variant name required');
                                                 const newV = { 
                                                     ...variantForm, 
                                                     selling_price: parseFloat(variantForm.selling_price) || parseFloat(newProductForm.selling_price) || 0,
-                                                    cost_price: parseFloat(newProductForm.cost_price) || 0,
-                                                    stock_quantity: parseFloat(variantForm.stock_quantity) || 0
+                                                    cost_price: parseFloat(variantForm.cost_price) || parseFloat(newProductForm.cost_price) || 0,
+                                                    stock_quantity: parseFloat(variantForm.stock_quantity) || 0,
+                                                    min_stock_level: parseFloat(variantForm.min_stock_level) || 0,
+                                                    max_stock_level: parseFloat(variantForm.max_stock_level) || 0
                                                 };
                                                 setTempVariants([...tempVariants, newV]);
-                                                setVariantForm({ name: '', sku: '', selling_price: '', cost_price: '', stock_quantity: 0 });
+                                                setVariantForm({ name: '', sku: '', selling_price: '', cost_price: '', stock_quantity: 0, min_stock_level: 0, max_stock_level: 0 });
                                                 toast.success('Variant queued');
                                             }}
                                         >
@@ -2244,23 +2276,29 @@ export default function PurchasePage() {
                                         <tr>
                                             <th>Variant Name</th>
                                             <th>SKU/Code</th>
-                                            <th>Price (₹)</th>
+                                            <th>Buying (₹)</th>
+                                            <th>Selling (₹)</th>
                                             <th>Stock</th>
+                                            <th>Min Alert</th>
+                                            <th>Max Alert</th>
                                             <th className="text-right">Actions</th>
                                         </tr>
                                     </thead>
                                     <tbody>
                                         {tempVariants.length === 0 ? (
                                             <tr>
-                                                <td colSpan={5} className="text-center p-24 text-secondary italic">No variants defined</td>
+                                                <td colSpan={8} className="text-center p-24 text-secondary italic">No variants defined</td>
                                             </tr>
                                         ) : (
                                             tempVariants.map((v, idx) => (
                                                 <tr key={idx}>
                                                     <td className="fw-600">{v.name}</td>
                                                     <td>{v.sku || '—'}</td>
+                                                    <td>{v.cost_price}</td>
                                                     <td>{v.selling_price}</td>
                                                     <td>{v.stock_quantity}</td>
+                                                    <td>{v.min_stock_level}</td>
+                                                    <td>{v.max_stock_level}</td>
                                                     <td className="text-right">
                                                         <SButton tone="critical" onClick={() => {
                                                             setTempVariants(tempVariants.filter((_, i) => i !== idx));

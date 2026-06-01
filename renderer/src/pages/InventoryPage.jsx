@@ -52,7 +52,7 @@ export default function InventoryPage() {
     const [form, setForm] = useState(EMPTY_PRODUCT);
     const [productVariants, setProductVariants] = useState([]);
     const [tempVariants, setTempVariants] = useState([]); // For new products
-    const [variantForm, setVariantForm] = useState({ name: '', sku: '', selling_price: '', cost_price: '', stock_quantity: 0 });
+    const [variantForm, setVariantForm] = useState({ name: '', sku: '', selling_price: '', cost_price: '', stock_quantity: 0, min_stock_level: 0, max_stock_level: 0 });
     const [saving, setSaving] = useState(false);
 
     // Stock extensions
@@ -205,7 +205,7 @@ export default function InventoryPage() {
         const defaultCat = categories.length > 0 ? categories[0] : '';
         setForm({ ...EMPTY_PRODUCT, category: defaultCat });
         setTempVariants([]);
-        setVariantForm({ name: '', sku: '', selling_price: '', cost_price: '', stock_quantity: 0 });
+        setVariantForm({ name: '', sku: '', selling_price: '', cost_price: '', stock_quantity: 0, min_stock_level: 0, max_stock_level: 0 });
         setShowModal(true);
         setActiveModalTab('basic');
     }
@@ -233,7 +233,7 @@ export default function InventoryPage() {
             track_serials: !!product.track_serials
         });
         setTempVariants([]);
-        setVariantForm({ name: '', sku: '', selling_price: '', cost_price: '', stock_quantity: 0 });
+        setVariantForm({ name: '', sku: '', selling_price: '', cost_price: '', stock_quantity: 0, min_stock_level: 0, max_stock_level: 0 });
         setShowModal(true);
         setActiveModalTab('basic');
         loadPendingOrders(product.id);
@@ -1321,7 +1321,7 @@ export default function InventoryPage() {
                         <div className="variants-section">
                             <div className="p-20 bg-secondary rounded-8 mb-24">
                                 <h4 className="size-14 fw-600 mb-16">Quick Add Variant</h4>
-                                <div className="grid grid-5 gap-12">
+                                <div className="grid grid-4 gap-12 mb-12">
                                     <FormGroup label="Name" className="m-0">
                                         <Input 
                                             className="h-42"
@@ -1330,7 +1330,24 @@ export default function InventoryPage() {
                                             onChange={e => setVariantForm({ ...variantForm, name: e.target.value })}
                                         />
                                     </FormGroup>
-                                    <FormGroup label="Price" className="m-0">
+                                    <FormGroup label="Code / SKU" className="m-0">
+                                        <Input 
+                                            className="h-42"
+                                            placeholder="Variant SKU" 
+                                            value={variantForm.sku}
+                                            onChange={e => setVariantForm({ ...variantForm, sku: e.target.value })}
+                                        />
+                                    </FormGroup>
+                                    <FormGroup label="Buying Price (₹)" className="m-0">
+                                        <Input 
+                                            type="number"
+                                            className="h-42"
+                                            placeholder="0.00" 
+                                            value={variantForm.cost_price}
+                                            onChange={e => setVariantForm({ ...variantForm, cost_price: e.target.value })}
+                                        />
+                                    </FormGroup>
+                                    <FormGroup label="Selling Price (₹)" className="m-0">
                                         <Input 
                                             type="number" 
                                             className="h-42"
@@ -1339,7 +1356,9 @@ export default function InventoryPage() {
                                             onChange={e => setVariantForm({ ...variantForm, selling_price: e.target.value })}
                                         />
                                     </FormGroup>
-                                    <FormGroup label="Stock" className="m-0">
+                                </div>
+                                <div className="grid grid-4 gap-12">
+                                    <FormGroup label="Initial Stock" className="m-0">
                                         <Input 
                                             type="number" 
                                             className="h-42"
@@ -1348,24 +1367,37 @@ export default function InventoryPage() {
                                             onChange={e => setVariantForm({ ...variantForm, stock_quantity: e.target.value })}
                                         />
                                     </FormGroup>
-                                    <FormGroup label="Code" className="m-0">
+                                    <FormGroup label="Min Stock Alert" className="m-0">
                                         <Input 
+                                            type="number" 
                                             className="h-42"
-                                            placeholder="Variant SKU" 
-                                            value={variantForm.sku}
-                                            onChange={e => setVariantForm({ ...variantForm, sku: e.target.value })}
+                                            placeholder="0" 
+                                            value={variantForm.min_stock_level}
+                                            onChange={e => setVariantForm({ ...variantForm, min_stock_level: e.target.value })}
                                         />
                                     </FormGroup>
-                                    <FormGroup label="&nbsp;" className="m-0">
+                                    <FormGroup label="Max Stock Alert" className="m-0">
+                                        <Input 
+                                            type="number" 
+                                            className="h-42"
+                                            placeholder="0" 
+                                            value={variantForm.max_stock_level}
+                                            onChange={e => setVariantForm({ ...variantForm, max_stock_level: e.target.value })}
+                                        />
+                                    </FormGroup>
+                                    <FormGroup label="&nbsp;" className="m-0 flex align-end">
                                         <s-button 
                                             variant="primary"
+                                            style={{ height: '42px', width: '100%' }}
                                             onClick={async () => {
                                                 if (!variantForm.name.trim()) return toast.error('Variant name required');
                                                 const newV = { 
                                                     ...variantForm, 
                                                     selling_price: parseFloat(variantForm.selling_price) || parseFloat(form.selling_price) || 0,
-                                                    cost_price: parseFloat(form.cost_price) || 0,
-                                                    stock_quantity: parseFloat(variantForm.stock_quantity) || 0
+                                                    cost_price: parseFloat(variantForm.cost_price) || parseFloat(form.cost_price) || 0,
+                                                    stock_quantity: parseFloat(variantForm.stock_quantity) || 0,
+                                                    min_stock_level: parseFloat(variantForm.min_stock_level) || 0,
+                                                    max_stock_level: parseFloat(variantForm.max_stock_level) || 0
                                                 };
                                                 
                                                 if (editingProduct) {
@@ -1374,14 +1406,14 @@ export default function InventoryPage() {
                                                         loading: 'Creating...',
                                                         success: () => {
                                                             loadProductVariants(editingProduct.id);
-                                                            setVariantForm({ name: '', sku: '', selling_price: '', cost_price: '', stock_quantity: 0 });
+                                                            setVariantForm({ name: '', sku: '', selling_price: '', cost_price: '', stock_quantity: 0, min_stock_level: 0, max_stock_level: 0 });
                                                             return 'Variant added';
                                                         },
                                                         error: 'Failed'
                                                     });
                                                 } else {
                                                     setTempVariants([...tempVariants, newV]);
-                                                    setVariantForm({ name: '', sku: '', selling_price: '', cost_price: '', stock_quantity: 0 });
+                                                    setVariantForm({ name: '', sku: '', selling_price: '', cost_price: '', stock_quantity: 0, min_stock_level: 0, max_stock_level: 0 });
                                                     toast.success('Variant queued');
                                                 }
                                             }}
@@ -1398,15 +1430,18 @@ export default function InventoryPage() {
                                         <tr>
                                             <th>Variant Name</th>
                                             <th>SKU/Code</th>
-                                            <th>Price (₹)</th>
+                                            <th>Buying (₹)</th>
+                                            <th>Selling (₹)</th>
                                             <th>Stock</th>
+                                            <th>Min Alert</th>
+                                            <th>Max Alert</th>
                                             <th className="text-right">Actions</th>
                                         </tr>
                                     </thead>
                                     <tbody>
                                         {(editingProduct ? productVariants : tempVariants).length === 0 ? (
                                             <tr>
-                                                <td colSpan={5} className="text-center p-24 text-secondary italic">No variants defined</td>
+                                                <td colSpan={8} className="text-center p-24 text-secondary italic">No variants defined</td>
                                             </tr>
                                         ) : (
                                             (editingProduct ? productVariants : tempVariants).map((v, idx) => (
@@ -1425,6 +1460,22 @@ export default function InventoryPage() {
                                                                 }}
                                                             />
                                                         ) : v.sku || '—'}
+                                                    </td>
+                                                    <td>
+                                                        {editingProduct ? (
+                                                            <input
+                                                                type="number"
+                                                                className="table-input w-80"
+                                                                defaultValue={v.cost_price}
+                                                                onBlur={async (e) => {
+                                                                    const val = parseFloat(e.target.value);
+                                                                    if (val !== v.cost_price) {
+                                                                        await api.updateVariant(v.id, { ...v, cost_price: val });
+                                                                        loadProductVariants(editingProduct.id);
+                                                                    }
+                                                                }}
+                                                            />
+                                                        ) : v.cost_price}
                                                     </td>
                                                     <td>
                                                         {editingProduct ? (
@@ -1457,6 +1508,38 @@ export default function InventoryPage() {
                                                                 }}
                                                             />
                                                         ) : v.stock_quantity}
+                                                    </td>
+                                                    <td>
+                                                        {editingProduct ? (
+                                                            <input
+                                                                type="number"
+                                                                className="table-input w-60"
+                                                                defaultValue={v.min_stock_level}
+                                                                onBlur={async (e) => {
+                                                                    const val = parseFloat(e.target.value);
+                                                                    if (val !== v.min_stock_level) {
+                                                                        await api.updateVariant(v.id, { ...v, min_stock_level: val });
+                                                                        loadProductVariants(editingProduct.id);
+                                                                    }
+                                                                }}
+                                                            />
+                                                        ) : v.min_stock_level}
+                                                    </td>
+                                                    <td>
+                                                        {editingProduct ? (
+                                                            <input
+                                                                type="number"
+                                                                className="table-input w-60"
+                                                                defaultValue={v.max_stock_level}
+                                                                onBlur={async (e) => {
+                                                                    const val = parseFloat(e.target.value);
+                                                                    if (val !== v.max_stock_level) {
+                                                                        await api.updateVariant(v.id, { ...v, max_stock_level: val });
+                                                                        loadProductVariants(editingProduct.id);
+                                                                    }
+                                                                }}
+                                                            />
+                                                        ) : v.max_stock_level}
                                                     </td>
                                                     <td className="text-right">
                                                         <s-button tone="critical" onClick={async () => {

@@ -4,6 +4,18 @@ All notable changes to the Quantro ERP application will be documented here.
 
 ---
 
+## [2.6.8] - 2026-06-01
+### Added
+- **Variant Catalog Enhancements**:
+  - Added fields to variants in the "Variants & SKUs" tab for Buying Price (`cost_price`), Selling Price (`selling_price`), Min Stock Alert (`min_stock_level`), and Max Stock Alert (`max_stock_level`).
+  - Implemented interactive, inline editing inputs for variant Buying Price, Selling Price, Min Alert, and Max Alert within the variant details table on the Inventory Page.
+  - Added support for configuring initial alerts (Min & Max Stock Alert levels) when creating/editing variants.
+
+### Fixed
+- **POS Catalog Product Variants Availability**:
+  - Resolved the issue where products with stock-carrying variants were falsely showing as "Out of Stock" (faded with red borders and unavailable for selection) in the POS catalog.
+  - Dynamically calculates parent product stock levels on the Sales page using the sum of its variants' stock quantities, ensuring they are discoverable and can be added to the cart correctly.
+
 ## [2.6.7] - 2026-06-01
 ### Added
 - **Merge Invoices Feature**:

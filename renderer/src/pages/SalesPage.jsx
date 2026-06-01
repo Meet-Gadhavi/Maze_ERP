@@ -1638,12 +1638,17 @@ export default function SalesPage() {
                                                                     const cartItemInfo = cart.filter(c => c.product_id === p.id && !c.is_free && !c.variant_id);
                                                                     const totalQty = cartItemInfo.reduce((sum, c) => sum + c.quantity, 0);
                                                                     const firstItem = cartItemInfo[0];
+                                                                    const hasVariants = p.variants_count > 0;
+                                                                    const stockQty = hasVariants ? (p.variants_stock || 0) : p.stock_quantity;
+                                                                    const isUnavailable = stockQty <= 0;
                                                                     return (
-                                                                        <div key={p.id} className={`product-picker-item ${p.stock_quantity <= 0 ? 'unavailable' : ''}`}>
+                                                                        <div key={p.id} className={`product-picker-item ${isUnavailable ? 'unavailable' : ''}`}>
                                                                             <div className="p-main">
                                                                                 <span className="p-name">{p.name}</span>
                                                                                 <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                                                                                    <span className="p-stock">In Stock: {p.stock_quantity}</span>
+                                                                                    <span className="p-stock">
+                                                                                        In Stock: {stockQty} {hasVariants && <span style={{ fontSize: '10px', color: 'var(--accent)', fontWeight: 'normal' }}>(Variants)</span>}
+                                                                                    </span>
                                                                                     {settings.enable_sku === 'true' && p.product_code && (
                                                                                         <span style={{ fontSize: '10px', color: 'var(--text-tertiary)', background: 'var(--bg-primary)', padding: '1px 4px', borderRadius: '3px', border: '1px solid var(--border-light)' }}>
                                                                                             Code: {p.product_code}
@@ -3131,26 +3136,30 @@ export default function SalesPage() {
                     />
                 </div>
                 <div style={{ maxHeight: '300px', overflowY: 'auto', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)' }}>
-                    {allFiltered.map(p => (
-                        <div key={p.id} className="product-picker-item" style={{ border: 'none', borderBottom: '1px solid var(--border-light)', borderRadius: 0 }}>
-                            <div className="p-main">
-                                <span className="p-name">{p.name}</span>
-                                <span className="p-stock">Stock: {p.stock_quantity}</span>
+                    {allFiltered.map(p => {
+                        const hasVariants = p.variants_count > 0;
+                        const stockQty = hasVariants ? (p.variants_stock || 0) : p.stock_quantity;
+                        return (
+                            <div key={p.id} className="product-picker-item" style={{ border: 'none', borderBottom: '1px solid var(--border-light)', borderRadius: 0 }}>
+                                <div className="p-main">
+                                    <span className="p-name">{p.name}</span>
+                                    <span className="p-stock">Stock: {stockQty} {hasVariants && <span style={{ fontSize: '10px', color: 'var(--accent)' }}>(Variants)</span>}</span>
+                                </div>
+                                <div className="p-side">
+                                    <SButton variant="primary" size="small" onClick={() => {
+                                        if (stockQty <= 0) {
+                                            alert("Insufficient stock for free item.");
+                                            return;
+                                        }
+                                        addToCart(p, true);
+                                        setShowFreePerkModal(false);
+                                    }}>
+                                        Add Free
+                                    </SButton>
+                                </div>
                             </div>
-                            <div className="p-side">
-                                <SButton variant="primary" size="small" onClick={() => {
-                                    if (p.stock_quantity <= 0) {
-                                        alert("Insufficient stock for free item.");
-                                        return;
-                                    }
-                                    addToCart(p, true);
-                                    setShowFreePerkModal(false);
-                                }}>
-                                    Add Free
-                                </SButton>
-                            </div>
-                        </div>
-                    ))}
+                        );
+                    })}
                     {allFiltered.length === 0 && (
                         <div style={{ padding: '20px', textAlign: 'center', color: 'var(--text-tertiary)' }}>No products found</div>
                     )}
