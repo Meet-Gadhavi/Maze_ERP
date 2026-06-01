@@ -71,9 +71,6 @@
 /* ---- Invoice Content ---- */
 .invoice-preview-content {
     padding: 32px;
-    overflow-y: auto;
-    height: 70vh;
-    min-height: 550px;
     background: var(--bg-soft);
 }
 

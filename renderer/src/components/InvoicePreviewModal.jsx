@@ -431,6 +431,8 @@ export default function InvoicePreviewModal({ invoice, onClose, autoOpenShare = 
     const totalToUse = originalTotal > 0 ? originalTotal : calculatedTotal;
     const effectiveTotal = Math.max(0, totalToUse - returnedAmount);
     const effectiveDue = Math.max(0, effectiveTotal - paidAmount);
+    const finStatus = (invoice.financial_status || invoice.payment_status || '').toUpperCase();
+    const isCreditInvoice = finStatus === 'UNPAID' || finStatus === 'PARTIAL' || finStatus === 'PARTIALLY RETURNED';
 
     let displayName = invoice.customer_name;
     if (!displayName) {
@@ -475,7 +477,7 @@ export default function InvoicePreviewModal({ invoice, onClose, autoOpenShare = 
                     </div>
                 </div>
                 <div className="invoice-meta">
-                    <div className="inv-title">{t.taxInvoice}</div>
+                    <div className="inv-title">{isCreditInvoice ? 'CREDIT INVOICE' : t.taxInvoice}</div>
                     <div className="inv-number">{invoiceNumber}</div>
                     <div className="inv-date">{invoice.date || '—'}</div>
                 </div>
@@ -650,7 +652,7 @@ export default function InvoicePreviewModal({ invoice, onClose, autoOpenShare = 
                     </div>
                 </div>
                 <div className="info-box invoice-details">
-                    <div className="box-label">{t.invoiceNo}:</div>
+                    <div className="box-label">{isCreditInvoice ? 'CREDIT INVOICE DETAILS' : `${t.invoiceNo.toUpperCase()} DETAILS`}:</div>
                     <div className="box-content">
                         <div className="detail-row"><span>{t.invoiceNo}:</span> <strong>{invoiceNumber}</strong></div>
                         <div className="detail-row"><span>{t.date}:</span> <strong>{invoice.date}</strong></div>
@@ -1085,7 +1087,7 @@ export default function InvoicePreviewModal({ invoice, onClose, autoOpenShare = 
                         {settings?.gstin && <p style={{ fontSize: '11px', color: '#64748b' }}>{t.gstin}: {settings.gstin}</p>}
                     </div>
                     <div>
-                        <div className="invoice-title">{t.invoice}</div>
+                        <div className="invoice-title">{isCreditInvoice ? 'CREDIT INVOICE' : t.invoice}</div>
                         <div className="invoice-meta">{invoiceNumber}</div>
                         <div className="invoice-meta">{invoice.date || '—'}</div>
                     </div>

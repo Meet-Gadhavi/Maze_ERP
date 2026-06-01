@@ -1229,6 +1229,9 @@
                 </tr>
             `).join('');
 
+            const finStatus = (invoice.financial_status || invoice.payment_status || '').toUpperCase();
+            const isCreditInvoice = finStatus === 'UNPAID' || finStatus === 'PARTIAL' || finStatus === 'PARTIALLY RETURNED';
+
             return `
                 <div class="minimalist-invoice-card">
                     <div class="header">
@@ -1242,7 +1245,7 @@
                             ${settings.gstin ? `<p style="font-size: 11px; color: #64748b;">GSTIN: ${settings.gstin}</p>` : ''}
                         </div>
                         <div>
-                            <div class="invoice-title">INVOICE</div>
+                            <div class="invoice-title">${isCreditInvoice ? 'CREDIT INVOICE' : 'INVOICE'}</div>
                             <div class="invoice-meta">${invoiceNumber}</div>
                             <div class="invoice-meta">${invoice.date || invoice.created_at || '—'}</div>
                         </div>
@@ -1330,6 +1333,8 @@
         }
 
         function renderFormalTemplate(invoice, settings, items, subtotal, discountAmount, discountRate, couponDiscountAmount, gstAmount, gstRate, displayTotal, effectiveTotal, paidAmount, dueAmount, taxSummary, formatCurrency) {
+            const finStatus = (invoice.financial_status || invoice.payment_status || '').toUpperCase();
+            const isCreditInvoice = finStatus === 'UNPAID' || finStatus === 'PARTIAL' || finStatus === 'PARTIALLY RETURNED';
             const customerName = invoice.customer_name || invoice.walk_in_name || 'Walk-in Guest';
             const billedCategories = [...new Set(items.map(item => item.category).filter(Boolean))].join(', ') || 'General';
             const customerPhone = invoice.customer_phone || invoice.walk_in_phone || '—';
@@ -1397,7 +1402,7 @@
                             </div>
                         </div>
                         <div class="info-box invoice-details">
-                            <div class="box-label">INVOICE DETAILS:</div>
+                            <div class="box-label">${isCreditInvoice ? 'CREDIT INVOICE DETAILS:' : 'INVOICE DETAILS:'}</div>
                             <div class="box-content">
                                 <div class="detail-row"><span>INVOICE NO:</span> <strong>${invoiceNumber}</strong></div>
                                 <div class="detail-row"><span>DATE:</span> <strong>${invoice.date || invoice.created_at || '—'}</strong></div>
@@ -1679,6 +1684,8 @@
         }
 
         function renderClassicTemplate(invoice, settings, items, payments, subtotal, discountAmount, discountRate, couponDiscountAmount, gstAmount, gstRate, displayTotal, effectiveTotal, paidAmount, dueAmount, returnedAmount, formatCurrency) {
+            const finStatus = (invoice.financial_status || invoice.payment_status || '').toUpperCase();
+            const isCreditInvoice = finStatus === 'UNPAID' || finStatus === 'PARTIAL' || finStatus === 'PARTIALLY RETURNED';
             const customerName = invoice.customer_name || invoice.walk_in_name || 'Walk-in Guest';
             const billedCategories = [...new Set(items.map(item => item.category).filter(Boolean))].join(', ') || 'General';
             const customerPhone = invoice.customer_phone || invoice.walk_in_phone || '—';
@@ -1731,7 +1738,7 @@
                             </div>
                         </div>
                         <div class="classic-inv-meta">
-                            <div class="inv-title">TAX INVOICE</div>
+                            <div class="inv-title">${isCreditInvoice ? 'CREDIT INVOICE' : 'TAX INVOICE'}</div>
                             <div class="inv-number">${invoiceNumber}</div>
                             <div class="inv-date">${invoice.date || invoice.created_at || '—'}</div>
                             <div class="inv-badges">

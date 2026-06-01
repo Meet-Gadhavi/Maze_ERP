@@ -4,6 +4,16 @@ All notable changes to the Quantro ERP application will be documented here.
 
 ---
 
+## [2.6.14] - 2026-06-01
+### Changed
+- **Credit Invoice Naming**:
+  - Dynamically updates the document title to "CREDIT INVOICE" or "CREDIT INVOICE DETAILS" for all unpaid or partially-paid invoices (replacing "TAX INVOICE" or "INVOICE DETAILS" headers).
+  - Applied across Classic, Minimalist, and Formal templates in both the desktop ERP invoice preview modal and the public client-facing billing portals.
+
+### Fixed
+- **Modal Scroll Layout Fixes**:
+  - Resolved double scrollbar render errors and subtle column/grid shifting inside the invoice preview modal by removing redundant overflow and viewport height constraints from `.invoice-preview-content`. Modal scrolling is now handled cleanly by the parent container wrapper.
+
 ## [2.6.13] - 2026-06-01
 ### Changed
 - **Modal Footer Status Badges**:
