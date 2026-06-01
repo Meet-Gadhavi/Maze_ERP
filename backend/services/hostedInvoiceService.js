@@ -60,6 +60,7 @@ async function generateHostedInvoice(invoiceId) {
         'email',
         'gstin',
         'upi_id',
+        'payment_qr_url',
         'bank_name',
         'account_number',
         'ifsc_code',

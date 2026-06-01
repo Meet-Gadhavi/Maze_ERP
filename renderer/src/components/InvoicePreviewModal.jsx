@@ -691,7 +691,7 @@ export default function InvoicePreviewModal({ invoice, onClose, autoOpenShare = 
                             <td className="col-idx">{idx + 1}</td>
                             <td className="col-name text-left">
                                 {item.product_name} {item.variant_name ? `(${item.variant_name})` : ''}
-
+                                {item.pending_qty > 0 && <span style={{ marginLeft: 8, fontSize: '0.8em', color: '#b45309', fontWeight: 400 }}>(Pending: {item.pending_qty})</span>}
                             </td>
                             <td className="col-hsn">{item.hsn_sac || item.product_hsn || '—'}</td>
                             <td className="col-qty">{item.quantity}</td>
@@ -1137,8 +1137,8 @@ export default function InvoicePreviewModal({ invoice, onClose, autoOpenShare = 
                                     <td>
                                         {item.product_name}
                                         {item.variant_name ? ` (${item.variant_name})` : ''}
-
                                         {item.is_free ? <span style={{ marginLeft: 8, fontSize: '0.8em', color: '#166534', background: '#dcfce7', padding: '2px 6px', borderRadius: '4px' }}>FREE</span> : ''}
+                                        {item.pending_qty > 0 && <span style={{ marginLeft: 8, fontSize: '0.8em', color: '#b45309', fontWeight: 400 }}>(Pending: {item.pending_qty})</span>}
                                     </td>
                                     <td>{formatCurrency(item.price)}</td>
                                     <td>{item.quantity} {item.unit || 'PCS'}</td>

@@ -118,6 +118,7 @@ const api = {
     getInvoice: (id) => request(`/invoices/${id}`),
     createInvoice: (data) => request('/invoices', { method: 'POST', body: data }),
     deleteInvoice: (id) => request(`/invoices/${id}`, { method: 'DELETE' }),
+    mergeInvoices: (data) => request('/invoices/merge', { method: 'POST', body: data }),
     returnInvoice: (id, data) => request(`/invoices/${id}/return`, { method: 'POST', body: data }),
     updateInvoicePayment: (id, data) => request(`/invoices/${id}/payment`, { method: 'PUT', body: data }),
     fulfillInvoice: (id, data) => request(`/invoices/${id}/fulfill`, { method: 'POST', body: data }),

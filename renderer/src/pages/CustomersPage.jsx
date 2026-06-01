@@ -389,6 +389,30 @@ export default function CustomersPage() {
     const [search, setSearch] = useState('');
     const [loading, setLoading] = useState(true);
 
+    const [selectedCustomerIds, setSelectedCustomerIds] = useState([]);
+    const lastSelectedCustomerCount = useRef(0);
+    if (selectedCustomerIds.length > 0) {
+        lastSelectedCustomerCount.current = selectedCustomerIds.length;
+    }
+
+    async function handleBulkDeleteCustomers() {
+        if (selectedCustomerIds.length === 0) return;
+        const confirmDelete = window.confirm(`Are you sure you want to delete ${selectedCustomerIds.length} selected customers? This action is permanent and cannot be undone.`);
+        if (!confirmDelete) return;
+
+        try {
+            const promises = selectedCustomerIds.map(id => api.deleteCustomer(id));
+            await Promise.all(promises);
+            toast.success('Selected customers deleted successfully');
+            setSelectedCustomerIds([]);
+            loadCustomers();
+        } catch (err) {
+            toast.error(err.message || 'Failed to delete some customers');
+            loadCustomers();
+        }
+    }
+
+
     // Filters
     const [sortBy, setSortBy] = useState('Newest First');
     const [filterCredit, setFilterCredit] = useState('All');
@@ -469,6 +493,10 @@ export default function CustomersPage() {
     const [catalogSubcategory, setCatalogSubcategory] = useState('All');
     const [catalogBrand, setCatalogBrand] = useState('All');
     const [selectedProducts, setSelectedProducts] = useState([]);
+
+    useEffect(() => {
+        setSelectedCustomerIds([]);
+    }, [search, sortBy, filterCredit, currentPage, activePageTab]);
 
     const loadCoupons = useCallback(async () => {
         setLoadingCoupons(true);
@@ -904,7 +932,7 @@ export default function CustomersPage() {
                     onClick={() => setActivePageTab('marketing')}
                 >
                     <Icons.Tag size={16} />
-                    Marketing (Coupons)
+                    Marketing
                 </button>
             </div>
 
@@ -1002,28 +1030,153 @@ export default function CustomersPage() {
                             </div>
                         </div>
                     ) : (
-                        <div className="customers-table-wrap card">
-                            <table className="premium-table">
-                                <thead>
-                                    <tr>
-                                        <th>Name</th>
-                                        <th>Phone</th>
-                                        <th>Tier</th>
-                                        <th>Credit Limit</th>
-                                        <th>P-Credit Balance</th>
-                                        <th>GSTIN</th>
-                                        <th>Address</th>
-                                        <th>Joined</th>
-                                        <th className="text-right">Actions</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {paginatedCustomers.map(c => {
-                                        const isNegativeCredit = Number(c.p_credit_balance || 0) < 0;
-                                        return (
-                                            <tr key={c.id}>
-                                                <td className="fw-600">{c.name}</td>
-                                                <td className="text-secondary">{c.phone || '—'}</td>
+                        <>
+                            <div style={{
+                                display: 'flex',
+                                justifyContent: 'space-between',
+                                alignItems: 'center',
+                                background: 'rgba(255, 255, 255, 0.85)',
+                                backdropFilter: 'blur(8px)',
+                                border: selectedCustomerIds.length > 0 ? '1px solid var(--border-light)' : '0px solid transparent',
+                                padding: selectedCustomerIds.length > 0 ? '12px 24px' : '0px 24px',
+                                borderRadius: '12px',
+                                marginBottom: selectedCustomerIds.length > 0 ? '16px' : '0px',
+                                boxShadow: selectedCustomerIds.length > 0 ? '0 8px 30px rgba(0, 0, 0, 0.08)' : 'none',
+                                maxHeight: selectedCustomerIds.length > 0 ? '80px' : '0px',
+                                opacity: selectedCustomerIds.length > 0 ? 1 : 0,
+                                transform: selectedCustomerIds.length > 0 ? 'translateY(0)' : 'translateY(-10px)',
+                                pointerEvents: selectedCustomerIds.length > 0 ? 'auto' : 'none',
+                                overflow: 'hidden',
+                                transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)'
+                            }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                    <span style={{
+                                        background: 'var(--accent)',
+                                        color: '#fff',
+                                        padding: '2px 8px',
+                                        borderRadius: '20px',
+                                        fontSize: '12px',
+                                        fontWeight: 'bold'
+                                    }}>{selectedCustomerIds.length > 0 ? selectedCustomerIds.length : lastSelectedCustomerCount.current}</span>
+                                    <span style={{ fontWeight: '500', color: 'var(--text-secondary)' }}>Customers Selected</span>
+                                </div>
+                                <div style={{ display: 'flex', gap: '10px' }}>
+                                    <SButton 
+                                        variant="primary" 
+                                        tone="critical" 
+                                        onClick={handleBulkDeleteCustomers}
+                                    >
+                                        Delete Selected
+                                    </SButton>
+                                    <SButton 
+                                        variant="secondary" 
+                                        onClick={() => setSelectedCustomerIds([])}
+                                    >
+                                        Clear Selection
+                                    </SButton>
+                                </div>
+                            </div>
+
+                            <div className="customers-table-wrap card">
+                                <table className="premium-table">
+                                    <thead>
+                                        <tr>
+                                            <th style={{ width: '40px', textAlign: 'center' }}>
+                                                <div 
+                                                    onClick={() => {
+                                                        const allChecked = paginatedCustomers.length > 0 && selectedCustomerIds.length === paginatedCustomers.length;
+                                                        if (allChecked) {
+                                                            setSelectedCustomerIds([]);
+                                                        } else {
+                                                            setSelectedCustomerIds(paginatedCustomers.map(c => c.id));
+                                                        }
+                                                    }}
+                                                    style={{
+                                                        display: 'inline-flex',
+                                                        alignItems: 'center',
+                                                        justifyContent: 'center',
+                                                        width: '18px',
+                                                        height: '18px',
+                                                        borderRadius: '4px',
+                                                        border: '1.5px solid ' + (paginatedCustomers.length > 0 && selectedCustomerIds.length === paginatedCustomers.length ? 'var(--accent)' : 'var(--text-tertiary)'),
+                                                        background: paginatedCustomers.length > 0 && selectedCustomerIds.length === paginatedCustomers.length ? 'var(--accent)' : 'transparent',
+                                                        cursor: 'pointer',
+                                                        transition: 'all 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
+                                                        transform: paginatedCustomers.length > 0 && selectedCustomerIds.length === paginatedCustomers.length ? 'scale(1.05)' : 'scale(1)',
+                                                        userSelect: 'none',
+                                                        margin: '0 auto',
+                                                        boxShadow: paginatedCustomers.length > 0 && selectedCustomerIds.length === paginatedCustomers.length ? '0 2px 6px rgba(10, 110, 255, 0.2)' : 'none'
+                                                    }}
+                                                >
+                                                    <div style={{
+                                                        display: 'flex',
+                                                        alignItems: 'center',
+                                                        justifyContent: 'center',
+                                                        opacity: paginatedCustomers.length > 0 && selectedCustomerIds.length === paginatedCustomers.length ? 1 : 0,
+                                                        transform: paginatedCustomers.length > 0 && selectedCustomerIds.length === paginatedCustomers.length ? 'scale(1)' : 'scale(0.5)',
+                                                        transition: 'all 0.2s cubic-bezier(0.34, 1.56, 0.64, 1)'
+                                                    }}>
+                                                        <Icons.Check size={12} color="#fff" strokeWidth={3} />
+                                                    </div>
+                                                </div>
+                                            </th>
+                                            <th>Name</th>
+                                            <th>Phone</th>
+                                            <th>Tier</th>
+                                            <th>Credit Limit</th>
+                                            <th>P-Credit Balance</th>
+                                            <th>GSTIN</th>
+                                            <th>Address</th>
+                                            <th>Joined</th>
+                                            <th className="text-right">Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {paginatedCustomers.map(c => {
+                                            const isNegativeCredit = Number(c.p_credit_balance || 0) < 0;
+                                            return (
+                                                <tr key={c.id}>
+                                                    <td style={{ textAlign: 'center' }}>
+                                                        <div 
+                                                            onClick={() => {
+                                                                const isChecked = selectedCustomerIds.includes(c.id);
+                                                                if (isChecked) {
+                                                                    setSelectedCustomerIds(selectedCustomerIds.filter(id => id !== c.id));
+                                                                } else {
+                                                                    setSelectedCustomerIds([...selectedCustomerIds, c.id]);
+                                                                }
+                                                            }}
+                                                            style={{
+                                                                display: 'inline-flex',
+                                                                alignItems: 'center',
+                                                                justifyContent: 'center',
+                                                                width: '18px',
+                                                                height: '18px',
+                                                                borderRadius: '4px',
+                                                                border: '1.5px solid ' + (selectedCustomerIds.includes(c.id) ? 'var(--accent)' : 'var(--text-tertiary)'),
+                                                                background: selectedCustomerIds.includes(c.id) ? 'var(--accent)' : 'transparent',
+                                                                cursor: 'pointer',
+                                                                transition: 'all 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
+                                                                transform: selectedCustomerIds.includes(c.id) ? 'scale(1.05)' : 'scale(1)',
+                                                                userSelect: 'none',
+                                                                margin: '0 auto',
+                                                                boxShadow: selectedCustomerIds.includes(c.id) ? '0 2px 6px rgba(10, 110, 255, 0.2)' : 'none'
+                                                            }}
+                                                        >
+                                                            <div style={{
+                                                                display: 'flex',
+                                                                alignItems: 'center',
+                                                                justifyContent: 'center',
+                                                                opacity: selectedCustomerIds.includes(c.id) ? 1 : 0,
+                                                                transform: selectedCustomerIds.includes(c.id) ? 'scale(1)' : 'scale(0.5)',
+                                                                transition: 'all 0.2s cubic-bezier(0.34, 1.56, 0.64, 1)'
+                                                            }}>
+                                                                <Icons.Check size={12} color="#fff" strokeWidth={3} />
+                                                            </div>
+                                                        </div>
+                                                    </td>
+                                                    <td className="fw-600">{c.name}</td>
+                                                    <td className="text-secondary">{c.phone || '—'}</td>
                                                 <td>
                                                     <span className={`tier-badge tier-${(c.tier || 'C').toLowerCase()}`}>
                                                         Tier {c.tier || 'C'}
@@ -1054,22 +1207,64 @@ export default function CustomersPage() {
                                     })}
                                 </tbody>
                             </table>
-                            {totalPages > 1 && (
+                            {filteredAndSortedCustomers.length > 0 && (
                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 16px', borderTop: '1px solid var(--border-light)', marginTop: 8 }}>
                                     <span style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>
-                                        Showing {(currentPage - 1) * PAGE_SIZE + 1}–{Math.min(currentPage * PAGE_SIZE, filteredAndSortedCustomers.length)} of {filteredAndSortedCustomers.length}
+                                        Showing <strong style={{ color: 'var(--accent)', fontWeight: '600' }}>{(currentPage - 1) * PAGE_SIZE + 1}</strong> to <strong style={{ color: 'var(--accent)', fontWeight: '600' }}>{Math.min(currentPage * PAGE_SIZE, filteredAndSortedCustomers.length)}</strong> of <strong style={{ color: 'var(--accent)', fontWeight: '600' }}>{filteredAndSortedCustomers.length}</strong> records
                                     </span>
-                                    <div style={{ display: 'flex', gap: 8 }}>
-                                        <SButton variant="secondary" disabled={currentPage === 1} onClick={() => setCurrentPage(p => p - 1)}>
-                                            Prev
-                                        </SButton>
-                                        <SButton variant="secondary" disabled={currentPage === totalPages} onClick={() => setCurrentPage(p => p + 1)}>
-                                            Next
-                                        </SButton>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                        <button 
+                                            disabled={currentPage === 1} 
+                                            onClick={() => setCurrentPage(p => p - 1)}
+                                            style={{
+                                                background: 'transparent',
+                                                border: 'none',
+                                                color: 'var(--text-primary)',
+                                                cursor: currentPage === 1 ? 'not-allowed' : 'pointer',
+                                                fontSize: '16px',
+                                                padding: '4px 8px',
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                justifyContent: 'center',
+                                                outline: 'none',
+                                                opacity: currentPage === 1 ? 0.3 : 0.8,
+                                                transition: 'opacity 0.2s'
+                                            }}
+                                            onMouseEnter={(e) => { if (currentPage !== 1) e.currentTarget.style.opacity = '1'; }}
+                                            onMouseLeave={(e) => { if (currentPage !== 1) e.currentTarget.style.opacity = '0.8'; }}
+                                        >
+                                            &lt;
+                                        </button>
+                                        <span style={{ fontSize: '14px', fontWeight: '600', color: 'var(--text-secondary)', minWidth: '45px', textAlign: 'center' }}>
+                                            {currentPage} / {totalPages}
+                                        </span>
+                                        <button 
+                                            disabled={currentPage === totalPages} 
+                                            onClick={() => setCurrentPage(p => p + 1)}
+                                            style={{
+                                                background: 'transparent',
+                                                border: 'none',
+                                                color: 'var(--text-primary)',
+                                                cursor: currentPage === totalPages ? 'not-allowed' : 'pointer',
+                                                fontSize: '16px',
+                                                padding: '4px 8px',
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                justifyContent: 'center',
+                                                outline: 'none',
+                                                opacity: currentPage === totalPages ? 0.3 : 0.8,
+                                                transition: 'opacity 0.2s'
+                                            }}
+                                            onMouseEnter={(e) => { if (currentPage !== totalPages) e.currentTarget.style.opacity = '1'; }}
+                                            onMouseLeave={(e) => { if (currentPage !== totalPages) e.currentTarget.style.opacity = '0.8'; }}
+                                        >
+                                            &gt;
+                                        </button>
                                     </div>
                                 </div>
                             )}
                         </div>
+                        </>
                     )}
                 </>
             ) : (

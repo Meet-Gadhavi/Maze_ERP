@@ -1470,4 +1470,249 @@ async function triggerAutoEmail(invoiceId, isEdit) {
     }
 }
 
+// POST /api/invoices/merge
+router.post('/merge', async (req, res, next) => {
+    try {
+        await db.ready;
+        const { invoice_ids, customer_id, walk_in_name, walk_in_phone } = req.body;
+
+        if (!invoice_ids || !Array.isArray(invoice_ids) || invoice_ids.length < 2) {
+            return res.status(400).json({ error: 'Please select at least two invoices to merge.' });
+        }
+
+        const settingsRows = db.all('SELECT key, value FROM settings');
+        const settings = {};
+        settingsRows.forEach(r => { settings[r.key] = r.value; });
+
+        let newInvoiceId;
+        try {
+            db.transaction(() => {
+                // 1. Fetch original invoices
+                const placeholders = invoice_ids.map(() => '?').join(',');
+                const originalInvoices = db.all(`SELECT * FROM invoices WHERE id IN (${placeholders})`, invoice_ids);
+                if (originalInvoices.length !== invoice_ids.length) {
+                    res.status(400).json({ error: 'One or more of the selected invoices do not exist.' });
+                    const err = new Error('Abort'); err.apiResponse = true; throw err;
+                }
+
+                // 2. Fetch original items, payments, and serials
+                const originalItems = db.all(`SELECT * FROM invoice_items WHERE invoice_id IN (${placeholders})`, invoice_ids);
+                const originalPayments = db.all(`SELECT * FROM invoice_payments WHERE invoice_id IN (${placeholders})`, invoice_ids);
+                const allSerials = db.all(`SELECT * FROM product_serials WHERE invoice_id IN (${placeholders})`, invoice_ids);
+
+                // Group serials by product_id
+                const serialsMap = {};
+                allSerials.forEach(s => {
+                    if (!serialsMap[s.product_id]) serialsMap[s.product_id] = [];
+                    serialsMap[s.product_id].push(s.serial_number);
+                });
+
+                // 3. Restore Stock for original items if stock was deducted
+                for (const item of originalItems) {
+                    const inv = originalInvoices.find(i => i.id === item.invoice_id);
+                    if (inv && inv.is_stock_deducted === 1) {
+                        const product = db.get('SELECT * FROM products WHERE id = ?', [item.product_id]);
+                        if (product) {
+                            const isSecondary = item.unit === product.secondary_unit && product.secondary_unit;
+                            const conversionFactor = isSecondary ? (product.conversion_factor || 1) : 1;
+                            const restoreQty = (item.qty_delivered || item.quantity) * conversionFactor;
+
+                            if (item.variant_id) {
+                                db.run('UPDATE product_variants SET stock_quantity = stock_quantity + ? WHERE id = ?', [restoreQty, item.variant_id]);
+                            } else {
+                                db.run('UPDATE products SET stock_quantity = stock_quantity + ? WHERE id = ?', [restoreQty, item.product_id]);
+                            }
+
+                            if (item.batch_id) {
+                                db.run('UPDATE product_batches SET current_quantity = current_quantity + ? WHERE id = ?', [restoreQty, item.batch_id]);
+                            }
+                        }
+                    }
+                }
+
+                // Delete stock movements for original invoices
+                db.run(`DELETE FROM stock_movements WHERE reference_type = 'Invoice' AND reference_id IN (${placeholders})`, invoice_ids);
+
+                // 4. Aggregate items
+                // We group by product_id, variant_id, unit, price, is_free, item_gst_rate, item_discount_rate, batch_id
+                const groupedItems = {};
+                originalItems.forEach(item => {
+                    const key = `${item.product_id}_${item.variant_id || 'null'}_${item.unit || 'PCS'}_${item.price || 0}_${item.is_free ? 1 : 0}_${item.item_gst_rate || 0}_${item.item_discount_rate || 0}_${item.batch_id || 'null'}`;
+                    if (!groupedItems[key]) {
+                        groupedItems[key] = {
+                            product_id: item.product_id,
+                            product_name: item.product_name,
+                            quantity: 0,
+                            unit: item.unit || 'PCS',
+                            price: item.price || 0,
+                            is_free: !!item.is_free,
+                            item_gst_rate: item.item_gst_rate || 0,
+                            item_discount_rate: item.item_discount_rate || 0,
+                            batch_id: item.batch_id || null,
+                            variant_id: item.variant_id || null,
+                            variant_name: item.variant_name || '',
+                            qty_requested: 0,
+                            qty_delivered: 0,
+                            pending_qty: 0,
+                            original_price: item.original_price || 0
+                        };
+                    }
+                    groupedItems[key].quantity += item.quantity;
+                    groupedItems[key].qty_requested += item.qty_requested || item.quantity;
+                    groupedItems[key].qty_delivered += item.qty_delivered || item.quantity;
+                    groupedItems[key].pending_qty += item.pending_qty || 0;
+                });
+
+                // 5. Create new merged invoice row
+                const insertInvResult = db.run(
+                    'INSERT INTO invoices (customer_id, total, gst_rate, discount_rate, paid_amount, payment_status, walk_in_name, walk_in_phone, financial_status, is_advance, advance_amount, is_stock_deducted) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+                    [customer_id ? Number(customer_id) : null, 0, 0, 0, 0, 'UNPAID', walk_in_name || '', walk_in_phone || '', 'UNPAID', 0, 0, 1]
+                );
+                newInvoiceId = insertInvResult.lastInsertRowid;
+
+                // 6. Insert new combined items and update stock & serials
+                let finalTotal = 0;
+                for (const itemKey in groupedItems) {
+                    const item = groupedItems[itemKey];
+                    const product = db.get('SELECT * FROM products WHERE id = ?', [item.product_id]);
+                    if (!product) continue;
+
+                    const variant = item.variant_id ? db.get('SELECT * FROM product_variants WHERE id = ?', [item.variant_id]) : null;
+                    const isSecondary = item.unit === product.secondary_unit && product.secondary_unit;
+                    const conversionFactor = isSecondary ? (product.conversion_factor || 1) : 1;
+
+                    // Compute stock reduction for new combined quantities
+                    const reduceQty = item.qty_delivered * conversionFactor;
+
+                    if (reduceQty > 0) {
+                        if (item.variant_id) {
+                            db.run('UPDATE product_variants SET stock_quantity = stock_quantity - ? WHERE id = ?', [reduceQty, item.variant_id]);
+                        } else {
+                            db.run('UPDATE products SET stock_quantity = stock_quantity - ? WHERE id = ?', [reduceQty, product.id]);
+                        }
+
+                        if (item.batch_id) {
+                            db.run('UPDATE product_batches SET current_quantity = current_quantity - ? WHERE id = ?', [reduceQty, item.batch_id]);
+                        }
+
+                        // Stock movement for merged invoice
+                        db.run(
+                            'INSERT INTO stock_movements (product_id, variant_id, type, quantity, reference_type, reference_id, batch_id, notes) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+                            [item.product_id, item.variant_id, 'OUT', reduceQty, 'Invoice', newInvoiceId, item.batch_id, 'Merged Invoice Sale']
+                        );
+                    }
+
+                    // Calculate subtotal and tax/discount
+                    const lineTotal = item.price * item.quantity;
+                    const afterDisk = lineTotal - (lineTotal * (item.item_discount_rate / 100));
+                    const withGst = afterDisk + (afterDisk * (item.item_gst_rate / 100));
+                    finalTotal += withGst;
+
+                    const promoExpense = item.is_free ? (item.quantity * item.original_price) : 0;
+
+                    // Determine status for this combined item row
+                    let itemDeliveryStatus = 'Delivered';
+                    if (item.qty_delivered === 0) itemDeliveryStatus = 'Pending';
+                    else if (item.qty_delivered < item.qty_requested) itemDeliveryStatus = 'Partial';
+
+                    const insertItemResult = db.run(
+                        'INSERT INTO invoice_items (invoice_id, product_id, product_name, quantity, unit, price, total, qty_requested, qty_delivered, delivery_status, pending_qty, is_free, original_price, promo_expense, variant_id, variant_name, item_gst_rate, item_discount_rate, batch_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+                        [newInvoiceId, item.product_id, item.product_name, item.quantity, item.unit, item.price, lineTotal, item.qty_requested, item.qty_delivered, itemDeliveryStatus, item.pending_qty, item.is_free ? 1 : 0, item.original_price, promoExpense, item.variant_id, item.variant_name, item.item_gst_rate, item.item_discount_rate, item.batch_id]
+                    );
+                    const newInvoiceItemId = insertItemResult.lastInsertRowid;
+
+                    // Relink Serials
+                    if (product.track_serials && item.qty_delivered > 0) {
+                        const productSerials = serialsMap[product.id] || [];
+                        const itemSerials = productSerials.splice(0, item.qty_delivered);
+                        for (const sn of itemSerials) {
+                            db.run(
+                                "UPDATE product_serials SET status = 'Sold', invoice_id = ?, invoice_item_id = ? WHERE product_id = ? AND UPPER(serial_number) = ?",
+                                [newInvoiceId, newInvoiceItemId, product.id, sn.toUpperCase()]
+                            );
+                        }
+                    }
+                }
+
+                // 7. Copy Payments
+                let finalPaid = 0;
+                originalPayments.forEach(p => {
+                    db.run(
+                        'INSERT INTO invoice_payments (invoice_id, amount, method, transaction_id, notes, payment_date) VALUES (?, ?, ?, ?, ?, ?)',
+                        [newInvoiceId, p.amount, p.method, p.transaction_id, p.notes, p.payment_date]
+                    );
+                    finalPaid += p.amount;
+                });
+
+                // Recalculate payment status and delivery status
+                let finalPaymentStatus = 'PAID';
+                if (finalPaid === 0) finalPaymentStatus = 'UNPAID';
+                else if (finalPaid < finalTotal) finalPaymentStatus = 'PARTIAL';
+                else finalPaymentStatus = 'PAID';
+
+                let allDelivered = true;
+                let allPending = true;
+                for (const itemKey in groupedItems) {
+                    const item = groupedItems[itemKey];
+                    if (item.qty_delivered < item.qty_requested) allDelivered = false;
+                    if (item.qty_delivered > 0) allPending = false;
+                }
+                let invoiceDeliveryStatus = 'Delivered';
+                if (allDelivered) invoiceDeliveryStatus = 'Delivered';
+                else if (allPending) invoiceDeliveryStatus = 'Pending';
+                else invoiceDeliveryStatus = 'Partial';
+
+                let fulfillmentStatus = 'CONFIRMED';
+                let isPendingProduct = 0;
+                if (invoiceDeliveryStatus === 'Pending' || invoiceDeliveryStatus === 'Partial') {
+                    fulfillmentStatus = 'PENDING_PRODUCT';
+                    isPendingProduct = 1;
+                }
+
+                // Update invoice total and statuses
+                db.run('UPDATE invoices SET total = ?, paid_amount = ?, payment_status = ?, financial_status = ?, delivery_status = ?, fulfillment_status = ?, is_pending_product = ? WHERE id = ?',
+                    [finalTotal, finalPaid, finalPaymentStatus, finalPaymentStatus, invoiceDeliveryStatus, fulfillmentStatus, isPendingProduct, newInvoiceId]);
+
+                // Create Audit Log
+                db.run('INSERT INTO audit_logs (invoice_id, action, details) VALUES (?, ?, ?)',
+                    [newInvoiceId, 'Invoice Merged', `Merged original invoices (${invoice_ids.map(id => 'INV-' + String(id).padStart(4, '0')).join(', ')}) into merged invoice INV-${String(newInvoiceId).padStart(4, '0')}`]);
+
+                // 8. Delete original invoices
+                db.run(`DELETE FROM invoices WHERE id IN (${placeholders})`, invoice_ids);
+            });
+        } catch (txnErr) {
+            console.error('[Invoice Merge Error]', txnErr);
+            throw txnErr;
+        }
+
+        // Delete cloud hosted invoices and local tokens for merged invoices
+        for (const oldId of invoice_ids) {
+            const tokenRow = db.get("SELECT token FROM invoice_tokens WHERE invoice_id = ?", [oldId]);
+            if (tokenRow) {
+                const DB_URL = "https://mazeway-db.onrender.com";
+                const DB_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJncm91cCI6ImFub24iLCJpYXQiOjE3Nzk3MDA0Mzh9.mazeway_db_anon_5KUWRlLbhAarPceBoTlDGMTjNn8hvXtgSTCAGH7CSCOMxgwcZNojTpcYiqqUc3Ma";
+                
+                fetch(`${DB_URL}/api/v1/tables/hosted_invoices/rows`, {
+                    method: 'DELETE',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'apikey': DB_ANON_KEY,
+                        'Authorization': `Bearer ${DB_ANON_KEY}`
+                    },
+                    body: JSON.stringify({
+                        match: { invoice_id: oldId }
+                    })
+                }).catch(e => console.error(`[Delete Sync] Failed to delete hosted invoice #${oldId} from cloud DB:`, e.message));
+
+                db.run('DELETE FROM invoice_tokens WHERE invoice_id = ?', [oldId]);
+            }
+        }
+
+        res.json({ success: true, new_invoice_id: newInvoiceId });
+    } catch (err) {
+        next(err);
+    }
+});
+
 module.exports = router;
+

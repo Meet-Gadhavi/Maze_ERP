@@ -4,6 +4,68 @@ All notable changes to the Quantro ERP application will be documented here.
 
 ---
 
+## [2.6.11] - 2026-06-01
+### Fixed
+- **Pending Product Display in Minimalist/Formal Templates**:
+  - Added pending quantity displays next to product names in minimalist and formal invoice templates in both local preview panels and online client pages.
+- **Hosted Link Payment QR Code**:
+  - Added the `payment_qr_url` setting key to the allowed settings payload whitelist when generating public invoice links, enabling client browsers to render UPI and invoice payment QR codes successfully.
+
+### Changed
+- **Customer Directory Layout Cleaned**:
+  - Cleaned up tab buttons inside the customers page, changing the label from "Marketing (Coupons)" to simply "Marketing".
+
+## [2.6.10] - 2026-06-01
+### Fixed
+- **Reference Errors and Tab Crashes Fixed**:
+  - Resolved Hook Order / Rules of Hooks violation in conditional renderers `renderSuppliers` and `renderExpenses` inside `PurchasePage.jsx` by handling search page reset logic inside search input onChange events instead of conditional useRef declarations.
+  - Fixed `ReferenceError: React is not defined` crash inside `CustomersPage.jsx` by using the imported `useRef` hook directly instead of `React.useRef` for caching selection count values.
+- **Real-Time Price Sync for Paid Invoices**:
+  - Removed the financial status restriction from the product and variant inventory price update queries. Selling price modifications in inventory now sync to all related invoices regardless of their payment status, recalculating totals and updating payment statuses automatically.
+
+### Changed
+- **Smooth Popup Transition for Bulk Actions Bar**:
+  - Redesigned the floating bulk action toolbar in both the Invoices list and Customer Directory to use CSS transition values (`max-height`, `opacity`, `transform: translateY`, and `padding/margin`) for an extremely fluid sliding and fading entry/exit animation.
+
+## [2.6.9] - 2026-06-01
+### Changed
+- **Smooth Selection Checkbox Transitions**:
+  - Implemented high-quality spring scale transitions (`cubic-bezier` animations) for custom-styled select-all and table row checkboxes across Customers and Sales history tabs.
+  - Added click press shrinking states and subtle shadows for visual feedback.
+- **Suppliers, Expenses, and Returns Pagination**:
+  - Added paginated layouts and our premium orange-accent pagination footers to the Suppliers directory, Expenses tracker list, and active Return invoice items table inside the Purchase page.
+
+## [2.6.8] - 2026-05-31
+### Changed
+- **Custom Pagination Footer Styling**:
+  - Redesigned pagination footers across the Customer Directory, Sales History, and Purchase History tables to match premium accent designs.
+  - Numbers are now bolded and styled with orange/accent color (`var(--accent)`), and the separator is updated from an en-dash to the word "to".
+  - Replaced secondary styled button arrows with borderless/transparent navigation arrows (` < currentPage / totalPages > `) on the right side.
+  - Ensured pagination footers show whenever there are records in the list.
+
+### Fixed
+- **Variant Real-Time Price Sync**:
+  - Implemented real-time dynamic selling price sync for product variants during editing inside `PUT /api/products/variants/:id`.
+  - Restricted main product price dynamic sync in `PUT /api/products/:id` to exclude variants (using `(ii.variant_id IS NULL OR ii.variant_id = 0)`), preventing product selling price updates from overriding variant-specific line item prices on unpaid/partial invoices.
+- **Browser Favicon for Billing.maze**:
+  - Linked the favicon in the browser tab for the cloud-hosted shared invoice viewer (`billing.maze`).
+
+## [2.6.7] - 2026-05-31
+### Added
+- **Merge Invoices Feature**:
+  - Added checkbox selections next to invoices in the Sales Page history tab.
+  - Enabled merging of two or more selected invoices into a single combined invoice with an interactive modal to assign a customer (registered or walk-in) for the merged invoice.
+  - Aggregates invoice items and quantities, automatically restores and re-deducts inventory stock to prevent double deduction, updates batch quantities, relinks serial numbers, and copies all payments to preserve payment history.
+- **Bulk Invoice Deletion**:
+  - Added a premium custom-styled actions toolbar to bulk delete selected invoices from the history tab.
+- **Bulk Customer Deletion**:
+  - Added checkbox selections next to customers in the Customer Directory.
+  - Added a premium custom-styled actions toolbar to bulk delete selected customers from the directory.
+- **Table Pagination**:
+  - Added modern `< current_page / total_pages >` pagination layout (50 records per page) for the Customer Directory, Sales History, and Purchase History tables to browse large datasets seamlessly.
+
+---
+
 ## [2.6.6] - 2026-05-30
 ### Added
 - **Real-time Price Dynamic Sync Toggle**:

@@ -102,6 +102,40 @@ export default function SalesPage() {
     const [serialSelectLoading, setSerialSelectLoading] = useState(false);
     const [serialSearchQuery, setSerialSearchQuery] = useState('');
 
+    const [selectedInvoiceIds, setSelectedInvoiceIds] = useState([]);
+    const lastSelectedInvoiceCount = React.useRef(0);
+    if (selectedInvoiceIds.length > 0) {
+        lastSelectedInvoiceCount.current = selectedInvoiceIds.length;
+    }
+    const [showMergeModal, setShowMergeModal] = useState(false);
+    const [mergeCustomer, setMergeCustomer] = useState('');
+    const [mergeWalkInName, setMergeWalkInName] = useState('');
+    const [mergeWalkInPhone, setMergeWalkInPhone] = useState('');
+    const [merging, setMerging] = useState(false);
+
+    const filteredInvoices = useMemo(() => {
+        return invoices.filter(inv => {
+            const searchLower = historySearch.toLowerCase();
+            const invId = `INV-${String(inv.id).padStart(4, '0')}`.toLowerCase();
+            const custName = (inv.customer_name || 'Walk-in').toLowerCase();
+            const matchesSearch = invId.includes(searchLower) || custName.includes(searchLower);
+            const matchesFilter = paymentFilter === 'All' || inv.payment_status === paymentFilter;
+            const matchesCategory = categoryFilter === 'All' || (inv.items && inv.items.some(item => (item.category || 'General') === categoryFilter));
+            return matchesSearch && matchesFilter && matchesCategory;
+        });
+    }, [invoices, historySearch, paymentFilter, categoryFilter]);
+
+    const [historyPage, setHistoryPage] = useState(1);
+    const HISTORY_PAGE_SIZE = 50;
+    const totalHistoryPages = Math.max(1, Math.ceil(filteredInvoices.length / HISTORY_PAGE_SIZE));
+    const paginatedInvoices = useMemo(() => {
+        return filteredInvoices.slice((historyPage - 1) * HISTORY_PAGE_SIZE, historyPage * HISTORY_PAGE_SIZE);
+    }, [filteredInvoices, historyPage]);
+
+    useEffect(() => {
+        setHistoryPage(1);
+    }, [historySearch, paymentFilter, categoryFilter]);
+
     const [settings, setSettings] = useState({});
 
     useEffect(() => {
@@ -109,18 +143,10 @@ export default function SalesPage() {
         api.getCustomers().then(setCustomers).catch(() => { });
         api.getProducts().then(setProducts).catch(() => { });
         loadHistory();
+        setSelectedInvoiceIds([]);
         if (tab === 'new') setStep('customer');
         if (tab === 'ai-sales') loadMazewayOrders();
     }, [tab]);
-
-    // Auto-reload invoices when product prices are updated from Inventory page
-    useEffect(() => {
-        const handleProductPriceUpdate = () => {
-            loadHistory();
-        };
-        window.addEventListener('maze:product-price-updated', handleProductPriceUpdate);
-        return () => window.removeEventListener('maze:product-price-updated', handleProductPriceUpdate);
-    }, []);
 
     useEffect(() => {
         const params = new URLSearchParams(window.location.search || (window.location.hash.includes('?') ? window.location.hash.split('?')[1] : ''));
@@ -131,7 +157,6 @@ export default function SalesPage() {
             handleViewInvoice(Number(previewId));
         }
     }, [invoices]);
-
 
     const handleSelectCustomer = (customer) => {
         if (!customer) {
@@ -303,6 +328,74 @@ export default function SalesPage() {
             setInvoices(data);
         } catch (err) {
             console.error(err);
+        }
+    }
+
+    async function handleBulkDeleteInvoices() {
+        if (selectedInvoiceIds.length === 0) return;
+        const confirmDelete = window.confirm(`Are you sure you want to delete ${selectedInvoiceIds.length} selected invoices? This action is permanent and cannot be undone.`);
+        if (!confirmDelete) return;
+
+        try {
+            const promises = selectedInvoiceIds.map(id => api.deleteInvoice(id));
+            await Promise.all(promises);
+            toast.success('Invoices deleted successfully');
+            setSelectedInvoiceIds([]);
+            loadHistory();
+        } catch (err) {
+            toast.error(err.message || 'Failed to delete some invoices');
+            loadHistory();
+        }
+    }
+
+    async function handleMergeInvoices() {
+        if (selectedInvoiceIds.length < 2) {
+            return toast.error('Please select at least two invoices to merge');
+        }
+        
+        // Find if they all have the same customer_id to pre-select it
+        const selectedInvs = invoices.filter(inv => selectedInvoiceIds.includes(inv.id));
+        const firstCustId = selectedInvs[0]?.customer_id;
+        const allSameCustomer = selectedInvs.every(inv => inv.customer_id === firstCustId);
+
+        if (allSameCustomer && firstCustId) {
+            setMergeCustomer(String(firstCustId));
+            setMergeWalkInName('');
+            setMergeWalkInPhone('');
+        } else {
+            setMergeCustomer('walk-in');
+            setMergeWalkInName(selectedInvs[0]?.walk_in_name || '');
+            setMergeWalkInPhone(selectedInvs[0]?.walk_in_phone || '');
+        }
+
+        setShowMergeModal(true);
+    }
+
+    async function submitMergeInvoices() {
+        if (selectedInvoiceIds.length < 2) return;
+        
+        const payload = {
+            invoice_ids: selectedInvoiceIds,
+            customer_id: mergeCustomer === 'walk-in' ? null : Number(mergeCustomer),
+            walk_in_name: mergeCustomer === 'walk-in' ? mergeWalkInName.trim() : '',
+            walk_in_phone: mergeCustomer === 'walk-in' ? mergeWalkInPhone.trim() : ''
+        };
+
+        if (mergeCustomer === 'walk-in' && !payload.walk_in_name) {
+            return toast.error('Walk-in name is required');
+        }
+
+        setMerging(true);
+        try {
+            const res = await api.mergeInvoices(payload);
+            toast.success(`Invoices merged successfully! Merged Invoice: INV-${String(res.new_invoice_id).padStart(4, '0')}`);
+            setShowMergeModal(false);
+            setSelectedInvoiceIds([]);
+            loadHistory();
+        } catch (err) {
+            toast.error(err.message || 'Failed to merge invoices');
+        } finally {
+            setMerging(false);
         }
     }
 
@@ -2319,6 +2412,59 @@ export default function SalesPage() {
                         </div>
                     </div>
 
+                    <div style={{
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center',
+                        background: 'rgba(255, 255, 255, 0.85)',
+                        backdropFilter: 'blur(8px)',
+                        border: selectedInvoiceIds.length > 0 ? '1px solid var(--border-light)' : '0px solid transparent',
+                        padding: selectedInvoiceIds.length > 0 ? '12px 24px' : '0px 24px',
+                        borderRadius: '12px',
+                        marginBottom: selectedInvoiceIds.length > 0 ? '16px' : '0px',
+                        boxShadow: selectedInvoiceIds.length > 0 ? '0 8px 30px rgba(0, 0, 0, 0.08)' : 'none',
+                        maxHeight: selectedInvoiceIds.length > 0 ? '80px' : '0px',
+                        opacity: selectedInvoiceIds.length > 0 ? 1 : 0,
+                        transform: selectedInvoiceIds.length > 0 ? 'translateY(0)' : 'translateY(-10px)',
+                        pointerEvents: selectedInvoiceIds.length > 0 ? 'auto' : 'none',
+                        overflow: 'hidden',
+                        transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)'
+                    }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <span style={{
+                                background: 'var(--accent)',
+                                color: '#fff',
+                                padding: '2px 8px',
+                                borderRadius: '20px',
+                                fontSize: '12px',
+                                fontWeight: 'bold'
+                            }}>{selectedInvoiceIds.length > 0 ? selectedInvoiceIds.length : lastSelectedInvoiceCount.current}</span>
+                            <span style={{ fontWeight: '500', color: 'var(--text-secondary)' }}>Invoices Selected</span>
+                        </div>
+                        <div style={{ display: 'flex', gap: '10px' }}>
+                            <SButton 
+                                variant="primary" 
+                                onClick={handleMergeInvoices} 
+                                disabled={selectedInvoiceIds.length < 2}
+                            >
+                                Merge Invoices
+                            </SButton>
+                            <SButton 
+                                variant="primary" 
+                                tone="critical" 
+                                onClick={handleBulkDeleteInvoices}
+                            >
+                                Delete Selected
+                            </SButton>
+                            <SButton 
+                                variant="secondary" 
+                                onClick={() => setSelectedInvoiceIds([])}
+                            >
+                                Clear Selection
+                            </SButton>
+                        </div>
+                    </div>
+
                     <div className="history-table-wrap">
                         {invoices.length === 0 ? (
                             <div className="empty-state-premium">
@@ -2332,9 +2478,50 @@ export default function SalesPage() {
                                 </SButton>
                             </div>
                         ) : (
-                            <table>
+                            <>
+                                <table className="premium-table">
                                 <thead>
                                     <tr>
+                                        <th style={{ width: '40px', textAlign: 'center' }}>
+                                            <div 
+                                                onClick={() => {
+                                                    const allVisibleChecked = paginatedInvoices.length > 0 && paginatedInvoices.every(inv => selectedInvoiceIds.includes(inv.id));
+                                                    if (allVisibleChecked) {
+                                                        setSelectedInvoiceIds(selectedInvoiceIds.filter(id => !paginatedInvoices.some(inv => inv.id === id)));
+                                                    } else {
+                                                        const newSelected = new Set([...selectedInvoiceIds, ...paginatedInvoices.map(inv => inv.id)]);
+                                                        setSelectedInvoiceIds(Array.from(newSelected));
+                                                    }
+                                                }}
+                                                style={{
+                                                    display: 'inline-flex',
+                                                    alignItems: 'center',
+                                                    justifyContent: 'center',
+                                                    width: '18px',
+                                                    height: '18px',
+                                                    borderRadius: '4px',
+                                                    border: '1.5px solid ' + (paginatedInvoices.length > 0 && paginatedInvoices.every(inv => selectedInvoiceIds.includes(inv.id)) ? 'var(--accent)' : 'var(--text-tertiary)'),
+                                                    background: paginatedInvoices.length > 0 && paginatedInvoices.every(inv => selectedInvoiceIds.includes(inv.id)) ? 'var(--accent)' : 'transparent',
+                                                    cursor: 'pointer',
+                                                    transition: 'all 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
+                                                    transform: paginatedInvoices.length > 0 && paginatedInvoices.every(inv => selectedInvoiceIds.includes(inv.id)) ? 'scale(1.05)' : 'scale(1)',
+                                                    userSelect: 'none',
+                                                    margin: '0 auto',
+                                                    boxShadow: paginatedInvoices.length > 0 && paginatedInvoices.every(inv => selectedInvoiceIds.includes(inv.id)) ? '0 2px 6px rgba(10, 110, 255, 0.2)' : 'none'
+                                                }}
+                                            >
+                                                <div style={{
+                                                    display: 'flex',
+                                                    alignItems: 'center',
+                                                    justifyContent: 'center',
+                                                    opacity: paginatedInvoices.length > 0 && paginatedInvoices.every(inv => selectedInvoiceIds.includes(inv.id)) ? 1 : 0,
+                                                    transform: paginatedInvoices.length > 0 && paginatedInvoices.every(inv => selectedInvoiceIds.includes(inv.id)) ? 'scale(1)' : 'scale(0.5)',
+                                                    transition: 'all 0.2s cubic-bezier(0.34, 1.56, 0.64, 1)'
+                                                }}>
+                                                    <Icons.Check size={12} color="#fff" strokeWidth={3} />
+                                                </div>
+                                            </div>
+                                        </th>
                                         <th>Invoice #</th>
                                         <th>Customer</th>
                                         <th>Total</th>
@@ -2346,16 +2533,7 @@ export default function SalesPage() {
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    {invoices
-                                        .filter(inv => {
-                                            const searchLower = historySearch.toLowerCase();
-                                            const invId = `INV-${String(inv.id).padStart(4, '0')}`.toLowerCase();
-                                            const custName = (inv.customer_name || 'Walk-in').toLowerCase();
-                                            const matchesSearch = invId.includes(searchLower) || custName.includes(searchLower);
-                                            const matchesFilter = paymentFilter === 'All' || inv.payment_status === paymentFilter;
-                                            const matchesCategory = categoryFilter === 'All' || (inv.items && inv.items.some(item => (item.category || 'General') === categoryFilter));
-                                            return matchesSearch && matchesFilter && matchesCategory;
-                                        })
+                                    {paginatedInvoices
                                         .map(inv => {
                                             const originalTotal = Number(inv.total || 0);
                                             const returnedAmount = Number(inv.total_returned_amount || 0);
@@ -2379,6 +2557,45 @@ export default function SalesPage() {
 
                                             return (
                                                 <tr key={inv.id}>
+                                                    <td style={{ textAlign: 'center' }}>
+                                                        <div 
+                                                            onClick={() => {
+                                                                const isChecked = selectedInvoiceIds.includes(inv.id);
+                                                                if (isChecked) {
+                                                                    setSelectedInvoiceIds(selectedInvoiceIds.filter(id => id !== inv.id));
+                                                                } else {
+                                                                    setSelectedInvoiceIds([...selectedInvoiceIds, inv.id]);
+                                                                }
+                                                            }}
+                                                            style={{
+                                                                display: 'inline-flex',
+                                                                alignItems: 'center',
+                                                                justifyContent: 'center',
+                                                                width: '18px',
+                                                                height: '18px',
+                                                                borderRadius: '4px',
+                                                                border: '1.5px solid ' + (selectedInvoiceIds.includes(inv.id) ? 'var(--accent)' : 'var(--text-tertiary)'),
+                                                                background: selectedInvoiceIds.includes(inv.id) ? 'var(--accent)' : 'transparent',
+                                                                cursor: 'pointer',
+                                                                transition: 'all 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
+                                                                transform: selectedInvoiceIds.includes(inv.id) ? 'scale(1.05)' : 'scale(1)',
+                                                                userSelect: 'none',
+                                                                margin: '0 auto',
+                                                                boxShadow: selectedInvoiceIds.includes(inv.id) ? '0 2px 6px rgba(10, 110, 255, 0.2)' : 'none'
+                                                            }}
+                                                        >
+                                                            <div style={{
+                                                                display: 'flex',
+                                                                alignItems: 'center',
+                                                                justifyContent: 'center',
+                                                                opacity: selectedInvoiceIds.includes(inv.id) ? 1 : 0,
+                                                                transform: selectedInvoiceIds.includes(inv.id) ? 'scale(1)' : 'scale(0.5)',
+                                                                transition: 'all 0.2s cubic-bezier(0.34, 1.56, 0.64, 1)'
+                                                            }}>
+                                                                <Icons.Check size={12} color="#fff" strokeWidth={3} />
+                                                            </div>
+                                                        </div>
+                                                    </td>
                                                     <td className="fw-500">INV-{String(inv.id).padStart(4, '0')}</td>
                                                     <td>{displayName}</td>
                                                     <td className="fw-600">₹{effectiveTotal.toLocaleString('en-IN')}</td>
@@ -2465,6 +2682,63 @@ export default function SalesPage() {
                                         })}
                                 </tbody>
                             </table>
+                            {filteredInvoices.length > 0 && (
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 16px', borderTop: '1px solid var(--border-light)', marginTop: 8 }}>
+                                    <span style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>
+                                        Showing <strong style={{ color: 'var(--accent)', fontWeight: '600' }}>{(historyPage - 1) * HISTORY_PAGE_SIZE + 1}</strong> to <strong style={{ color: 'var(--accent)', fontWeight: '600' }}>{Math.min(historyPage * HISTORY_PAGE_SIZE, filteredInvoices.length)}</strong> of <strong style={{ color: 'var(--accent)', fontWeight: '600' }}>{filteredInvoices.length}</strong> records
+                                    </span>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                        <button 
+                                            disabled={historyPage === 1} 
+                                            onClick={() => setHistoryPage(p => p - 1)}
+                                            style={{
+                                                background: 'transparent',
+                                                border: 'none',
+                                                color: 'var(--text-primary)',
+                                                cursor: historyPage === 1 ? 'not-allowed' : 'pointer',
+                                                fontSize: '16px',
+                                                padding: '4px 8px',
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                justifyContent: 'center',
+                                                outline: 'none',
+                                                opacity: historyPage === 1 ? 0.3 : 0.8,
+                                                transition: 'opacity 0.2s'
+                                            }}
+                                            onMouseEnter={(e) => { if (historyPage !== 1) e.currentTarget.style.opacity = '1'; }}
+                                            onMouseLeave={(e) => { if (historyPage !== 1) e.currentTarget.style.opacity = '0.8'; }}
+                                        >
+                                            &lt;
+                                        </button>
+                                        <span style={{ fontSize: '14px', fontWeight: '600', color: 'var(--text-secondary)', minWidth: '45px', textAlign: 'center' }}>
+                                            {historyPage} / {totalHistoryPages}
+                                        </span>
+                                        <button 
+                                            disabled={historyPage === totalHistoryPages} 
+                                            onClick={() => setHistoryPage(p => p + 1)}
+                                            style={{
+                                                background: 'transparent',
+                                                border: 'none',
+                                                color: 'var(--text-primary)',
+                                                cursor: historyPage === totalHistoryPages ? 'not-allowed' : 'pointer',
+                                                fontSize: '16px',
+                                                padding: '4px 8px',
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                justifyContent: 'center',
+                                                outline: 'none',
+                                                opacity: historyPage === totalHistoryPages ? 0.3 : 0.8,
+                                                transition: 'opacity 0.2s'
+                                            }}
+                                            onMouseEnter={(e) => { if (historyPage !== totalHistoryPages) e.currentTarget.style.opacity = '1'; }}
+                                            onMouseLeave={(e) => { if (historyPage !== totalHistoryPages) e.currentTarget.style.opacity = '0.8'; }}
+                                        >
+                                            &gt;
+                                        </button>
+                                    </div>
+                                </div>
+                            )}
+                            </>
                         )}
                     </div>
                 </div>
@@ -3118,6 +3392,115 @@ export default function SalesPage() {
                         </div>
                     </div>
                 )}
+            </Modal>
+
+            <Modal
+                show={showMergeModal}
+                onClose={() => setShowMergeModal(false)}
+                title="Merge Invoices"
+                footer={
+                    <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
+                        <SButton variant="secondary" onClick={() => setShowMergeModal(false)}>
+                            Cancel
+                        </SButton>
+                        <SButton variant="primary" onClick={submitMergeInvoices} disabled={merging}>
+                            {merging ? 'Merging...' : 'Merge Invoices'}
+                        </SButton>
+                    </div>
+                }
+            >
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                    <p style={{ fontSize: '14px', color: 'var(--text-secondary)' }}>
+                        You are merging <strong>{selectedInvoiceIds.length}</strong> invoices:
+                    </p>
+                    <div style={{
+                        maxHeight: '120px',
+                        overflowY: 'auto',
+                        border: '1px solid var(--border-light)',
+                        borderRadius: '8px',
+                        padding: '8px',
+                        background: 'var(--bg-light)',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: '6px'
+                    }}>
+                        {invoices
+                            .filter(inv => selectedInvoiceIds.includes(inv.id))
+                            .map(inv => (
+                                <div key={inv.id} style={{ display: 'flex', justifyItems: 'center', justifyContent: 'space-between', fontSize: '13px' }}>
+                                    <span>INV-{String(inv.id).padStart(4, '0')} ({inv.customer_name || inv.walk_in_name || 'Walk-in'})</span>
+                                    <span className="fw-600">₹{Number(inv.total || 0).toLocaleString('en-IN')}</span>
+                                </div>
+                            ))
+                        }
+                    </div>
+
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                        <label style={{ fontSize: '13px', fontWeight: '600', color: 'var(--text-primary)' }}>
+                            Select Customer for Merged Invoice:
+                        </label>
+                        <CustomSelect
+                            value={mergeCustomer}
+                            onChange={val => {
+                                setMergeCustomer(val);
+                                if (val !== 'walk-in') {
+                                    setMergeWalkInName('');
+                                    setMergeWalkInPhone('');
+                                }
+                            }}
+                            options={[
+                                { value: 'walk-in', label: 'Walk-in Guest' },
+                                ...customers.map(c => ({
+                                    value: String(c.id),
+                                    label: `${c.name} (${c.phone || 'No Phone'})`
+                                }))
+                            ]}
+                        />
+                    </div>
+
+                    {mergeCustomer === 'walk-in' && (
+                        <div style={{ display: 'flex', gap: '12px' }}>
+                            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                                <label style={{ fontSize: '12px', fontWeight: '600', color: 'var(--text-secondary)' }}>
+                                    Walk-in Name:
+                                </label>
+                                <input
+                                    type="text"
+                                    placeholder="Customer Name"
+                                    value={mergeWalkInName}
+                                    onChange={e => setMergeWalkInName(e.target.value)}
+                                    style={{
+                                        padding: '8px 12px',
+                                        borderRadius: '6px',
+                                        border: '1px solid var(--border-light)',
+                                        fontSize: '13px',
+                                        outline: 'none',
+                                        background: 'var(--card-bg)'
+                                    }}
+                                />
+                            </div>
+                            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                                <label style={{ fontSize: '12px', fontWeight: '600', color: 'var(--text-secondary)' }}>
+                                    Walk-in Phone:
+                                </label>
+                                <input
+                                    type="text"
+                                    placeholder="Phone (Optional)"
+                                    value={mergeWalkInPhone}
+                                    onChange={e => setMergeWalkInPhone(e.target.value)}
+                                    style={{
+                                        padding: '8px 12px',
+                                        borderRadius: '6px',
+                                        border: '1px solid var(--border-light)',
+                                        fontSize: '13px',
+                                        outline: 'none',
+                                        background: 'var(--card-bg)'
+                                    }}
+                                />
+                            </div>
+                        </div>
+                    )}
+                </div>
             </Modal>
         </div>
     );

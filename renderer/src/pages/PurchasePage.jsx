@@ -15,6 +15,14 @@ export default function PurchasePage() {
     const [suppliers, setSuppliers] = useState([]);
     const [products, setProducts] = useState([]);
     const [purchases, setPurchases] = useState([]);
+    const [purchaseHistoryPage, setPurchaseHistoryPage] = useState(1);
+    const PURCHASE_HISTORY_PAGE_SIZE = 50;
+    const [suppliersPage, setSuppliersPage] = useState(1);
+    const SUPPLIERS_PAGE_SIZE = 50;
+    const [expensesPage, setExpensesPage] = useState(1);
+    const EXPENSES_PAGE_SIZE = 50;
+    const [returnItemsPage, setReturnItemsPage] = useState(1);
+    const RETURN_ITEMS_PAGE_SIZE = 50;
     const [categories, setCategories] = useState([]);
     const [expenses, setExpenses] = useState([]);
     const [expenseCategories, setExpenseCategories] = useState([]);
@@ -75,6 +83,10 @@ export default function PurchasePage() {
 
     useEffect(() => {
         loadData();
+        setPurchaseHistoryPage(1);
+        setSuppliersPage(1);
+        setExpensesPage(1);
+        setReturnItemsPage(1);
     }, [activeTab]);
 
     const loadData = async () => {
@@ -620,6 +632,10 @@ export default function PurchasePage() {
             if (supplierBalanceFilter === 'Clear') return Number(s.due_balance) <= 0;
             return true;
         });
+
+        const totalSuppliersPages = Math.max(1, Math.ceil(filtered.length / SUPPLIERS_PAGE_SIZE));
+        const paginatedSuppliers = filtered.slice((suppliersPage - 1) * SUPPLIERS_PAGE_SIZE, suppliersPage * SUPPLIERS_PAGE_SIZE);
+
         return (
             <div className="tab-content">
                 <div className="page-toolbar">
@@ -629,7 +645,10 @@ export default function PurchasePage() {
                             type="text"
                             placeholder="Search suppliers..."
                             value={supplierSearch}
-                            onChange={(e) => setSupplierSearch(e.target.value)}
+                            onChange={(e) => {
+                                setSupplierSearch(e.target.value);
+                                setSuppliersPage(1);
+                            }}
                         />
                     </div>
                     <div className="page-toolbar-actions">
@@ -674,7 +693,7 @@ export default function PurchasePage() {
                                 </tr>
                             </thead>
                             <tbody>
-                                {filtered.map(s => (
+                                {paginatedSuppliers.map(s => (
                                     <tr key={s.id}>
                                         <td className="fw-600 color-primary">{s.name}</td>
                                         <td>{s.phone}</td>
@@ -697,6 +716,62 @@ export default function PurchasePage() {
                                 ))}
                             </tbody>
                         </table>
+                        {filtered.length > 0 && (
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 16px', borderTop: '1px solid var(--border-light)', marginTop: 8 }}>
+                                <span style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>
+                                    Showing <strong style={{ color: 'var(--accent)', fontWeight: '600' }}>{(suppliersPage - 1) * SUPPLIERS_PAGE_SIZE + 1}</strong> to <strong style={{ color: 'var(--accent)', fontWeight: '600' }}>{Math.min(suppliersPage * SUPPLIERS_PAGE_SIZE, filtered.length)}</strong> of <strong style={{ color: 'var(--accent)', fontWeight: '600' }}>{filtered.length}</strong> records
+                                </span>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                    <button 
+                                        disabled={suppliersPage === 1} 
+                                        onClick={() => setSuppliersPage(p => p - 1)}
+                                        style={{
+                                            background: 'transparent',
+                                            border: 'none',
+                                            color: 'var(--text-primary)',
+                                            cursor: suppliersPage === 1 ? 'not-allowed' : 'pointer',
+                                            fontSize: '16px',
+                                            padding: '4px 8px',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            justifyContent: 'center',
+                                            outline: 'none',
+                                            opacity: suppliersPage === 1 ? 0.3 : 0.8,
+                                            transition: 'opacity 0.2s'
+                                        }}
+                                        onMouseEnter={(e) => { if (suppliersPage !== 1) e.currentTarget.style.opacity = '1'; }}
+                                        onMouseLeave={(e) => { if (suppliersPage !== 1) e.currentTarget.style.opacity = '0.8'; }}
+                                    >
+                                        &lt;
+                                    </button>
+                                    <span style={{ fontSize: '14px', fontWeight: '600', color: 'var(--text-secondary)', minWidth: '45px', textAlign: 'center' }}>
+                                        {suppliersPage} / {totalSuppliersPages}
+                                    </span>
+                                    <button 
+                                        disabled={suppliersPage === totalSuppliersPages} 
+                                        onClick={() => setSuppliersPage(p => p + 1)}
+                                        style={{
+                                            background: 'transparent',
+                                            border: 'none',
+                                            color: 'var(--text-primary)',
+                                            cursor: suppliersPage === totalSuppliersPages ? 'not-allowed' : 'pointer',
+                                            fontSize: '16px',
+                                            padding: '4px 8px',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            justifyContent: 'center',
+                                            outline: 'none',
+                                            opacity: suppliersPage === totalSuppliersPages ? 0.3 : 0.8,
+                                            transition: 'opacity 0.2s'
+                                        }}
+                                        onMouseEnter={(e) => { if (suppliersPage !== totalSuppliersPages) e.currentTarget.style.opacity = '1'; }}
+                                        onMouseLeave={(e) => { if (suppliersPage !== totalSuppliersPages) e.currentTarget.style.opacity = '0.8'; }}
+                                    >
+                                        &gt;
+                                    </button>
+                                </div>
+                            </div>
+                        )}
                     </div>
                 )}
             </div>
@@ -920,6 +995,12 @@ export default function PurchasePage() {
     };
 
     const renderHistory = () => {
+        const totalPurchaseHistoryPages = Math.max(1, Math.ceil(purchases.length / PURCHASE_HISTORY_PAGE_SIZE));
+        const paginatedPurchases = purchases.slice(
+            (purchaseHistoryPage - 1) * PURCHASE_HISTORY_PAGE_SIZE,
+            purchaseHistoryPage * PURCHASE_HISTORY_PAGE_SIZE
+        );
+
         return (
             <div className="tab-content">
                 {/* M023: CSV Export button */}
@@ -957,7 +1038,7 @@ export default function PurchasePage() {
                                 </tr>
                             </thead>
                             <tbody>
-                                {purchases.map(p => (
+                                {paginatedPurchases.map(p => (
                                     <tr key={p.id}>
                                         <td className="fw-600">#{p.bill_number || `P-${p.id}`}</td>
                                         <td className="color-primary">{p.supplier_name}</td>
@@ -982,6 +1063,62 @@ export default function PurchasePage() {
                                 ))}
                             </tbody>
                         </table>
+                        {purchases.length > 0 && (
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 16px', borderTop: '1px solid var(--border-light)', marginTop: 8 }}>
+                                <span style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>
+                                    Showing <strong style={{ color: 'var(--accent)', fontWeight: '600' }}>{(purchaseHistoryPage - 1) * PURCHASE_HISTORY_PAGE_SIZE + 1}</strong> to <strong style={{ color: 'var(--accent)', fontWeight: '600' }}>{Math.min(purchaseHistoryPage * PURCHASE_HISTORY_PAGE_SIZE, purchases.length)}</strong> of <strong style={{ color: 'var(--accent)', fontWeight: '600' }}>{purchases.length}</strong> records
+                                </span>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                    <button 
+                                        disabled={purchaseHistoryPage === 1} 
+                                        onClick={() => setPurchaseHistoryPage(p => p - 1)}
+                                        style={{
+                                            background: 'transparent',
+                                            border: 'none',
+                                            color: 'var(--text-primary)',
+                                            cursor: purchaseHistoryPage === 1 ? 'not-allowed' : 'pointer',
+                                            fontSize: '16px',
+                                            padding: '4px 8px',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            justifyContent: 'center',
+                                            outline: 'none',
+                                            opacity: purchaseHistoryPage === 1 ? 0.3 : 0.8,
+                                            transition: 'opacity 0.2s'
+                                        }}
+                                        onMouseEnter={(e) => { if (purchaseHistoryPage !== 1) e.currentTarget.style.opacity = '1'; }}
+                                        onMouseLeave={(e) => { if (purchaseHistoryPage !== 1) e.currentTarget.style.opacity = '0.8'; }}
+                                    >
+                                        &lt;
+                                    </button>
+                                    <span style={{ fontSize: '14px', fontWeight: '600', color: 'var(--text-secondary)', minWidth: '45px', textAlign: 'center' }}>
+                                        {purchaseHistoryPage} / {totalPurchaseHistoryPages}
+                                    </span>
+                                    <button 
+                                        disabled={purchaseHistoryPage === totalPurchaseHistoryPages} 
+                                        onClick={() => setPurchaseHistoryPage(p => p + 1)}
+                                        style={{
+                                            background: 'transparent',
+                                            border: 'none',
+                                            color: 'var(--text-primary)',
+                                            cursor: purchaseHistoryPage === totalPurchaseHistoryPages ? 'not-allowed' : 'pointer',
+                                            fontSize: '16px',
+                                            padding: '4px 8px',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            justifyContent: 'center',
+                                            outline: 'none',
+                                            opacity: purchaseHistoryPage === totalPurchaseHistoryPages ? 0.3 : 0.8,
+                                            transition: 'opacity 0.2s'
+                                        }}
+                                        onMouseEnter={(e) => { if (purchaseHistoryPage !== totalPurchaseHistoryPages) e.currentTarget.style.opacity = '1'; }}
+                                        onMouseLeave={(e) => { if (purchaseHistoryPage !== totalPurchaseHistoryPages) e.currentTarget.style.opacity = '0.8'; }}
+                                    >
+                                        &gt;
+                                    </button>
+                                </div>
+                            </div>
+                        )}
                     </div>
                 )}
             </div>
@@ -997,6 +1134,7 @@ export default function PurchasePage() {
             const data = await api.getPurchase(id);
             setReturnBill(data);
             setReturnItems({});
+            setReturnItemsPage(1);
             setActiveTab('returns');
         } catch (err) {
             alert(err.message);
@@ -1031,6 +1169,10 @@ export default function PurchasePage() {
             );
         }
 
+        const items = returnBill.items || [];
+        const totalReturnItemsPages = Math.max(1, Math.ceil(items.length / RETURN_ITEMS_PAGE_SIZE));
+        const paginatedReturnItems = items.slice((returnItemsPage - 1) * RETURN_ITEMS_PAGE_SIZE, returnItemsPage * RETURN_ITEMS_PAGE_SIZE);
+
         return (
             <div className="tab-content">
                 <div className="flex align-center gap-12 mb-20">
@@ -1053,7 +1195,7 @@ export default function PurchasePage() {
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    {returnBill.items?.map(item => {
+                                    {paginatedReturnItems.map(item => {
                                         const retQty = returnItems[item.product_id] || 0;
                                         const unitPrice = item.line_total / item.quantity;
                                         return (
@@ -1077,6 +1219,62 @@ export default function PurchasePage() {
                                     })}
                                 </tbody>
                             </table>
+                            {items.length > 0 && (
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 16px', borderTop: '1px solid var(--border-light)', marginTop: 8 }}>
+                                    <span style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>
+                                        Showing <strong style={{ color: 'var(--accent)', fontWeight: '600' }}>{(returnItemsPage - 1) * RETURN_ITEMS_PAGE_SIZE + 1}</strong> to <strong style={{ color: 'var(--accent)', fontWeight: '600' }}>{Math.min(returnItemsPage * RETURN_ITEMS_PAGE_SIZE, items.length)}</strong> of <strong style={{ color: 'var(--accent)', fontWeight: '600' }}>{items.length}</strong> records
+                                    </span>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                        <button 
+                                            disabled={returnItemsPage === 1} 
+                                            onClick={() => setReturnItemsPage(p => p - 1)}
+                                            style={{
+                                                background: 'transparent',
+                                                border: 'none',
+                                                color: 'var(--text-primary)',
+                                                cursor: returnItemsPage === 1 ? 'not-allowed' : 'pointer',
+                                                fontSize: '16px',
+                                                padding: '4px 8px',
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                justifyContent: 'center',
+                                                outline: 'none',
+                                                opacity: returnItemsPage === 1 ? 0.3 : 0.8,
+                                                transition: 'opacity 0.2s'
+                                            }}
+                                            onMouseEnter={(e) => { if (returnItemsPage !== 1) e.currentTarget.style.opacity = '1'; }}
+                                            onMouseLeave={(e) => { if (returnItemsPage !== 1) e.currentTarget.style.opacity = '0.8'; }}
+                                        >
+                                            &lt;
+                                        </button>
+                                        <span style={{ fontSize: '14px', fontWeight: '600', color: 'var(--text-secondary)', minWidth: '45px', textAlign: 'center' }}>
+                                            {returnItemsPage} / {totalReturnItemsPages}
+                                        </span>
+                                        <button 
+                                            disabled={returnItemsPage === totalReturnItemsPages} 
+                                            onClick={() => setReturnItemsPage(p => p + 1)}
+                                            style={{
+                                                background: 'transparent',
+                                                border: 'none',
+                                                color: 'var(--text-primary)',
+                                                cursor: returnItemsPage === totalReturnItemsPages ? 'not-allowed' : 'pointer',
+                                                fontSize: '16px',
+                                                padding: '4px 8px',
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                justifyContent: 'center',
+                                                outline: 'none',
+                                                opacity: returnItemsPage === totalReturnItemsPages ? 0.3 : 0.8,
+                                                transition: 'opacity 0.2s'
+                                            }}
+                                            onMouseEnter={(e) => { if (returnItemsPage !== totalReturnItemsPages) e.currentTarget.style.opacity = '1'; }}
+                                            onMouseLeave={(e) => { if (returnItemsPage !== totalReturnItemsPages) e.currentTarget.style.opacity = '0.8'; }}
+                                        >
+                                            &gt;
+                                        </button>
+                                    </div>
+                                </div>
+                            )}
                         </div>
                     </div>
 
@@ -1296,6 +1494,9 @@ export default function PurchasePage() {
             (e.category_name || '').toLowerCase().includes(expenseSearch.toLowerCase())
         );
 
+        const totalExpensesPages = Math.max(1, Math.ceil(filtered.length / EXPENSES_PAGE_SIZE));
+        const paginatedExpenses = filtered.slice((expensesPage - 1) * EXPENSES_PAGE_SIZE, expensesPage * EXPENSES_PAGE_SIZE);
+
         const currentMonth = new Date().toISOString().slice(0, 7); // YYYY-MM
         const monthlyTotal = expenses
             .filter(e => e.date.startsWith(currentMonth))
@@ -1402,7 +1603,10 @@ export default function PurchasePage() {
                                     type="text"
                                     placeholder="Search expenses by category or description..."
                                     value={expenseSearch}
-                                    onChange={(e) => setExpenseSearch(e.target.value)}
+                                    onChange={(e) => {
+                                        setExpenseSearch(e.target.value);
+                                        setExpensesPage(1);
+                                    }}
                                 />
                             </div>
                         </div>
@@ -1423,7 +1627,7 @@ export default function PurchasePage() {
                                     {filtered.length === 0 ? (
                                         <tr><td colSpan="6" className="text-center p-40 text-tertiary italic">No expenses recorded yet matching your search.</td></tr>
                                     ) : (
-                                        filtered.map(e => (
+                                        paginatedExpenses.map(e => (
                                             <tr key={e.id}>
                                                 <td className="fw-500 whitespace-nowrap">{formatDate(e.date)}</td>
                                                 <td><span className="badge badge-neutral">{e.category_name}</span></td>
@@ -1440,6 +1644,62 @@ export default function PurchasePage() {
                                     )}
                                 </tbody>
                             </table>
+                            {filtered.length > 0 && (
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 16px', borderTop: '1px solid var(--border-light)', marginTop: 8 }}>
+                                    <span style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>
+                                        Showing <strong style={{ color: 'var(--accent)', fontWeight: '600' }}>{(expensesPage - 1) * EXPENSES_PAGE_SIZE + 1}</strong> to <strong style={{ color: 'var(--accent)', fontWeight: '600' }}>{Math.min(expensesPage * EXPENSES_PAGE_SIZE, filtered.length)}</strong> of <strong style={{ color: 'var(--accent)', fontWeight: '600' }}>{filtered.length}</strong> records
+                                    </span>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                        <button 
+                                            disabled={expensesPage === 1} 
+                                            onClick={() => setExpensesPage(p => p - 1)}
+                                            style={{
+                                                background: 'transparent',
+                                                border: 'none',
+                                                color: 'var(--text-primary)',
+                                                cursor: expensesPage === 1 ? 'not-allowed' : 'pointer',
+                                                fontSize: '16px',
+                                                padding: '4px 8px',
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                justifyContent: 'center',
+                                                outline: 'none',
+                                                opacity: expensesPage === 1 ? 0.3 : 0.8,
+                                                transition: 'opacity 0.2s'
+                                            }}
+                                            onMouseEnter={(e) => { if (expensesPage !== 1) e.currentTarget.style.opacity = '1'; }}
+                                            onMouseLeave={(e) => { if (expensesPage !== 1) e.currentTarget.style.opacity = '0.8'; }}
+                                        >
+                                            &lt;
+                                        </button>
+                                        <span style={{ fontSize: '14px', fontWeight: '600', color: 'var(--text-secondary)', minWidth: '45px', textAlign: 'center' }}>
+                                            {expensesPage} / {totalExpensesPages}
+                                        </span>
+                                        <button 
+                                            disabled={expensesPage === totalExpensesPages} 
+                                            onClick={() => setExpensesPage(p => p + 1)}
+                                            style={{
+                                                background: 'transparent',
+                                                border: 'none',
+                                                color: 'var(--text-primary)',
+                                                cursor: expensesPage === totalExpensesPages ? 'not-allowed' : 'pointer',
+                                                fontSize: '16px',
+                                                padding: '4px 8px',
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                justifyContent: 'center',
+                                                outline: 'none',
+                                                opacity: expensesPage === totalExpensesPages ? 0.3 : 0.8,
+                                                transition: 'opacity 0.2s'
+                                            }}
+                                            onMouseEnter={(e) => { if (expensesPage !== totalExpensesPages) e.currentTarget.style.opacity = '1'; }}
+                                            onMouseLeave={(e) => { if (expensesPage !== totalExpensesPages) e.currentTarget.style.opacity = '0.8'; }}
+                                        >
+                                            &gt;
+                                        </button>
+                                    </div>
+                                </div>
+                            )}
                         </div>
                     </div>
                 </div>

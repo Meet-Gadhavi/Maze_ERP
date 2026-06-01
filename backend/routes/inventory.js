@@ -412,33 +412,27 @@ router.put('/:id', async (req, res, next) => {
 
         product = db.get('SELECT * FROM products WHERE id = ?', [Number(req.params.id)]);
 
-        // M060: Real-time Price Sync — update all invoice items for this product across ALL invoices
+        // M060: Check if real-time price sync toggle is on, and update invoice items
         const syncToggle = db.get("SELECT value FROM settings WHERE key = 'enable_realtime_price_update'");
         if (syncToggle && syncToggle.value === 'true' && selling_price !== undefined && Number(selling_price) > 0) {
             const productId = Number(req.params.id);
-            const newPrice = Number(selling_price);
-
-            // Get ALL invoice items for this product (no status restriction)
             const affectedItems = db.all(`
-                SELECT ii.id, ii.invoice_id, ii.quantity,
-                       COALESCE(ii.item_discount_rate, 0) AS item_discount_rate,
-                       COALESCE(ii.item_gst_rate, 0) AS item_gst_rate
+                SELECT ii.id, ii.invoice_id, ii.quantity
                 FROM invoice_items ii
+                JOIN invoices inv ON ii.invoice_id = inv.id
                 WHERE ii.product_id = ?
+                AND (ii.variant_id IS NULL OR ii.variant_id = 0)
             `, [productId]);
-
             if (affectedItems && affectedItems.length > 0) {
                 for (const item of affectedItems) {
-                    const discountedPrice = newPrice * (1 - (Number(item.item_discount_rate) / 100));
-                    const newTotal = Number(item.quantity) * discountedPrice;
+                    const newPrice = Number(selling_price);
+                    const newTotal = Number(item.quantity) * newPrice;
                     db.run("UPDATE invoice_items SET price = ?, total = ? WHERE id = ?", [newPrice, newTotal, item.id]);
                     recalculateInvoiceTotalsInline(item.invoice_id);
-                    console.log(`[Realtime Sync] Updated invoice #${item.invoice_id} item #${item.id}: price → ₹${newPrice}`);
+                    console.log(`[Realtime Sync] Updated invoice #${item.invoice_id} item #${item.id} price → ₹${newPrice}`);
                 }
-                console.log(`[Realtime Sync] Updated ${affectedItems.length} invoice items for product #${productId}`);
             }
         }
-
         }); // End transaction
         res.json(product);
         } catch (txnErr) {
@@ -554,12 +548,54 @@ router.put('/variants/:id', async (req, res, next) => {
     try {
         await db.ready;
         const { name, sku, cost_price, selling_price, stock_quantity, attributes } = req.body;
-        db.run(
-            'UPDATE product_variants SET name = ?, sku = ?, cost_price = ?, selling_price = ?, stock_quantity = ?, attributes = ? WHERE id = ?',
-            [name, sku, cost_price, selling_price, stock_quantity, JSON.stringify(attributes || {}), Number(req.params.id)]
-        );
+        const variantId = Number(req.params.id);
+
+        db.transaction(() => {
+            const existing = db.get('SELECT * FROM product_variants WHERE id = ?', [variantId]);
+            if (!existing) {
+                res.status(404).json({ error: 'Variant not found' });
+                const err = new Error('Abort');
+                err.apiResponse = true;
+                throw err;
+            }
+
+            db.run(
+                'UPDATE product_variants SET name = ?, sku = ?, cost_price = ?, selling_price = ?, stock_quantity = ?, attributes = ? WHERE id = ?',
+                [
+                    name !== undefined ? name : existing.name,
+                    sku !== undefined ? sku : existing.sku,
+                    cost_price !== undefined ? cost_price : existing.cost_price,
+                    selling_price !== undefined ? selling_price : existing.selling_price,
+                    stock_quantity !== undefined ? stock_quantity : existing.stock_quantity,
+                    attributes !== undefined ? JSON.stringify(attributes || {}) : existing.attributes,
+                    variantId
+                ]
+            );
+
+            // M060: Check if real-time price sync toggle is on, and update variant invoice items
+            const syncToggle = db.get("SELECT value FROM settings WHERE key = 'enable_realtime_price_update'");
+            if (syncToggle && syncToggle.value === 'true' && selling_price !== undefined && Number(selling_price) > 0) {
+                const affectedItems = db.all(`
+                    SELECT ii.id, ii.invoice_id, ii.quantity
+                    FROM invoice_items ii
+                    JOIN invoices inv ON ii.invoice_id = inv.id
+                    WHERE ii.variant_id = ?
+                `, [variantId]);
+                if (affectedItems && affectedItems.length > 0) {
+                    for (const item of affectedItems) {
+                        const newPrice = Number(selling_price);
+                        const newTotal = Number(item.quantity) * newPrice;
+                        db.run("UPDATE invoice_items SET price = ?, total = ? WHERE id = ?", [newPrice, newTotal, item.id]);
+                        recalculateInvoiceTotalsInline(item.invoice_id);
+                        console.log(`[Realtime Sync Variant] Updated invoice #${item.invoice_id} item #${item.id} price → ₹${newPrice}`);
+                    }
+                }
+            }
+        });
+
         res.json({ success: true });
     } catch (err) {
+        if (err.apiResponse) return;
         next(err);
     }
 });

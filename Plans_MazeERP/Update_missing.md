@@ -40,7 +40,7 @@ Quantro (Maze ERP) is a **high-performance multi-store and multi-user applicatio
 | Store Credit (P-Credit) | ✅ Complete | Balance tracking & usage |
 | Customer Categorization | ✅ Complete | Tiers A/B/C and discount settings |
 | Loyalty Points System | ❌ Missing | No rewards program |
-| SMS/Email Marketing | ❌ Missing | No campaign management |
+| SMS/Email Marketing |  ✅ Complate | campaign management |
 | Birthday/Anniversary Reminders | ❌ Missing | No automated greetings |
 | Customer Communication Log | ✅ Complete | Interaction history logs |
 | Credit Limit Management | ✅ Complete | Credit limits for customer transactions |
