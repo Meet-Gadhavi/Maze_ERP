@@ -882,7 +882,7 @@ export default function InvoicePreviewModal({ invoice, onClose, autoOpenShare = 
                             <td className="text-left" colSpan="4">
                                 <div style={{ marginBottom: '2px' }}>
                                     {item.product_name} {item.variant_name ? `(${item.variant_name})` : ''}
-
+                                    {item.pending_qty > 0 && <span style={{ marginLeft: 8, fontSize: '0.8em', color: 'var(--warning)', fontWeight: 400 }}>(Pending: {item.pending_qty})</span>}
                                 </div>
                                 <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '10px', color: '#444' }}>
                                     <span>{item.quantity} {item.unit || 'PCS'} x {formatCurrency(item.price)}</span>
