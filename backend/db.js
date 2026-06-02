@@ -48,6 +48,7 @@ const SETTINGS_KEYS = {
   AUTO_EMAIL_PAYMENT_RECEIVED: 'auto_email_payment_received',
   AUTO_EMAIL_DUE_REMINDER: 'auto_email_due_reminder',
   AUTO_EMAIL_DUE_REMINDER_DAYS: 'auto_email_due_reminder_days',
+  EXCLUDE_PENDING_PRICE: 'exclude_pending_price',
 
   AUTO_WHATSAPP_INVOICE_CREATED: 'auto_whatsapp_invoice_created',
   AUTO_WHATSAPP_INVOICE_EDITED: 'auto_whatsapp_invoice_edited',
@@ -406,7 +407,8 @@ ready = (async () => {
         [SETTINGS_KEYS.WHATSAPP_TOKEN, 'EAATPnZC7jFeIBRqggccKGFX3E8Q3UNUmNf4bS59ZCV8MpbzIvfaIHmFrMRvDIHRkiS91DlU110DKgvY5EHWqKzzKL3mgPO9iuv8iFnR5ZAr6GC3CKZC4jmBkZBzSNoFB1v7ArepgYwCUoAeM2UFca2wudIVnPZCJRVgc9W3n0k2S5BG9EmA95Q6g8x1ZAuMjvdkCgZDZD'],
         [SETTINGS_KEYS.WHATSAPP_PHONE_NUMBER_ID, '1117813404753239'],
         [SETTINGS_KEYS.WHATSAPP_BUSINESS_ACCOUNT_ID, '3150419608479658'],
-        [SETTINGS_KEYS.WHATSAPP_WEBHOOK_VERIFY_TOKEN, 'maze_secure_verify_2026']
+        [SETTINGS_KEYS.WHATSAPP_WEBHOOK_VERIFY_TOKEN, 'maze_secure_verify_2026'],
+        [SETTINGS_KEYS.EXCLUDE_PENDING_PRICE, 'false']
       ];
       defaultSettings.forEach(([key, value]) => {
         db.run('INSERT INTO settings (key, value) VALUES (?, ?)', [key, value]);
@@ -431,11 +433,13 @@ ready = (async () => {
         SETTINGS_KEYS.WHATSAPP_PHONE_NUMBER_ID, SETTINGS_KEYS.WHATSAPP_BUSINESS_ACCOUNT_ID, SETTINGS_KEYS.WHATSAPP_WEBHOOK_VERIFY_TOKEN,
         'billing_payment_method_added', 'billing_phone_number_purchased', 'billing_phone_number_details',
         'billing_whatsapp_non_csw_count', 'billing_voice_agent_seconds', 'billing_email_sent_count',
-        'billing_email_package_active', 'billing_email_package_due', 'billing_simulated_day'
+        'billing_email_package_active', 'billing_email_package_due', 'billing_simulated_day',
+        SETTINGS_KEYS.EXCLUDE_PENDING_PRICE
       ];
       keys.forEach(k => {
         let defaultValue = '';
         if (k === SETTINGS_KEYS.BACKUP_CYCLE) defaultValue = 'off';
+        else if (k === SETTINGS_KEYS.EXCLUDE_PENDING_PRICE) defaultValue = 'false';
         else if (k === SETTINGS_KEYS.ENABLE_BATCH_SYSTEM) defaultValue = 'true';
         else if (k === SETTINGS_KEYS.AUTO_BATCH_SELECTION_METHOD) defaultValue = 'FIFO';
         else if (k === SETTINGS_KEYS.ENABLE_SERIAL_TRACKING) defaultValue = 'true';

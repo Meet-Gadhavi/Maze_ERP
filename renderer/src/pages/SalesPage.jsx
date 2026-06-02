@@ -275,7 +275,10 @@ export default function SalesPage() {
         if (settings.enable_customer_display !== 'true') return;
 
         const subtotalValue = cart.reduce((s, i) => {
-            const base = (Number(i.price) || 0) * (Number(i.quantity) || 0);
+            const chargeQty = (settings.exclude_pending_price === 'true')
+                ? (i.maxStock <= 0 ? 0 : Math.min(i.quantity, i.maxStock))
+                : i.quantity;
+            const base = (Number(i.price) || 0) * chargeQty;
             if (settings.enable_gst_per_item === 'true' || settings.enable_discount_per_item === 'true') {
                 const d = Number(i.discount_rate) || 0;
                 const g = Number(i.gst_rate) || 0;
@@ -296,7 +299,10 @@ export default function SalesPage() {
 
         const syncData = {
             cart: cart.map(item => {
-                const baseTotal = (Number(item.quantity) || 0) * (Number(item.price) || 0);
+                const chargeQty = (settings.exclude_pending_price === 'true')
+                    ? (item.maxStock <= 0 ? 0 : Math.min(item.quantity, item.maxStock))
+                    : item.quantity;
+                const baseTotal = chargeQty * (Number(item.price) || 0);
                 const diskRate = Number(item.discount_rate) || 0;
                 const gRate = Number(item.gst_rate) || 0;
                 const afterDisk = baseTotal - (baseTotal * (diskRate / 100));
@@ -1014,7 +1020,10 @@ export default function SalesPage() {
 
     // M043: Memoize subtotal to avoid recomputing on every render
     const subtotalNum = useMemo(() => cart.reduce((sum, c) => {
-        const itemBase = Number(c.total || 0) || 0;
+        const chargeQty = (settings.exclude_pending_price === 'true')
+            ? (c.maxStock <= 0 ? 0 : Math.min(c.quantity, c.maxStock))
+            : c.quantity;
+        const itemBase = chargeQty * Number(c.price || 0);
         if (settings.enable_discount_per_item === 'true' || settings.enable_gst_per_item === 'true') {
             const diskRate = Number(c.discount_rate || 0) || 0;
             const gRate = Number(c.gst_rate || 0) || 0;
@@ -1023,7 +1032,7 @@ export default function SalesPage() {
             return sum + (Number(withGst) || 0);
         }
         return sum + itemBase;
-    }, 0) || 0, [cart, settings.enable_discount_per_item, settings.enable_gst_per_item]);
+    }, 0) || 0, [cart, settings.enable_discount_per_item, settings.enable_gst_per_item, settings.exclude_pending_price]);
 
     const subtotal = Number(subtotalNum) || 0;
     const couponDiscount = appliedCoupon
@@ -1902,7 +1911,10 @@ export default function SalesPage() {
                                                     )}
                                                     <td style={{ textAlign: 'right' }}>
                                                         <div style={{ fontWeight: 600 }}>₹{(() => {
-                                                            const baseTotal = item.quantity * item.price;
+                                                            const chargeQty = (settings.exclude_pending_price === 'true')
+                                                                ? (item.maxStock <= 0 ? 0 : Math.min(item.quantity, item.maxStock))
+                                                                : item.quantity;
+                                                            const baseTotal = chargeQty * item.price;
                                                             const diskRate = item.discount_rate || 0;
                                                             const gRate = item.gst_rate || 0;
                                                             const afterDisk = baseTotal - (baseTotal * (diskRate / 100));

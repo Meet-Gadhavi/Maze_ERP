@@ -428,7 +428,8 @@ router.post('/', async (req, res, next) => {
             const variantName = variant ? variant.name : '';
 
             const pendingQty = requestedQty - deliveredQty;
-            const lineTotal = price * requestedQty;
+            const chargeQty = (settings.exclude_pending_price === 'true') ? deliveredQty : requestedQty;
+            const lineTotal = price * chargeQty;
             
             // Per-item logic for subtotal
             const afterDisk = lineTotal - (lineTotal * (itemDiscountRate / 100));
@@ -1018,10 +1019,13 @@ router.put('/:id/payment', async (req, res, next) => {
     }
 });
 
-// POST /api/invoices/:id/fulfill — fulfill pending items
 router.post('/:id/fulfill', async (req, res, next) => {
     try {
         await db.ready;
+        const settingsRows = db.all('SELECT key, value FROM settings');
+        const settings = {};
+        settingsRows.forEach(r => { settings[r.key] = r.value; });
+
         const invoiceId = Number(req.params.id);
         const { fulfillments } = req.body; // Array of { product_id, deliver_qty }
 
@@ -1096,7 +1100,8 @@ router.post('/:id/fulfill', async (req, res, next) => {
             const newDelivered = item.qty_delivered + deliverQty;
             const newPending = item.qty_requested - newDelivered;
             const newStatus = newPending === 0 ? 'Delivered' : 'Partial';
-            const newLineTotal = item.price * newDelivered;
+            const chargeQty = (settings.exclude_pending_price === 'true') ? newDelivered : item.qty_requested;
+            const newLineTotal = item.price * chargeQty;
 
             db.run(
                 'UPDATE invoice_items SET qty_delivered = ?, pending_qty = ?, delivery_status = ?, total = ? WHERE id = ?',

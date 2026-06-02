@@ -48,7 +48,8 @@ export default function SettingsPage() {
         invoice_language: 'en',
         enable_serial_tracking: 'true',
         show_category_in_invoice: 'true',
-        enable_realtime_price_update: 'false'
+        enable_realtime_price_update: 'false',
+        exclude_pending_price: 'false'
     });
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
@@ -837,7 +838,8 @@ export default function SettingsPage() {
                                         { key: 'enable_discount_per_item', label: 'Enable Discount per item', desc: 'Allows adding discount for individual products during sale' },
                                         { key: 'enable_sku', label: 'Enable SKU / Product Code', desc: 'Shows SKU/Code in the invoice and checkout' },
                                         { key: 'show_category_in_invoice', label: 'Show Product Category', desc: 'Displays the product category in invoice previews, PDFs, and shared links' },
-                                        { key: 'enable_realtime_price_update', label: 'Real-time Price Dynamic Sync', desc: 'Automatically updates 0-priced products on existing invoices when their inventory selling price is updated' }
+                                        { key: 'enable_realtime_price_update', label: 'Real-time Price Dynamic Sync', desc: 'Automatically updates 0-priced products on existing invoices when their inventory selling price is updated' },
+                                        { key: 'exclude_pending_price', label: 'Exclude Pending Items Price', desc: 'Deducts/excludes the price of pending/backordered units from subtotal and invoice totals' }
                                     ].map(item => (
                                         <div key={item.key} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 16px', background: 'var(--bg-primary)', borderRadius: '8px', border: '1px solid var(--border-light)' }}>
                                             <div>
