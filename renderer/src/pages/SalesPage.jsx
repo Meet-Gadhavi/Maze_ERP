@@ -275,8 +275,9 @@ export default function SalesPage() {
         if (settings.enable_customer_display !== 'true') return;
 
         const subtotalValue = cart.reduce((s, i) => {
-            const chargeQty = (settings.exclude_pending_price === 'true')
-                ? (i.maxStock <= 0 ? 0 : Math.min(i.quantity, i.maxStock))
+            const availableStock = i.unit === i.secondaryUnit ? Math.floor(i.maxStock / i.conversionFactor) : i.maxStock;
+            const chargeQty = (settings.include_pending_price === 'false')
+                ? (availableStock <= 0 ? 0 : Math.min(i.quantity, availableStock))
                 : i.quantity;
             const base = (Number(i.price) || 0) * chargeQty;
             if (settings.enable_gst_per_item === 'true' || settings.enable_discount_per_item === 'true') {
@@ -299,8 +300,9 @@ export default function SalesPage() {
 
         const syncData = {
             cart: cart.map(item => {
-                const chargeQty = (settings.exclude_pending_price === 'true')
-                    ? (item.maxStock <= 0 ? 0 : Math.min(item.quantity, item.maxStock))
+                const availableStock = item.unit === item.secondaryUnit ? Math.floor(item.maxStock / item.conversionFactor) : item.maxStock;
+                const chargeQty = (settings.include_pending_price === 'false')
+                    ? (availableStock <= 0 ? 0 : Math.min(item.quantity, availableStock))
                     : item.quantity;
                 const baseTotal = chargeQty * (Number(item.price) || 0);
                 const diskRate = Number(item.discount_rate) || 0;
@@ -1020,8 +1022,9 @@ export default function SalesPage() {
 
     // M043: Memoize subtotal to avoid recomputing on every render
     const subtotalNum = useMemo(() => cart.reduce((sum, c) => {
-        const chargeQty = (settings.exclude_pending_price === 'true')
-            ? (c.maxStock <= 0 ? 0 : Math.min(c.quantity, c.maxStock))
+        const availableStock = c.unit === c.secondaryUnit ? Math.floor(c.maxStock / c.conversionFactor) : c.maxStock;
+        const chargeQty = (settings.include_pending_price === 'false')
+            ? (availableStock <= 0 ? 0 : Math.min(c.quantity, availableStock))
             : c.quantity;
         const itemBase = chargeQty * Number(c.price || 0);
         if (settings.enable_discount_per_item === 'true' || settings.enable_gst_per_item === 'true') {
@@ -1032,7 +1035,7 @@ export default function SalesPage() {
             return sum + (Number(withGst) || 0);
         }
         return sum + itemBase;
-    }, 0) || 0, [cart, settings.enable_discount_per_item, settings.enable_gst_per_item, settings.exclude_pending_price]);
+    }, 0) || 0, [cart, settings.enable_discount_per_item, settings.enable_gst_per_item, settings.include_pending_price]);
 
     const subtotal = Number(subtotalNum) || 0;
     const couponDiscount = appliedCoupon
@@ -1911,8 +1914,9 @@ export default function SalesPage() {
                                                     )}
                                                     <td style={{ textAlign: 'right' }}>
                                                         <div style={{ fontWeight: 600 }}>₹{(() => {
-                                                            const chargeQty = (settings.exclude_pending_price === 'true')
-                                                                ? (item.maxStock <= 0 ? 0 : Math.min(item.quantity, item.maxStock))
+                                                            const availableStock = item.unit === item.secondaryUnit ? Math.floor(item.maxStock / item.conversionFactor) : item.maxStock;
+                                                            const chargeQty = (settings.include_pending_price === 'false')
+                                                                ? (availableStock <= 0 ? 0 : Math.min(item.quantity, availableStock))
                                                                 : item.quantity;
                                                             const baseTotal = chargeQty * item.price;
                                                             const diskRate = item.discount_rate || 0;

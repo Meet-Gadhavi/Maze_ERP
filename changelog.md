@@ -6,6 +6,9 @@ All notable changes to the Quantro ERP application will be documented here.
 
 ## [2.6.9] - 2026-06-01
 ### Fixed
+- **Pending Items Pricing Option & Invoice Rendering**:
+  - Fixed an issue where the pending items price exclusion toggle (`include_pending_price === 'false'`) was not respected in the desktop invoice preview modal (Classic, Formal, POS, and Minimalist styles) and tax calculations, causing the preview to recalculate the full price using the requested quantity.
+  - Adjusted subtotal and tax calculation functions in the Sales page checkout to correctly handle conversion factors for secondary units when computing charge quantities under the price exclusion option.
 - **Invoice Return & Refund Logic**:
   - Corrected the invoice return uploader/processor to only hide the "Return" button on the Sales page when the entire invoice is fully returned (matching total items sold to total items returned).
   - Resolved an issue where a partial return with a refund balance erroneously set the invoice's financial status to "Returned"; it now correctly marks it as "Partially Returned".

@@ -12,7 +12,7 @@ const ALLOWED_SETTINGS_KEYS = new Set([
     'enable_batch_system', 'require_batch_number', 'enable_expiry_tracking',
     'auto_batch_selection_method', 'expiry_alert_days', 'allow_negative_batch_stock',
     'enable_gst_per_item', 'enable_discount_per_item', 'enable_sku', 'show_category_in_invoice', 'enable_realtime_price_update',
-    'exclude_pending_price',
+    'include_pending_price',
     'default_payment_method', 'backup_cycle', 'last_backup_date',
     'low_stock_threshold', 'flexible_inventory', 'enable_quick_sale',
     'enable_barcode_scanner', 'enable_customer_display', 'enable_cash_drawer',

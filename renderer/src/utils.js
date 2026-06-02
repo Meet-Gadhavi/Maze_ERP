@@ -164,12 +164,14 @@ export const amountToWords = (amount) => {
  * @param {Array} items 
  * @returns {Array} List of { hsn, taxable_amount, igst_rate, igst_amount, total_tax }
  */
-export const calculateTaxSummary = (items) => {
+export const calculateTaxSummary = (items, includePendingPrice = 'true') => {
     const summaryMap = {};
 
     (items || []).forEach(item => {
         const hsn = item.hsn_sac || item.product_hsn || '—';
-        const qty = Number(item.quantity || 0);
+        const qty = includePendingPrice === 'false'
+            ? (item.qty_delivered !== undefined && item.qty_delivered !== null ? item.qty_delivered : 0)
+            : Number(item.quantity || 0);
         const price = Number(item.price || 0);
         const discRate = Number(item.item_discount_rate || 0);
         const gstRate = Number(item.item_gst_rate || 0);

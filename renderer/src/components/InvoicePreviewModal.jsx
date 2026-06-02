@@ -403,7 +403,12 @@ export default function InvoicePreviewModal({ invoice, onClose, autoOpenShare = 
     const lang = settings?.invoice_language || localStorage.getItem('maze_language') || 'en';
     const t = translations[lang] || translations.en;
 
-    const totalQty = (invoice.items || []).reduce((s, i) => s + i.quantity, 0);
+    const totalQty = (invoice.items || []).reduce((s, i) => {
+        const chargeQty = (settings?.include_pending_price === 'false')
+            ? (i.qty_delivered !== undefined && i.qty_delivered !== null ? i.qty_delivered : 0)
+            : i.quantity;
+        return s + chargeQty;
+    }, 0);
     const originalTotal = Number(invoice.total || 0);
     const returnedAmount = Number(invoice.total_returned_amount || 0);
     const paidAmount = Number(invoice.paid_amount || 0);
@@ -427,7 +432,10 @@ export default function InvoicePreviewModal({ invoice, onClose, autoOpenShare = 
     };
 
     const subtotal = (invoice.items || []).reduce((s, i) => {
-        const base = Number(i.price || 0) * Number(i.quantity || 0);
+        const chargeQty = (settings?.include_pending_price === 'false')
+            ? (i.qty_delivered !== undefined && i.qty_delivered !== null ? i.qty_delivered : 0)
+            : i.quantity;
+        const base = Number(i.price || 0) * Number(chargeQty || 0);
         if (hasPerItem) {
             const d = Number(i.item_discount_rate || 0);
             const g = Number(i.item_gst_rate || 0);
@@ -445,7 +453,7 @@ export default function InvoicePreviewModal({ invoice, onClose, autoOpenShare = 
     const afterDiscount = Math.max(0, subtotal - discountAmount - couponDiscountAmount);
     const gstAmount = hasPerItem ? 0 : (afterDiscount * (gRate / 100));
     const calculatedTotal = afterDiscount + gstAmount;
-    const totalToUse = originalTotal > 0 ? originalTotal : calculatedTotal;
+    const totalToUse = (invoice.total !== undefined && invoice.total !== null) ? Number(invoice.total) : calculatedTotal;
     const effectiveTotal = Math.max(0, totalToUse - returnedAmount);
     const effectiveDue = Math.max(0, effectiveTotal - paidAmount);
     const finStatus = (invoice.financial_status || invoice.payment_status || '').toUpperCase();
@@ -464,7 +472,7 @@ export default function InvoicePreviewModal({ invoice, onClose, autoOpenShare = 
         }
     }
 
-    const taxSummary = calculateTaxSummary(invoice.items);
+    const taxSummary = calculateTaxSummary(invoice.items, settings?.include_pending_price);
     const uniqueMethods = invoice.payments && invoice.payments.length > 0 
         ? [...new Set(invoice.payments.map(p => p.method))]
         : [invoice.payment_method || 'Unpaid'];
@@ -545,45 +553,49 @@ export default function InvoicePreviewModal({ invoice, onClose, autoOpenShare = 
                     </tr>
                 </thead>
                 <tbody>
-                    {(invoice.items || []).map((item, idx) => (
-                        <tr key={item.id || idx}>
-                            <td style={{ color: 'var(--text-tertiary)' }}>{idx + 1}</td>
-                            <td style={{ fontWeight: 400 }}>
-                                {item.product_name}
-                                {item.variant_name ? ` (${item.variant_name})` : ''}
-                                {item.is_free ? <span style={{ marginLeft: 8, fontSize: '0.7em', color: 'var(--success)', fontWeight: 400, background: 'rgba(34, 197, 94, 0.1)', padding: '2px 6px', borderRadius: '4px', verticalAlign: 'middle' }}>🟢 FREE</span> : ''}
-                                {item.pending_qty > 0 && <span style={{ marginLeft: 8, fontSize: '0.8em', color: 'var(--warning)', fontWeight: 400 }}>(Pending: {item.pending_qty})</span>}
-                            </td>
-                            {settings?.enable_sku === 'true' && (
-                                <td style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)' }}>
-                                    {item.product_code || '—'}
+                    {(invoice.items || []).map((item, idx) => {
+                        const displayQty = (settings?.include_pending_price === 'false')
+                            ? (item.qty_delivered !== undefined && item.qty_delivered !== null ? item.qty_delivered : 0)
+                            : item.quantity;
+                        return (
+                            <tr key={item.id || idx}>
+                                <td style={{ color: 'var(--text-tertiary)' }}>{idx + 1}</td>
+                                <td style={{ fontWeight: 400 }}>
+                                    {item.product_name}
+                                    {item.variant_name ? ` (${item.variant_name})` : ''}
+                                    {item.is_free ? <span style={{ marginLeft: 8, fontSize: '0.7em', color: 'var(--success)', fontWeight: 400, background: 'rgba(34, 197, 94, 0.1)', padding: '2px 6px', borderRadius: '4px', verticalAlign: 'middle' }}>🟢 FREE</span> : ''}
+                                    {item.pending_qty > 0 && <span style={{ marginLeft: 8, fontSize: '0.8em', color: 'var(--warning)', fontWeight: 400 }}>(Pending: {item.pending_qty})</span>}
                                 </td>
-                            )}
-                            <td className="item-qty">
-                                {(() => {
-                                    const retQty = getItemReturnedQty(item);
-                                    const displayQty = item.qty_delivered || item.quantity;
-                                    const netQty = displayQty - retQty;
-                                    return retQty > 0
-                                        ? <span style={{ color: '#dc2626', fontWeight: 700 }}>{netQty}</span>
-                                        : displayQty;
-                                })()}
-                            </td>
-                            <td className="item-qty" style={{ fontWeight: 400 }}>{item.unit || 'PCS'}</td>
-                            <td className="item-price">{formatCurrency(item.price)}</td>
-                            {settings?.enable_gst_per_item === 'true' && (
-                                <td className="item-qty" style={{ color: 'var(--text-secondary)' }}>
-                                    {item.item_gst_rate ? `${item.item_gst_rate}%` : '—'}
+                                {settings?.enable_sku === 'true' && (
+                                    <td style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)' }}>
+                                        {item.product_code || '—'}
+                                    </td>
+                                )}
+                                <td className="item-qty">
+                                    {(() => {
+                                        const retQty = getItemReturnedQty(item);
+                                        const netQty = displayQty - retQty;
+                                        return retQty > 0
+                                            ? <span style={{ color: '#dc2626', fontWeight: 700 }}>{netQty}</span>
+                                            : displayQty;
+                                    })()}
                                 </td>
-                            )}
-                            {settings?.enable_discount_per_item === 'true' && (
-                                <td className="item-qty" style={{ color: 'var(--text-secondary)' }}>
-                                    {item.item_discount_rate ? `${item.item_discount_rate}%` : '—'}
-                                </td>
-                            )}
-                            <td style={{ textAlign: 'right', fontWeight: 400 }}>{formatCurrency(item.total)}</td>
-                        </tr>
-                    ))}
+                                <td className="item-qty" style={{ fontWeight: 400 }}>{item.unit || 'PCS'}</td>
+                                <td className="item-price">{formatCurrency(item.price)}</td>
+                                {settings?.enable_gst_per_item === 'true' && (
+                                    <td className="item-qty" style={{ color: 'var(--text-secondary)' }}>
+                                        {item.item_gst_rate ? `${item.item_gst_rate}%` : '—'}
+                                    </td>
+                                )}
+                                {settings?.enable_discount_per_item === 'true' && (
+                                    <td className="item-qty" style={{ color: 'var(--text-secondary)' }}>
+                                        {item.item_discount_rate ? `${item.item_discount_rate}%` : '—'}
+                                    </td>
+                                )}
+                                <td style={{ textAlign: 'right', fontWeight: 400 }}>{formatCurrency(item.total)}</td>
+                            </tr>
+                        );
+                    })}
                 </tbody>
             </table>
 
@@ -714,36 +726,41 @@ export default function InvoicePreviewModal({ invoice, onClose, autoOpenShare = 
                     </tr>
                 </thead>
                 <tbody>
-                    {(invoice.items || []).map((item, idx) => (
-                        <tr key={item.id || idx}>
-                            <td className="col-idx">{idx + 1}</td>
-                            <td className="col-name text-left">
-                                {item.product_name} {item.variant_name ? `(${item.variant_name})` : ''}
-                                {item.pending_qty > 0 && <span style={{ marginLeft: 8, fontSize: '0.8em', color: '#b45309', fontWeight: 400 }}>(Pending: {item.pending_qty})</span>}
-                            </td>
-                            <td className="col-hsn">{item.hsn_sac || item.product_hsn || '—'}</td>
-                            <td className="col-qty">
-                                {(() => {
-                                    const retQty = getItemReturnedQty(item);
-                                    const netQty = item.quantity - retQty;
-                                    return retQty > 0
-                                        ? <span style={{ color: '#dc2626', fontWeight: 700 }}>{netQty}</span>
-                                        : item.quantity;
-                                })()}
-                            </td>
-                            <td className="col-unit">{item.unit || 'Pcs'}</td>
-                            <td className="col-price text-right">{formatCurrency(item.price)}</td>
-                            <td className="col-gst text-right">
-                                {item.item_gst_rate > 0 ? (
-                                    <>
-                                        {formatCurrency((Number(item.price) * Number(item.quantity) * (1 - (item.item_discount_rate || 0) / 100)) * (item.item_gst_rate / 100))}
-                                        <br /><span className="gst-small">({item.item_gst_rate}%)</span>
-                                    </>
-                                ) : '—'}
-                            </td>
-                            <td className="col-amount text-right">{formatCurrency(item.total)}</td>
-                        </tr>
-                    ))}
+                    {(invoice.items || []).map((item, idx) => {
+                        const displayQty = (settings?.include_pending_price === 'false')
+                            ? (item.qty_delivered !== undefined && item.qty_delivered !== null ? item.qty_delivered : 0)
+                            : item.quantity;
+                        return (
+                            <tr key={item.id || idx}>
+                                <td className="col-idx">{idx + 1}</td>
+                                <td className="col-name text-left">
+                                    {item.product_name} {item.variant_name ? `(${item.variant_name})` : ''}
+                                    {item.pending_qty > 0 && <span style={{ marginLeft: 8, fontSize: '0.8em', color: '#b45309', fontWeight: 400 }}>(Pending: {item.pending_qty})</span>}
+                                </td>
+                                <td className="col-hsn">{item.hsn_sac || item.product_hsn || '—'}</td>
+                                <td className="col-qty">
+                                    {(() => {
+                                        const retQty = getItemReturnedQty(item);
+                                        const netQty = displayQty - retQty;
+                                        return retQty > 0
+                                            ? <span style={{ color: '#dc2626', fontWeight: 700 }}>{netQty}</span>
+                                            : displayQty;
+                                    })()}
+                                </td>
+                                <td className="col-unit">{item.unit || 'Pcs'}</td>
+                                <td className="col-price text-right">{formatCurrency(item.price)}</td>
+                                <td className="col-gst text-right">
+                                    {item.item_gst_rate > 0 ? (
+                                        <>
+                                            {formatCurrency((Number(item.price) * Number(displayQty) * (1 - (item.item_discount_rate || 0) / 100)) * (item.item_gst_rate / 100))}
+                                            <br /><span className="gst-small">({item.item_gst_rate}%)</span>
+                                        </>
+                                    ) : '—'}
+                                </td>
+                                <td className="col-amount text-right">{formatCurrency(item.total)}</td>
+                            </tr>
+                        );
+                    })}
                     <tr className="total-row-main">
                         <td colSpan="3" className="text-right total-label">{t.total}</td>
                         <td className="col-qty">{totalQty}</td>
@@ -913,20 +930,24 @@ export default function InvoicePreviewModal({ invoice, onClose, autoOpenShare = 
                     </tr>
                 </thead>
                 <tbody>
-                    {(invoice.items || []).map((item, idx) => (
-                        <tr key={item.id || idx}>
-                            <td className="text-left" colSpan="4">
-                                <div style={{ marginBottom: '2px' }}>
-                                    {item.product_name} {item.variant_name ? `(${item.variant_name})` : ''}
-
-                                </div>
-                                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '10px', color: '#444' }}>
-                                    <span>{item.quantity} {item.unit || 'PCS'} x {formatCurrency(item.price)}</span>
-                                    <span>{formatCurrency(item.total)}</span>
-                                </div>
-                            </td>
-                        </tr>
-                    ))}
+                    {(invoice.items || []).map((item, idx) => {
+                        const displayQty = (settings?.include_pending_price === 'false')
+                            ? (item.qty_delivered !== undefined && item.qty_delivered !== null ? item.qty_delivered : 0)
+                            : item.quantity;
+                        return (
+                            <tr key={item.id || idx}>
+                                <td className="text-left" colSpan="4">
+                                    <div style={{ marginBottom: '2px' }}>
+                                        {item.product_name} {item.variant_name ? `(${item.variant_name})` : ''}
+                                    </div>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '10px', color: '#444' }}>
+                                        <span>{displayQty} {item.unit || 'PCS'} x {formatCurrency(item.price)}</span>
+                                        <span>{formatCurrency(item.total)}</span>
+                                    </div>
+                                </td>
+                            </tr>
+                        );
+                    })}
                 </tbody>
             </table>
 
@@ -1168,28 +1189,33 @@ export default function InvoicePreviewModal({ invoice, onClose, autoOpenShare = 
                             </tr>
                         </thead>
                         <tbody>
-                            {(invoice.items || []).map((item, idx) => (
-                                <tr key={item.id || idx}>
-                                    <td>{idx + 1}</td>
-                                    <td>
-                                        {item.product_name}
-                                        {item.variant_name ? ` (${item.variant_name})` : ''}
-                                        {item.is_free ? <span style={{ marginLeft: 8, fontSize: '0.8em', color: '#166534', background: '#dcfce7', padding: '2px 6px', borderRadius: '4px' }}>FREE</span> : ''}
-                                        {item.pending_qty > 0 && <span style={{ marginLeft: 8, fontSize: '0.8em', color: '#b45309', fontWeight: 400 }}>(Pending: {item.pending_qty})</span>}
-                                    </td>
-                                    <td>{formatCurrency(item.price)}</td>
-                                    <td>
-                                        {(() => {
-                                            const retQty = getItemReturnedQty(item);
-                                            const netQty = item.quantity - retQty;
-                                            return retQty > 0
-                                                ? <span style={{ color: '#dc2626', fontWeight: 700 }}>{netQty} {item.unit || 'PCS'}</span>
-                                                : `${item.quantity} ${item.unit || 'PCS'}`;
-                                        })()}
-                                    </td>
-                                    <td>{formatCurrency(item.total)}</td>
-                                </tr>
-                            ))}
+                            {(invoice.items || []).map((item, idx) => {
+                                const displayQty = (settings?.include_pending_price === 'false')
+                                    ? (item.qty_delivered !== undefined && item.qty_delivered !== null ? item.qty_delivered : 0)
+                                    : item.quantity;
+                                return (
+                                    <tr key={item.id || idx}>
+                                        <td>{idx + 1}</td>
+                                        <td>
+                                            {item.product_name}
+                                            {item.variant_name ? ` (${item.variant_name})` : ''}
+                                            {item.is_free ? <span style={{ marginLeft: 8, fontSize: '0.8em', color: '#166534', background: '#dcfce7', padding: '2px 6px', borderRadius: '4px' }}>FREE</span> : ''}
+                                            {item.pending_qty > 0 && <span style={{ marginLeft: 8, fontSize: '0.8em', color: '#b45309', fontWeight: 400 }}>(Pending: {item.pending_qty})</span>}
+                                        </td>
+                                        <td>{formatCurrency(item.price)}</td>
+                                        <td>
+                                            {(() => {
+                                                const retQty = getItemReturnedQty(item);
+                                                const netQty = displayQty - retQty;
+                                                return retQty > 0
+                                                    ? <span style={{ color: '#dc2626', fontWeight: 700 }}>{netQty} {item.unit || 'PCS'}</span>
+                                                    : `${displayQty} ${item.unit || 'PCS'}`;
+                                            })()}
+                                        </td>
+                                        <td>{formatCurrency(item.total)}</td>
+                                    </tr>
+                                );
+                            })}
                         </tbody>
                     </table>
 

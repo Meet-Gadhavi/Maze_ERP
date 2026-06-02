@@ -428,7 +428,7 @@ router.post('/', async (req, res, next) => {
             const variantName = variant ? variant.name : '';
 
             const pendingQty = requestedQty - deliveredQty;
-            const chargeQty = (settings.exclude_pending_price === 'true') ? deliveredQty : requestedQty;
+            const chargeQty = (settings.include_pending_price === 'false') ? deliveredQty : requestedQty;
             const lineTotal = price * chargeQty;
             
             // Per-item logic for subtotal
@@ -1100,7 +1100,7 @@ router.post('/:id/fulfill', async (req, res, next) => {
             const newDelivered = item.qty_delivered + deliverQty;
             const newPending = item.qty_requested - newDelivered;
             const newStatus = newPending === 0 ? 'Delivered' : 'Partial';
-            const chargeQty = (settings.exclude_pending_price === 'true') ? newDelivered : item.qty_requested;
+            const chargeQty = (settings.include_pending_price === 'false') ? newDelivered : item.qty_requested;
             const newLineTotal = item.price * chargeQty;
 
             db.run(
