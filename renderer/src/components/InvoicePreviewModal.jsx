@@ -446,6 +446,21 @@ export default function InvoicePreviewModal({ invoice, onClose, autoOpenShare = 
         return s + base;
     }, 0);
 
+    const getItemTotal = (item) => {
+        const displayQty = (settings?.include_pending_price === 'false')
+            ? (item.qty_delivered !== undefined && item.qty_delivered !== null ? item.qty_delivered : 0)
+            : item.quantity;
+        const base = Number(item.price || 0) * Number(displayQty || 0);
+        if (hasPerItem) {
+            const d = Number(item.item_discount_rate || 0);
+            const g = Number(item.item_gst_rate || 0);
+            const afterD = base - (base * (d / 100));
+            const afterG = afterD + (afterD * (g / 100));
+            return afterG;
+        }
+        return base;
+    };
+
     const dRate = Number(invoice.discount_rate || 0);
     const gRate = Number(invoice.gst_rate || 0);
     const discountAmount = hasPerItem ? 0 : (subtotal * (dRate / 100));
@@ -592,7 +607,7 @@ export default function InvoicePreviewModal({ invoice, onClose, autoOpenShare = 
                                         {item.item_discount_rate ? `${item.item_discount_rate}%` : '—'}
                                     </td>
                                 )}
-                                <td style={{ textAlign: 'right', fontWeight: 400 }}>{formatCurrency(item.total)}</td>
+                                <td style={{ textAlign: 'right', fontWeight: 400 }}>{formatCurrency(getItemTotal(item))}</td>
                             </tr>
                         );
                     })}
@@ -757,7 +772,7 @@ export default function InvoicePreviewModal({ invoice, onClose, autoOpenShare = 
                                         </>
                                     ) : '—'}
                                 </td>
-                                <td className="col-amount text-right">{formatCurrency(item.total)}</td>
+                                <td className="col-amount text-right">{formatCurrency(getItemTotal(item))}</td>
                             </tr>
                         );
                     })}
@@ -942,7 +957,7 @@ export default function InvoicePreviewModal({ invoice, onClose, autoOpenShare = 
                                     </div>
                                     <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '10px', color: '#444' }}>
                                         <span>{displayQty} {item.unit || 'PCS'} x {formatCurrency(item.price)}</span>
-                                        <span>{formatCurrency(item.total)}</span>
+                                        <span>{formatCurrency(getItemTotal(item))}</span>
                                     </div>
                                 </td>
                             </tr>
@@ -1212,7 +1227,7 @@ export default function InvoicePreviewModal({ invoice, onClose, autoOpenShare = 
                                                     : `${displayQty} ${item.unit || 'PCS'}`;
                                             })()}
                                         </td>
-                                        <td>{formatCurrency(item.total)}</td>
+                                        <td>{formatCurrency(getItemTotal(item))}</td>
                                     </tr>
                                 );
                             })}

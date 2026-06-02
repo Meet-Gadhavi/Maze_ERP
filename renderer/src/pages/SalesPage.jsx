@@ -277,7 +277,7 @@ export default function SalesPage() {
         const subtotalValue = cart.reduce((s, i) => {
             const availableStock = i.unit === i.secondaryUnit ? Math.floor(i.maxStock / i.conversionFactor) : i.maxStock;
             const chargeQty = (settings.include_pending_price === 'false')
-                ? (availableStock <= 0 ? 0 : Math.min(i.quantity, availableStock))
+                ? (isAdvance ? 0 : (availableStock <= 0 ? 0 : Math.min(i.quantity, availableStock)))
                 : i.quantity;
             const base = (Number(i.price) || 0) * chargeQty;
             if (settings.enable_gst_per_item === 'true' || settings.enable_discount_per_item === 'true') {
@@ -302,7 +302,7 @@ export default function SalesPage() {
             cart: cart.map(item => {
                 const availableStock = item.unit === item.secondaryUnit ? Math.floor(item.maxStock / item.conversionFactor) : item.maxStock;
                 const chargeQty = (settings.include_pending_price === 'false')
-                    ? (availableStock <= 0 ? 0 : Math.min(item.quantity, availableStock))
+                    ? (isAdvance ? 0 : (availableStock <= 0 ? 0 : Math.min(item.quantity, availableStock)))
                     : item.quantity;
                 const baseTotal = chargeQty * (Number(item.price) || 0);
                 const diskRate = Number(item.discount_rate) || 0;
@@ -327,7 +327,7 @@ export default function SalesPage() {
         };
 
         window.maze?.updateCustomerDisplay(syncData);
-    }, [cart, discountRate, gstRate, discountEnabled, gstEnabled, settings, selectedCustomer, walkInName, customers]);
+    }, [cart, discountRate, gstRate, discountEnabled, gstEnabled, settings, selectedCustomer, walkInName, customers, isAdvance]);
 
 
     async function loadHistory() {
@@ -1024,7 +1024,7 @@ export default function SalesPage() {
     const subtotalNum = useMemo(() => cart.reduce((sum, c) => {
         const availableStock = c.unit === c.secondaryUnit ? Math.floor(c.maxStock / c.conversionFactor) : c.maxStock;
         const chargeQty = (settings.include_pending_price === 'false')
-            ? (availableStock <= 0 ? 0 : Math.min(c.quantity, availableStock))
+            ? (isAdvance ? 0 : (availableStock <= 0 ? 0 : Math.min(c.quantity, availableStock)))
             : c.quantity;
         const itemBase = chargeQty * Number(c.price || 0);
         if (settings.enable_discount_per_item === 'true' || settings.enable_gst_per_item === 'true') {
@@ -1035,7 +1035,7 @@ export default function SalesPage() {
             return sum + (Number(withGst) || 0);
         }
         return sum + itemBase;
-    }, 0) || 0, [cart, settings.enable_discount_per_item, settings.enable_gst_per_item, settings.include_pending_price]);
+    }, 0) || 0, [cart, settings.enable_discount_per_item, settings.enable_gst_per_item, settings.include_pending_price, isAdvance]);
 
     const subtotal = Number(subtotalNum) || 0;
     const couponDiscount = appliedCoupon
@@ -1916,7 +1916,7 @@ export default function SalesPage() {
                                                         <div style={{ fontWeight: 600 }}>₹{(() => {
                                                             const availableStock = item.unit === item.secondaryUnit ? Math.floor(item.maxStock / item.conversionFactor) : item.maxStock;
                                                             const chargeQty = (settings.include_pending_price === 'false')
-                                                                ? (availableStock <= 0 ? 0 : Math.min(item.quantity, availableStock))
+                                                                ? (isAdvance ? 0 : (availableStock <= 0 ? 0 : Math.min(item.quantity, availableStock)))
                                                                 : item.quantity;
                                                             const baseTotal = chargeQty * item.price;
                                                             const diskRate = item.discount_rate || 0;

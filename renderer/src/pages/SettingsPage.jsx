@@ -1627,6 +1627,8 @@ export default function SettingsPage() {
                                         <div style={{ fontSize: '13px', color: 'var(--text-secondary)', marginTop: '8px', lineHeight: 1.6 }}>
                                             <ul style={{ margin: 0, paddingLeft: '16px' }}>
                                                 <li><strong>On-Screen Keyboard &amp; Autofocus Cleanups:</strong> Removed all automatic focus-stealing `autoFocus` attributes from text input fields across the application to prevent Windows On-Screen Keyboards from automatically popping up.</li>
+                                                <li><strong>Fulfillment &amp; Advance Recalculations:</strong> Fixed invoice total calculations on advance processing (`process-advance` endpoint) and checkout under the price exclusion option. Added dynamic row total calculators to Classic, Minimalist, Formal, and POS invoice preview templates.</li>
+
                                             </ul>
                                         </div>
                                     </div>

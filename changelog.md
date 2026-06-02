@@ -7,6 +7,8 @@ All notable changes to the Quantro ERP application will be documented here.
 ## [2.7.0] - 2026-06-02
 ### Fixed
 - **On-Screen Keyboard & Autofocus Cleanups**: Removed all automatic focus-stealing `autoFocus` attributes from text input fields (including Customer forms, settings modals, Category/Sub-category/Brand forms, Payment modals, and Campaign builders). This prevents the Windows On-Screen Keyboard (OSK) from automatically popping up and stealing page/scroll focus when modals or views are opened.
+- **Fulfillment & Advance Total Recalculation**: Fixed invoice total price recalculation during advance processing (`process-advance` endpoint) to respect the `include_pending_price === 'false'` (price exclusion) setting, ensuring that fulfilling/delivering products increases the invoice total. Added dynamic row total calculators inside the Invoice Preview templates (Classic, Minimalist, Formal, POS) to prevent line item totals from mismatching the overall subtotal when settings toggle state changes. Also fixed a checkout-time total price calculation mismatch for advance invoices under the price exclusion option by ensuring the live cart displays 0/excludes pending items before they are delivered.
+
 
 ## [2.6.9] - 2026-06-01
 ### Fixed

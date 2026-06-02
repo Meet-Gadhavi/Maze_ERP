@@ -1181,9 +1181,14 @@ router.post('/:id/fulfill', async (req, res, next) => {
 router.post('/:id/process-advance', async (req, res, next) => {
     try {
         await db.ready;
+        const settingsRows = db.all('SELECT key, value FROM settings');
+        const settings = {};
+        settingsRows.forEach(r => { settings[r.key] = r.value; });
+
         const invoiceId = Number(req.params.id);
         let resultObj;
         let newPaymentStatus;
+        let newGrandTotal;
         try {
         db.transaction(() => {
         const invoice = db.get('SELECT * FROM invoices WHERE id = ?', [invoiceId]);
@@ -1229,9 +1234,12 @@ router.post('/:id/process-advance', async (req, res, next) => {
             const newDelivered = Number(item.qty_delivered || 0) + deliverNow;
             const newPending = pendingQtyBefore - deliverNow;
 
+            const chargeQty = (settings.include_pending_price === 'false') ? newDelivered : item.qty_requested;
+            const newLineTotal = item.price * chargeQty;
+
             db.run(
-                'UPDATE invoice_items SET qty_delivered = ?, pending_qty = ?, delivery_status = ? WHERE id = ?',
-                [newDelivered, newPending, status, item.id]
+                'UPDATE invoice_items SET qty_delivered = ?, pending_qty = ?, delivery_status = ?, total = ? WHERE id = ?',
+                [newDelivered, newPending, status, newLineTotal, item.id]
             );
 
             if (reduceBy > 0) {
@@ -1257,24 +1265,33 @@ router.post('/:id/process-advance', async (req, res, next) => {
         let fulfillmentStatus = invoiceDeliveryStatus === 'Delivered' ? 'COMPLETED' : 'PENDING_PRODUCT';
         let isPendingProduct = invoiceDeliveryStatus === 'Delivered' ? 0 : 1;
 
+        // Recalculate Invoice totals
+        const refreshedItems = db.all('SELECT * FROM invoice_items WHERE invoice_id = ?', [invoiceId]);
+        let newSubtotal = 0;
+        refreshedItems.forEach(i => newSubtotal += i.total);
+
+        const discountAmount = newSubtotal * (invoice.discount_rate / 100);
+        const afterDiscount = newSubtotal - discountAmount;
+        const gstAmount = afterDiscount * (invoice.gst_rate / 100);
+        newGrandTotal = afterDiscount + gstAmount;
+
         // Payment status logic after advance is processed
         const paidAmount = Number(invoice.paid_amount || 0);
-        const total = Number(invoice.total || 0);
         const returnedAmount = Number(invoice.total_returned_amount || 0);
-        const effectiveTotal = Math.max(0, total - returnedAmount);
+        const effectiveTotal = Math.max(0, newGrandTotal - returnedAmount);
 
         newPaymentStatus = 'PAID';
         if (paidAmount === 0) newPaymentStatus = 'UNPAID';
         else if (paidAmount < effectiveTotal) newPaymentStatus = 'PARTIAL';
         else newPaymentStatus = 'PAID';
 
-        db.run('UPDATE invoices SET is_stock_deducted = 1, payment_status = ?, financial_status = ?, delivery_status = ?, fulfillment_status = ?, is_pending_product = ? WHERE id = ?',
-            [newPaymentStatus, newPaymentStatus, invoiceDeliveryStatus, fulfillmentStatus, isPendingProduct, invoiceId]);
+        db.run('UPDATE invoices SET total = ?, is_stock_deducted = 1, payment_status = ?, financial_status = ?, delivery_status = ?, fulfillment_status = ?, is_pending_product = ? WHERE id = ?',
+            [newGrandTotal, newPaymentStatus, newPaymentStatus, invoiceDeliveryStatus, fulfillmentStatus, isPendingProduct, invoiceId]);
 
         }); // End transaction
         triggerAutoEmail(invoiceId, true);
         syncInvoiceIfShared(invoiceId);
-        res.json({ success: true, payment_status: newPaymentStatus });
+        res.json({ success: true, payment_status: newPaymentStatus, grand_total: newGrandTotal });
         } catch (txnErr) {
             if (txnErr.apiResponse) return;
             throw txnErr;
