@@ -1601,7 +1601,6 @@ export default function CustomersPage() {
                             value={form.name} 
                             onChange={e => setForm({ ...form, name: e.target.value })} 
                             placeholder="e.g. John Doe" 
-                            autoFocus 
                         />
                     </FormGroup>
                     <div className="grid-2 gap-16">
@@ -1708,14 +1707,13 @@ export default function CustomersPage() {
                 <div className="flex-column gap-16">
                     <FormGroup label="Default Discount Percentage (%)" required>
                         <Input 
-                            type="number"
-                            min="0"
-                            max="100"
-                            step="any"
+                            type="number" 
+                            min="0" 
+                            max="100" 
+                            step="any" 
                             value={editingTierDiscount} 
                             onChange={e => setEditingTierDiscount(e.target.value)} 
                             placeholder="e.g. 10" 
-                            autoFocus 
                         />
                     </FormGroup>
                     <p className="text-secondary" style={{ fontSize: '12.5px', lineHeight: 1.4 }}>
@@ -1900,7 +1898,6 @@ export default function CustomersPage() {
                             value={couponForm.code}
                             onChange={e => setCouponForm({ ...couponForm, code: e.target.value.toUpperCase().replace(/[^A-Z0-9_-]/g, '') })}
                             placeholder="e.g. SAVE20, WELCOME500"
-                            autoFocus
                         />
                         <p style={{ fontSize: '11px', color: 'var(--text-secondary)', marginTop: '4px' }}>Alphanumeric characters only, automatically capitalized.</p>
                     </FormGroup>
@@ -2158,7 +2155,6 @@ export default function CustomersPage() {
                                 value={campaignForm.name}
                                 onChange={e => setCampaignForm({ ...campaignForm, name: e.target.value })}
                                 placeholder="e.g. Summer Discount Blast"
-                                autoFocus
                             />
                         </FormGroup>
                         <FormGroup label="Template Selection" required>

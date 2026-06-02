@@ -3085,7 +3085,6 @@ export default function SalesPage() {
                             else setNewPaymentAmount(val);
                         }}
                         placeholder="Enter amount user is paying now..."
-                        autoFocus
                     />
                 </div>
 
@@ -3206,7 +3205,6 @@ export default function SalesPage() {
                         placeholder="Search product for free perk…"
                         value={productSearch}
                         onChange={e => setProductSearch(e.target.value)}
-                        autoFocus
                     />
                 </div>
                 <div style={{ maxHeight: '300px', overflowY: 'auto', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)' }}>
@@ -3377,7 +3375,6 @@ export default function SalesPage() {
                                     background: 'var(--bg-secondary)',
                                     color: 'var(--text-primary)'
                                 }}
-                                autoFocus
                             />
                         </div>
 

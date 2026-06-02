@@ -43,12 +43,7 @@ export default function QuickSaleView({
         addToCartRef.current = addToCart;
     }, [addToCart]);
 
-    // Auto-focus search input to be ready for barcode scanner
-    useEffect(() => {
-        if (searchInputRef.current) {
-            searchInputRef.current.focus();
-        }
-    }, []);
+
 
     // Update categories scroll indicators
     const updateScrollState = () => {

@@ -1416,7 +1416,6 @@ export default function PurchasePage() {
                                                 onChange={e => setPaymentAmount(e.target.value)} 
                                                 placeholder="0.00" 
                                                 disabled={isProcessing || isDone}
-                                                autoFocus
                                             />
                                         </FormGroup>
                                         <FormGroup label="Payment Mode">
@@ -2005,7 +2004,7 @@ export default function PurchasePage() {
                             <div className="modal-section-title">Product Identity</div>
                             <div className="grid grid-2 gap-12" style={{ marginBottom: 14 }}>
                                 <FormGroup label="Product Name" required>
-                                    <Input value={newProductForm.name || ''} onChange={e => setNewProductForm({ ...newProductForm, name: e.target.value })} placeholder="e.g. Engine Oil 1L" autoFocus />
+                                    <Input value={newProductForm.name || ''} onChange={e => setNewProductForm({ ...newProductForm, name: e.target.value })} placeholder="e.g. Engine Oil 1L" />
                                 </FormGroup>
                                 <FormGroup label="Product Code / SKU">
                                     <Input value={newProductForm.product_code || ''} onChange={e => setNewProductForm({ ...newProductForm, product_code: e.target.value })} placeholder="e.g. SKU-101" />
@@ -2343,7 +2342,7 @@ export default function PurchasePage() {
                     }
                 >
                     <FormGroup label="Category Name" required>
-                        <Input value={newCatName} onChange={e => setNewCatName(e.target.value)} placeholder="e.g. Fluids" autoFocus />
+                        <Input value={newCatName} onChange={e => setNewCatName(e.target.value)} placeholder="e.g. Fluids" />
                     </FormGroup>
                 </Modal>
             )}
@@ -2377,7 +2376,7 @@ export default function PurchasePage() {
                         Parent Category: <strong style={{ color: 'var(--accent)' }}>{newProductForm.category || 'General'}</strong>
                     </div>
                     <FormGroup label="Sub-category Name" required>
-                        <Input value={newSubCatName} onChange={e => setNewSubCatName(e.target.value)} placeholder="e.g. Synthetic Oil" autoFocus />
+                        <Input value={newSubCatName} onChange={e => setNewSubCatName(e.target.value)} placeholder="e.g. Synthetic Oil" />
                     </FormGroup>
                 </Modal>
             )}
@@ -2407,7 +2406,7 @@ export default function PurchasePage() {
                     }
                 >
                     <FormGroup label="Brand Name" required>
-                        <Input value={newBrandName} onChange={e => setNewBrandName(e.target.value)} placeholder="e.g. Mobil1" autoFocus />
+                        <Input value={newBrandName} onChange={e => setNewBrandName(e.target.value)} placeholder="e.g. Mobil1" />
                     </FormGroup>
                 </Modal>
             )}

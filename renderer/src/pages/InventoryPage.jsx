@@ -975,7 +975,6 @@ export default function InventoryPage() {
                         min="0"
                         value={adjustQuantity}
                         onChange={e => setAdjustQuantity(e.target.value)}
-                        autoFocus
                         placeholder="0"
                     />
                 </FormGroup>
@@ -1117,7 +1116,7 @@ export default function InventoryPage() {
                             <div className="modal-section-title">Product Identity</div>
                             <div className="grid grid-2 gap-12" style={{ marginBottom: 14 }}>
                                 <FormGroup label="Product Name" required>
-                                    <Input value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} placeholder="e.g. Engine Oil 1L" autoFocus />
+                                    <Input value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} placeholder="e.g. Engine Oil 1L" />
                                 </FormGroup>
                                 <FormGroup label="Product Code / SKU">
                                     <Input value={form.product_code} onChange={e => setForm({ ...form, product_code: e.target.value })} placeholder="e.g. SKU-101" />
@@ -1677,7 +1676,6 @@ export default function InventoryPage() {
                                 value={newCatName}
                                 onChange={e => setNewCatName(e.target.value)}
                                 placeholder="e.g. Spare Parts"
-                                autoFocus
                             />
                         </FormGroup>
                         <s-button slot="secondary-actions" onClick={() => { setShowCatModal(false); setNewCatName(''); }}>Cancel</s-button>
@@ -1719,7 +1717,6 @@ export default function InventoryPage() {
                                 value={newSubCatName}
                                 onChange={e => setNewSubCatName(e.target.value)}
                                 placeholder="e.g. Engine Oil"
-                                autoFocus
                             />
                         </FormGroup>
                         <s-button slot="secondary-actions" onClick={() => { setShowSubCatModal(false); setNewSubCatName(''); }}>Cancel</s-button>
@@ -1759,7 +1756,6 @@ export default function InventoryPage() {
                                 value={newBrandName}
                                 onChange={e => setNewBrandName(e.target.value)}
                                 placeholder="e.g. Toyota, Honda..."
-                                autoFocus
                             />
                         </FormGroup>
                         <s-button slot="secondary-actions" onClick={() => { setShowBrandModal(false); setNewBrandName(''); }}>Cancel</s-button>
@@ -1908,7 +1904,6 @@ export default function InventoryPage() {
                         value={newCatName}
                         onChange={e => setNewCatName(e.target.value)}
                         placeholder="e.g. Spare Parts"
-                        autoFocus
                     />
                 </FormGroup>
                 
@@ -2014,7 +2009,6 @@ export default function InventoryPage() {
                                         <td>
                                             {editingSubCatId === sc.id ? (
                                                 <Input
-                                                    autoFocus
                                                     value={editingSubCatName}
                                                     onChange={e => setEditingSubCatName(e.target.value)}
                                                     onKeyDown={e => {

@@ -4,6 +4,10 @@ All notable changes to the Quantro ERP application will be documented here.
 
 ---
 
+## [2.7.0] - 2026-06-02
+### Fixed
+- **On-Screen Keyboard & Autofocus Cleanups**: Removed all automatic focus-stealing `autoFocus` attributes from text input fields (including Customer forms, settings modals, Category/Sub-category/Brand forms, Payment modals, and Campaign builders). This prevents the Windows On-Screen Keyboard (OSK) from automatically popping up and stealing page/scroll focus when modals or views are opened.
+
 ## [2.6.9] - 2026-06-01
 ### Fixed
 - **Pending Items Pricing Option & Invoice Rendering**:

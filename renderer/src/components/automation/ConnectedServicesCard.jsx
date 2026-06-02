@@ -578,7 +578,6 @@ export default function ConnectedServicesCard({
                                     value={testRecipient} 
                                     onChange={e => setTestRecipient(e.target.value)} 
                                     style={{ width: '100%' }}
-                                    autoFocus
                                 />
                             </div>
                             <div>
@@ -634,7 +633,6 @@ export default function ConnectedServicesCard({
                                     value={testWaPhone} 
                                     onChange={e => setTestWaPhone(e.target.value)} 
                                     style={{ width: '100%' }}
-                                    autoFocus
                                 />
                             </div>
                         </div>
