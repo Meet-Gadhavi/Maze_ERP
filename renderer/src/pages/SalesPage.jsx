@@ -1791,19 +1791,24 @@ export default function SalesPage() {
                                                     <td style={{ padding: '10px 0' }}>
                                                         <div style={{ fontWeight: 600, display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
                                                             <span>{item.name}</span>
-                                                            {(item.maxStock <= 0 || item.quantity > item.maxStock) && (
-                                                                <span style={{ 
-                                                                    fontSize: '10px', 
-                                                                    fontWeight: 700, 
-                                                                    color: '#7C3AED', 
-                                                                    background: '#F3E8FF', 
-                                                                    padding: '2px 6px', 
-                                                                    borderRadius: '4px',
-                                                                    border: '1px solid rgba(124, 58, 237, 0.2)'
-                                                                }}>
-                                                                    Pending
-                                                                </span>
-                                                            )}
+                                                            {(() => {
+                                                                const isPending = item.maxStock <= 0 || item.quantity > item.maxStock;
+                                                                if (!isPending) return null;
+                                                                const pendingQty = item.maxStock <= 0 ? item.quantity : (item.quantity - item.maxStock);
+                                                                return (
+                                                                    <span style={{ 
+                                                                        fontSize: '10px', 
+                                                                        fontWeight: 700, 
+                                                                        color: '#854D0E', 
+                                                                        background: '#FEF9C3', 
+                                                                        padding: '2px 6px', 
+                                                                        borderRadius: '4px',
+                                                                        border: '1px solid rgba(202, 138, 4, 0.3)'
+                                                                    }}>
+                                                                        Pending: {pendingQty}
+                                                                    </span>
+                                                                );
+                                                            })()}
                                                         </div>
                                                         {item.subcategory_name && (
                                                             <div style={{ fontSize: '10px', color: 'var(--text-secondary)', marginTop: '2px' }}>
@@ -2088,19 +2093,24 @@ export default function SalesPage() {
                                                 <div key={c.cartRowId} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 'var(--font-size-xs)' }}>
                                                     <span style={{ fontWeight: '500', display: 'flex', alignItems: 'center', gap: '6px' }}>
                                                         <span>{c.name} x {c.quantity}</span>
-                                                        {(c.maxStock <= 0 || c.quantity > c.maxStock) && (
-                                                            <span style={{ 
-                                                                fontSize: '9px', 
-                                                                fontWeight: 700, 
-                                                                color: '#7C3AED', 
-                                                                background: '#F3E8FF', 
-                                                                padding: '1px 4px', 
-                                                                borderRadius: '3px',
-                                                                border: '1px solid rgba(124, 58, 237, 0.2)'
-                                                            }}>
-                                                                Pending
-                                                            </span>
-                                                        )}
+                                                        {(() => {
+                                                            const isPending = c.maxStock <= 0 || c.quantity > c.maxStock;
+                                                            if (!isPending) return null;
+                                                            const pendingQty = c.maxStock <= 0 ? c.quantity : (c.quantity - c.maxStock);
+                                                            return (
+                                                                <span style={{ 
+                                                                    fontSize: '9px', 
+                                                                    fontWeight: 700, 
+                                                                    color: '#854D0E', 
+                                                                    background: '#FEF9C3', 
+                                                                    padding: '1px 4px', 
+                                                                    borderRadius: '3px',
+                                                                    border: '1px solid rgba(202, 138, 4, 0.3)'
+                                                                }}>
+                                                                    Pending: {pendingQty}
+                                                                </span>
+                                                            );
+                                                        })()}
                                                     </span>
                                                     <SButton variant="secondary" tone="critical" style={{ padding: '2px' }} onClick={() => removeFromCart(c.cartRowId)} title="Remove Perk">
                                                         <Icons.X size={12} strokeWidth={2.5} />
