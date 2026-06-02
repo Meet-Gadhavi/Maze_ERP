@@ -1789,7 +1789,22 @@ export default function SalesPage() {
                                             {cart.filter(c => !c.is_free).map(item => (
                                                 <tr key={item.cartRowId} style={{ borderTop: '1px solid var(--border-light)' }}>
                                                     <td style={{ padding: '10px 0' }}>
-                                                        <div style={{ fontWeight: 600 }}>{item.name}</div>
+                                                        <div style={{ fontWeight: 600, display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                                                            <span>{item.name}</span>
+                                                            {(item.maxStock <= 0 || item.quantity > item.maxStock) && (
+                                                                <span style={{ 
+                                                                    fontSize: '10px', 
+                                                                    fontWeight: 700, 
+                                                                    color: '#7C3AED', 
+                                                                    background: '#F3E8FF', 
+                                                                    padding: '2px 6px', 
+                                                                    borderRadius: '4px',
+                                                                    border: '1px solid rgba(124, 58, 237, 0.2)'
+                                                                }}>
+                                                                    Pending
+                                                                </span>
+                                                            )}
+                                                        </div>
                                                         {item.subcategory_name && (
                                                             <div style={{ fontSize: '10px', color: 'var(--text-secondary)', marginTop: '2px' }}>
                                                                 Subcategory: {item.subcategory_name}
@@ -2071,7 +2086,22 @@ export default function SalesPage() {
                                         <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                                             {cart.filter(c => c.is_free).map(c => (
                                                 <div key={c.cartRowId} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 'var(--font-size-xs)' }}>
-                                                    <span style={{ fontWeight: '500' }}>{c.name} x {c.quantity}</span>
+                                                    <span style={{ fontWeight: '500', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                                        <span>{c.name} x {c.quantity}</span>
+                                                        {(c.maxStock <= 0 || c.quantity > c.maxStock) && (
+                                                            <span style={{ 
+                                                                fontSize: '9px', 
+                                                                fontWeight: 700, 
+                                                                color: '#7C3AED', 
+                                                                background: '#F3E8FF', 
+                                                                padding: '1px 4px', 
+                                                                borderRadius: '3px',
+                                                                border: '1px solid rgba(124, 58, 237, 0.2)'
+                                                            }}>
+                                                                Pending
+                                                            </span>
+                                                        )}
+                                                    </span>
                                                     <SButton variant="secondary" tone="critical" style={{ padding: '2px' }} onClick={() => removeFromCart(c.cartRowId)} title="Remove Perk">
                                                         <Icons.X size={12} strokeWidth={2.5} />
                                                     </SButton>
