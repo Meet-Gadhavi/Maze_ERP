@@ -412,6 +412,16 @@ export default function SalesPage() {
         }
     }
 
+    const getLogIcon = (action) => {
+        const act = (action || '').toLowerCase();
+        if (act.includes('created')) return <Icons.Plus size={13} style={{ color: 'var(--success)' }} />;
+        if (act.includes('fulfillment') || act.includes('fulfilled')) return <Icons.Package size={13} style={{ color: 'var(--accent)' }} />;
+        if (act.includes('payment') || act.includes('received')) return <Icons.CreditCard size={13} style={{ color: 'var(--success)' }} />;
+        if (act.includes('refund') || act.includes('return')) return <Icons.RotateCcw size={13} style={{ color: 'var(--danger)' }} />;
+        if (act.includes('advance') || act.includes('convert')) return <Icons.Layers size={13} style={{ color: 'var(--warning)' }} />;
+        return <Icons.Activity size={13} style={{ color: 'var(--text-secondary)' }} />;
+    };
+
     async function handleViewLogs(id) {
         setViewingLogsInvoiceId(id);
         setIsLoadingLogs(true);
@@ -3643,8 +3653,12 @@ export default function SalesPage() {
                                             background: 'var(--card-bg)',
                                             padding: '2px 8px',
                                             borderRadius: '4px',
-                                            border: '1px solid var(--border-light)'
+                                            border: '1px solid var(--border-light)',
+                                            display: 'inline-flex',
+                                            alignItems: 'center',
+                                            gap: '6px'
                                         }}>
+                                            {getLogIcon(log.action)}
                                             {log.action}
                                         </span>
                                         <span style={{ fontSize: '11px', color: 'var(--text-tertiary)', display: 'flex', alignItems: 'center', gap: '4px' }}>

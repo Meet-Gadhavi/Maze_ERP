@@ -2775,7 +2775,7 @@ export default function PurchasePage() {
                                 color: 'var(--success)' 
                             }}>
                                 <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: 'var(--success)', display: 'inline-block' }}></span>
-                                <span>Supabase Realtime Channel Listening Active</span>
+                                <span>Realtime Sync Channel Active</span>
                             </div>
                         </>
                     ) : (
