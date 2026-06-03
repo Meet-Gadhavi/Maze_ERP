@@ -4,6 +4,10 @@ All notable changes to the Quantro ERP application will be documented here.
 
 ---
 
+## [2.7.4] - 2026-06-03
+### Fixed
+- **Sales Return Quantity Cap**: Fixed a stock and financial leak vulnerability inside the invoice return processor. Enforced returned quantity verification limits based on actual delivered products (`qty_delivered`) rather than ordered/requested quantities (`qty_requested`). This prevents inventory inflation (ghost stock) and financial refund leaks for undelivered items in advance or partial checkout flows.
+
 ## [2.7.3] - 2026-06-03
 ### Added
 - **Invoice Activity Logs**: Added an interactive chronological activity log modal for invoices in the Sales page. Users can view all historical edits and events (creation, payments received, returns/refunds processed, fulfillments completed, and advance conversions).
