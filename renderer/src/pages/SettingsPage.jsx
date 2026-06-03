@@ -858,32 +858,52 @@ export default function SettingsPage() {
                                             </div>
                                             {item.key === 'enable_realtime_price_update' && settings.enable_realtime_price_update === 'true' && (
                                                 <div style={{ 
-                                                    marginLeft: '36px', 
                                                     display: 'flex', 
-                                                    justifyContent: 'space-between', 
                                                     alignItems: 'center', 
-                                                    padding: '12px 16px', 
-                                                    background: 'var(--bg-primary)', 
-                                                    borderRadius: '8px', 
-                                                    border: '1px solid var(--border-light)',
-                                                    marginTop: '-8px',
-                                                    marginBottom: '4px',
-                                                    borderLeft: '4px solid var(--primary-color)',
-                                                    opacity: 0.95
+                                                    marginTop: '-8px', 
+                                                    marginBottom: '4px', 
+                                                    marginLeft: '16px' 
                                                 }}>
-                                                    <div style={{ display: 'flex', alignItems: 'flex-start', gap: '8px' }}>
-                                                        <span style={{ fontSize: '18px', color: 'var(--primary-color)', lineHeight: 1, marginTop: '2px', fontWeight: 'bold' }}>↳</span>
+                                                    <div style={{ 
+                                                        color: 'var(--primary-color)', 
+                                                        opacity: 0.8, 
+                                                        marginRight: '12px', 
+                                                        display: 'flex', 
+                                                        alignItems: 'center',
+                                                        flexShrink: 0
+                                                    }}>
+                                                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                                            <path
+                                                                d="M4 4V5.4C4 8.76031 4 10.4405 4.65396 11.7239C5.2292 12.8529 6.14708 13.7708 7.27606 14.346C8.55953 15 10.2397 15 13.6 15H20M20 15L15 10M20 15L15 20"
+                                                                stroke="currentColor"
+                                                                strokeWidth="2"
+                                                                strokeLinecap="round"
+                                                                strokeLinejoin="round"
+                                                            />
+                                                        </svg>
+                                                    </div>
+                                                    <div style={{ 
+                                                        flex: 1,
+                                                        display: 'flex', 
+                                                        justifyContent: 'space-between', 
+                                                        alignItems: 'center', 
+                                                        padding: '12px 16px', 
+                                                        background: 'var(--bg-primary)', 
+                                                        borderRadius: '8px', 
+                                                        border: '1px solid var(--border-light)',
+                                                        opacity: 0.95
+                                                    }}>
                                                         <div>
                                                             <div style={{ fontWeight: 600, fontSize: '14px' }}>Restrict Sync to Unpaid & $0 Price</div>
                                                             <div style={{ fontSize: '12px', color: 'var(--text-tertiary)' }}>Only updates unpaid invoice items originally priced at $0 (preserves historical invoices)</div>
                                                         </div>
-                                                    </div>
-                                                    <div 
-                                                        className="toggle-switch" 
-                                                        onClick={() => setSettings({ ...settings, restrict_realtime_price_sync: settings.restrict_realtime_price_sync === 'true' ? 'false' : 'true' })}
-                                                        style={{ cursor: 'pointer' }}
-                                                    >
-                                                        <div className={`toggle-track ${settings[settings.restrict_realtime_price_sync] === 'true' || settings.restrict_realtime_price_sync === 'true' ? 'on' : ''}`}></div>
+                                                        <div 
+                                                            className="toggle-switch" 
+                                                            onClick={() => setSettings({ ...settings, restrict_realtime_price_sync: settings.restrict_realtime_price_sync === 'true' ? 'false' : 'true' })}
+                                                            style={{ cursor: 'pointer' }}
+                                                        >
+                                                            <div className={`toggle-track ${settings[settings.restrict_realtime_price_sync] === 'true' || settings.restrict_realtime_price_sync === 'true' ? 'on' : ''}`}></div>
+                                                        </div>
                                                     </div>
                                                 </div>
                                             )}
