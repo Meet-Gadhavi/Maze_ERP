@@ -857,13 +857,16 @@ export default function SettingsPage() {
                                                 </div>
                                             </div>
                                             {item.key === 'enable_realtime_price_update' && settings.enable_realtime_price_update === 'true' && (
-                                                <div style={{ 
-                                                    display: 'flex', 
-                                                    alignItems: 'center', 
-                                                    marginTop: '-8px', 
-                                                    marginBottom: '4px', 
-                                                    marginLeft: '16px' 
-                                                }}>
+                                                <div 
+                                                    className="nested-sub-toggle-container"
+                                                    style={{ 
+                                                        display: 'flex', 
+                                                        alignItems: 'center', 
+                                                        marginTop: '-8px', 
+                                                        marginBottom: '4px', 
+                                                        marginLeft: '16px' 
+                                                    }}
+                                                >
                                                     <div style={{ 
                                                         color: 'var(--primary-color)', 
                                                         opacity: 0.8, 
