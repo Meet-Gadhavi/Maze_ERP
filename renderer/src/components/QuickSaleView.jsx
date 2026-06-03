@@ -4,6 +4,8 @@ import { Icons } from './Icons';
 import SButton from './SButton';
 import CustomSelect from './CustomSelect';
 import SplitBillModal from './SplitBillModal';
+import Modal from './Modal';
+import { supabase } from '../supabase';
 import api from '../api';
 import './QuickSaleView.css';
 
@@ -18,6 +20,47 @@ export default function QuickSaleView({
     const [searchTerm, setSearchTerm] = useState('');
     const [selectedCategory, setSelectedCategory] = useState('All');
     const [focusedIndex, setFocusedIndex] = useState(-1);
+    const [showScannerModal, setShowScannerModal] = useState(false);
+
+    const syncId = settings?.online_sync_id;
+    const isDev = typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') && import.meta.env.DEV;
+    // Always use the production web URL so phone scanners can access the site online
+    const webBaseUrl = 'https://quantro-web.onrender.com';
+    const scanUrl = syncId ? `${webBaseUrl}/?page=scanner&syncId=${syncId}` : '';
+
+    // Subscribe to wireless mobile scanner events via Supabase Broadcast
+    useEffect(() => {
+        if (!syncId) return;
+
+        console.log(`[Quick Scanner] Subscribing to broadcast channel scanner:${syncId}`);
+        const channel = supabase.channel(`scanner:${syncId}`, {
+            config: {
+                broadcast: { self: false }
+            }
+        });
+
+        channel
+            .on('broadcast', { event: 'scan' }, (payload) => {
+                const barcode = payload?.payload?.barcode;
+                console.log('[Quick Scanner] Scanned barcode received:', barcode);
+                if (barcode) {
+                    const exactMatch = products.find(p => p.product_code === barcode);
+                    if (exactMatch) {
+                        addToCart(exactMatch);
+                        toast.success(`Scanned: ${exactMatch.name} added to cart!`);
+                    } else {
+                        toast.error(`Scanned barcode "${barcode}" not found in inventory.`);
+                    }
+                }
+            })
+            .subscribe((status) => {
+                console.log(`[Quick Scanner] Realtime subscription status:`, status);
+            });
+
+        return () => {
+            channel.unsubscribe();
+        };
+    }, [syncId, products, addToCart]);
     const [groupBy, setGroupBy] = useState('none'); // 'none', 'subcategory', 'brand'
     const [showSplitModal, setShowSplitModal] = useState(false);
     const [discountValue, setDiscountValue] = useState('');
@@ -405,27 +448,39 @@ export default function QuickSaleView({
             {/* ─── Top: Cart + Catalog side by side ─── */}
             <div className="quick-sale-main">
                 <div className="quick-sale-left">
-                    <div className="quick-sale-search">
-                        <Icons.Search size={20} className="search-icon" />
-                        <input 
-                            ref={searchInputRef}
-                            type="text" 
-                            placeholder="Scan Barcode or Search Product..." 
-                            value={searchTerm}
-                            onChange={e => setSearchTerm(e.target.value)}
-                            onKeyDown={e => {
-                                if (e.key === 'Enter') {
-                                    const exactMatch = products.find(p => p.product_code === searchTerm);
-                                    if (exactMatch) {
-                                        addToCart(exactMatch);
-                                        setSearchTerm('');
-                                    } else if (filteredProducts.length === 1) {
-                                        addToCart(filteredProducts[0]);
-                                        setSearchTerm('');
+                    <div className="quick-sale-search" style={{ display: 'flex', gap: '8px', alignItems: 'center', marginBottom: '12px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', flex: 1, position: 'relative', background: 'var(--bg-secondary)', border: '1px solid var(--border-light)', borderRadius: 'var(--radius-sm)' }}>
+                            <Icons.Search size={20} className="search-icon" style={{ marginLeft: '12px', marginRight: '8px', color: 'var(--text-tertiary)' }} />
+                            <input 
+                                ref={searchInputRef}
+                                type="text" 
+                                placeholder="Scan Barcode or Search Product..." 
+                                value={searchTerm}
+                                onChange={e => setSearchTerm(e.target.value)}
+                                onKeyDown={e => {
+                                    if (e.key === 'Enter') {
+                                        const exactMatch = products.find(p => p.product_code === searchTerm);
+                                        if (exactMatch) {
+                                            addToCart(exactMatch);
+                                            setSearchTerm('');
+                                        } else if (filteredProducts.length === 1) {
+                                            addToCart(filteredProducts[0]);
+                                            setSearchTerm('');
+                                        }
                                     }
-                                }
-                            }}
-                        />
+                                }}
+                                style={{ flex: 1, border: 'none', background: 'transparent', height: '40px', color: 'var(--text-primary)', outline: 'none' }}
+                            />
+                        </div>
+                        <SButton 
+                            variant="secondary"
+                            onClick={() => setShowScannerModal(true)}
+                            title="Connect Wireless Phone Scanner"
+                            style={{ height: '40px', padding: '0 16px', display: 'flex', alignItems: 'center', gap: '6px' }}
+                        >
+                            <Icons.Scan size={18} />
+                            <span>Quick Scanner</span>
+                        </SButton>
                     </div>
 
                     <div className="quick-sale-cart">
@@ -980,6 +1035,84 @@ export default function QuickSaleView({
                 total={cartTotal}
                 onConfirm={handleConfirmSplitBill}
             />
+
+            {/* Wireless Barcode Scanner Modal */}
+            <Modal
+                open={showScannerModal}
+                onClose={() => setShowScannerModal(false)}
+                heading="Wireless Mobile Barcode Scanner"
+                size="base"
+            >
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '16px', padding: '12px', textAlign: 'center' }}>
+                    <p style={{ fontSize: '13px', color: 'var(--text-secondary)', margin: '0 0 8px 0', lineHeight: '1.4' }}>
+                        Turn your mobile phone into a wireless barcode scanner for this cart. Just scan the QR code below or click the link.
+                    </p>
+                    
+                    {syncId ? (
+                        <>
+                            <div style={{ 
+                                background: '#ffffff', 
+                                padding: '12px', 
+                                borderRadius: '12px', 
+                                border: '1px solid var(--border-light)', 
+                                display: 'inline-block',
+                                boxShadow: 'var(--shadow-sm)'
+                            }}>
+                                <img 
+                                    src={`https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(scanUrl)}`} 
+                                    alt="QR Scanner Link" 
+                                    style={{ display: 'block', width: '220px', height: '220px' }} 
+                                />
+                            </div>
+                            
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', width: '100%', alignItems: 'center' }}>
+                                <span style={{ fontSize: '11px', color: 'var(--text-tertiary)', fontWeight: '600', textTransform: 'uppercase' }}>Scan Link</span>
+                                <a 
+                                    href={scanUrl} 
+                                    target="_blank" 
+                                    rel="noopener noreferrer"
+                                    style={{ 
+                                        fontSize: '13px', 
+                                        color: 'var(--accent)', 
+                                        wordBreak: 'break-all', 
+                                        textDecoration: 'underline',
+                                        fontWeight: '500'
+                                    }}
+                                >
+                                    {scanUrl}
+                                </a>
+                            </div>
+
+                            <div style={{ 
+                                marginTop: '12px', 
+                                padding: '8px 12px', 
+                                background: 'rgba(34, 197, 94, 0.05)', 
+                                border: '1px solid rgba(34, 197, 94, 0.2)', 
+                                borderRadius: '8px', 
+                                display: 'flex', 
+                                alignItems: 'center', 
+                                gap: '8px', 
+                                fontSize: '12px', 
+                                color: 'var(--success)' 
+                            }}>
+                                <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: 'var(--success)', display: 'inline-block' }}></span>
+                                <span>Supabase Realtime Channel Listening Active</span>
+                            </div>
+                        </>
+                    ) : (
+                        <div style={{ 
+                            padding: '16px', 
+                            background: 'rgba(239, 68, 68, 0.05)', 
+                            border: '1px solid rgba(239, 68, 68, 0.2)', 
+                            borderRadius: '8px', 
+                            fontSize: '13px', 
+                            color: 'var(--critical)' 
+                        }}>
+                            <strong>Online Sync ID Missing!</strong> Please make sure you have Online Sync enabled in Settings to obtain a sync connection ID.
+                        </div>
+                    )}
+                </div>
+            </Modal>
         </div>
     );
 }

@@ -4,6 +4,20 @@ All notable changes to the Quantro ERP application will be documented here.
 
 ---
 
+## [2.7.2] - 2026-06-03
+### Fixed
+- **Quick Sale Scanner Modal**: Replaced the custom Shopify Polaris-inspired `<SModal>` component with the standard, unified `<Modal>` component in the Sales View (Quick Sale) for the mobile barcode scanner link layout.
+- **Mobile Scanner Accuracy & Cooldowns**: Restricted camera decoding formats to standard retail barcodes/QR codes (EAN-13, EAN-8, UPC-A, UPC-E, CODE-128, CODE-39, QR_CODE) to prevent false-positives. Added 2-frame consecutive scan verification to resolve camera misreads and implemented a 2.5-second duplicate scan cooldown buffer.
+- **Google Lens Viewfinder UI**: Restructured the viewfinder layout to a large square shape (`aspect-square`) enabling easier scanning of large items. Added neon scan lines, success green border animations, and target ripple checkmark overlays on scan detection.
+
+## [2.7.1] - 2026-06-02
+### Added
+- **Wireless Barcode Mobile Camera Scanner**:
+  - Implemented mobile-to-desktop wireless camera-based barcode scanning using Supabase Realtime Broadcast.
+  - Added a "Quick Scanner" button and connection modal displaying a dynamic QR code and clickable browser link on the Sales View (Quick Sale) and Purchases View (Bill Center tab).
+  - Users scan the QR code using a mobile device to open the hosted mobile companion scanner at `https://quantro-web.onrender.com/?page=scanner` (synced via `online_sync_id`).
+  - Barcodes scanned using the phone camera are broadcast in real-time, matching local inventory and automatically adding the product or incrementing quantities directly into the active sales or purchase cart.
+
 ## [2.7.0] - 2026-06-02
 ### Fixed
 - **On-Screen Keyboard & Autofocus Cleanups**: Removed all automatic focus-stealing `autoFocus` attributes from text input fields (including Customer forms, settings modals, Category/Sub-category/Brand forms, Payment modals, and Campaign builders). This prevents the Windows On-Screen Keyboard (OSK) from automatically popping up and stealing page/scroll focus when modals or views are opened.

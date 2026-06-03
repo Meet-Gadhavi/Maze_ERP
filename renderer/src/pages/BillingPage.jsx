@@ -6,6 +6,10 @@ import { toast } from 'sonner';
 import { supabase } from '../supabase';
 
 export default function BillingPage() {
+    const isDev = typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') && import.meta.env.DEV;
+    // Always use the production web URL
+    const webBaseUrl = 'https://quantro-web.onrender.com';
+
     const [status, setStatus] = useState(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
@@ -100,7 +104,7 @@ export default function BillingPage() {
         setShowPaymentSetupModal(false);
         setTermsAccepted(false);
 
-        const url = `http://localhost:5180/?page=add-card&syncId=${status?.syncId || ''}&email=${encodeURIComponent(status?.email || '')}&autopay=${enableAutopay ? 'true' : 'false'}`;
+        const url = `${webBaseUrl}/?page=add-card&syncId=${status?.syncId || ''}&email=${encodeURIComponent(status?.email || '')}&autopay=${enableAutopay ? 'true' : 'false'}`;
         openExternalLink(url);
         toast.info('Opening Quantro Web Portal to complete 1 Rupee verification checkout.');
     };
@@ -847,9 +851,9 @@ export default function BillingPage() {
                                     />
                                     <div style={{ fontSize: '12px', color: 'var(--text-secondary)', lineHeight: 1.4 }}>
                                         I have read and agree to Quantro's{' '}
-                                        <a href="#" onClick={(e) => { e.preventDefault(); openExternalLink('http://localhost:5180/?page=terms'); }} style={{ color: 'var(--accent)', fontWeight: 650, textDecoration: 'underline' }}>Terms of Service</a>,{' '}
-                                        <a href="#" onClick={(e) => { e.preventDefault(); openExternalLink('http://localhost:5180/?page=privacy'); }} style={{ color: 'var(--accent)', fontWeight: 650, textDecoration: 'underline' }}>Privacy Policy</a>, and{' '}
-                                        <a href="#" onClick={(e) => { e.preventDefault(); openExternalLink('http://localhost:5180/?page=refund'); }} style={{ color: 'var(--accent)', fontWeight: 650, textDecoration: 'underline' }}>Refund Policy</a>.
+                                        <a href="#" onClick={(e) => { e.preventDefault(); openExternalLink(`${webBaseUrl}/?page=terms`); }} style={{ color: 'var(--accent)', fontWeight: 650, textDecoration: 'underline' }}>Terms of Service</a>,{' '}
+                                        <a href="#" onClick={(e) => { e.preventDefault(); openExternalLink(`${webBaseUrl}/?page=privacy`); }} style={{ color: 'var(--accent)', fontWeight: 650, textDecoration: 'underline' }}>Privacy Policy</a>, and{' '}
+                                        <a href="#" onClick={(e) => { e.preventDefault(); openExternalLink(`${webBaseUrl}/?page=refund`); }} style={{ color: 'var(--accent)', fontWeight: 650, textDecoration: 'underline' }}>Refund Policy</a>.
                                     </div>
                                 </label>
                             </div>

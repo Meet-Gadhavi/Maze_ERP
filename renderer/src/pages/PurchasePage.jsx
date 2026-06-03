@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import api from '../api';
 import { toast } from 'sonner';
 import CustomSelect from '../components/CustomSelect';
@@ -8,6 +8,7 @@ import SButton from '../components/SButton';
 import Icons from '../components/Icons';
 import { formatDate, amountToWords, validateProduct } from '../utils';
 import { EMPTY_SUPPLIER, EMPTY_EXPENSE, EMPTY_PRODUCT, UNIT_CATEGORIES, DECIMAL_UNITS } from '../constants';
+import { supabase } from '../supabase';
 import './PurchasePage.css';
 
 export default function PurchasePage() {
@@ -38,6 +39,7 @@ export default function PurchasePage() {
     const [paidAmount, setPaidAmount] = useState(0);
     const [settings, setSettings] = useState({});
     const [cartPulse, setCartPulse] = useState(false);
+    const [showScannerModal, setShowScannerModal] = useState(false);
 
     // Supplier State
     const [showSupplierModal, setShowSupplierModal] = useState(false);
@@ -178,6 +180,71 @@ export default function PurchasePage() {
         setCartPulse(true);
         setTimeout(() => setCartPulse(false), 500);
     };
+
+    const syncId = settings?.online_sync_id;
+    const isDev = typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') && import.meta.env.DEV;
+    // Always use the production web URL so phone scanners can access the site online
+    const webBaseUrl = 'https://quantro-web.onrender.com';
+    const scanUrl = syncId ? `${webBaseUrl}/?page=scanner&syncId=${syncId}` : '';
+
+    const cartRef = useRef(cart);
+    const productsRef = useRef(products);
+    const addToCartRef = useRef(addToCart);
+
+    useEffect(() => {
+        cartRef.current = cart;
+    }, [cart]);
+
+    useEffect(() => {
+        productsRef.current = products;
+    }, [products]);
+
+    useEffect(() => {
+        addToCartRef.current = addToCart;
+    }, [addToCart]);
+
+    // Subscribe to wireless mobile scanner events via Supabase Broadcast
+    useEffect(() => {
+        if (!syncId) return;
+
+        console.log(`[Quick Scanner - Purchase] Subscribing to broadcast channel scanner:${syncId}`);
+        const channel = supabase.channel(`scanner:${syncId}`, {
+            config: {
+                broadcast: { self: false }
+            }
+        });
+
+        channel
+            .on('broadcast', { event: 'scan' }, (payload) => {
+                const barcode = payload?.payload?.barcode;
+                console.log('[Quick Scanner - Purchase] Scanned barcode received:', barcode);
+                if (barcode) {
+                    const exactMatch = productsRef.current.find(p => p.product_code === barcode);
+                    if (exactMatch) {
+                        const currentCart = cartRef.current;
+                        const cartIndex = currentCart.findIndex(item => item.product_id === exactMatch.id);
+                        if (cartIndex > -1) {
+                            const newCart = [...currentCart];
+                            newCart[cartIndex].quantity += 1;
+                            setCart(newCart);
+                            toast.success(`Scanned: ${exactMatch.name} quantity increased in cart!`);
+                        } else {
+                            addToCartRef.current(exactMatch);
+                            toast.success(`Scanned: ${exactMatch.name} added to cart!`);
+                        }
+                    } else {
+                        toast.error(`Scanned barcode "${barcode}" not found in inventory.`);
+                    }
+                }
+            })
+            .subscribe((status) => {
+                console.log(`[Quick Scanner - Purchase] Realtime subscription status:`, status);
+            });
+
+        return () => {
+            channel.unsubscribe();
+        };
+    }, [syncId]);
 
     const handleInlineProductCreate = async () => {
         const errors = validateProduct(newProductForm);
@@ -810,33 +877,44 @@ export default function PurchasePage() {
                         </div>
                     </div>
 
-                    <div className="product-search-container">
-                        <input
-                            type="text"
-                            className="search-input"
-                            style={{ width: '100%' }}
-                            placeholder="Type product name or code..."
-                            value={productSearch}
-                            onChange={(e) => setProductSearch(e.target.value)}
-                        />
-                        {productSearch && (
-                            <div className="search-results">
-                                {filteredProducts.map(p => (
-                                    <div key={p.id} className="search-item" onClick={() => addToCart(p)}>
-                                        {p.name} - ₹{p.cost_price} ({p.stock_quantity} {p.unit})
+                    <div className="product-search-container" style={{ display: 'flex', gap: '8px', alignItems: 'center', marginBottom: '16px' }}>
+                        <div style={{ flex: 1, position: 'relative' }}>
+                            <input
+                                type="text"
+                                className="search-input"
+                                style={{ width: '100%', boxSizing: 'border-box' }}
+                                placeholder="Type product name or code..."
+                                value={productSearch}
+                                onChange={(e) => setProductSearch(e.target.value)}
+                            />
+                            {productSearch && (
+                                <div className="search-results">
+                                    {filteredProducts.map(p => (
+                                        <div key={p.id} className="search-item" onClick={() => addToCart(p)}>
+                                            {p.name} - ₹{p.cost_price} ({p.stock_quantity} {p.unit})
+                                        </div>
+                                    ))}
+                                    <div className="create-new-prompt" onClick={() => {
+                                        setNewProductForm({ ...EMPTY_PRODUCT, name: productSearch });
+                                        setTempVariants([]);
+                                        setVariantForm({ name: '', sku: '', selling_price: '', cost_price: '', stock_quantity: 0, min_stock_level: 0, max_stock_level: 0 });
+                                        setActiveModalTab('basic');
+                                        setShowProductModal(true);
+                                    }}>
+                                        + Product NOT found? Create & Add to Inventory
                                     </div>
-                                ))}
-                                <div className="create-new-prompt" onClick={() => {
-                                    setNewProductForm({ ...EMPTY_PRODUCT, name: productSearch });
-                                    setTempVariants([]);
-                                    setVariantForm({ name: '', sku: '', selling_price: '', cost_price: '', stock_quantity: 0, min_stock_level: 0, max_stock_level: 0 });
-                                    setActiveModalTab('basic');
-                                    setShowProductModal(true);
-                                }}>
-                                    + Product NOT found? Create & Add to Inventory
                                 </div>
-                            </div>
-                        )}
+                            )}
+                        </div>
+                        <SButton 
+                            variant="secondary"
+                            onClick={() => setShowScannerModal(true)}
+                            title="Connect Wireless Phone Scanner"
+                            style={{ height: '40px', padding: '0 16px', display: 'flex', alignItems: 'center', gap: '6px' }}
+                        >
+                            <Icons.Scan size={18} />
+                            <span>Quick Scanner</span>
+                        </SButton>
                     </div>
 
                     <table className="purchase-items-table">
@@ -2631,6 +2709,87 @@ export default function PurchasePage() {
                             }}
                         />
                     </FormGroup>
+                </div>
+            </Modal>
+
+            {/* Wireless Barcode Scanner Modal */}
+            <Modal
+                open={showScannerModal}
+                onClose={() => setShowScannerModal(false)}
+                heading="Wireless Mobile Barcode Scanner"
+                size="small"
+                secondaryAction={
+                    <SButton onClick={() => setShowScannerModal(false)}>Close</SButton>
+                }
+            >
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '16px', padding: '12px', textAlign: 'center' }}>
+                    <p style={{ fontSize: '13px', color: 'var(--text-secondary)', margin: '0 0 8px 0', lineHeight: '1.4' }}>
+                        Turn your mobile phone into a wireless barcode scanner for this cart. Just scan the QR code below or click the link.
+                    </p>
+                    
+                    {syncId ? (
+                        <>
+                            <div style={{ 
+                                background: '#ffffff', 
+                                padding: '12px', 
+                                borderRadius: '12px', 
+                                border: '1px solid var(--border-light)', 
+                                display: 'inline-block',
+                                boxShadow: 'var(--shadow-sm)'
+                            }}>
+                                <img 
+                                    src={`https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(scanUrl)}`} 
+                                    alt="QR Scanner Link" 
+                                    style={{ display: 'block', width: '220px', height: '220px' }} 
+                                />
+                            </div>
+                            
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', width: '100%', alignItems: 'center' }}>
+                                <span style={{ fontSize: '11px', color: 'var(--text-tertiary)', fontWeight: '600', textTransform: 'uppercase' }}>Scan Link</span>
+                                <a 
+                                    href={scanUrl} 
+                                    target="_blank" 
+                                    rel="noopener noreferrer"
+                                    style={{ 
+                                        fontSize: '13px', 
+                                        color: 'var(--accent)', 
+                                        wordBreak: 'break-all', 
+                                        textDecoration: 'underline',
+                                        fontWeight: '500'
+                                    }}
+                                >
+                                    {scanUrl}
+                                </a>
+                            </div>
+
+                            <div style={{ 
+                                marginTop: '12px', 
+                                padding: '8px 12px', 
+                                background: 'rgba(34, 197, 94, 0.05)', 
+                                border: '1px solid rgba(34, 197, 94, 0.2)', 
+                                borderRadius: '8px', 
+                                display: 'flex', 
+                                alignItems: 'center', 
+                                gap: '8px', 
+                                fontSize: '12px', 
+                                color: 'var(--success)' 
+                            }}>
+                                <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: 'var(--success)', display: 'inline-block' }}></span>
+                                <span>Supabase Realtime Channel Listening Active</span>
+                            </div>
+                        </>
+                    ) : (
+                        <div style={{ 
+                            padding: '16px', 
+                            background: 'rgba(239, 68, 68, 0.05)', 
+                            border: '1px solid rgba(239, 68, 68, 0.2)', 
+                            borderRadius: '8px', 
+                            fontSize: '13px', 
+                            color: 'var(--critical)' 
+                        }}>
+                            <strong>Online Sync ID Missing!</strong> Please make sure you have Online Sync enabled in Settings to obtain a sync connection ID.
+                        </div>
+                    )}
                 </div>
             </Modal>
         </div>
