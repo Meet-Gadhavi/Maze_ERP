@@ -116,6 +116,7 @@ const api = {
     // Invoices
     getInvoices: () => request('/invoices'),
     getInvoice: (id) => request(`/invoices/${id}`),
+    getInvoiceLogs: (id) => request(`/invoices/${id}/logs`),
     createInvoice: (data) => request('/invoices', { method: 'POST', body: data }),
     deleteInvoice: (id) => request(`/invoices/${id}`, { method: 'DELETE' }),
     mergeInvoices: (data) => request('/invoices/merge', { method: 'POST', body: data }),

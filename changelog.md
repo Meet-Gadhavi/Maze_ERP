@@ -4,6 +4,14 @@ All notable changes to the Quantro ERP application will be documented here.
 
 ---
 
+## [2.7.3] - 2026-06-03
+### Added
+- **Invoice Activity Logs**: Added an interactive chronological activity log modal for invoices in the Sales page. Users can view all historical edits and events (creation, payments received, returns/refunds processed, fulfillments completed, and advance conversions).
+- **Backend Audit Log Capture**: Integrated automatic audit log writes for returns, refunds, payment additions, and advance invoice processing.
+
+### Fixed
+- **Mobile Scanner Viewfinder Overlay**: Overrode default `html5-qrcode` white viewfinder borders to display our custom blue-corner reticle, creating a clean, modern aesthetic.
+
 ## [2.7.2] - 2026-06-03
 ### Fixed
 - **Quick Sale Scanner Modal**: Replaced the custom Shopify Polaris-inspired `<SModal>` component with the standard, unified `<Modal>` component in the Sales View (Quick Sale) for the mobile barcode scanner link layout.

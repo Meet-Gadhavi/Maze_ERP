@@ -88,6 +88,11 @@ export default function SalesPage() {
     // Variant Selection Modal
     const [variantModalProduct, setVariantModalProduct] = useState(null);
     const [variantModalVariants, setVariantModalVariants] = useState([]);
+
+    // Invoice logs states
+    const [viewingLogsInvoiceId, setViewingLogsInvoiceId] = useState(null);
+    const [invoiceLogs, setInvoiceLogs] = useState([]);
+    const [isLoadingLogs, setIsLoadingLogs] = useState(false);
     const [variantModalLoading, setVariantModalLoading] = useState(false);
     
     // Batch Selection Modal State
@@ -404,6 +409,21 @@ export default function SalesPage() {
             toast.error(err.message || 'Failed to merge invoices');
         } finally {
             setMerging(false);
+        }
+    }
+
+    async function handleViewLogs(id) {
+        setViewingLogsInvoiceId(id);
+        setIsLoadingLogs(true);
+        try {
+            const data = await api.getInvoiceLogs(id);
+            setInvoiceLogs(data || []);
+        } catch (err) {
+            console.error('Failed to load invoice logs', err);
+            toast.error('Failed to load activity logs');
+            setViewingLogsInvoiceId(null);
+        } finally {
+            setIsLoadingLogs(false);
         }
     }
 
@@ -2728,6 +2748,9 @@ export default function SalesPage() {
                                                             <SButton variant="secondary" onClick={() => { handleViewInvoice(inv.id); }} title="View Invoice">
                                                                 <Icons.Eye size={14} />
                                                             </SButton>
+                                                            <SButton variant="secondary" onClick={() => handleViewLogs(inv.id)} title="View Invoice Log">
+                                                                <Icons.Clock size={14} />
+                                                            </SButton>
                                                             {(inv.items && inv.items.length > 0) && (() => {
                                                                 const isFullyReturned =
                                                                     inv.return_type === 'full' ||
@@ -3575,6 +3598,71 @@ export default function SalesPage() {
                                     }}
                                 />
                             </div>
+                        </div>
+                    )}
+                </div>
+            </Modal>
+
+            <Modal
+                open={viewingLogsInvoiceId !== null}
+                onClose={() => setViewingLogsInvoiceId(null)}
+                heading={`Invoice Activity Log - INV-${String(viewingLogsInvoiceId || '').padStart(4, '0')}`}
+                size="medium"
+                secondaryAction={
+                    <SButton onClick={() => setViewingLogsInvoiceId(null)}>Close</SButton>
+                }
+            >
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', padding: '8px 0', minHeight: '150px' }}>
+                    {isLoadingLogs ? (
+                        <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', flex: 1, padding: '32px 0' }}>
+                            <Icons.Activity size={24} className="spin" style={{ color: 'var(--accent)', animation: 'spin 1s linear infinite' }} />
+                            <span style={{ marginLeft: '12px', color: 'var(--text-secondary)', fontSize: '13px' }}>Loading activity logs...</span>
+                        </div>
+                    ) : invoiceLogs.length === 0 ? (
+                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', flex: 1, padding: '32px 0', color: 'var(--text-secondary)' }}>
+                            <Icons.Info size={32} style={{ marginBottom: '8px', color: 'var(--text-tertiary)' }} />
+                            <p style={{ fontSize: '13px' }}>No logs found for this invoice.</p>
+                        </div>
+                    ) : (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', maxHeight: '400px', overflowY: 'auto', paddingRight: '4px' }}>
+                            {invoiceLogs.map((log) => (
+                                <div key={log.id} style={{ 
+                                    padding: '12px 16px', 
+                                    borderRadius: '8px', 
+                                    background: 'var(--bg-light)', 
+                                    border: '1px solid var(--border-light)',
+                                    display: 'flex',
+                                    flexDirection: 'column',
+                                    gap: '6px'
+                                }}>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                        <span style={{ 
+                                            fontWeight: '700', 
+                                            fontSize: '13px', 
+                                            color: 'var(--text-primary)',
+                                            background: 'var(--card-bg)',
+                                            padding: '2px 8px',
+                                            borderRadius: '4px',
+                                            border: '1px solid var(--border-light)'
+                                        }}>
+                                            {log.action}
+                                        </span>
+                                        <span style={{ fontSize: '11px', color: 'var(--text-tertiary)', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                            <Icons.Clock size={11} />
+                                            {log.created_at}
+                                        </span>
+                                    </div>
+                                    <p style={{ 
+                                        margin: 0, 
+                                        fontSize: '12.5px', 
+                                        color: 'var(--text-secondary)',
+                                        lineHeight: '1.4',
+                                        wordBreak: 'break-word'
+                                    }}>
+                                        {log.details}
+                                    </p>
+                                </div>
+                            ))}
                         </div>
                     )}
                 </div>

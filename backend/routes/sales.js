@@ -173,6 +173,18 @@ router.get('/:id', async (req, res, next) => {
     }
 });
 
+// GET /api/invoices/:id/logs — Fetch change logs (audit logs) for a specific invoice
+router.get('/:id/logs', async (req, res, next) => {
+    try {
+        await db.ready;
+        const invoiceId = Number(req.params.id);
+        const logs = db.all('SELECT * FROM audit_logs WHERE invoice_id = ? ORDER BY id DESC', [invoiceId]);
+        res.json(logs);
+    } catch (err) {
+        next(err);
+    }
+});
+
 // GET /api/invoices/:id/share-link — Generate secure hosted link and sync to cloud DB
 router.get('/:id/share-link', async (req, res, next) => {
     try {
@@ -687,6 +699,7 @@ router.post('/:id/return', async (req, res, next) => {
         const invoiceReturnedRecords = db.all('SELECT product_id, SUM(return_qty) as total_returned FROM invoice_returns WHERE invoice_id = ? GROUP BY product_id', [invoiceId]);
 
         let totalReturnAmount = 0;
+        const returnDetails = [];
 
         for (const ret of returns) {
             const product = db.get('SELECT * FROM products WHERE id = ?', [ret.product_id]);
@@ -769,6 +782,9 @@ router.post('/:id/return', async (req, res, next) => {
                         'INSERT INTO invoice_returns (invoice_id, product_id, invoice_item_id, return_qty, return_amount, refund_method, batch_id) VALUES (?, ?, ?, ?, ?, ?, ?)',
                         [invoiceId, ret.product_id, line.id || null, returnQtyForLine, lineFinalReturnAmount, 'pending', line.batch_id || null]
                     );
+
+                    const prodName = line.product_name || (product ? product.name : `Product ID ${ret.product_id}`);
+                    returnDetails.push(`${returnQtyForLine}x ${prodName} (₹${lineFinalReturnAmount.toFixed(2)})`);
 
                     // Restore product stock (always restore parent product for non-variant items)
                     if (line.variant_id) {
@@ -868,6 +884,15 @@ router.post('/:id/return', async (req, res, next) => {
 
         db.run('UPDATE invoices SET total_returned_amount = ?, return_type = ?, financial_status = ?, payment_status = ? WHERE id = ?',
             [newTotalReturned, returnType, financialStatus, paymentStatus, invoiceId]);
+
+        if (returnDetails.length > 0) {
+            db.run('INSERT INTO audit_logs (invoice_id, action, details) VALUES (?, ?, ?)',
+                [invoiceId, 'Product Refund', `Refunded: ${returnDetails.join(', ')}. Method: ${refund_method === 'p_credit' ? 'P-Credit' : 'Cash/Refund'}`]);
+        }
+        if (refundBalance > 0) {
+            db.run('INSERT INTO audit_logs (invoice_id, action, details) VALUES (?, ?, ?)',
+                [invoiceId, 'Refund Balance', `Returned ₹${refundBalance.toFixed(2)} to customer via ${refund_method === 'p_credit' ? 'P-Credit Balance' : 'Direct Cash/Refund'}`]);
+        }
 
         updatedInvoice = db.get(`
             SELECT i.*, c.name AS customer_name, c.email AS customer_email
@@ -989,6 +1014,18 @@ router.put('/:id/payment', async (req, res, next) => {
             'UPDATE invoices SET paid_amount = ?, payment_status = ?, financial_status = ?, fulfillment_status = ? WHERE id = ?',
             [finalPaid, newStatus, newFinancialStatus, newFulfillmentStatus, invoiceId]
         );
+
+        const paymentNotes = [];
+        if (cashAmount > 0) {
+            paymentNotes.push(`₹${cashAmount.toFixed(2)} via ${payment_method || 'Cash'}`);
+        }
+        if (pCreditUsed > 0) {
+            paymentNotes.push(`₹${pCreditUsed.toFixed(2)} via P-Credit`);
+        }
+        if (paymentNotes.length > 0) {
+            db.run('INSERT INTO audit_logs (invoice_id, action, details) VALUES (?, ?, ?)',
+                [invoiceId, 'Payment Received', `Added payment: ${paymentNotes.join(', ')}. Notes: ${notes || 'Direct payment update'}`]);
+        }
         }); // End transaction
 
         const updated = db.get(`
@@ -1288,6 +1325,8 @@ router.post('/:id/process-advance', async (req, res, next) => {
         db.run('UPDATE invoices SET total = ?, is_stock_deducted = 1, payment_status = ?, financial_status = ?, delivery_status = ?, fulfillment_status = ?, is_pending_product = ? WHERE id = ?',
             [newGrandTotal, newPaymentStatus, newPaymentStatus, invoiceDeliveryStatus, fulfillmentStatus, isPendingProduct, invoiceId]);
 
+        db.run('INSERT INTO audit_logs (invoice_id, action, details) VALUES (?, ?, ?)',
+            [invoiceId, 'Advance Processed', `Processed advance invoice. Stock deducted. Fulfillment: ${fulfillmentStatus}, Payment: ${newPaymentStatus}`]);
         }); // End transaction
         triggerAutoEmail(invoiceId, true);
         syncInvoiceIfShared(invoiceId);
