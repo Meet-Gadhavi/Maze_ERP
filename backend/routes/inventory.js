@@ -418,13 +418,23 @@ router.put('/:id', async (req, res, next) => {
         const syncToggle = db.get("SELECT value FROM settings WHERE key = 'enable_realtime_price_update'");
         if (syncToggle && syncToggle.value === 'true' && selling_price !== undefined && Number(selling_price) > 0) {
             const productId = Number(req.params.id);
-            const affectedItems = db.all(`
+            const restrictToggle = db.get("SELECT value FROM settings WHERE key = 'restrict_realtime_price_sync'");
+            const isRestricted = restrictToggle && restrictToggle.value === 'true';
+
+            let query = `
                 SELECT ii.id, ii.invoice_id, ii.quantity
                 FROM invoice_items ii
                 JOIN invoices inv ON ii.invoice_id = inv.id
                 WHERE ii.product_id = ?
                 AND (ii.variant_id IS NULL OR ii.variant_id = 0)
-            `, [productId]);
+            `;
+            const params = [productId];
+
+            if (isRestricted) {
+                query += ` AND UPPER(inv.payment_status) = 'UNPAID' AND ii.price = 0`;
+            }
+
+            const affectedItems = db.all(query, params);
             if (affectedItems && affectedItems.length > 0) {
                 for (const item of affectedItems) {
                     const newPrice = Number(selling_price);
@@ -579,12 +589,22 @@ router.put('/variants/:id', async (req, res, next) => {
             // M060: Check if real-time price sync toggle is on, and update variant invoice items
             const syncToggle = db.get("SELECT value FROM settings WHERE key = 'enable_realtime_price_update'");
             if (syncToggle && syncToggle.value === 'true' && selling_price !== undefined && Number(selling_price) > 0) {
-                const affectedItems = db.all(`
+                const restrictToggle = db.get("SELECT value FROM settings WHERE key = 'restrict_realtime_price_sync'");
+                const isRestricted = restrictToggle && restrictToggle.value === 'true';
+
+                let query = `
                     SELECT ii.id, ii.invoice_id, ii.quantity
                     FROM invoice_items ii
                     JOIN invoices inv ON ii.invoice_id = inv.id
                     WHERE ii.variant_id = ?
-                `, [variantId]);
+                `;
+                const params = [variantId];
+
+                if (isRestricted) {
+                    query += ` AND UPPER(inv.payment_status) = 'UNPAID' AND ii.price = 0`;
+                }
+
+                const affectedItems = db.all(query, params);
                 if (affectedItems && affectedItems.length > 0) {
                     for (const item of affectedItems) {
                         const newPrice = Number(selling_price);

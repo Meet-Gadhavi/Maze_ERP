@@ -7,6 +7,7 @@ All notable changes to the Quantro ERP application will be documented here.
 ## [2.7.4] - 2026-06-03
 ### Fixed
 - **Sales Return Quantity Cap**: Fixed a stock and financial leak vulnerability inside the invoice return processor. Enforced returned quantity verification limits based on actual delivered products (`qty_delivered`) rather than ordered/requested quantities (`qty_requested`). This prevents inventory inflation (ghost stock) and financial refund leaks for undelivered items in advance or partial checkout flows.
+- **Dynamic Price Sync Control**: Added a sub-toggle "Restrict Sync to Unpaid & $0 Price" under "Real-time Price Dynamic Sync" in the settings page. When enabled, catalog price updates will only affect unpaid invoices and items originally checked out at $0, preventing retroactive changes to finalized historical invoices, GST reports, and customer ledgers.
 
 ## [2.7.3] - 2026-06-03
 ### Added

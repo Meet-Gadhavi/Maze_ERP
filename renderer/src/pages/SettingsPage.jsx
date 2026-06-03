@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, Fragment } from 'react';
 import { toast } from 'sonner';
 import api from '../api';
 import CustomSelect from '../components/CustomSelect';
@@ -49,6 +49,7 @@ export default function SettingsPage() {
         enable_serial_tracking: 'true',
         show_category_in_invoice: 'true',
         enable_realtime_price_update: 'false',
+        restrict_realtime_price_sync: 'false',
         include_pending_price: 'true'
     });
     const [loading, setLoading] = useState(true);
@@ -841,19 +842,49 @@ export default function SettingsPage() {
                                         { key: 'enable_realtime_price_update', label: 'Real-time Price Dynamic Sync', desc: 'Automatically updates 0-priced products on existing invoices when their inventory selling price is updated' },
                                         { key: 'include_pending_price', label: 'Include Pending Items Price', desc: 'If enabled, charges/counts the price of pending/backordered units in invoice totals. Turn off to exclude them.' }
                                     ].map(item => (
-                                        <div key={item.key} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 16px', background: 'var(--bg-primary)', borderRadius: '8px', border: '1px solid var(--border-light)' }}>
-                                            <div>
-                                                <div style={{ fontWeight: 600, fontSize: '14px' }}>{item.label}</div>
-                                                <div style={{ fontSize: '12px', color: 'var(--text-tertiary)' }}>{item.desc}</div>
+                                        <Fragment key={item.key}>
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 16px', background: 'var(--bg-primary)', borderRadius: '8px', border: '1px solid var(--border-light)' }}>
+                                                <div>
+                                                    <div style={{ fontWeight: 600, fontSize: '14px' }}>{item.label}</div>
+                                                    <div style={{ fontSize: '12px', color: 'var(--text-tertiary)' }}>{item.desc}</div>
+                                                </div>
+                                                <div 
+                                                    className="toggle-switch" 
+                                                    onClick={() => setSettings({ ...settings, [item.key]: settings[item.key] === 'true' ? 'false' : 'true' })}
+                                                    style={{ cursor: 'pointer' }}
+                                                >
+                                                    <div className={`toggle-track ${settings[item.key] === 'true' ? 'on' : ''}`}></div>
+                                                </div>
                                             </div>
-                                            <div 
-                                                className="toggle-switch" 
-                                                onClick={() => setSettings({ ...settings, [item.key]: settings[item.key] === 'true' ? 'false' : 'true' })}
-                                                style={{ cursor: 'pointer' }}
-                                            >
-                                                <div className={`toggle-track ${settings[item.key] === 'true' ? 'on' : ''}`}></div>
-                                            </div>
-                                        </div>
+                                            {item.key === 'enable_realtime_price_update' && settings.enable_realtime_price_update === 'true' && (
+                                                <div style={{ 
+                                                    marginLeft: '24px', 
+                                                    display: 'flex', 
+                                                    justifyContent: 'space-between', 
+                                                    alignItems: 'center', 
+                                                    padding: '12px 16px', 
+                                                    background: 'var(--bg-primary)', 
+                                                    borderRadius: '8px', 
+                                                    border: '1px solid var(--border-light)',
+                                                    marginTop: '-8px',
+                                                    marginBottom: '4px',
+                                                    borderLeft: '4px solid var(--primary-color)',
+                                                    opacity: 0.95
+                                                }}>
+                                                    <div>
+                                                        <div style={{ fontWeight: 600, fontSize: '14px' }}>Restrict Sync to Unpaid & $0 Price</div>
+                                                        <div style={{ fontSize: '12px', color: 'var(--text-tertiary)' }}>Only updates unpaid invoice items originally priced at $0 (preserves historical invoices)</div>
+                                                    </div>
+                                                    <div 
+                                                        className="toggle-switch" 
+                                                        onClick={() => setSettings({ ...settings, restrict_realtime_price_sync: settings.restrict_realtime_price_sync === 'true' ? 'false' : 'true' })}
+                                                        style={{ cursor: 'pointer' }}
+                                                    >
+                                                        <div className={`toggle-track ${settings.restrict_realtime_price_sync === 'true' ? 'on' : ''}`}></div>
+                                                    </div>
+                                                </div>
+                                            )}
+                                        </Fragment>
                                     ))}
                                 </div>
 
