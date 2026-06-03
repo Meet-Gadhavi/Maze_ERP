@@ -1270,24 +1270,74 @@ export default function SettingsPage() {
                             <div className="settings-section-card">
                                 <h3>App Behavior & Interfaces</h3>
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', marginTop: '16px' }}>
-                                    {[
-                                        { key: 'enable_quick_sale', label: 'Enable Quick Sale Interface', desc: 'Shows a dedicated, high-speed POS checkout tab on the Sales page' },
-                                        { key: 'enable_customer_display', label: 'Enable Secondary Customer Display', desc: 'Allows opening a customer-facing window to show items and total during checkout' }
-                                    ].filter(item => item.key === 'enable_quick_sale' || settings.enable_quick_sale === 'true').map(item => (
-                                        <div key={item.key} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 16px', background: 'var(--bg-primary)', borderRadius: '8px', border: '1px solid var(--border-light)' }}>
-                                            <div>
-                                                <div style={{ fontWeight: 600, fontSize: '14px' }}>{item.label}</div>
-                                                <div style={{ fontSize: '12px', color: 'var(--text-tertiary)' }}>{item.desc}</div>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 16px', background: 'var(--bg-primary)', borderRadius: '8px', border: '1px solid var(--border-light)' }}>
+                                        <div>
+                                            <div style={{ fontWeight: 600, fontSize: '14px' }}>Enable Quick Sale Interface</div>
+                                            <div style={{ fontSize: '12px', color: 'var(--text-tertiary)' }}>Shows a dedicated, high-speed POS checkout tab on the Sales page</div>
+                                        </div>
+                                        <div 
+                                            className="toggle-switch" 
+                                            onClick={() => setSettings({ ...settings, enable_quick_sale: settings.enable_quick_sale === 'true' ? 'false' : 'true' })}
+                                            style={{ cursor: 'pointer' }}
+                                        >
+                                            <div className={`toggle-track ${settings.enable_quick_sale === 'true' ? 'on' : ''}`}></div>
+                                        </div>
+                                    </div>
+
+                                    {settings.enable_quick_sale === 'true' && (
+                                        <div 
+                                            className="nested-sub-toggle-container"
+                                            style={{ 
+                                                display: 'flex', 
+                                                alignItems: 'center', 
+                                                marginTop: '-8px', 
+                                                marginBottom: '4px', 
+                                                marginLeft: '16px' 
+                                            }}
+                                        >
+                                            <div style={{ 
+                                                color: 'var(--primary-color)', 
+                                                opacity: 0.8, 
+                                                marginRight: '12px', 
+                                                display: 'flex', 
+                                                alignItems: 'center',
+                                                flexShrink: 0
+                                            }}>
+                                                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                                    <path
+                                                        d="M4 4V5.4C4 8.76031 4 10.4405 4.65396 11.7239C5.2292 12.8529 6.14708 13.7708 7.27606 14.346C8.55953 15 10.2397 15 13.6 15H20M20 15L15 10M20 15L15 20"
+                                                        stroke="currentColor"
+                                                        strokeWidth="2"
+                                                        strokeLinecap="round"
+                                                        strokeLinejoin="round"
+                                                    />
+                                                </svg>
                                             </div>
-                                            <div 
-                                                className="toggle-switch" 
-                                                onClick={() => setSettings({ ...settings, [item.key]: settings[item.key] === 'true' ? 'false' : 'true' })}
-                                                style={{ cursor: 'pointer' }}
-                                            >
-                                                <div className={`toggle-track ${settings[item.key] === 'true' ? 'on' : ''}`}></div>
+                                            <div style={{ 
+                                                flex: 1,
+                                                display: 'flex', 
+                                                justifyContent: 'space-between', 
+                                                alignItems: 'center', 
+                                                padding: '12px 16px', 
+                                                background: 'var(--bg-primary)', 
+                                                borderRadius: '8px', 
+                                                border: '1px solid var(--border-light)',
+                                                opacity: 0.95
+                                            }}>
+                                                <div>
+                                                    <div style={{ fontWeight: 600, fontSize: '14px' }}>Enable Secondary Customer Display</div>
+                                                    <div style={{ fontSize: '12px', color: 'var(--text-tertiary)' }}>Allows opening a customer-facing window to show items and total during checkout</div>
+                                                </div>
+                                                <div 
+                                                    className="toggle-switch" 
+                                                    onClick={() => setSettings({ ...settings, enable_customer_display: settings.enable_customer_display === 'true' ? 'false' : 'true' })}
+                                                    style={{ cursor: 'pointer' }}
+                                                >
+                                                    <div className={`toggle-track ${settings.enable_customer_display === 'true' ? 'on' : ''}`}></div>
+                                                </div>
                                             </div>
                                         </div>
-                                    ))}
+                                    )}
                                 </div>
                                 <div className="settings-divider" style={{ margin: '30px 0 20px 0', borderTop: '1px solid var(--border-light)' }}></div>
                                 
