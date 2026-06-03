@@ -858,7 +858,7 @@ export default function SettingsPage() {
                                             </div>
                                             {item.key === 'enable_realtime_price_update' && settings.enable_realtime_price_update === 'true' && (
                                                 <div style={{ 
-                                                    marginLeft: '24px', 
+                                                    marginLeft: '36px', 
                                                     display: 'flex', 
                                                     justifyContent: 'space-between', 
                                                     alignItems: 'center', 
@@ -871,16 +871,19 @@ export default function SettingsPage() {
                                                     borderLeft: '4px solid var(--primary-color)',
                                                     opacity: 0.95
                                                 }}>
-                                                    <div>
-                                                        <div style={{ fontWeight: 600, fontSize: '14px' }}>Restrict Sync to Unpaid & $0 Price</div>
-                                                        <div style={{ fontSize: '12px', color: 'var(--text-tertiary)' }}>Only updates unpaid invoice items originally priced at $0 (preserves historical invoices)</div>
+                                                    <div style={{ display: 'flex', alignItems: 'flex-start', gap: '8px' }}>
+                                                        <span style={{ fontSize: '18px', color: 'var(--primary-color)', lineHeight: 1, marginTop: '2px', fontWeight: 'bold' }}>↳</span>
+                                                        <div>
+                                                            <div style={{ fontWeight: 600, fontSize: '14px' }}>Restrict Sync to Unpaid & $0 Price</div>
+                                                            <div style={{ fontSize: '12px', color: 'var(--text-tertiary)' }}>Only updates unpaid invoice items originally priced at $0 (preserves historical invoices)</div>
+                                                        </div>
                                                     </div>
                                                     <div 
                                                         className="toggle-switch" 
                                                         onClick={() => setSettings({ ...settings, restrict_realtime_price_sync: settings.restrict_realtime_price_sync === 'true' ? 'false' : 'true' })}
                                                         style={{ cursor: 'pointer' }}
                                                     >
-                                                        <div className={`toggle-track ${settings.restrict_realtime_price_sync === 'true' ? 'on' : ''}`}></div>
+                                                        <div className={`toggle-track ${settings[settings.restrict_realtime_price_sync] === 'true' || settings.restrict_realtime_price_sync === 'true' ? 'on' : ''}`}></div>
                                                     </div>
                                                 </div>
                                             )}
