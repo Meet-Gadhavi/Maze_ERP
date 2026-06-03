@@ -19,6 +19,7 @@
   "build": {
     "appId": "com.mazelab.quantro",
     "productName": "Quantro",
+    "artifactName": "${productName}-Setup-${version}.${ext}",
     "directories": {
       "output": "Deployment/v2.7.3"
     },
