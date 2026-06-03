@@ -744,13 +744,13 @@ router.post('/:id/return', async (req, res, next) => {
                 throw err;
             }
 
-            const totalOriginalQty = productItems.reduce((acc, curr) => acc + curr.quantity, 0);
+            const totalOriginalQty = productItems.reduce((acc, curr) => acc + curr.qty_delivered, 0);
             // Track already returned per item-id if we have it, else per product
             const alreadyReturned = ret.invoice_item_id
                 ? (db.get('SELECT SUM(return_qty) as total FROM invoice_returns WHERE invoice_id = ? AND invoice_item_id = ?', [invoiceId, Number(ret.invoice_item_id)])?.total || 0)
                 : (invoiceReturnedRecords.find(r => r.product_id === ret.product_id)?.total_returned || 0);
             if (ret.quantity + alreadyReturned > totalOriginalQty) {
-                res.status(400).json({ error: `Cannot return more than sold for this product` });
+                res.status(400).json({ error: `Cannot return more than delivered for this product` });
                 const err = new Error('Abort');
                 err.apiResponse = true;
                 throw err;
@@ -762,7 +762,7 @@ router.post('/:id/return', async (req, res, next) => {
                 
                 // For this specific batch line, how much has been returned?
                 const lineReturned = db.get('SELECT SUM(return_qty) as total FROM invoice_returns WHERE invoice_id = ? AND product_id = ? AND batch_id IS ?', [invoiceId, line.product_id, line.batch_id])?.total || 0;
-                const returnableForLine = line.quantity - lineReturned;
+                const returnableForLine = line.qty_delivered - lineReturned;
 
                 if (returnableForLine > 0) {
                     const returnQtyForLine = Math.min(qtyToReturn, returnableForLine);
