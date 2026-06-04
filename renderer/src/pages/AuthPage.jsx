@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '../supabase';
 import { toast } from 'sonner';
 import * as Icons from 'lucide-react';
@@ -12,9 +12,87 @@ export default function AuthPage() {
     const [loading, setLoading] = useState(false);
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
+    const [captchaCode, setCaptchaCode] = useState('');
+    const [captchaInput, setCaptchaInput] = useState('');
+    const canvasRef = useRef(null);
+
+    // Function to generate random captcha code
+    const generateCaptcha = () => {
+        const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // Avoid ambiguous chars like I, O, 0, 1
+        let code = '';
+        for (let i = 0; i < 6; i++) {
+            code += chars.charAt(Math.floor(Math.random() * chars.length));
+        }
+        setCaptchaCode(code);
+        setCaptchaInput('');
+        drawCaptcha(code);
+    };
+
+    // Draw captcha on canvas with noise
+    const drawCaptcha = (code) => {
+        setTimeout(() => {
+            const canvas = canvasRef.current;
+            if (!canvas) return;
+            const ctx = canvas.getContext('2d');
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // Background
+            ctx.fillStyle = '#f3f4f6';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // Random background noise lines
+            for (let i = 0; i < 6; i++) {
+                ctx.strokeStyle = `rgb(${Math.floor(Math.random()*150)}, ${Math.floor(Math.random()*150)}, ${Math.floor(Math.random()*150)})`;
+                ctx.lineWidth = Math.random() * 2 + 1;
+                ctx.beginPath();
+                ctx.moveTo(Math.random() * canvas.width, Math.random() * canvas.height);
+                ctx.lineTo(Math.random() * canvas.width, Math.random() * canvas.height);
+                ctx.stroke();
+            }
+
+            // Draw letters with random rotation/scale
+            ctx.font = 'bold 24px monospace';
+            ctx.textBaseline = 'middle';
+            for (let i = 0; i < code.length; i++) {
+                const char = code[i];
+                ctx.save();
+                // Spacing
+                const x = 15 + i * 22;
+                const y = canvas.height / 2 + (Math.random() * 8 - 4);
+                ctx.translate(x, y);
+                // Rotate
+                const angle = (Math.random() * 30 - 15) * Math.PI / 180;
+                ctx.rotate(angle);
+                // Color
+                ctx.fillStyle = `rgb(${Math.floor(Math.random()*100)}, ${Math.floor(Math.random()*100)}, ${Math.floor(Math.random()*100)})`;
+                ctx.fillText(char, 0, 0);
+                ctx.restore();
+            }
+
+            // Distorting dots/noise
+            for (let i = 0; i < 40; i++) {
+                ctx.fillStyle = `rgba(${Math.floor(Math.random()*200)}, ${Math.floor(Math.random()*200)}, ${Math.floor(Math.random()*200)}, 0.3)`;
+                ctx.beginPath();
+                ctx.arc(Math.random() * canvas.width, Math.random() * canvas.height, Math.random() * 2 + 1, 0, Math.PI * 2);
+                ctx.fill();
+            }
+        }, 50);
+    };
+
+    // Auto-generate captcha on load and when switching tabs
+    useEffect(() => {
+        generateCaptcha();
+    }, [isLogin]);
 
     const handleAuth = async (e) => {
         e.preventDefault();
+
+        if (captchaInput.toUpperCase() !== captchaCode) {
+            toast.error('Invalid security verification code. Please try again.');
+            generateCaptcha();
+            return;
+        }
+
         setLoading(true);
 
         try {
@@ -39,28 +117,28 @@ export default function AuthPage() {
             }
         } catch (error) {
             toast.error(error.message);
+            generateCaptcha(); // Regenerate on failed attempt as well
         } finally {
             setLoading(false);
         }
     };
 
     const handleGoogleLogin = async () => {
+        if (captchaInput.toUpperCase() !== captchaCode) {
+            toast.error('Invalid security verification code. Please try again.');
+            generateCaptcha();
+            return;
+        }
+
         try {
-            const isLocal = window.location.origin.includes('localhost');
             const isElectron = !!(window.maze || navigator.userAgent.toLowerCase().includes('electron'));
-            const redirectTo = isElectron ? 'maze-erp://auth-callback' : (isLocal ? 'http://localhost:5175' : 'maze-erp://auth-callback');
+            const redirectTo = 'maze-erp://auth-callback';
+            const webAuthUrl = `https://quantro-web.onrender.com/?action=google-login&redirect=${encodeURIComponent(redirectTo)}`;
 
-            const { data, error } = await supabase.auth.signInWithOAuth({
-                provider: 'google',
-                options: {
-                    redirectTo: redirectTo,
-                    skipBrowserRedirect: isElectron
-                }
-            });
-            if (error) throw error;
-
-            if (isElectron && data?.url) {
-                window.maze.openExternal(data.url);
+            if (isElectron && window.maze?.openExternal) {
+                window.maze.openExternal(webAuthUrl);
+            } else {
+                window.open(webAuthUrl, '_blank');
             }
         } catch (error) {
             toast.error('Authentication failed: ' + error.message);
@@ -114,7 +192,7 @@ export default function AuthPage() {
 
                     <form className="auth-form" onSubmit={handleAuth}>
                         <div className="form-group">
-                            <label>Email Address</label>
+                            <label>Email Address <span style={{ color: '#ff3b30', marginLeft: '4px' }}>(REQUIRED)</span></label>
                             <div className="input-with-icon">
                                 <Icons.Mail size={18} className="input-icon" />
                                 <input
@@ -128,7 +206,7 @@ export default function AuthPage() {
                         </div>
 
                         <div className="form-group">
-                            <label>Password</label>
+                            <label>Password <span style={{ color: '#ff3b30', marginLeft: '4px' }}>(REQUIRED)</span></label>
                             <div className="input-with-icon">
                                 <Icons.Lock size={18} className="input-icon" />
                                 <input
@@ -137,6 +215,39 @@ export default function AuthPage() {
                                     required
                                     value={password}
                                     onChange={(e) => setPassword(e.target.value)}
+                                />
+                            </div>
+                        </div>
+
+                        <div className="form-group">
+                            <label>Security Verification <span style={{ color: '#ff3b30', marginLeft: '4px' }}>(REQUIRED)</span></label>
+                            <div className="captcha-image-wrapper">
+                                <canvas
+                                    ref={canvasRef}
+                                    width="160"
+                                    height="48"
+                                    className="captcha-canvas"
+                                    onClick={generateCaptcha}
+                                    title="Click to refresh image"
+                                    style={{ display: 'block', borderRadius: '8px', cursor: 'pointer' }}
+                                />
+                                <button
+                                    type="button"
+                                    className="captcha-refresh-btn"
+                                    onClick={generateCaptcha}
+                                    title="Refresh verification code"
+                                >
+                                    <Icons.RefreshCw size={18} />
+                                </button>
+                            </div>
+                            <div className="input-with-icon">
+                                <Icons.ShieldCheck size={18} className="input-icon" />
+                                <input
+                                    type="text"
+                                    placeholder="Enter 6-digit code above"
+                                    required
+                                    value={captchaInput}
+                                    onChange={(e) => setCaptchaInput(e.target.value)}
                                 />
                             </div>
                         </div>

@@ -467,6 +467,7 @@ router.post('/', async (req, res, next) => {
             if (!is_advance && reduceBy > 0) {
                 if (variant) {
                     db.run('UPDATE product_variants SET stock_quantity = stock_quantity - ? WHERE id = ?', [reduceBy, variant.id]);
+                    db.run('UPDATE products SET stock_quantity = stock_quantity - ? WHERE id = ?', [reduceBy, product.id]);
                 } else {
                     db.run('UPDATE products SET stock_quantity = stock_quantity - ? WHERE id = ?', [reduceBy, product.id]);
                 }
@@ -645,29 +646,121 @@ router.delete('/:id', async (req, res, next) => {
         await db.ready;
         const invoiceId = Number(req.params.id);
 
-        // Check if there is an active share token for this invoice and delete the remote entry
-        const tokenRow = db.get("SELECT token FROM invoice_tokens WHERE invoice_id = ?", [invoiceId]);
-        if (tokenRow) {
-            const DB_URL = "https://mazeway-db.onrender.com";
-            const DB_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJncm91cCI6ImFub24iLCJpYXQiOjE3Nzk3MDA0Mzh9.mazeway_db_anon_5KUWRlLbhAarPceBoTlDGMTjNn8hvXtgSTCAGH7CSCOMxgwcZNojTpcYiqqUc3Ma";
-            
-            fetch(`${DB_URL}/api/v1/tables/hosted_invoices/rows`, {
-                method: 'DELETE',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'apikey': DB_ANON_KEY,
-                    'Authorization': `Bearer ${DB_ANON_KEY}`
-                },
-                body: JSON.stringify({
-                    match: { invoice_id: invoiceId }
-                })
-            }).catch(e => console.error(`[Delete Sync] Failed to delete hosted invoice #${invoiceId} from cloud DB:`, e.message));
+        let resultObj;
+        try {
+            db.transaction(() => {
+                const invoice = db.get("SELECT * FROM invoices WHERE id = ?", [invoiceId]);
+                if (!invoice) {
+                    res.status(404).json({ error: 'Invoice not found' });
+                    const err = new Error('Abort'); err.apiResponse = true; throw err;
+                }
 
-            db.run('DELETE FROM invoice_tokens WHERE invoice_id = ?', [invoiceId]);
+                // 1. Fetch all items on this invoice to restore stock
+                const items = db.all("SELECT * FROM invoice_items WHERE invoice_id = ?", [invoiceId]);
+                for (const item of items) {
+                    const qtyToRestore = Number(item.qty_delivered || 0);
+                    if (qtyToRestore > 0) {
+                        if (item.variant_id) {
+                            db.run(
+                                'UPDATE product_variants SET stock_quantity = stock_quantity + ? WHERE id = ?',
+                                [qtyToRestore, item.variant_id]
+                            );
+                            db.run(
+                                'UPDATE products SET stock_quantity = stock_quantity + ? WHERE id = ?',
+                                [qtyToRestore, item.product_id]
+                            );
+                        } else {
+                            db.run(
+                                'UPDATE products SET stock_quantity = stock_quantity + ? WHERE id = ?',
+                                [qtyToRestore, item.product_id]
+                            );
+                        }
+
+                        if (item.batch_id) {
+                            db.run(
+                                'UPDATE product_batches SET current_quantity = current_quantity + ? WHERE id = ?',
+                                [qtyToRestore, item.batch_id]
+                            );
+                        }
+
+                        // Record stock movement
+                        db.run(
+                            'INSERT INTO stock_movements (product_id, variant_id, type, quantity, reference_type, reference_id, batch_id, notes) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+                            [item.product_id, item.variant_id || null, 'RETURN', qtyToRestore, 'Invoice Cancelled', invoiceId, item.batch_id || null, 'Invoice Deleted']
+                        );
+                    }
+
+                    // Restore serial status if serial numbers are tracked
+                    const product = db.get("SELECT track_serials FROM products WHERE id = ?", [item.product_id]);
+                    if (product && product.track_serials) {
+                        db.run(
+                            "UPDATE product_serials SET status = 'Available', invoice_id = NULL, invoice_item_id = NULL WHERE invoice_id = ?",
+                            [invoiceId]
+                        );
+                    }
+                }
+
+                // 2. Refund P-Credit/Wallet payments to customer balance
+                if (invoice.customer_id) {
+                    const payments = db.all("SELECT * FROM invoice_payments WHERE invoice_id = ?", [invoiceId]);
+                    let totalRefundCredit = 0;
+                    payments.forEach(p => {
+                        if (p.method === 'Wallet' || p.method === 'P-Credit' || p.method === 'Wallet (P-Credit)') {
+                            totalRefundCredit += Number(p.amount || 0);
+                        }
+                    });
+                    
+                    if (invoice.p_credit_amount > 0) {
+                        totalRefundCredit += Number(invoice.p_credit_amount);
+                    }
+
+                    if (totalRefundCredit > 0) {
+                        db.run(
+                            'UPDATE customers SET p_credit_balance = p_credit_balance + ? WHERE id = ?',
+                            [totalRefundCredit, invoice.customer_id]
+                        );
+                    }
+                }
+
+                // 3. Restore coupon usage count
+                if (invoice.coupon_code) {
+                    db.run(
+                        'UPDATE coupons SET times_used = MAX(0, times_used - 1) WHERE UPPER(code) = ?',
+                        [invoice.coupon_code.trim().toUpperCase()]
+                    );
+                }
+
+                // 4. Remote hosted invoice sync cleanup
+                const tokenRow = db.get("SELECT token FROM invoice_tokens WHERE invoice_id = ?", [invoiceId]);
+                if (tokenRow) {
+                    const DB_URL = "https://mazeway-db.onrender.com";
+                    const DB_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJncm91cCI6ImFub24iLCJpYXQiOjE3Nzk3MDA0Mzh9.mazeway_db_anon_5KUWRlLbhAarPceBoTlDGMTjNn8hvXtgSTCAGH7CSCOMxgwcZNojTpcYiqqUc3Ma";
+                    
+                    fetch(`${DB_URL}/api/v1/tables/hosted_invoices/rows`, {
+                        method: 'DELETE',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'apikey': DB_ANON_KEY,
+                            'Authorization': `Bearer ${DB_ANON_KEY}`
+                        },
+                        body: JSON.stringify({
+                            match: { invoice_id: invoiceId }
+                        })
+                    }).catch(e => console.error(`[Delete Sync] Failed to delete hosted invoice #${invoiceId} from cloud DB:`, e.message));
+
+                    db.run('DELETE FROM invoice_tokens WHERE invoice_id = ?', [invoiceId]);
+                }
+
+                // 5. Delete records
+                db.run('DELETE FROM invoices WHERE id = ?', [invoiceId]);
+                db.run('DELETE FROM invoice_payments WHERE invoice_id = ?', [invoiceId]);
+                db.run('DELETE FROM invoice_items WHERE invoice_id = ?', [invoiceId]);
+            }); // End transaction
+            res.json({ success: true });
+        } catch (txnErr) {
+            if (txnErr.apiResponse) return;
+            throw txnErr;
         }
-
-        db.run('DELETE FROM invoices WHERE id = ?', [invoiceId]);
-        res.json({ success: true });
     } catch (err) {
         next(err);
     }
@@ -793,6 +886,10 @@ router.post('/:id/return', async (req, res, next) => {
                             'UPDATE product_variants SET stock_quantity = stock_quantity + ? WHERE id = ?',
                             [returnQtyForLine, line.variant_id]
                         );
+                        db.run(
+                            'UPDATE products SET stock_quantity = stock_quantity + ? WHERE id = ?',
+                            [returnQtyForLine, ret.product_id]
+                        );
                     } else {
                         // No variant — restore parent product stock directly
                         db.run(
@@ -880,6 +977,27 @@ router.post('/:id/return', async (req, res, next) => {
             // Reduce paid amount after refund back (cash given back)
             // This ensures effective_due = (Total - returned) - (Paid - refunded) = 0
             db.run('UPDATE invoices SET paid_amount = paid_amount - ? WHERE id = ?', [refundBalance, invoiceId]);
+        } else if (refund_method === 'direct_cash') {
+            const cashRefund = Math.min(totalReturnAmount, currentPaid);
+            if (cashRefund > 0) {
+                db.run('UPDATE invoices SET paid_amount = paid_amount - ? WHERE id = ?', [cashRefund, invoiceId]);
+                currentPaid -= cashRefund;
+                effectiveDue = effectiveTotal - currentPaid;
+                
+                if (isFullReturn) {
+                    paymentStatus = 'Returned';
+                    financialStatus = 'Returned';
+                } else {
+                    if (currentPaid === 0) {
+                        paymentStatus = 'UNPAID';
+                    } else if (currentPaid < effectiveTotal) {
+                        paymentStatus = 'PARTIAL';
+                    } else {
+                        paymentStatus = 'PAID';
+                    }
+                    financialStatus = 'Cash Refunded';
+                }
+            }
         }
 
         db.run('UPDATE invoices SET total_returned_amount = ?, return_type = ?, financial_status = ?, payment_status = ? WHERE id = ?',
@@ -887,11 +1005,18 @@ router.post('/:id/return', async (req, res, next) => {
 
         if (returnDetails.length > 0) {
             db.run('INSERT INTO audit_logs (invoice_id, action, details) VALUES (?, ?, ?)',
-                [invoiceId, 'Product Refund', `Refunded: ${returnDetails.join(', ')}. Method: ${refund_method === 'p_credit' ? 'P-Credit' : 'Cash/Refund'}`]);
+                [invoiceId, 'Product Refund', `Refunded: ${returnDetails.join(', ')}. Method: ${refund_method === 'p_credit' ? 'P-Credit' : refund_method === 'direct_cash' ? 'Direct Cash' : 'Cash/Refund'}`]);
         }
-        if (refundBalance > 0) {
+        if (refundBalance > 0 && refund_method !== 'direct_cash') {
             db.run('INSERT INTO audit_logs (invoice_id, action, details) VALUES (?, ?, ?)',
                 [invoiceId, 'Refund Balance', `Returned ₹${refundBalance.toFixed(2)} to customer via ${refund_method === 'p_credit' ? 'P-Credit Balance' : 'Direct Cash/Refund'}`]);
+        }
+        if (refund_method === 'direct_cash') {
+            const cashRefund = Math.min(totalReturnAmount, invoice.paid_amount || 0);
+            if (cashRefund > 0) {
+                db.run('INSERT INTO audit_logs (invoice_id, action, details) VALUES (?, ?, ?)',
+                    [invoiceId, 'Direct Cash Refund', `Directly refunded ₹${cashRefund.toFixed(2)} cash back to customer (Outstanding due was not adjusted)`]);
+            }
         }
 
         updatedInvoice = db.get(`
@@ -1145,14 +1270,21 @@ router.post('/:id/fulfill', async (req, res, next) => {
                 [newDelivered, newPending, newStatus, newLineTotal, item.id]
             );
 
+            if (item.variant_id) {
+                db.run(
+                    'UPDATE product_variants SET stock_quantity = stock_quantity - ? WHERE id = ?',
+                    [deliverQty, item.variant_id]
+                );
+            }
+
             db.run(
                 'UPDATE products SET stock_quantity = stock_quantity - ? WHERE id = ?',
                 [deliverQty, product.id]
             );
 
             db.run(
-                'INSERT INTO stock_movements (product_id, type, quantity, reference_type, reference_id, notes) VALUES (?, ?, ?, ?, ?, ?)',
-                [product.id, 'OUT', deliverQty, 'Invoice Fulfillment', invoiceId, 'Fulfillment Delivery']
+                'INSERT INTO stock_movements (product_id, variant_id, type, quantity, reference_type, reference_id, notes) VALUES (?, ?, ?, ?, ?, ?, ?)',
+                [product.id, item.variant_id || null, 'OUT', deliverQty, 'Invoice Fulfillment', invoiceId, 'Fulfillment Delivery']
             );
             
             // M035: Verify batch availability before deducting
@@ -1280,14 +1412,21 @@ router.post('/:id/process-advance', async (req, res, next) => {
             );
 
             if (reduceBy > 0) {
+                if (item.variant_id) {
+                    db.run(
+                        'UPDATE product_variants SET stock_quantity = stock_quantity - ? WHERE id = ?',
+                        [reduceBy, item.variant_id]
+                    );
+                }
+
                 db.run(
                     'UPDATE products SET stock_quantity = stock_quantity - ? WHERE id = ?',
                     [reduceBy, product.id]
                 );
                 
                 db.run(
-                    'INSERT INTO stock_movements (product_id, type, quantity, reference_type, reference_id, notes) VALUES (?, ?, ?, ?, ?, ?)',
-                    [product.id, 'OUT', reduceBy, 'Advance Invoice', invoiceId, 'Advance Delivery']
+                    'INSERT INTO stock_movements (product_id, variant_id, type, quantity, reference_type, reference_id, notes) VALUES (?, ?, ?, ?, ?, ?, ?)',
+                    [product.id, item.variant_id || null, 'OUT', reduceBy, 'Advance Invoice', invoiceId, 'Advance Delivery']
                 );
             }
         }
@@ -1570,6 +1709,9 @@ router.post('/merge', async (req, res, next) => {
                     const err = new Error('Abort'); err.apiResponse = true; throw err;
                 }
 
+                // Fetch original returns for these invoices
+                const originalReturns = db.all(`SELECT * FROM invoice_returns WHERE invoice_id IN (${placeholders})`, invoice_ids);
+
                 // 2. Fetch original items, payments, and serials
                 const originalItems = db.all(`SELECT * FROM invoice_items WHERE invoice_id IN (${placeholders})`, invoice_ids);
                 const originalPayments = db.all(`SELECT * FROM invoice_payments WHERE invoice_id IN (${placeholders})`, invoice_ids);
@@ -1594,6 +1736,7 @@ router.post('/merge', async (req, res, next) => {
 
                             if (item.variant_id) {
                                 db.run('UPDATE product_variants SET stock_quantity = stock_quantity + ? WHERE id = ?', [restoreQty, item.variant_id]);
+                                db.run('UPDATE products SET stock_quantity = stock_quantity + ? WHERE id = ?', [restoreQty, item.product_id]);
                             } else {
                                 db.run('UPDATE products SET stock_quantity = stock_quantity + ? WHERE id = ?', [restoreQty, item.product_id]);
                             }
@@ -1629,13 +1772,15 @@ router.post('/merge', async (req, res, next) => {
                             qty_requested: 0,
                             qty_delivered: 0,
                             pending_qty: 0,
-                            original_price: item.original_price || 0
+                            original_price: item.original_price || 0,
+                            original_item_ids: []
                         };
                     }
                     groupedItems[key].quantity += item.quantity;
                     groupedItems[key].qty_requested += item.qty_requested || item.quantity;
                     groupedItems[key].qty_delivered += item.qty_delivered || item.quantity;
                     groupedItems[key].pending_qty += item.pending_qty || 0;
+                    groupedItems[key].original_item_ids.push(item.id);
                 });
 
                 // 5. Create new merged invoice row
@@ -1646,6 +1791,7 @@ router.post('/merge', async (req, res, next) => {
                 newInvoiceId = insertInvResult.lastInsertRowid;
 
                 // 6. Insert new combined items and update stock & serials
+                const oldItemIdToNewItemIdMap = {};
                 let finalTotal = 0;
                 for (const itemKey in groupedItems) {
                     const item = groupedItems[itemKey];
@@ -1662,6 +1808,7 @@ router.post('/merge', async (req, res, next) => {
                     if (reduceQty > 0) {
                         if (item.variant_id) {
                             db.run('UPDATE product_variants SET stock_quantity = stock_quantity - ? WHERE id = ?', [reduceQty, item.variant_id]);
+                            db.run('UPDATE products SET stock_quantity = stock_quantity - ? WHERE id = ?', [reduceQty, product.id]);
                         } else {
                             db.run('UPDATE products SET stock_quantity = stock_quantity - ? WHERE id = ?', [reduceQty, product.id]);
                         }
@@ -1696,6 +1843,10 @@ router.post('/merge', async (req, res, next) => {
                     );
                     const newInvoiceItemId = insertItemResult.lastInsertRowid;
 
+                    item.original_item_ids.forEach(oldId => {
+                        oldItemIdToNewItemIdMap[oldId] = newInvoiceItemId;
+                    });
+
                     // Relink Serials
                     if (product.track_serials && item.qty_delivered > 0) {
                         const productSerials = serialsMap[product.id] || [];
@@ -1718,6 +1869,29 @@ router.post('/merge', async (req, res, next) => {
                     );
                     finalPaid += p.amount;
                 });
+
+                // 8. Migrate Returns, Stock Movements, and Audit Logs
+                let totalReturnedAmount = 0;
+                originalReturns.forEach(ret => {
+                    const newMappedItemId = ret.invoice_item_id ? (oldItemIdToNewItemIdMap[ret.invoice_item_id] || null) : null;
+                    db.run(
+                        'UPDATE invoice_returns SET invoice_id = ?, invoice_item_id = ? WHERE id = ?',
+                        [newInvoiceId, newMappedItemId, ret.id]
+                    );
+                    totalReturnedAmount += ret.return_amount;
+                });
+
+                // Update stock movements of type 'Invoice Return' to point to the new merged invoice ID
+                db.run(
+                    `UPDATE stock_movements SET reference_id = ? WHERE reference_type = 'Invoice Return' AND reference_id IN (${placeholders})`,
+                    [newInvoiceId, ...invoice_ids]
+                );
+
+                // Update audit logs to point to the new merged invoice ID
+                db.run(
+                    `UPDATE audit_logs SET invoice_id = ? WHERE invoice_id IN (${placeholders})`,
+                    [newInvoiceId, ...invoice_ids]
+                );
 
                 // Recalculate payment status and delivery status
                 let finalPaymentStatus = 'PAID';
@@ -1744,15 +1918,15 @@ router.post('/merge', async (req, res, next) => {
                     isPendingProduct = 1;
                 }
 
-                // Update invoice total and statuses
-                db.run('UPDATE invoices SET total = ?, paid_amount = ?, payment_status = ?, financial_status = ?, delivery_status = ?, fulfillment_status = ?, is_pending_product = ? WHERE id = ?',
-                    [finalTotal, finalPaid, finalPaymentStatus, finalPaymentStatus, invoiceDeliveryStatus, fulfillmentStatus, isPendingProduct, newInvoiceId]);
+                // Update invoice total, statuses, and returned amount
+                db.run('UPDATE invoices SET total = ?, paid_amount = ?, payment_status = ?, financial_status = ?, delivery_status = ?, fulfillment_status = ?, is_pending_product = ?, total_returned_amount = ? WHERE id = ?',
+                    [finalTotal, finalPaid, finalPaymentStatus, finalPaymentStatus, invoiceDeliveryStatus, fulfillmentStatus, isPendingProduct, totalReturnedAmount, newInvoiceId]);
 
                 // Create Audit Log
                 db.run('INSERT INTO audit_logs (invoice_id, action, details) VALUES (?, ?, ?)',
                     [newInvoiceId, 'Invoice Merged', `Merged original invoices (${invoice_ids.map(id => 'INV-' + String(id).padStart(4, '0')).join(', ')}) into merged invoice INV-${String(newInvoiceId).padStart(4, '0')}`]);
 
-                // 8. Delete original invoices
+                // 9. Delete original invoices
                 db.run(`DELETE FROM invoices WHERE id IN (${placeholders})`, invoice_ids);
             });
         } catch (txnErr) {

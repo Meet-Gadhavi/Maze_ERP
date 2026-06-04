@@ -4,6 +4,7 @@ import SButton from '../components/SButton';
 import { Icons } from '../components/Icons';
 import { toast } from 'sonner';
 import { supabase } from '../supabase';
+import Skeleton from '../components/Skeleton';
 
 export default function BillingPage() {
     const isDev = typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') && import.meta.env.DEV;
@@ -23,6 +24,8 @@ export default function BillingPage() {
         cardCvv: '123'
     });
     const [paying, setPaying] = useState(false);
+    const [paymentMode, setPaymentMode] = useState('card');
+    const [upiId, setUpiId] = useState('');
 
     // Plan Upgrade Modal States
     const [showUpgradeModal, setShowUpgradeModal] = useState(false);
@@ -120,16 +123,30 @@ export default function BillingPage() {
     };
 
     const handleRazorpayPay = async () => {
+        if (paymentMode === 'upi') {
+            if (!upiId || !upiId.includes('@') || upiId.trim().startsWith('@') || upiId.trim().endsWith('@')) {
+                toast.error('Please enter a valid UPI ID (e.g., username@bank).');
+                return;
+            }
+        }
         setPaying(true);
         setTimeout(async () => {
             try {
                 await api.payDues();
+                if (paymentMode === 'upi' && enableAutopay) {
+                    await api.addPaymentMethod({
+                        enableAutopay: true,
+                        brand: 'UPI',
+                        last4: upiId.trim(),
+                        expiry: 'N/A'
+                    });
+                }
                 toast.success('Razorpay Payment Successful! All dues cleared and services active.');
                 setShowRazorpay(false);
                 setPaying(false);
                 loadBillingStatus();
             } catch (e) {
-                toast.error('Payment failed. Try again.');
+                toast.error(e.message || 'Payment failed. Try again.');
                 setPaying(false);
             }
         }, 1500);
@@ -307,8 +324,35 @@ export default function BillingPage() {
 
     if (loading) {
         return (
-            <div className="page-content" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '80vh' }}>
-                <div className="spinner" style={{ width: '40px', height: '40px', borderTopColor: 'var(--accent)' }}></div>
+            <div className="page-content" style={{ padding: '24px' }}>
+                <div className="page-header" style={{ marginBottom: '24px' }}>
+                    <div style={{ display: 'flex', gap: '12px' }}>
+                        <div className="skeleton-box skeleton-avatar" />
+                        <div>
+                            <div className="skeleton-box skeleton-title" style={{ width: '180px' }} />
+                            <div className="skeleton-box skeleton-text" style={{ width: '350px' }} />
+                        </div>
+                    </div>
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1.8fr 1.2fr', gap: '24px' }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                        <div className="skeleton-card" style={{ height: '180px' }}>
+                            <div className="skeleton-box skeleton-title" />
+                            <div className="skeleton-box skeleton-text" />
+                            <div className="skeleton-box skeleton-button" style={{ marginTop: '16px' }} />
+                        </div>
+                        <div className="skeleton-card" style={{ height: '150px' }}>
+                            <div className="skeleton-box skeleton-title" />
+                            <div className="skeleton-box skeleton-text" />
+                        </div>
+                    </div>
+                    <div className="skeleton-card" style={{ height: '300px' }}>
+                        <div className="skeleton-box skeleton-title" />
+                        <div className="skeleton-box skeleton-text" />
+                        <div className="skeleton-box skeleton-text" style={{ width: '80%' }} />
+                        <div className="skeleton-box skeleton-button" style={{ marginTop: '24px', width: '100%' }} />
+                    </div>
+                </div>
             </div>
         );
     }
@@ -776,10 +820,56 @@ export default function BillingPage() {
                         {status.paymentMethodAdded ? (
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '12px', background: 'var(--bg-secondary)', padding: '10px 14px', borderRadius: '8px', border: '1px solid var(--border)' }}>
-                                    <img src="./mazeway.png" alt="Razorpay" style={{ width: '20px', height: '20px', objectFit: 'contain' }} />
+                                    {status.paymentMethodBrand === 'UPI' ? (
+                                        <div style={{
+                                            background: 'linear-gradient(135deg, #7c3aed, #4f46e5)',
+                                            color: '#ffffff',
+                                            fontSize: '10px',
+                                            fontWeight: 'bold',
+                                            padding: '4px 8px',
+                                            borderRadius: '6px',
+                                            textTransform: 'uppercase',
+                                            letterSpacing: '0.5px',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            justifyContent: 'center',
+                                            height: '20px',
+                                            minWidth: '36px'
+                                        }}>
+                                            UPI
+                                        </div>
+                                    ) : status.paymentMethodLast4 === 'Netbanking' ? (
+                                        <div style={{
+                                            background: 'linear-gradient(135deg, #0284c7, #0369a1)',
+                                            color: '#ffffff',
+                                            fontSize: '9px',
+                                            fontWeight: 'bold',
+                                            padding: '4px 6px',
+                                            borderRadius: '6px',
+                                            textTransform: 'uppercase',
+                                            letterSpacing: '0.5px',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            justifyContent: 'center',
+                                            height: '20px',
+                                            minWidth: '36px'
+                                        }}>
+                                            BANK
+                                        </div>
+                                    ) : (
+                                        <img src="./mazeway.png" alt="Razorpay" style={{ width: '20px', height: '20px', objectFit: 'contain' }} />
+                                    )}
                                     <div style={{ flex: 1 }}>
-                                        <div style={{ fontSize: '13px', fontWeight: 600 }}>{status.paymentMethodBrand} ending in {status.paymentMethodLast4}</div>
-                                        <div style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>Expires {status.paymentMethodExpiry}</div>
+                                        {status.paymentMethodBrand === 'UPI' ? (
+                                            <div style={{ fontSize: '13px', fontWeight: 600 }}>UPI ID: {status.paymentMethodLast4}</div>
+                                        ) : status.paymentMethodLast4 === 'Netbanking' ? (
+                                            <div style={{ fontSize: '13px', fontWeight: 600 }}>{status.paymentMethodBrand} Netbanking</div>
+                                        ) : (
+                                            <div style={{ fontSize: '13px', fontWeight: 600 }}>{status.paymentMethodBrand} ending in {status.paymentMethodLast4}</div>
+                                        )}
+                                        {status.paymentMethodBrand !== 'UPI' && status.paymentMethodExpiry !== 'N/A' && (
+                                            <div style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>Expires {status.paymentMethodExpiry}</div>
+                                        )}
                                     </div>
                                     <span style={{ fontSize: '10px', fontWeight: 700, background: 'rgba(52, 199, 89, 0.1)', color: '#278a3e', padding: '2px 6px', borderRadius: '10px', marginRight: '8px' }}>
                                         Default
@@ -788,7 +878,7 @@ export default function BillingPage() {
                                         onClick={handleRemoveCard}
                                         style={{ fontSize: '11px', fontWeight: 650, color: 'var(--danger)', cursor: 'pointer', textDecoration: 'underline', marginLeft: 'auto' }}
                                     >
-                                        Remove Card
+                                        {status.paymentMethodBrand === 'UPI' ? 'Remove UPI' : 'Remove Card'}
                                     </span>
                                 </div>
                                 <div style={{ fontSize: '11px', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: '6px' }}>
@@ -981,55 +1071,148 @@ export default function BillingPage() {
                             <span style={{ fontSize: '20px', fontWeight: 800, color: '#ffffff' }}>₹{dues.totalDue.toFixed(2)}</span>
                         </div>
 
+                        {/* Payment Method Selector Tab */}
+                        <div style={{ display: 'flex', background: '#f1f5f9', padding: '4px', borderRadius: '10px', margin: '20px 20px 0 20px' }}>
+                            <button
+                                type="button"
+                                onClick={() => setPaymentMode('card')}
+                                style={{
+                                    flex: 1,
+                                    border: 'none',
+                                    borderRadius: '8px',
+                                    padding: '8px',
+                                    fontSize: '13px',
+                                    fontWeight: 600,
+                                    cursor: 'pointer',
+                                    background: paymentMode === 'card' ? '#ffffff' : 'transparent',
+                                    color: paymentMode === 'card' ? '#1e293b' : '#64748b',
+                                    boxShadow: paymentMode === 'card' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
+                                    transition: 'all 0.2s ease',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    gap: '6px'
+                                }}
+                            >
+                                <Icons.CreditCard size={15} />
+                                Card
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => setPaymentMode('upi')}
+                                style={{
+                                    flex: 1,
+                                    border: 'none',
+                                    borderRadius: '8px',
+                                    padding: '8px',
+                                    fontSize: '13px',
+                                    fontWeight: 600,
+                                    cursor: 'pointer',
+                                    background: paymentMode === 'upi' ? '#ffffff' : 'transparent',
+                                    color: paymentMode === 'upi' ? '#1e293b' : '#64748b',
+                                    boxShadow: paymentMode === 'upi' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
+                                    transition: 'all 0.2s ease',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    gap: '6px'
+                                }}
+                            >
+                                <div style={{
+                                    background: paymentMode === 'upi' ? 'linear-gradient(135deg, #7c3aed, #4f46e5)' : '#94a3b8',
+                                    color: '#ffffff',
+                                    fontSize: '8px',
+                                    fontWeight: 'bold',
+                                    padding: '2px 4px',
+                                    borderRadius: '3px',
+                                    lineHeight: 1
+                                }}>UPI</div>
+                                UPI / VPA
+                            </button>
+                        </div>
+
                         {/* Razorpay Body */}
                         <div style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                            <div>
-                                <label style={{ display: 'block', fontSize: '11px', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '6px' }}>Cardholder Name</label>
-                                <input 
-                                    type="text" 
-                                    className="input-text" 
-                                    value={paymentDetails.cardName || 'Valued Customer'} 
-                                    onChange={(e) => setPaymentDetails({ ...paymentDetails, cardName: e.target.value })} 
-                                    placeholder="Enter your name" 
-                                    style={{ height: '36px', fontSize: '13px' }} 
-                                />
-                            </div>
+                            {paymentMode === 'card' ? (
+                                <>
+                                    <div>
+                                        <label style={{ display: 'block', fontSize: '11px', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '6px' }}>Cardholder Name</label>
+                                        <input 
+                                            type="text" 
+                                            className="input-text" 
+                                            value={paymentDetails.cardName || 'Valued Customer'} 
+                                            onChange={(e) => setPaymentDetails({ ...paymentDetails, cardName: e.target.value })} 
+                                            placeholder="Enter your name" 
+                                            style={{ height: '36px', fontSize: '13px' }} 
+                                        />
+                                    </div>
 
-                            <div>
-                                <label style={{ display: 'block', fontSize: '11px', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '6px' }}>Card Number</label>
-                                <input 
-                                    type="text" 
-                                    className="input-text" 
-                                    value={paymentDetails.cardNumber} 
-                                    onChange={(e) => setPaymentDetails({ ...paymentDetails, cardNumber: e.target.value })} 
-                                    style={{ height: '36px', fontSize: '13px' }} 
-                                />
-                            </div>
+                                    <div>
+                                        <label style={{ display: 'block', fontSize: '11px', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '6px' }}>Card Number</label>
+                                        <input 
+                                            type="text" 
+                                            className="input-text" 
+                                            value={paymentDetails.cardNumber} 
+                                            onChange={(e) => setPaymentDetails({ ...paymentDetails, cardNumber: e.target.value })} 
+                                            style={{ height: '36px', fontSize: '13px' }} 
+                                        />
+                                    </div>
 
-                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-                                <div>
-                                    <label style={{ display: 'block', fontSize: '11px', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '6px' }}>Expiry</label>
-                                    <input 
-                                        type="text" 
-                                        className="input-text" 
-                                        value={paymentDetails.cardExpiry} 
-                                        onChange={(e) => setPaymentDetails({ ...paymentDetails, cardExpiry: e.target.value })} 
-                                        placeholder="MM/YY" 
-                                        style={{ height: '36px', fontSize: '13px' }} 
-                                    />
-                                </div>
-                                <div>
-                                    <label style={{ display: 'block', fontSize: '11px', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '6px' }}>CVV</label>
-                                    <input 
-                                        type="password" 
-                                        className="input-text" 
-                                        value={paymentDetails.cardCvv} 
-                                        onChange={(e) => setPaymentDetails({ ...paymentDetails, cardCvv: e.target.value })} 
-                                        placeholder="•••" 
-                                        style={{ height: '36px', fontSize: '13px' }} 
-                                    />
-                                </div>
-                            </div>
+                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                                        <div>
+                                            <label style={{ display: 'block', fontSize: '11px', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '6px' }}>Expiry</label>
+                                            <input 
+                                                type="text" 
+                                                className="input-text" 
+                                                value={paymentDetails.cardExpiry} 
+                                                onChange={(e) => setPaymentDetails({ ...paymentDetails, cardExpiry: e.target.value })} 
+                                                placeholder="MM/YY" 
+                                                style={{ height: '36px', fontSize: '13px' }} 
+                                            />
+                                        </div>
+                                        <div>
+                                            <label style={{ display: 'block', fontSize: '11px', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '6px' }}>CVV</label>
+                                            <input 
+                                                type="password" 
+                                                className="input-text" 
+                                                value={paymentDetails.cardCvv} 
+                                                onChange={(e) => setPaymentDetails({ ...paymentDetails, cardCvv: e.target.value })} 
+                                                placeholder="•••" 
+                                                style={{ height: '36px', fontSize: '13px' }} 
+                                            />
+                                        </div>
+                                    </div>
+                                </>
+                            ) : (
+                                <>
+                                    <div>
+                                        <label style={{ display: 'block', fontSize: '11px', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '6px' }}>UPI ID (VPA)</label>
+                                        <input 
+                                            type="text" 
+                                            className="input-text" 
+                                            value={upiId} 
+                                            onChange={(e) => setUpiId(e.target.value)} 
+                                            placeholder="mobile@ybl or user@upi" 
+                                            style={{ height: '36px', fontSize: '13px' }} 
+                                        />
+                                    </div>
+
+                                    <label style={{ display: 'flex', gap: '10px', alignItems: 'flex-start', cursor: 'pointer', userSelect: 'none', background: '#f8fafc', padding: '10px 12px', borderRadius: '8px', border: '1px solid #e2e8f0', marginTop: '4px' }}>
+                                        <input 
+                                            type="checkbox" 
+                                            checked={enableAutopay} 
+                                            onChange={(e) => setEnableAutopay(e.target.checked)} 
+                                            style={{ marginTop: '3px' }}
+                                        />
+                                        <div>
+                                            <span style={{ fontSize: '12px', fontWeight: 600, color: '#1e293b' }}>Enable UPI Autopay</span>
+                                            <p style={{ margin: '2px 0 0 0', fontSize: '10px', color: '#64748b', lineHeight: 1.3 }}>
+                                                Securely authorize Quantro to charge future outstanding bills to this UPI account.
+                                            </p>
+                                        </div>
+                                    </label>
+                                </>
+                            )}
 
                             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#278a3e', fontSize: '11px', marginTop: '4px' }}>
                                 <Icons.ShieldCheck size={16} />

@@ -9,6 +9,7 @@ import { APP_NAME, APP_VERSION } from '../constants';
 import "./SettingsPage.css";
 import Modal from '../components/Modal';
 import SButton from '../components/SButton';
+import Skeleton from '../components/Skeleton';
 
 export default function SettingsPage() {
     const [settings, setSettings] = useState({
@@ -56,8 +57,6 @@ export default function SettingsPage() {
     const [saving, setSaving] = useState(false);
     const [message, setMessage] = useState({ type: '', text: '' });
     const [activeTab, setActiveTab] = useState('profile');
-    const [showMazewayConnectModal, setShowMazewayConnectModal] = useState(false);
-    const [isConnectingMazeway, setIsConnectingMazeway] = useState(false);
 
     // Data Management States
     const [showExportModal, setShowExportModal] = useState(false);
@@ -82,6 +81,11 @@ export default function SettingsPage() {
     const [isTestingDrawer, setIsTestingDrawer] = useState(false);
     const [drawerTestResult, setDrawerTestResult] = useState(null);
     const [testProducts, setTestProducts] = useState([]);
+    
+    // Agent Selector States
+    const [showAgentSelectorModal, setShowAgentSelectorModal] = useState(false);
+    const [modalAgents, setModalAgents] = useState([]);
+    const [modalPurpose, setModalPurpose] = useState('push_latest');
 
     // System Updates States
     const [updateState, setUpdateState] = useState({
@@ -216,35 +220,6 @@ export default function SettingsPage() {
     useEffect(() => {
         let isMounted = true;
 
-        // Mazeway Connection Listener
-        const handleMazewayMessage = (event) => {
-            const data = event.data;
-            console.log('[Mazeway Handshake] Message received:', data);
-            
-            if (data === 'mazeway-connected' || data?.type === 'mazeway-connected') {
-                console.log('[Mazeway Handshake] Valid connection message detected.');
-                toast.success('Mazeway Cloud Connected Successfully!');
-                
-                // If credentials were passed in the message, update state immediately
-                if (data && typeof data === 'object' && (data.api_key || data.webhook_url)) {
-                    console.log('[Mazeway Handshake] Auto-filling credentials:', { api_key: '***', webhook_url: data.webhook_url });
-                    setSettings(prev => ({
-                        ...prev,
-                        mazeway_api_key: String(data.api_key || prev.mazeway_api_key || ''),
-                        mazeway_webhook_url: String(data.webhook_url || prev.mazeway_webhook_url || ''),
-                        mazeway_cloud_enabled: 'true'
-                    }));
-                }
-
-                // Small delay to ensure backend has finished persisting before refresh
-                setTimeout(() => {
-                    api.getSettings().then(data => {
-                        if (data) setSettings(prev => ({ ...prev, ...data }));
-                    }).catch(err => console.error('Failed to refresh settings:', err));
-                }, 500);
-            }
-        };
-
         api.getSettings()
             .then(data => {
                 if (isMounted && data) {
@@ -268,42 +243,12 @@ export default function SettingsPage() {
 
         if (isMounted) fetchBackups();
 
-        window.addEventListener('message', handleMazewayMessage);
-
         return () => {
             isMounted = false;
-            window.removeEventListener('message', handleMazewayMessage);
         };
     }, []);
 
-    useEffect(() => {
-        let pollInterval;
-        if (isConnectingMazeway) {
-            console.log('[Mazeway Handshake] Started polling settings for keys...');
-            pollInterval = setInterval(() => {
-                api.getSettings().then(data => {
-                    if (data && data.mazeway_api_key) {
-                        console.log('[Mazeway Handshake] Keys found in DB via polling!', data);
-                        toast.success('Mazeway Cloud Connected Successfully!');
-                        setSettings(prev => ({
-                            ...prev,
-                            mazeway_api_key: data.mazeway_api_key,
-                            mazeway_webhook_url: data.mazeway_webhook_url || '',
-                            mazeway_cloud_enabled: 'true'
-                        }));
-                        setIsConnectingMazeway(false);
-                        setShowMazewayConnectModal(false);
-                    }
-                }).catch(err => console.error('Error polling settings:', err));
-            }, 1500);
-        }
-        return () => {
-            if (pollInterval) {
-                console.log('[Mazeway Handshake] Stopped polling settings.');
-                clearInterval(pollInterval);
-            }
-        };
-    }, [isConnectingMazeway]);
+
 
     const fetchBackups = async () => {
         try {
@@ -314,48 +259,6 @@ export default function SettingsPage() {
         }
     };
 
-    const handlePushToMazeway = async (filename) => {
-        if (!settings.mazeway_api_key) {
-            toast.error('Mazeway API key not found. Please connect Mazeway first.');
-            return;
-        }
-
-        const loadingId = toast.loading(`Pushing ${filename} to Mazeway...`);
-        try {
-            await api.pushBackupToMazeway(filename, settings.mazeway_api_key);
-            toast.success('Backup pushed to Mazeway successfully!');
-        } catch (err) {
-            toast.error(err.message || 'Failed to push backup.');
-        } finally {
-            toast.dismiss(loadingId);
-        }
-    };
-
-    const handleAuthorize = async () => {
-        try {
-            const data = await api.getMazewayAuthUrl();
-            const authUrl = data?.authUrl;
-
-            if (!authUrl) {
-                throw new Error(data?.error || 'Could not retrieve authentication URL from backend. Make sure the application is running properly.');
-            }
-
-            console.log('Opening Mazeway Auth (External):', authUrl);
-
-            // Use window.maze.openExternal to open the system browser
-            if (window.maze && window.maze.openExternal) {
-                await window.maze.openExternal(authUrl);
-            } else {
-                // Fallback for development if window.maze is missing
-                window.open(authUrl, '_blank');
-            }
-            setIsConnectingMazeway(true);
-        } catch (err) {
-            console.error('Authorize failed:', err);
-            const errorMsg = err.message || 'Failed to initiate connection. Please check your internet or backend status.';
-            toast.error(errorMsg);
-        }
-    };
 
     // Fetch products for test mode
     useEffect(() => {
@@ -427,20 +330,54 @@ export default function SettingsPage() {
     };
 
     const handleBackupCycleChange = async (newCycle) => {
-        const promise = (async () => {
-            await api.updateBackupCycle(newCycle);
-            setBackupCycle(newCycle);
-            // Refresh settings to get any side-effects (like last_backup_date)
-            // But merge with current state to avoid losing unsaved toggles like auto_push_to_ai
-            const data = await api.getSettings();
-            setSettings(prev => ({ ...prev, ...data }));
-        })();
+        if (newCycle === 'session_end') {
+            try {
+                const agents = await api.getAgents();
+                const activeAgents = agents.filter(a => a.status !== 'PROVISIONING');
 
-        toast.promise(promise, {
-            loading: 'Updating backup cycle...',
-            success: 'Backup cycle updated successfully!',
-            error: (err) => 'Failed to update backup cycle: ' + err.message,
-        });
+                if (activeAgents.length === 0) {
+                    await api.updateBackupCycle(newCycle);
+                    setBackupCycle(newCycle);
+                    const data = await api.getSettings();
+                    setSettings(prev => ({ ...prev, ...data }));
+                    toast.success('Backup cycle set to End of Session.');
+                    return;
+                }
+
+                if (activeAgents.length === 1) {
+                    const agent = activeAgents[0];
+                    await api.updateBackupCycle(newCycle);
+                    const updatedSettings = {
+                        ...settings,
+                        backup_cycle: newCycle,
+                        session_end_agent_id: agent.id
+                    };
+                    await api.updateSettings(updatedSettings);
+                    setBackupCycle(newCycle);
+                    setSettings(prev => ({ ...prev, ...updatedSettings }));
+                    toast.success(`Backup cycle set to End of Session (Target: ${agent.name})`);
+                } else {
+                    setModalAgents(activeAgents);
+                    setModalPurpose('session_end');
+                    setShowAgentSelectorModal(true);
+                }
+            } catch (err) {
+                toast.error(`Failed to update backup cycle: ${err.message}`);
+            }
+        } else {
+            const promise = (async () => {
+                await api.updateBackupCycle(newCycle);
+                setBackupCycle(newCycle);
+                const data = await api.getSettings();
+                setSettings(prev => ({ ...prev, ...data }));
+            })();
+
+            toast.promise(promise, {
+                loading: 'Updating backup cycle...',
+                success: 'Backup cycle updated successfully!',
+                error: (err) => 'Failed to update backup cycle: ' + err.message,
+            });
+        }
     };
 
     const handleBackupNow = async () => {
@@ -449,17 +386,26 @@ export default function SettingsPage() {
             await fetchBackups();
 
             // Cloud Sync Logic
-            // 1. Cloud Backup (Supabase)
             if (settings.cloud_backups_enabled === 'true') {
                 try {
                     const content = await api.getBackupContent(filename);
                     await api.uploadBackupToStorage(filename, content);
                     toast.success('Backup synced to Cloud Storage!');
 
-                    // NEW: Auto-push to AI if enabled
+                    // Auto-push to AI if enabled
                     if (settings.auto_push_to_ai === 'true') {
-                        await api.pushBackupToMazewayAI(filename, content);
-                        toast.success('Backup auto-pushed to Mazeway AI!');
+                        let targetAgentId = settings.auto_sync_agent_id;
+                        if (!targetAgentId) {
+                            const agents = await api.getAgents();
+                            const activeAgents = agents.filter(a => a.status !== 'PROVISIONING');
+                            if (activeAgents.length > 0) {
+                                targetAgentId = activeAgents[0].id;
+                            }
+                        }
+                        if (targetAgentId) {
+                            await api.syncAgentKnowledgeBase(targetAgentId);
+                            toast.success('Backup auto-pushed to Agent Knowledge Base!');
+                        }
                     }
                 } catch (cloudErr) {
                     console.error('Cloud Sync failed:', cloudErr);
@@ -479,22 +425,118 @@ export default function SettingsPage() {
     };
 
     const handlePushLatestToCloud = async () => {
-        if (backupList.length === 0) {
-            toast.error('No backups found to push.');
-            return;
+        try {
+            const agents = await api.getAgents();
+            const activeAgents = agents.filter(a => a.status !== 'PROVISIONING');
+
+            if (activeAgents.length === 0) {
+                toast.error('No active ElevenLabs agents found. Please create one in the Automation page.');
+                return;
+            }
+
+            if (activeAgents.length === 1) {
+                const agent = activeAgents[0];
+                const syncPromise = api.syncAgentKnowledgeBase(agent.id);
+                toast.promise(syncPromise, {
+                    loading: `Pushing latest snapshot to agent "${agent.name}"...`,
+                    success: 'ERP backup pushed successfully to agent knowledge base!',
+                    error: (err) => `Sync failed: ${err.message}`
+                });
+            } else {
+                setModalAgents(activeAgents);
+                setModalPurpose('push_latest');
+                setShowAgentSelectorModal(true);
+            }
+        } catch (err) {
+            toast.error(`Failed to fetch agents: ${err.message}`);
         }
+    };
 
-        const latestBackup = backupList[0];
-        const promise = (async () => {
-            const content = await api.getBackupContent(latestBackup.filename);
-            await api.pushBackupToMazewayAI(latestBackup.filename, content);
-        })();
+    const handleToggleAutoSync = async () => {
+        if (settings.auto_push_to_ai === 'true') {
+            const updatedSettings = { ...settings, auto_push_to_ai: 'false' };
+            setSettings(updatedSettings);
+            const savePromise = api.updateSettings(updatedSettings);
+            toast.promise(savePromise, {
+                loading: 'Disabling Auto-Sync...',
+                success: 'Auto-Sync disabled successfully.',
+                error: (err) => `Failed to disable Auto-Sync: ${err.message}`
+            });
+        } else {
+            try {
+                const agents = await api.getAgents();
+                const activeAgents = agents.filter(a => a.status !== 'PROVISIONING');
 
-        toast.promise(promise, {
-            loading: `Pushing "${latestBackup.filename}" to cloud...`,
-            success: 'Cloud sync successful!',
-            error: (err) => 'Sync failed: ' + err.message,
-        });
+                if (activeAgents.length === 0) {
+                    toast.error('Please create at least one active agent in the Automation page first.');
+                    return;
+                }
+
+                if (activeAgents.length === 1) {
+                    const agent = activeAgents[0];
+                    const updatedSettings = { 
+                        ...settings, 
+                        auto_push_to_ai: 'true', 
+                        auto_sync_agent_id: agent.id 
+                    };
+                    setSettings(updatedSettings);
+                    const savePromise = api.updateSettings(updatedSettings);
+                    toast.promise(savePromise, {
+                        loading: `Enabling Auto-Sync with agent "${agent.name}"...`,
+                        success: `Auto-Sync enabled with agent "${agent.name}".`,
+                        error: (err) => `Failed to save settings: ${err.message}`
+                    });
+                } else {
+                    setModalAgents(activeAgents);
+                    setModalPurpose('auto_sync');
+                    setShowAgentSelectorModal(true);
+                }
+            } catch (err) {
+                toast.error(`Failed to fetch agents: ${err.message}`);
+            }
+        }
+    };
+
+    const handleSelectAgentOption = async (agent) => {
+        setShowAgentSelectorModal(false);
+        
+        if (modalPurpose === 'push_latest') {
+            const syncPromise = api.syncAgentKnowledgeBase(agent.id);
+            toast.promise(syncPromise, {
+                loading: `Pushing latest snapshot to agent "${agent.name}"...`,
+                success: `ERP backup pushed successfully to agent "${agent.name}" knowledge base!`,
+                error: (err) => `Sync failed: ${err.message}`
+            });
+        } 
+        else if (modalPurpose === 'auto_sync') {
+            const updatedSettings = { 
+                ...settings, 
+                auto_push_to_ai: 'true', 
+                auto_sync_agent_id: agent.id 
+            };
+            setSettings(updatedSettings);
+            const savePromise = api.updateSettings(updatedSettings);
+            toast.promise(savePromise, {
+                loading: `Enabling Auto-Sync for agent "${agent.name}"...`,
+                success: `Auto-Sync enabled for agent "${agent.name}" successfully!`,
+                error: (err) => `Failed to enable Auto-Sync: ${err.message}`
+            });
+        }
+        else if (modalPurpose === 'session_end') {
+            const updatedSettings = {
+                ...settings,
+                backup_cycle: 'session_end',
+                session_end_agent_id: agent.id
+            };
+            setSettings(updatedSettings);
+            setBackupCycle('session_end');
+            const savePromise = api.updateSettings(updatedSettings);
+            toast.promise(savePromise, {
+                loading: `Setting session-end sync target to agent "${agent.name}"...`,
+                success: `Frequency set to End of Session (Target: ${agent.name})`,
+                error: (err) => `Failed to update frequency: ${err.message}`
+            });
+        }
     };
 
     const handleRestoreFromBackup = async (filename) => {
@@ -666,7 +708,31 @@ export default function SettingsPage() {
         }
     };
 
-    if (loading) return <div className="loading">Loading settings…</div>;
+    if (loading) {
+        return (
+            <div className="settings-container" style={{ padding: '24px' }}>
+                <div className="page-header" style={{ marginBottom: '20px' }}>
+                    <div>
+                        <div className="skeleton-box skeleton-title" style={{ width: '150px' }} />
+                        <div className="skeleton-box skeleton-text" style={{ width: '300px' }} />
+                    </div>
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: '250px 1fr', gap: '30px', marginTop: '20px' }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                        <div className="skeleton-box skeleton-text" style={{ height: '35px', borderRadius: '8px' }} />
+                        <div className="skeleton-box skeleton-text" style={{ height: '35px', borderRadius: '8px' }} />
+                        <div className="skeleton-box skeleton-text" style={{ height: '35px', borderRadius: '8px' }} />
+                    </div>
+                    <div className="skeleton-card" style={{ height: '400px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                        <div className="skeleton-box skeleton-title" />
+                        <div className="skeleton-box skeleton-text" style={{ width: '80%' }} />
+                        <div className="skeleton-box skeleton-text" style={{ width: '60%' }} />
+                        <div className="skeleton-box skeleton-button" style={{ marginTop: '20px' }} />
+                    </div>
+                </div>
+            </div>
+        );
+    }
 
     return (
         <div className="settings-container">
@@ -1087,26 +1153,31 @@ export default function SettingsPage() {
                                                 className="backup-cycle-select-custom"
                                             />
                                             {settings.cloud_backups_enabled === 'true' && (
-                                                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                                                    <div className="auto-push-control" style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '6px 12px', background: 'rgba(0,0,0,0.03)', borderRadius: '8px', border: '1px solid var(--border-light)' }}>
-                                                        <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-secondary)' }}>AUTO-SYNC:</span>
-                                                        <div className="toggle-switch small" 
-                                                            onClick={() => setSettings({ ...settings, auto_push_to_ai: settings.auto_push_to_ai === 'true' ? 'false' : 'true' })}
-                                                            style={{ cursor: 'pointer', transform: 'scale(0.8)' }}
-                                                        >
-                                                            <div className={`toggle-track ${settings.auto_push_to_ai === 'true' ? 'on' : ''}`}></div>
+                                                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '4px' }}>
+                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                                        <div className="auto-push-control" style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '6px 12px', background: 'rgba(0,0,0,0.03)', borderRadius: '8px', border: '1px solid var(--border-light)' }}>
+                                                            <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-secondary)' }}>AUTO-SYNC:</span>
+                                                            <div className="toggle-switch small" 
+                                                                onClick={handleToggleAutoSync}
+                                                                style={{ cursor: 'pointer', transform: 'scale(0.8)' }}
+                                                            >
+                                                                <div className={`toggle-track ${settings.auto_push_to_ai === 'true' ? 'on' : ''}`}></div>
+                                                            </div>
                                                         </div>
-                                                    </div>
 
-                                                    <SButton 
-                                                        variant="primary" 
-                                                        tone="success"
-                                                        onClick={handlePushLatestToCloud} 
-                                                        disabled={saving || backupList.length === 0} 
-                                                        style={{ padding: '8px 16px', height: '40px' }}
-                                                    >
-                                                        Push Latest
-                                                    </SButton>
+                                                        <SButton 
+                                                            variant="primary" 
+                                                            tone="success"
+                                                            onClick={handlePushLatestToCloud} 
+                                                            disabled={saving || backupList.length === 0} 
+                                                            style={{ padding: '8px 16px', height: '40px' }}
+                                                        >
+                                                            Push Latest
+                                                        </SButton>
+                                                    </div>
+                                                    <span style={{ fontSize: '11px', color: 'var(--text-secondary)', marginRight: '4px' }}>
+                                                        Last Push: {settings.last_push_date ? formatDate(settings.last_push_date, true) : 'Never'}
+                                                    </span>
                                                 </div>
                                             )}
                                         </div>
@@ -1116,6 +1187,10 @@ export default function SettingsPage() {
                                         <div className="stat-card">
                                             <span className="stat-label">LAST BACKUP</span>
                                             <span className="stat-value">{settings.last_backup_date ? formatDate(settings.last_backup_date, true) : 'Never'}</span>
+                                        </div>
+                                        <div className="stat-card">
+                                            <span className="stat-label">LAST PUSH TO AI</span>
+                                            <span className="stat-value">{settings.last_push_date ? formatDate(settings.last_push_date, true) : 'Never'}</span>
                                         </div>
                                         <div className="stat-card">
                                             <span className="stat-label">NEXT SCHEDULED</span>
@@ -1362,176 +1437,159 @@ export default function SettingsPage() {
                                 
                                 <h3>Hardware Integration</h3>
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', marginTop: '16px' }}>
-                                    {[
-                                        { key: 'enable_barcode_scanner', label: 'Enable Barcode Scanner Listener', desc: 'Listens globally for barcode scanner input (keyboard wedge) on the Sales page' },
-                                        { key: 'enable_cash_drawer', label: 'Enable Cash Drawer Integration', desc: 'Automatically triggers the cash drawer kick command (via thermal printer) when a POS receipt is printed' }
-                                    ].map(item => (
-                                        <div key={item.key} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 16px', background: 'var(--bg-primary)', borderRadius: '8px', border: '1px solid var(--border-light)' }}>
-                                            <div>
-                                                <div style={{ fontWeight: 600, fontSize: '14px' }}>{item.label}</div>
-                                                <div style={{ fontSize: '12px', color: 'var(--text-tertiary)' }}>{item.desc}</div>
-                                            </div>
-                                            <div 
-                                                className="toggle-switch" 
-                                                onClick={() => setSettings({ ...settings, [item.key]: settings[item.key] === 'true' ? 'false' : 'true' })}
-                                                style={{ cursor: 'pointer' }}
-                                            >
-                                                <div className={`toggle-track ${settings[item.key] === 'true' ? 'on' : ''}`}></div>
-                                            </div>
-                                        </div>
-                                    ))}
+                                     {/* Barcode Scanner Toggle */}
+                                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 16px', background: 'var(--bg-primary)', borderRadius: '8px', border: '1px solid var(--border-light)' }}>
+                                         <div>
+                                             <div style={{ fontWeight: 600, fontSize: '14px' }}>Enable Barcode Scanner Listener</div>
+                                             <div style={{ fontSize: '12px', color: 'var(--text-tertiary)' }}>Listens globally for barcode scanner input (keyboard wedge) on the Sales page</div>
+                                         </div>
+                                         <div 
+                                             className="toggle-switch" 
+                                             onClick={() => setSettings({ ...settings, enable_barcode_scanner: settings.enable_barcode_scanner === 'true' ? 'false' : 'true' })}
+                                             style={{ cursor: 'pointer' }}
+                                         >
+                                             <div className={`toggle-track ${settings.enable_barcode_scanner === 'true' ? 'on' : ''}`}></div>
+                                         </div>
+                                     </div>
 
-                                    <div className="notice-box info" style={{ marginTop: '4px', background: 'rgba(0, 113, 227, 0.05)', border: '1px solid rgba(0, 113, 227, 0.1)' }}>
-                                        <div className="notice-icon"><Icons.HelpCircle size={20} color="var(--accent)" /></div>
-                                        <div className="notice-content">
-                                            <strong style={{ fontSize: '13px', color: 'var(--accent)' }}>What is a Cash Drawer?</strong>
-                                            <p style={{ fontSize: '12px', marginTop: '2px' }}>A cash drawer is a secure compartment for storing cash. It typically connects to your thermal receipt printer via a DK (Drawer Kick) port and opens automatically when a sale is finalized.</p>
-                                        </div>
-                                    </div>
+                                     {/* Nested Test Barcode Scanner Connection, shown only if enable_barcode_scanner is true */}
+                                     {settings.enable_barcode_scanner === 'true' && (
+                                         <div style={{ display: 'flex', gap: '12px', marginLeft: '8px' }}>
+                                             <div style={{ color: 'var(--text-tertiary)', paddingTop: '12px' }}>
+                                                 <Icons.CornerDownRight size={18} />
+                                             </div>
+                                             <div style={{ flex: 1, padding: '16px', background: 'var(--bg-secondary)', borderRadius: '8px', borderLeft: '3px solid var(--accent)', borderTop: '1px solid var(--border-light)', borderRight: '1px solid var(--border-light)', borderBottom: '1px solid var(--border-light)' }}>
+                                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: testScannerMode ? '16px' : '0' }}>
+                                                     <div>
+                                                         <div style={{ fontWeight: 600, fontSize: '14px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                             <Icons.Scan size={18} />
+                                                             Test Barcode Scanner Connection
+                                                         </div>
+                                                         <div style={{ fontSize: '12px', color: 'var(--text-tertiary)', marginTop: '4px' }}>
+                                                             Turn this on to verify if your scanner is working correctly and can find products.
+                                                         </div>
+                                                     </div>
+                                                     <div 
+                                                         className="toggle-switch" 
+                                                         onClick={() => {
+                                                             setTestScannerMode(!testScannerMode);
+                                                             setTestScanResult(null);
+                                                         }}
+                                                         style={{ cursor: 'pointer' }}
+                                                     >
+                                                         <div className={`toggle-track ${testScannerMode ? 'on' : ''}`}></div>
+                                                     </div>
+                                                 </div>
 
-                                    <div style={{ marginTop: '10px', padding: '16px', background: 'var(--bg-secondary)', borderRadius: '8px', border: '1px solid var(--border-light)' }}>
-                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: testScannerMode ? '16px' : '0' }}>
-                                            <div>
-                                                <div style={{ fontWeight: 600, fontSize: '14px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                                    <Icons.Scan size={18} />
-                                                    Test Barcode Scanner Connection
-                                                </div>
-                                                <div style={{ fontSize: '12px', color: 'var(--text-tertiary)', marginTop: '4px' }}>
-                                                    Turn this on to verify if your scanner is working correctly and can find products.
-                                                </div>
-                                            </div>
-                                            <div 
-                                                className="toggle-switch" 
-                                                onClick={() => {
-                                                    setTestScannerMode(!testScannerMode);
-                                                    setTestScanResult(null);
-                                                }}
-                                                style={{ cursor: 'pointer' }}
-                                            >
-                                                <div className={`toggle-track ${testScannerMode ? 'on' : ''}`}></div>
-                                            </div>
-                                        </div>
+                                                 {testScannerMode && (
+                                                     <div style={{ padding: '16px', background: 'var(--bg-primary)', borderRadius: '8px', border: '1px dashed var(--accent)', textAlign: 'center' }}>
+                                                         {!testScanResult ? (
+                                                             <div style={{ color: 'var(--text-secondary)' }}>
+                                                                 <Icons.Wifi size={24} style={{ marginBottom: '8px', opacity: 0.5 }} />
+                                                                 <div>Listening for scanner input...</div>
+                                                                 <div style={{ fontSize: '12px', marginTop: '4px' }}>Scan any barcode to test.</div>
+                                                             </div>
+                                                         ) : (
+                                                             <div>
+                                                                 <div style={{ color: 'var(--success)', fontWeight: 'bold', marginBottom: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
+                                                                     <Icons.CheckCircle size={20} />
+                                                                     Scanner Connected Successfully!
+                                                                 </div>
+                                                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', textAlign: 'left', background: 'var(--bg-secondary)', padding: '12px', borderRadius: '6px' }}>
+                                                                     <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                                                                         <span style={{ color: 'var(--text-tertiary)', fontSize: '12px' }}>Scanned Code:</span>
+                                                                         <span style={{ fontWeight: 600, fontSize: '14px' }}>{testScanResult.code}</span>
+                                                                     </div>
+                                                                     <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                                                                         <span style={{ color: 'var(--text-tertiary)', fontSize: '12px' }}>Inventory Match:</span>
+                                                                         {testScanResult.product ? (
+                                                                             <span style={{ fontWeight: 600, fontSize: '14px', color: 'var(--success)' }}>Found ({testScanResult.product.name})</span>
+                                                                         ) : (
+                                                                             <span style={{ fontWeight: 600, fontSize: '14px', color: 'var(--danger)' }}>Not Found in Inventory</span>
+                                                                         )}
+                                                                     </div>
+                                                                     <div style={{ fontSize: '11px', color: 'var(--text-tertiary)', textAlign: 'right', marginTop: '4px' }}>
+                                                                         Scanned at {testScanResult.timestamp.toLocaleTimeString()}
+                                                                     </div>
+                                                                 </div>
+                                                             </div>
+                                                         )}
+                                                     </div>
+                                                 )}
+                                             </div>
+                                         </div>
+                                     )}
 
-                                        {testScannerMode && (
-                                            <div style={{ padding: '16px', background: 'var(--bg-primary)', borderRadius: '8px', border: '1px dashed var(--accent)', textAlign: 'center' }}>
-                                                {!testScanResult ? (
-                                                    <div style={{ color: 'var(--text-secondary)' }}>
-                                                        <Icons.Wifi size={24} style={{ marginBottom: '8px', opacity: 0.5 }} />
-                                                        <div>Listening for scanner input...</div>
-                                                        <div style={{ fontSize: '12px', marginTop: '4px' }}>Scan any barcode to test.</div>
-                                                    </div>
-                                                ) : (
+                                     {/* Cash Drawer Toggle */}
+                                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 16px', background: 'var(--bg-primary)', borderRadius: '8px', border: '1px solid var(--border-light)' }}>
+                                         <div>
+                                             <div style={{ fontWeight: 600, fontSize: '14px' }}>Enable Cash Drawer Integration</div>
+                                             <div style={{ fontSize: '12px', color: 'var(--text-tertiary)' }}>Automatically triggers the cash drawer kick command (via thermal printer) when a POS receipt is printed</div>
+                                         </div>
+                                         <div 
+                                             className="toggle-switch" 
+                                             onClick={() => setSettings({ ...settings, enable_cash_drawer: settings.enable_cash_drawer === 'true' ? 'false' : 'true' })}
+                                             style={{ cursor: 'pointer' }}
+                                         >
+                                             <div className={`toggle-track ${settings.enable_cash_drawer === 'true' ? 'on' : ''}`}></div>
+                                         </div>
+                                     </div>
+
+                                     {/* Notice Box for Cash Drawer */}
+                                     <div className="notice-box info" style={{ marginTop: '4px', background: 'rgba(0, 113, 227, 0.05)', border: '1px solid rgba(0, 113, 227, 0.1)' }}>
+                                         <div className="notice-icon"><Icons.HelpCircle size={20} color="var(--accent)" /></div>
+                                         <div className="notice-content">
+                                             <strong style={{ fontSize: '13px', color: 'var(--accent)' }}>What is a Cash Drawer?</strong>
+                                             <p style={{ fontSize: '12px', marginTop: '2px' }}>A cash drawer is a secure compartment for storing cash. It typically connects to your thermal receipt printer via a DK (Drawer Kick) port and opens automatically when a sale is finalized.</p>
+                                         </div>
+                                     </div>
+
+                                     {/* Nested Test Cash Drawer Trigger, shown only if enable_cash_drawer is true */}
+                                     {settings.enable_cash_drawer === 'true' && (
+                                         <div style={{ display: 'flex', gap: '12px', marginLeft: '8px' }}>
+                                             <div style={{ color: 'var(--text-tertiary)', paddingTop: '12px' }}>
+                                                 <Icons.CornerDownRight size={18} />
+                                             </div>
+                                             <div style={{ flex: 1, padding: '16px', background: 'var(--bg-secondary)', borderRadius: '8px', borderLeft: '3px solid var(--accent)', borderTop: '1px solid var(--border-light)', borderRight: '1px solid var(--border-light)', borderBottom: '1px solid var(--border-light)' }}>
+                                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                                     <div>
-                                                        <div style={{ color: 'var(--success)', fontWeight: 'bold', marginBottom: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
-                                                            <Icons.CheckCircle size={20} />
-                                                            Scanner Connected Successfully!
+                                                        <div style={{ fontWeight: 600, fontSize: '14px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                            <Icons.CreditCard size={18} />
+                                                            Test Cash Drawer Trigger
                                                         </div>
-                                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', textAlign: 'left', background: 'var(--bg-secondary)', padding: '12px', borderRadius: '6px' }}>
-                                                            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                                                                <span style={{ color: 'var(--text-tertiary)', fontSize: '12px' }}>Scanned Code:</span>
-                                                                <span style={{ fontWeight: 600, fontSize: '14px' }}>{testScanResult.code}</span>
-                                                            </div>
-                                                            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                                                                <span style={{ color: 'var(--text-tertiary)', fontSize: '12px' }}>Inventory Match:</span>
-                                                                {testScanResult.product ? (
-                                                                    <span style={{ fontWeight: 600, fontSize: '14px', color: 'var(--success)' }}>Found ({testScanResult.product.name})</span>
-                                                                ) : (
-                                                                    <span style={{ fontWeight: 600, fontSize: '14px', color: 'var(--danger)' }}>Not Found in Inventory</span>
-                                                                )}
-                                                            </div>
-                                                            <div style={{ fontSize: '11px', color: 'var(--text-tertiary)', textAlign: 'right', marginTop: '4px' }}>
-                                                                Scanned at {testScanResult.timestamp.toLocaleTimeString()}
-                                                            </div>
+                                                        <div style={{ fontSize: '12px', color: 'var(--text-tertiary)', marginTop: '4px' }}>
+                                                            Send a test "pulse" to your default printer to verify if the cash drawer opens.
                                                         </div>
                                                     </div>
-                                                )}
-                                            </div>
-                                        )}
-                                    </div>
-
-                                    <div style={{ marginTop: '16px', padding: '16px', background: 'var(--bg-secondary)', borderRadius: '8px', border: '1px solid var(--border-light)' }}>
-                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                            <div>
-                                                <div style={{ fontWeight: 600, fontSize: '14px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                                    <Icons.CreditCard size={18} />
-                                                    Test Cash Drawer Trigger
-                                                </div>
-                                                <div style={{ fontSize: '12px', color: 'var(--text-tertiary)', marginTop: '4px' }}>
-                                                    Send a test "pulse" to your default printer to verify if the cash drawer opens.
-                                                </div>
-                                            </div>
-                                            <SButton 
-                                                variant="primary"
-                                                onClick={handleTestCashDrawer}
-                                                disabled={isTestingDrawer}
-                                                style={{ height: '32px' }}
-                                            >
-                                                {isTestingDrawer ? 'Triggering...' : 'Test Drawer'}
-                                            </SButton>
-                                        </div>
-                                        
-                                        {drawerTestResult && (
-                                            <div style={{ marginTop: '12px', padding: '12px', background: drawerTestResult.success ? 'rgba(34, 197, 94, 0.05)' : 'rgba(239, 68, 68, 0.05)', borderRadius: '6px', border: `1px solid ${drawerTestResult.success ? 'rgba(34, 197, 94, 0.2)' : 'rgba(239, 68, 68, 0.2)'}`, display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                                {drawerTestResult.success ? (
-                                                    <Icons.CheckCircle size={16} color="var(--success)" />
-                                                ) : (
-                                                    <Icons.AlertCircle size={16} color="var(--danger)" />
-                                                )}
-                                                <span style={{ fontSize: '12px', color: drawerTestResult.success ? 'var(--success)' : 'var(--danger)', fontWeight: 500 }}>
-                                                    {drawerTestResult.message}
-                                                </span>
-                                            </div>
-                                        )}
-                                    </div>
+                                                    <SButton 
+                                                        variant="primary"
+                                                        onClick={handleTestCashDrawer}
+                                                        disabled={isTestingDrawer}
+                                                        style={{ height: '32px' }}
+                                                        type="button"
+                                                    >
+                                                        {isTestingDrawer ? 'Triggering...' : 'Test Drawer'}
+                                                    </SButton>
+                                                 </div>
+                                                 
+                                                 {drawerTestResult && (
+                                                     <div style={{ marginTop: '12px', padding: '12px', background: drawerTestResult.success ? 'rgba(34, 197, 94, 0.05)' : 'rgba(239, 68, 68, 0.05)', borderRadius: '6px', border: `1px solid ${drawerTestResult.success ? 'rgba(34, 197, 94, 0.2)' : 'rgba(239, 68, 68, 0.2)'}`, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                         {drawerTestResult.success ? (
+                                                             <Icons.CheckCircle size={16} color="var(--success)" />
+                                                         ) : (
+                                                             <Icons.AlertCircle size={16} color="var(--danger)" />
+                                                         )}
+                                                         <span style={{ fontSize: '12px', color: drawerTestResult.success ? 'var(--success)' : 'var(--danger)', fontWeight: 500 }}>
+                                                             {drawerTestResult.message}
+                                                         </span>
+                                                     </div>
+                                                 )}
+                                             </div>
+                                         </div>
+                                     )}
                                 </div>
 
                                 <div className="settings-divider" style={{ margin: '30px 0 20px 0', borderTop: '1px solid var(--border-light)' }}></div>
-                                
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '24px' }}>
-                                    <div style={{ background: 'transparent', padding: '2px', overflow: 'hidden', width: '32px', height: '32px' }}>
-                                        <img src="./icons/mazeway.png" alt="Mazeway" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
-                                    </div>
-                                    <div>
-                                        <h4 style={{ margin: 0, fontSize: '16px', fontWeight: 700 }}>Mazeway AI Integration</h4>
-                                        <p style={{ color: 'var(--text-tertiary)', fontSize: '12px', margin: '4px 0 0 0' }}>Connect your ERP to the Mazeway AI platform for automated sales & support</p>
-                                    </div>
-                                </div>
-
-                                <div className="settings-grid">
-                                    <div className="form-group full-width">
-                                        <label>Mazeway API Key</label>
-                                        <div style={{ display: 'flex', gap: '8px' }}>
-                                            <input 
-                                                type="password" 
-                                                value={settings.mazeway_api_key || ''} 
-                                                onChange={e => setSettings({ ...settings, mazeway_api_key: e.target.value })} 
-                                                placeholder={settings.mazeway_api_key ? "API Key is set" : "Enter your Mazeway API Key"} 
-                                                style={{ flex: 1 }}
-                                            />
-                                            <SButton 
-                                                variant={settings.mazeway_api_key ? "primary" : "secondary"}
-                                                tone={settings.mazeway_api_key ? "success" : undefined}
-                                                onClick={() => !settings.mazeway_api_key && setShowMazewayConnectModal(true)}
-                                                style={{
-                                                    cursor: settings.mazeway_api_key ? 'default' : 'pointer',
-                                                    minWidth: '140px'
-                                                }}
-                                            >
-                                                {settings.mazeway_api_key ? "Connected" : "Connect with Mazeway"}
-                                            </SButton>
-                                        </div>
-                                        <p className="helper-text">Connecting will automatically sync your API Key and Webhook URL.</p>
-                                    </div>
-                                    <div className="form-group full-width">
-                                        <label>Webhook URL (Target)</label>
-                                        <input 
-                                            type="text" 
-                                            value={settings.mazeway_webhook_url || ''} 
-                                            onChange={e => setSettings({ ...settings, mazeway_webhook_url: e.target.value })} 
-                                            placeholder={settings.mazeway_webhook_url || "https://mazeway.up.railway.app/api/webhooks/your-id"} 
-                                        />
-                                    </div>
-                                </div>
                             </div>
                         )}
 
@@ -1724,11 +1782,77 @@ export default function SettingsPage() {
                                         </div>
                                     )}
 
+                                    {/* Timeline Item: v2.7.8 */}
+                                    <div style={{ position: 'relative' }}>
+                                        <div style={{ position: 'absolute', left: '-22px', top: '4px', width: '12px', height: '12px', borderRadius: '50%', background: 'var(--accent)', border: '2px solid var(--bg-primary)' }}></div>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                            <strong style={{ fontSize: '15px' }}>Version 2.7.8 {updateState.status !== 'available' && '(Latest)'}</strong>
+                                            <span style={{ fontSize: '11px', color: 'var(--text-tertiary)', background: 'var(--bg-secondary)', padding: '2px 8px', borderRadius: '12px' }}>June 4, 2026</span>
+                                        </div>
+                                        <div style={{ fontSize: '13px', color: 'var(--text-secondary)', marginTop: '8px', lineHeight: 1.6 }}>
+                                            <ul style={{ margin: 0, paddingLeft: '16px' }}>
+                                                <li><strong>Native ElevenLabs Conversational AI Integration:</strong> Completely transitioned real-time voice agents to direct ElevenLabs APIs with custom SIP Trunking configuration.</li>
+                                                <li><strong>Voice Agent Management Console:</strong> Added a secure configuration page to manage agent behavior, prompt guidelines, and detailed inbound/outbound SIP Trunk credentials directly.</li>
+                                                <li><strong>Local Agent Isolation Filtering:</strong> Filtered ElevenLabs agents using local SQLite metadata mappings to isolate and display only the user's own agents rather than showing all agents on the shared account.</li>
+                                                <li><strong>Direct Active Provisioning:</strong> Configured both own provider (SIP Trunk) and managed (paid) voice agents to bypass provisioning states and create directly as active.</li>
+                                            </ul>
+                                        </div>
+                                    </div>
+
+                                    {/* Timeline Item: v2.7.7 */}
+                                    <div style={{ position: 'relative' }}>
+                                        <div style={{ position: 'absolute', left: '-22px', top: '4px', width: '12px', height: '12px', borderRadius: '50%', background: 'var(--accent)', border: '2px solid var(--bg-primary)' }}></div>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                            <strong style={{ fontSize: '15px' }}>Version 2.7.7</strong>
+                                            <span style={{ fontSize: '11px', color: 'var(--text-tertiary)', background: 'var(--bg-secondary)', padding: '2px 8px', borderRadius: '12px' }}>June 4, 2026</span>
+                                        </div>
+                                        <div style={{ fontSize: '13px', color: 'var(--text-secondary)', marginTop: '8px', lineHeight: 1.6 }}>
+                                            <ul style={{ margin: 0, paddingLeft: '16px' }}>
+                                                <li><strong>Live Razorpay Web Checkout for Managed Agents:</strong> Integrated live Razorpay payments (Starter ₹600, Pro ₹700, Enterprise ₹1100) for VoIP Voice Agent provisioning with post-payment validation and deep-linked activation controls.</li>
+                                                <li><strong>Voice Agent Campaigns subtab:</strong> Added a dedicated tab for Voice Agent Campaigns in the CRM Marketing panel alongside Email and WhatsApp campaigns, featuring "Coming Soon" scheduling alerts.</li>
+                                            </ul>
+                                        </div>
+                                    </div>
+
+                                    {/* Timeline Item: v2.7.6 */}
+                                    <div style={{ position: 'relative' }}>
+                                        <div style={{ position: 'absolute', left: '-22px', top: '4px', width: '12px', height: '12px', borderRadius: '50%', background: 'var(--accent)', border: '2px solid var(--bg-primary)' }}></div>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                            <strong style={{ fontSize: '15px' }}>Version 2.7.6</strong>
+                                            <span style={{ fontSize: '11px', color: 'var(--text-tertiary)', background: 'var(--bg-secondary)', padding: '2px 8px', borderRadius: '12px' }}>June 4, 2026</span>
+                                        </div>
+                                        <div style={{ fontSize: '13px', color: 'var(--text-secondary)', marginTop: '8px', lineHeight: 1.6 }}>
+                                            <ul style={{ margin: 0, paddingLeft: '16px' }}>
+                                                <li><strong>Professional Google Auth Redirection:</strong> Integrated desktop-to-web Google Sign-In routing via the hosted marketing domain to avoid raw Supabase links for a secure, branded, and professional auth experience.</li>
+                                                <li><strong>Google OAuth Captcha Enforcement:</strong> Enforced security Canvas captcha verification on Google login inside the desktop view to block bot/automation triggers.</li>
+                                            </ul>
+                                        </div>
+                                    </div>
+
+                                    {/* Timeline Item: v2.7.5 */}
+                                    <div style={{ position: 'relative' }}>
+                                        <div style={{ position: 'absolute', left: '-22px', top: '4px', width: '12px', height: '12px', borderRadius: '50%', background: 'var(--accent)', border: '2px solid var(--bg-primary)' }}></div>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                            <strong style={{ fontSize: '15px' }}>Version 2.7.5</strong>
+                                            <span style={{ fontSize: '11px', color: 'var(--text-tertiary)', background: 'var(--bg-secondary)', padding: '2px 8px', borderRadius: '12px' }}>June 3, 2026</span>
+                                        </div>
+                                        <div style={{ fontSize: '13px', color: 'var(--text-secondary)', marginTop: '8px', lineHeight: 1.6 }}>
+                                            <ul style={{ margin: 0, paddingLeft: '16px' }}>
+                                                <li><strong>Security Verification Captcha:</strong> Implemented a secure HTML5 Canvas visual captcha block in the authentication view to block bot/robotic automated login attempts.</li>
+                                                <li><strong>Nested Hardware Settings:</strong> Restructured settings to conditionally nest and align scanner and cash drawer testing panels under their active feature switches.</li>
+                                                <li><strong>UPI Autopay & Account Support:</strong> Added native support for UPI VPAs in checkout, saving UPI as default payment option without card expirations.</li>
+                                                <li><strong>Variant Buying & Purchases:</strong> Expanded purchases billing cart and returns tracking to support variant-level average cost and stock calculations.</li>
+                                                <li><strong>Hardware Drawer POS Trigger:</strong> Configured cash drawer opening commands to trigger automatically on POS printing when cash drawer integration is enabled.</li>
+                                                <li><strong>Real VoIP Minute Counts:</strong> Shifted telephony minutes counters to query and sum actual duration seconds logs in Mazeway orders rather than simulated estimates.</li>
+                                            </ul>
+                                        </div>
+                                    </div>
+
                                     {/* Timeline Item: v2.7.4 */}
                                     <div style={{ position: 'relative' }}>
                                         <div style={{ position: 'absolute', left: '-22px', top: '4px', width: '12px', height: '12px', borderRadius: '50%', background: 'var(--accent)', border: '2px solid var(--bg-primary)' }}></div>
                                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                            <strong style={{ fontSize: '15px' }}>Version 2.7.4 {updateState.status !== 'available' && '(Latest)'}</strong>
+                                            <strong style={{ fontSize: '15px' }}>Version 2.7.4</strong>
                                             <span style={{ fontSize: '11px', color: 'var(--text-tertiary)', background: 'var(--bg-secondary)', padding: '2px 8px', borderRadius: '12px' }}>June 3, 2026</span>
                                         </div>
                                         <div style={{ fontSize: '13px', color: 'var(--text-secondary)', marginTop: '8px', lineHeight: 1.6 }}>
@@ -2585,61 +2709,65 @@ export default function SettingsPage() {
                     )}
                 </div>
             </Modal>
-
-            {/* Mazeway Connect Modal */}
+            
+            {/* Agent Selector Modal */}
             <Modal
-                open={showMazewayConnectModal}
-                onClose={() => {
-                    setShowMazewayConnectModal(false);
-                    setIsConnectingMazeway(false);
-                }}
-                heading={isConnectingMazeway ? "Connecting with Mazeway..." : "Authorize Mazeway AI"}
+                open={showAgentSelectorModal}
+                onClose={() => setShowAgentSelectorModal(false)}
+                heading="Select Target AI Agent"
                 size="small"
-                primaryAction={
-                    !isConnectingMazeway ? (
-                        <SButton variant="primary" onClick={handleAuthorize} fullWidth>Authorize</SButton>
-                    ) : null
-                }
-                secondaryActions={
-                    <SButton onClick={() => {
-                        setShowMazewayConnectModal(false);
-                        setIsConnectingMazeway(false);
-                    }} fullWidth>Cancel</SButton>
-                }
             >
-                <div style={{ textAlign: 'center', padding: '10px 0' }}>
-                    <div className="connecting-visual" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '20px', marginBottom: '24px' }}>
-                        <div style={{ width: '64px', height: '64px', background: '#f6f6f7', borderRadius: '14px', padding: '12px', border: '1px solid #ebebed' }}>
-                            <img src="./icons/mazeway.png" alt="Mazeway" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
-                        </div>
-                        {isConnectingMazeway ? (
-                            <div className="spinner" style={{
-                                width: '24px',
-                                height: '24px',
-                                borderRadius: '50%',
-                                border: '3px solid var(--accent)',
-                                borderTopColor: 'transparent'
-                            }}></div>
-                        ) : (
-                            <Icons.ArrowRight size={24} style={{ color: '#babfc3' }} />
-                        )}
-                        <div style={{ width: '64px', height: '64px', background: '#f6f6f7', borderRadius: '14px', padding: '12px', border: '1px solid #ebebed' }}>
-                            <img src="./icons/Appicon.ico" alt="Quantro" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
-                        </div>
-                    </div>
+                <div style={{ padding: '8px 4px' }}>
+                    <p style={{ color: 'var(--text-secondary)', fontSize: '13px', marginBottom: '16px', lineHeight: 1.5 }}>
+                        Select the ElevenLabs Conversational AI Agent to synchronize the business ERP snapshot to.
+                    </p>
                     
-                    {isConnectingMazeway ? (
-                        <p style={{ color: '#6d7175', fontSize: '14px', lineHeight: 1.6, marginBottom: '20px' }}>
-                            Awaiting authorization from your browser... <br />
-                            Please complete the linking process on the Mazeway page. Once connected, this window will close automatically.
-                        </p>
-                    ) : (
-                        <p style={{ color: '#6d7175', fontSize: '14px', lineHeight: 1.6, marginBottom: '20px' }}>
-                            Login to unlock intelligence with Mazeway AI. This will securely link your ERP for automated sales & support.
-                        </p>
-                    )}
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxHeight: '300px', overflowY: 'auto', paddingRight: '4px' }}>
+                        {modalAgents.map((agent) => (
+                            <button
+                                key={agent.id}
+                                className="agent-select-item-btn"
+                                onClick={() => handleSelectAgentOption(agent)}
+                                style={{
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'space-between',
+                                    width: '100%',
+                                    padding: '14px 16px',
+                                    background: 'var(--bg-secondary)',
+                                    border: '1px solid var(--border-light)',
+                                    borderRadius: '10px',
+                                    cursor: 'pointer',
+                                    textAlign: 'left',
+                                    transition: 'all 0.2s ease',
+                                    outline: 'none'
+                                }}
+                            >
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                    <div style={{ 
+                                        width: '32px', 
+                                        height: '32px', 
+                                        borderRadius: '8px', 
+                                        background: 'rgba(10, 110, 255, 0.1)', 
+                                        color: 'var(--accent)',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center'
+                                    }}>
+                                        <Icons.User size={18} />
+                                    </div>
+                                    <div>
+                                        <div style={{ fontWeight: 600, fontSize: '14px', color: 'var(--text-primary)' }}>{agent.name}</div>
+                                        <div style={{ fontSize: '11px', color: 'var(--text-tertiary)' }}>ID: {agent.id}</div>
+                                    </div>
+                                </div>
+                                <Icons.ChevronRight size={16} style={{ color: 'var(--text-tertiary)' }} />
+                            </button>
+                        ))}
+                    </div>
                 </div>
             </Modal>
+
         </div>
     );
 }

@@ -255,6 +255,84 @@ router.post('/campaigns', async (req, res, next) => {
     }
 });
 
+// GET /auth/google/campaigns/:id/voice-progress -> Detailed outbound voice progress
+router.get('/campaigns/:id/voice-progress', async (req, res, next) => {
+    const { id } = req.params;
+    try {
+        await db.ready;
+        const campaign = db.get("SELECT * FROM email_campaigns WHERE id = ?", [id]);
+        if (!campaign) {
+            return res.status(404).json({ error: 'Campaign not found' });
+        }
+
+        // On-demand sync of call statuses from ElevenLabs
+        const campaignScheduler = require('../services/email/campaignScheduler');
+        try {
+            await campaignScheduler.syncVoiceCallStatuses();
+        } catch (e) {
+            console.error('[On-demand voice progress sync failed]', e.message);
+        }
+
+        const batches = db.all("SELECT * FROM voice_campaign_batches WHERE campaign_id = ? ORDER BY call_date ASC", [id]);
+        const calls = db.all(`
+            SELECT vcc.*, c.name AS customer_name, c.phone AS customer_phone
+            FROM voice_campaign_calls vcc
+            JOIN customers c ON vcc.customer_id = c.id
+            WHERE vcc.campaign_id = ?
+            ORDER BY vcc.call_date ASC, c.name ASC
+        `, [id]);
+
+        const dates = getCampaignDates(campaign.start_date, campaign.end_date);
+        const progressByDate = dates.map(dateStr => {
+            const dateBatches = batches.filter(b => b.call_date === dateStr);
+            const dateCalls = calls.filter(c => c.call_date === dateStr);
+            
+            const total = dateCalls.length;
+            const completed = dateCalls.filter(c => c.status === 'called' || c.status === 'failed').length;
+            const isDone = dateBatches.length > 0 && dateBatches.every(b => b.status === 'completed');
+
+            return {
+                date: dateStr,
+                batchId: dateBatches[0]?.batch_id || null,
+                batchStatus: dateBatches[0]?.status || 'pending',
+                total,
+                completed,
+                isDone,
+                calls: dateCalls.map(c => ({
+                    id: c.id,
+                    customerId: c.customer_id,
+                    customerName: c.customer_name,
+                    customerPhone: c.customer_phone,
+                    status: c.status,
+                    completedAt: c.completed_at
+                }))
+            };
+        });
+
+        res.json({
+            campaignId: campaign.id,
+            name: campaign.name,
+            channel: campaign.channel,
+            status: campaign.status,
+            progress: progressByDate
+        });
+    } catch (err) {
+        next(err);
+    }
+});
+
+function getCampaignDates(startDate, endDate) {
+    if (!endDate) return [startDate];
+    const dates = [];
+    let curr = new Date(`${startDate}T00:00:00`);
+    const end = new Date(`${endDate}T00:00:00`);
+    while (curr <= end) {
+        dates.push(curr.toISOString().split('T')[0]);
+        curr.setDate(curr.getDate() + 1);
+    }
+    return dates;
+}
+
 // DELETE /auth/google/campaigns/:id -> Cancel campaign
 router.delete('/campaigns/:id', async (req, res, next) => {
     const { id } = req.params;

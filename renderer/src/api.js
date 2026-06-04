@@ -454,6 +454,7 @@ const api = {
     getAgents: () => request('/mazeway/agents'),
     saveAgent: (agent) => request('/mazeway/agents', { method: 'POST', body: agent }),
     deleteAgent: (id) => request(`/mazeway/agents/${id}`, { method: 'DELETE' }),
+    syncAgentKnowledgeBase: (agentId) => request(`/mazeway/agents/${agentId}/kb-sync`, { method: 'POST' }),
     getMazewayStats: () => request('/mazeway/stats'),
     getMazewayLogs: () => request('/mazeway/logs'),
 
@@ -465,6 +466,7 @@ const api = {
     getCampaigns: () => request('/auth/google/campaigns'),
     scheduleCampaign: (data) => request('/auth/google/campaigns', { method: 'POST', body: data }),
     cancelCampaign: (id) => request(`/auth/google/campaigns/${id}`, { method: 'DELETE' }),
+    getVoiceCampaignProgress: (id) => request(`/auth/google/campaigns/${id}/voice-progress`),
 
     // --- WhatsApp Integration ---
     getWhatsAppConnections: () => request('/auth/whatsapp/connections'),

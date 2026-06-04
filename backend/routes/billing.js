@@ -105,11 +105,22 @@ router.post('/add-payment-method', async (req, res, next) => {
     const { enableAutopay, brand, last4, expiry } = req.body;
     try {
         await db.ready;
+        
+        let methodBrand = brand || 'Visa';
+        let methodLast4 = last4 || '4242';
+        let methodExpiry = expiry || '12/28';
+
+        if (methodBrand.toUpperCase() === 'UPI') {
+            methodBrand = 'UPI';
+            methodExpiry = 'N/A';
+            methodLast4 = last4 || 'user@upi';
+        }
+
         db.run("INSERT OR REPLACE INTO settings (key, value) VALUES ('billing_payment_method_added', 'true')");
         db.run("INSERT OR REPLACE INTO settings (key, value) VALUES ('billing_payment_method_autopay', ?)", [enableAutopay ? 'true' : 'false']);
-        db.run("INSERT OR REPLACE INTO settings (key, value) VALUES ('billing_payment_method_brand', ?)", [brand || 'Visa']);
-        db.run("INSERT OR REPLACE INTO settings (key, value) VALUES ('billing_payment_method_last4', ?)", [last4 || '4242']);
-        db.run("INSERT OR REPLACE INTO settings (key, value) VALUES ('billing_payment_method_expiry', ?)", [expiry || '12/28']);
+        db.run("INSERT OR REPLACE INTO settings (key, value) VALUES ('billing_payment_method_brand', ?)", [methodBrand]);
+        db.run("INSERT OR REPLACE INTO settings (key, value) VALUES ('billing_payment_method_last4', ?)", [methodLast4]);
+        db.run("INSERT OR REPLACE INTO settings (key, value) VALUES ('billing_payment_method_expiry', ?)", [methodExpiry]);
         res.json({ success: true, message: 'Payment method successfully added.' });
     } catch (err) {
         next(err);

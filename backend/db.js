@@ -772,6 +772,7 @@ ready = (async () => {
       igst        REAL DEFAULT 0,
       line_total  REAL NOT NULL DEFAULT 0,
       batch_id    INTEGER DEFAULT NULL,
+      variant_id  INTEGER DEFAULT NULL,
       FOREIGN KEY (purchase_id) REFERENCES purchases(id) ON DELETE CASCADE,
       FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE SET NULL
     )
@@ -795,6 +796,7 @@ ready = (async () => {
       id          INTEGER PRIMARY KEY AUTOINCREMENT,
       purchase_id INTEGER NOT NULL,
       product_id  INTEGER NOT NULL,
+      variant_id  INTEGER DEFAULT NULL,
       quantity    REAL NOT NULL,
       return_amount REAL NOT NULL,
       refund_method TEXT NOT NULL, -- Refund, Supplier Credit
@@ -814,6 +816,9 @@ ready = (async () => {
       if (!columns.includes('batch_id')) {
         db.run('ALTER TABLE purchase_items ADD COLUMN batch_id INTEGER DEFAULT NULL');
       }
+      if (!columns.includes('variant_id')) {
+        db.run('ALTER TABLE purchase_items ADD COLUMN variant_id INTEGER DEFAULT NULL');
+      }
     }
   } catch (err) { }
   // Migration: Add batch_id to purchase_returns
@@ -823,6 +828,9 @@ ready = (async () => {
       const columns = res[0].values.map(v => v[1]);
       if (!columns.includes('batch_id')) {
         db.run('ALTER TABLE purchase_returns ADD COLUMN batch_id INTEGER DEFAULT NULL');
+      }
+      if (!columns.includes('variant_id')) {
+        db.run('ALTER TABLE purchase_returns ADD COLUMN variant_id INTEGER DEFAULT NULL');
       }
     }
   } catch (err) { }
@@ -1089,6 +1097,35 @@ ready = (async () => {
       token TEXT NOT NULL,
       expires_at INTEGER,
       created_at TEXT DEFAULT (datetime('now','localtime'))
+    )
+  `);
+
+  // Voice Campaign Batches Table
+  db.run(`
+    CREATE TABLE IF NOT EXISTS voice_campaign_batches (
+      id            INTEGER PRIMARY KEY AUTOINCREMENT,
+      campaign_id   INTEGER NOT NULL,
+      call_date     TEXT NOT NULL,
+      batch_id      TEXT UNIQUE,
+      status        TEXT DEFAULT 'pending',
+      created_at    TEXT DEFAULT (datetime('now','localtime')),
+      FOREIGN KEY(campaign_id) REFERENCES email_campaigns(id) ON DELETE CASCADE
+    )
+  `);
+
+  // Voice Campaign Calls Table
+  db.run(`
+    CREATE TABLE IF NOT EXISTS voice_campaign_calls (
+      id            INTEGER PRIMARY KEY AUTOINCREMENT,
+      campaign_id   INTEGER NOT NULL,
+      customer_id   INTEGER NOT NULL,
+      call_date     TEXT NOT NULL,
+      batch_id      TEXT NOT NULL,
+      status        TEXT DEFAULT 'pending',
+      duration_seconds INTEGER DEFAULT 0,
+      completed_at  TEXT,
+      FOREIGN KEY(campaign_id) REFERENCES email_campaigns(id) ON DELETE CASCADE,
+      FOREIGN KEY(customer_id) REFERENCES customers(id) ON DELETE CASCADE
     )
   `);
 

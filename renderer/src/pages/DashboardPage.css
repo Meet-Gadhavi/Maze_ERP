@@ -20,6 +20,7 @@
 }
 
 .stat-card {
+    position: relative;
     background: var(--bg-card);
     border-radius: var(--radius-lg);
     border: 1px solid var(--border);
@@ -34,6 +35,24 @@
 .stat-card:hover {
     box-shadow: var(--shadow);
     transform: translateY(-2px);
+}
+
+.stat-card-arrow {
+    position: absolute;
+    top: 14px;
+    right: 14px;
+    color: var(--text-tertiary);
+    opacity: 0.5;
+    transition: transform 0.2s ease, opacity 0.2s ease, color 0.2s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.stat-card:hover .stat-card-arrow {
+    opacity: 1;
+    color: var(--accent);
+    transform: translate(2px, -2px);
 }
 
 .stat-card-content {
@@ -221,6 +240,7 @@
 .mini-kpi-card {
     background: var(--bg-card);
     border: 1px solid var(--border);
+    border-left: 3px solid var(--accent);
     border-radius: var(--radius);
     padding: 18px 20px;
     display: flex;

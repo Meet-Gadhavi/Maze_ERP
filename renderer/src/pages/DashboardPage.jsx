@@ -7,11 +7,13 @@ import { useNavigate } from 'react-router-dom';
 import {
     AreaChart, Area, BarChart, Bar, LineChart, Line, ComposedChart,
     XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
-    PieChart, Pie, Cell, Legend
+    PieChart, Pie, Cell, Legend,
+    RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar
 } from 'recharts';
 import DailyReportModal from '../components/DailyReportModal';
 import SButton from '../components/SButton';
 import CustomSelect from '../components/CustomSelect';
+import Skeleton from '../components/Skeleton';
 
 const CHART_COLORS = ['#0071E3', '#30D158', '#FF9F0A', '#FF3B30', '#5856D6', '#AF52DE', '#FF6B35', '#00C7BE'];
 const TIMEFRAME_LABELS = {
@@ -63,6 +65,11 @@ function ChartCard({ title, subtitle, children, style, action }) {
 function KpiCard({ label, value, sub, color = 'blue', icon, onClick }) {
     return (
         <div className="stat-card" onClick={onClick} style={{ cursor: onClick ? 'pointer' : 'default' }}>
+            {onClick && (
+                <div className="stat-card-arrow">
+                    <Icons.ArrowUpRight size={15} />
+                </div>
+            )}
             <div className="stat-card-content">
                 <div className={`stat-card-icon ${color}`}>{icon}</div>
                 <div className="stat-card-info">
@@ -141,9 +148,31 @@ export default function DashboardPage() {
     }
 
     if (loading && !data) return (
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '60vh', flexDirection: 'column', gap: 16 }}>
-            <div className="spinner" style={{ borderTopColor: 'var(--accent)', width: '36px', height: '36px' }}></div>
-            <p style={{ color: 'var(--text-secondary)', margin: 0, fontSize: '14px' }}>Loading analytics…</p>
+        <div className="page-content" style={{ padding: '24px' }}>
+            <div className="page-header" style={{ marginBottom: '24px' }}>
+                <div>
+                    <div className="skeleton-box skeleton-title" style={{ width: '180px' }} />
+                    <div className="skeleton-box skeleton-text" style={{ width: '350px' }} />
+                </div>
+            </div>
+            
+            <div className="analytics-mini-kpi-row" style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '16px', marginBottom: '24px' }}>
+                <div className="skeleton-card" style={{ height: '80px' }} />
+                <div className="skeleton-card" style={{ height: '80px' }} />
+                <div className="skeleton-card" style={{ height: '80px' }} />
+                <div className="skeleton-card" style={{ height: '80px' }} />
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1.5fr 1fr', gap: '24px' }}>
+                <div className="skeleton-card" style={{ height: '300px' }}>
+                    <div className="skeleton-box skeleton-title" />
+                    <div className="skeleton-box skeleton-text" />
+                </div>
+                <div className="skeleton-card" style={{ height: '300px' }}>
+                    <div className="skeleton-box skeleton-title" />
+                    <div className="skeleton-box skeleton-text" />
+                </div>
+            </div>
         </div>
     );
 
@@ -163,6 +192,40 @@ export default function DashboardPage() {
     const subcatCategories = Array.from(new Set(data?.categoryCustomerCount?.map(c => c.name).filter(Boolean) || []));
     const activeSubcatCategory = selectedSubcatCategory || subcatCategories[0] || '';
     const subcatOptions = subcatCategories.map(cat => ({ value: cat, label: cat }));
+
+    const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+    const hours = Array.from({ length: 24 }, (_, i) => i);
+
+    // Matrix mapping: day -> hour -> { revenue, orders }
+    const heatmapMatrix = Array.from({ length: 7 }, () => Array(24).fill(null).map(() => ({ revenue: 0, orders: 0 })));
+
+    let maxRevenue = 0;
+    let maxOrders = 0;
+
+    if (data?.peakSellingHours) {
+        data.peakSellingHours.forEach(item => {
+            const d = item.day ?? 0;
+            const h = item.hour ?? 0;
+            if (d >= 0 && d < 7 && h >= 0 && h < 24) {
+                heatmapMatrix[d][h] = {
+                    revenue: Number(item.revenue || 0),
+                    orders: Number(item.orders || 0)
+                };
+                if (Number(item.revenue || 0) > maxRevenue) maxRevenue = Number(item.revenue || 0);
+                if (Number(item.orders || 0) > maxOrders) maxOrders = Number(item.orders || 0);
+            }
+        });
+    }
+
+    const getHeatmapColor = (revenue, max) => {
+        if (revenue === 0) return '#E5E5EA';
+        if (!max || max === 0) return '#0066FF'; // Default blue
+        const pct = revenue / max;
+        if (pct <= 0.25) return '#D2D9E8'; // lightest: grayish blue
+        if (pct <= 0.5) return '#85A8FF';  // light blue
+        if (pct <= 0.75) return '#3B6BFF'; // medium blue
+        return '#0A2B99';                  // darkest: dark blue
+    };
 
     const filteredSubcategories = (data?.subcategoryCustomerCount || [])
         .filter(item => item.category_name === activeSubcatCategory)
@@ -330,15 +393,15 @@ export default function DashboardPage() {
                             {loading ? <EmptyChart message="Loading..." /> :
                             !data.ordersVsRevenue?.some(d => d.orders > 0) ? <EmptyChart icon="BarChart2" message="No orders for this period" /> : (
                                 <ResponsiveContainer width="100%" height={240}>
-                                    <ComposedChart data={data.ordersVsRevenue}>
+                                    <LineChart data={data.ordersVsRevenue}>
                                         <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
                                         <XAxis dataKey="date" axisLine={false} tickLine={false} tick={chartStyle.axisTickStyle} tickFormatter={formatDateShort} />
                                         <YAxis yAxisId="left" axisLine={false} tickLine={false} tick={chartStyle.axisTickStyle} tickFormatter={v => `₹${v}`} width={60} />
                                         <YAxis yAxisId="right" orientation="right" axisLine={false} tickLine={false} tick={chartStyle.axisTickStyle} />
                                         <Tooltip contentStyle={chartStyle.contentStyle} formatter={(v, name) => name === 'revenue' ? [fmt(v), 'Revenue'] : [v, 'Orders']} labelFormatter={formatDate} />
-                                        <Bar yAxisId="right" dataKey="orders" fill="rgba(0,113,227,0.15)" radius={[4, 4, 0, 0]} activeBar={{ fill: 'rgba(0, 113, 227, 0.4)', radius: [4, 4, 0, 0] }} name="orders" />
+                                        <Line yAxisId="right" type="monotone" dataKey="orders" stroke="#FF9F0A" strokeWidth={2} dot={true} name="orders" />
                                         <Line yAxisId="left" type="monotone" dataKey="revenue" stroke="#0071E3" strokeWidth={2.5} dot={false} name="revenue" />
-                                    </ComposedChart>
+                                    </LineChart>
                                 </ResponsiveContainer>
                             )}
                         </ChartCard>
@@ -366,62 +429,112 @@ export default function DashboardPage() {
                         </ChartCard>
 
                         <ChartCard title="Category Sales" subtitle="Revenue by product category">
-                            {!data.categorySales?.length ? (
-                                <ResponsiveContainer width="100%" height={240}>
-                                    <PieChart>
-                                        <Pie data={data.categoryDistribution?.map(c => ({ ...c, name: c.name || 'Uncategorized' })) || []} cx="50%" cy="50%" innerRadius={55} outerRadius={80} paddingAngle={4} dataKey="value">
-                                            {(data.categoryDistribution || []).map((_, i) => <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />)}
-                                        </Pie>
-                                        <Tooltip contentStyle={chartStyle.contentStyle} />
-                                        <Legend verticalAlign="bottom" height={36} iconType="circle" iconSize={8} />
-                                    </PieChart>
-                                </ResponsiveContainer>
-                            ) : (
-                                <ResponsiveContainer width="100%" height={240}>
-                                    <PieChart>
-                                        <Pie data={data.categorySales.map(c => ({ ...c, name: c.name || 'Uncategorized' }))} cx="50%" cy="50%" innerRadius={55} outerRadius={80} paddingAngle={4} dataKey="value">
-                                            {data.categorySales.map((_, i) => <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />)}
-                                        </Pie>
-                                        <Tooltip contentStyle={chartStyle.contentStyle} formatter={v => [fmt(v), 'Revenue']} />
-                                        <Legend verticalAlign="bottom" height={36} iconType="circle" iconSize={8} />
-                                    </PieChart>
-                                </ResponsiveContainer>
-                            )}
+                            <ResponsiveContainer width="100%" height={240}>
+                                <BarChart data={(!data.categorySales?.length ? (data.categoryDistribution || []) : data.categorySales).map(c => ({ name: c.name || 'Uncategorized', value: Number(c.value || 0) }))} layout="vertical">
+                                    <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#f0f0f0" />
+                                    <XAxis type="number" axisLine={false} tickLine={false} tick={chartStyle.axisTickStyle} tickFormatter={v => `₹${v}`} />
+                                    <YAxis type="category" dataKey="name" axisLine={false} tickLine={false} tick={chartStyle.axisTickStyle} width={100} />
+                                    <Tooltip contentStyle={chartStyle.contentStyle} formatter={v => [fmt(v), 'Revenue']} />
+                                    <Bar dataKey="value" fill="#AF52DE" radius={[0, 6, 6, 0]} name="Revenue" />
+                                </BarChart>
+                            </ResponsiveContainer>
                         </ChartCard>
                     </div>
 
                     {/* Peak Hours + Returns */}
                     <div className="analytics-grid-2">
-                        <ChartCard title="Peak Selling Hours" subtitle="Revenue activity by hour of day">
+                        <ChartCard title="Peak Selling Hours" subtitle="Activity heatmap by weekday & hour">
                             {!data.peakSellingHours?.some(h => h.revenue > 0) ? <EmptyChart icon="Clock" message="No hourly data available" /> : (
-                                <ResponsiveContainer width="100%" height={220}>
-                                    <AreaChart data={data.peakSellingHours}>
-                                        <defs>
-                                            <linearGradient id="gradPeak" x1="0" y1="0" x2="0" y2="1">
-                                                <stop offset="5%" stopColor="#5856D6" stopOpacity={0.2} />
-                                                <stop offset="95%" stopColor="#5856D6" stopOpacity={0} />
-                                            </linearGradient>
-                                        </defs>
-                                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
-                                        <XAxis dataKey="hour" axisLine={false} tickLine={false} tick={chartStyle.axisTickStyle} tickFormatter={h => `${h}:00`} />
-                                        <YAxis axisLine={false} tickLine={false} tick={chartStyle.axisTickStyle} tickFormatter={v => `₹${v}`} width={60} />
-                                        <Tooltip contentStyle={chartStyle.contentStyle} formatter={(v, name) => name === 'revenue' ? [fmt(v), 'Revenue'] : [v, 'Orders']} labelFormatter={h => `${h}:00`} />
-                                        <Area type="monotone" dataKey="revenue" stroke="#5856D6" strokeWidth={2.5} fillOpacity={1} fill="url(#gradPeak)" />
-                                    </AreaChart>
-                                </ResponsiveContainer>
+                                <div className="heatmap-container" style={{ padding: '10px 0', overflowX: 'auto' }}>
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', minWidth: '400px' }}>
+                                        {/* Hour labels at top */}
+                                        <div style={{ display: 'flex', paddingLeft: '36px', marginBottom: '4px', fontSize: '10px', color: 'var(--text-secondary)' }}>
+                                            {Array.from({ length: 6 }, (_, i) => (
+                                                <div key={i} style={{ width: '16.66%', textAlign: 'left' }}>
+                                                    {i === 0 ? '12 AM' : i === 3 ? '12 PM' : `${i * 4} ${i < 3 ? 'AM' : 'PM'}`}
+                                                </div>
+                                            ))}
+                                        </div>
+
+                                        {/* 7 Days of the week */}
+                                        {days.map((dayLabel, dIdx) => (
+                                            <div key={dIdx} style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                                {/* Day label */}
+                                                <span style={{ 
+                                                    width: '30px', 
+                                                    fontSize: '11px', 
+                                                    fontWeight: 600, 
+                                                    color: 'var(--text-secondary)',
+                                                    textAlign: 'right',
+                                                    marginRight: '4px'
+                                                }}>
+                                                    {dayLabel}
+                                                </span>
+
+                                                {/* 24 Hours */}
+                                                <div style={{ display: 'flex', gap: '4px', flexGrow: 1 }}>
+                                                    {hours.map((hourVal, hIdx) => {
+                                                        const cell = heatmapMatrix[dIdx][hourVal];
+                                                        const color = getHeatmapColor(cell.revenue, maxRevenue);
+                                                        const tooltipText = `${dayLabel} at ${hourVal === 0 ? '12 AM' : hourVal === 12 ? '12 PM' : hourVal > 12 ? `${hourVal - 12} PM` : `${hourVal} AM`}\nRevenue: ${fmt(cell.revenue)}\nOrders: ${cell.orders}`;
+                                                        
+                                                        return (
+                                                            <div
+                                                                key={hIdx}
+                                                                title={tooltipText}
+                                                                style={{
+                                                                    width: '100%',
+                                                                    aspectRatio: '1/1',
+                                                                    backgroundColor: color,
+                                                                    borderRadius: '4px',
+                                                                    cursor: 'pointer',
+                                                                    transition: 'transform 0.15s ease, filter 0.15s ease',
+                                                                    border: cell.revenue === 0 ? '1px solid #D1D1D6' : 'none',
+                                                                }}
+                                                                onMouseEnter={(e) => {
+                                                                    e.currentTarget.style.transform = 'scale(1.25)';
+                                                                    e.currentTarget.style.filter = 'brightness(1.2)';
+                                                                    e.currentTarget.style.zIndex = '1';
+                                                                }}
+                                                                onMouseLeave={(e) => {
+                                                                    e.currentTarget.style.transform = 'scale(1)';
+                                                                    e.currentTarget.style.filter = 'none';
+                                                                    e.currentTarget.style.zIndex = '0';
+                                                                }}
+                                                            />
+                                                        );
+                                                    })}
+                                                </div>
+                                            </div>
+                                        ))}
+
+                                        {/* Heatmap Legend */}
+                                        <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: '8px', marginTop: '12px', fontSize: '11px', color: 'var(--text-secondary)' }}>
+                                            <span>Less</span>
+                                            <div style={{ display: 'flex', gap: '4px' }}>
+                                                <div style={{ width: '10px', height: '10px', borderRadius: '2px', backgroundColor: '#E5E5EA', border: '1px solid #D1D1D6' }} />
+                                                <div style={{ width: '10px', height: '10px', borderRadius: '2px', backgroundColor: '#D2D9E8' }} />
+                                                <div style={{ width: '10px', height: '10px', borderRadius: '2px', backgroundColor: '#85A8FF' }} />
+                                                <div style={{ width: '10px', height: '10px', borderRadius: '2px', backgroundColor: '#3B6BFF' }} />
+                                                <div style={{ width: '10px', height: '10px', borderRadius: '2px', backgroundColor: '#0A2B99' }} />
+                                            </div>
+                                            <span>More</span>
+                                        </div>
+                                    </div>
+                                </div>
                             )}
                         </ChartCard>
 
                         <ChartCard title="Return / Refund Analytics" subtitle="Returns count and amount over period">
                             {!data.returnAnalytics?.some(r => r.count > 0) ? <EmptyChart icon="RotateCcw" message="No returns in this period" /> : (
                                 <ResponsiveContainer width="100%" height={220}>
-                                    <BarChart data={data.returnAnalytics}>
+                                    <LineChart data={data.returnAnalytics}>
                                         <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
                                         <XAxis dataKey="date" axisLine={false} tickLine={false} tick={chartStyle.axisTickStyle} tickFormatter={formatDateShort} />
                                         <YAxis axisLine={false} tickLine={false} tick={chartStyle.axisTickStyle} tickFormatter={v => `₹${v}`} width={60} />
                                         <Tooltip contentStyle={chartStyle.contentStyle} formatter={(v, name) => name === 'amount' ? [fmt(v), 'Amount'] : [v, 'Returns']} labelFormatter={formatDate} />
-                                        <Bar dataKey="amount" fill="#FF3B30" radius={[4, 4, 0, 0]} name="amount" />
-                                    </BarChart>
+                                        <Line type="monotone" dataKey="amount" stroke="#FF3B30" strokeWidth={2} dot={true} name="amount" />
+                                    </LineChart>
                                 </ResponsiveContainer>
                             )}
                         </ChartCard>
@@ -550,25 +663,15 @@ export default function DashboardPage() {
                             <ChartCard title="Stock Movement Trend" subtitle="Inventory in vs out over period">
                                 {!data.stockMovementTrend?.some(d => d.stock_in > 0 || d.stock_out > 0) ? <EmptyChart icon="ArrowUpDown" message="No stock movements recorded" /> : (
                                     <ResponsiveContainer width="100%" height={240}>
-                                        <AreaChart data={data.stockMovementTrend}>
-                                            <defs>
-                                                <linearGradient id="gradIn" x1="0" y1="0" x2="0" y2="1">
-                                                    <stop offset="5%" stopColor="#30D158" stopOpacity={0.15} />
-                                                    <stop offset="95%" stopColor="#30D158" stopOpacity={0} />
-                                                </linearGradient>
-                                                <linearGradient id="gradOut" x1="0" y1="0" x2="0" y2="1">
-                                                    <stop offset="5%" stopColor="#FF3B30" stopOpacity={0.15} />
-                                                    <stop offset="95%" stopColor="#FF3B30" stopOpacity={0} />
-                                                </linearGradient>
-                                            </defs>
+                                        <LineChart data={data.stockMovementTrend}>
                                             <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
                                             <XAxis dataKey="date" axisLine={false} tickLine={false} tick={chartStyle.axisTickStyle} tickFormatter={formatDateShort} />
                                             <YAxis axisLine={false} tickLine={false} tick={chartStyle.axisTickStyle} />
                                             <Tooltip contentStyle={chartStyle.contentStyle} labelFormatter={formatDate} />
-                                            <Area type="monotone" dataKey="stock_in" stroke="#30D158" strokeWidth={2} fill="url(#gradIn)" name="Stock IN" />
-                                            <Area type="monotone" dataKey="stock_out" stroke="#FF3B30" strokeWidth={2} fill="url(#gradOut)" name="Stock OUT" />
+                                            <Line type="monotone" dataKey="stock_in" stroke="#30D158" strokeWidth={2.5} dot={true} name="Stock IN" />
+                                            <Line type="monotone" dataKey="stock_out" stroke="#FF3B30" strokeWidth={2.5} dot={true} name="Stock OUT" />
                                             <Legend />
-                                        </AreaChart>
+                                        </LineChart>
                                     </ResponsiveContainer>
                                 )}
                             </ChartCard>
@@ -579,15 +682,114 @@ export default function DashboardPage() {
                     <div className="analytics-grid-2" style={{ marginTop: '24px' }}>
                         <ChartCard title="Category-wise Selling" subtitle="Unique customers buying from each category">
                             {!data.categoryCustomerCount?.length ? <EmptyChart icon="Tag" message="No sales data for this period" /> : (
-                                <ResponsiveContainer width="100%" height={240}>
-                                    <BarChart data={data.categoryCustomerCount.map(c => ({ name: c.name || 'Uncategorized', customer_count: c.customer_count }))} layout="vertical">
-                                        <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#f0f0f0" />
-                                        <XAxis type="number" axisLine={false} tickLine={false} tick={chartStyle.axisTickStyle} allowDecimals={false} />
-                                        <YAxis type="category" dataKey="name" axisLine={false} tickLine={false} tick={chartStyle.axisTickStyle} width={100} />
-                                        <Tooltip contentStyle={chartStyle.contentStyle} formatter={(value) => [value, 'Customers']} />
-                                        <Bar dataKey="customer_count" fill="#AF52DE" radius={[0, 6, 6, 0]} name="Unique Customers" />
-                                    </BarChart>
-                                </ResponsiveContainer>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', padding: '10px 0' }}>
+                                    {/* SVG Funnel */}
+                                    <svg viewBox="0 0 500 130" width="100%" height="135" style={{ display: 'block', overflow: 'visible' }}>
+                                        {(() => {
+                                            const sortedCategoryCustomers = (data.categoryCustomerCount || [])
+                                                .map(c => ({ name: c.name || 'Uncategorized', value: Number(c.customer_count || 0) }))
+                                                .sort((a, b) => b.value - a.value);
+                                            const numSegments = Math.min(5, sortedCategoryCustomers.length);
+                                            const W = 500;
+                                            const H = 120;
+                                            const g = 3;
+                                            const segW = W / numSegments;
+                                            
+                                            // Pre-calculate heights
+                                            const heights = [];
+                                            const maxVal = sortedCategoryCustomers[0]?.value || 1;
+                                            for (let i = 0; i <= numSegments; i++) {
+                                                if (i < numSegments) {
+                                                    const val = sortedCategoryCustomers[i].value;
+                                                    // Scale between 25px and 100px
+                                                    heights.push(Math.max(25, (val / maxVal) * 90));
+                                                } else {
+                                                    heights.push(12); // The tail ending height
+                                                }
+                                            }
+
+                                            // Funnel Segment Colors: Blue, Red, Orange, Yellow, Green
+                                            const funnelColors = ['#0071E3', '#FF2D55', '#FF9F0A', '#FFCC00', '#30D158'];
+
+                                            return Array.from({ length: numSegments }).map((_, i) => {
+                                                const cat = sortedCategoryCustomers[i];
+                                                const x_start = i * segW + g;
+                                                const x_end = (i + 1) * segW - g;
+                                                const hl = heights[i];
+                                                const hr = heights[i + 1];
+                                                const y_l = hl / 2;
+                                                const y_r = hr / 2;
+                                                const center = H / 2;
+
+                                                const color = funnelColors[i % funnelColors.length];
+                                                const pathData = `M ${x_start} ${center - y_l} C ${(x_start + x_end)/2} ${center - y_l}, ${(x_start + x_end)/2} ${center - y_r}, ${x_end} ${center - y_r} L ${x_end} ${center + y_r} C ${(x_start + x_end)/2} ${center + y_r}, ${(x_start + x_end)/2} ${center + y_l}, ${x_start} ${center + y_l} Z`;
+
+                                                return (
+                                                    <g key={i}>
+                                                        <path
+                                                            d={pathData}
+                                                            fill={color}
+                                                            style={{
+                                                                cursor: 'pointer',
+                                                                transition: 'filter 0.2s ease, opacity 0.2s ease',
+                                                            }}
+                                                            onMouseEnter={(e) => {
+                                                                e.currentTarget.style.filter = 'brightness(1.15) drop-shadow(0px 4px 8px rgba(0,0,0,0.15))';
+                                                            }}
+                                                            onMouseLeave={(e) => {
+                                                                e.currentTarget.style.filter = 'none';
+                                                            }}
+                                                        >
+                                                            <title>{`${cat.name}\nCustomers: ${cat.value}`}</title>
+                                                        </path>
+                                                        {/* Value text indicator inside the segment if it's wide enough */}
+                                                        {hl > 35 && (
+                                                            <text
+                                                                x={(x_start + x_end) / 2}
+                                                                y={center + 4}
+                                                                textAnchor="middle"
+                                                                fill="#FFFFFF"
+                                                                style={{ fontSize: '10px', fontWeight: 'bold', pointerEvents: 'none', fillOpacity: 0.9 }}
+                                                            >
+                                                                {cat.value}
+                                                            </text>
+                                                        )}
+                                                    </g>
+                                                );
+                                            });
+                                        })()}
+                                    </svg>
+
+                                    {/* Legend below */}
+                                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '10px', marginTop: '4px' }}>
+                                        {(() => {
+                                            const sortedCategoryCustomers = (data.categoryCustomerCount || [])
+                                                .map(c => ({ name: c.name || 'Uncategorized', value: Number(c.customer_count || 0) }))
+                                                .sort((a, b) => b.value - a.value);
+                                            const funnelColors = ['#0071E3', '#FF2D55', '#FF9F0A', '#FFCC00', '#30D158'];
+                                            return sortedCategoryCustomers.slice(0, 5).map((cat, i) => {
+                                                const color = funnelColors[i % funnelColors.length];
+                                                return (
+                                                    <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12px' }}>
+                                                        <span style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: color, flexShrink: 0 }}></span>
+                                                        <span style={{ 
+                                                            color: 'var(--text-primary)', 
+                                                            overflow: 'hidden', 
+                                                            textOverflow: 'ellipsis', 
+                                                            whiteSpace: 'nowrap',
+                                                            fontWeight: 500 
+                                                        }} title={cat.name}>
+                                                            {cat.name}
+                                                        </span>
+                                                        <span style={{ color: 'var(--text-secondary)', marginLeft: 'auto', fontSize: '11px' }}>
+                                                            ({cat.value})
+                                                        </span>
+                                                    </div>
+                                                );
+                                            });
+                                        })()}
+                                    </div>
+                                </div>
                             )}
                         </ChartCard>
 
@@ -610,23 +812,17 @@ export default function DashboardPage() {
                                 <EmptyChart icon="PieChart" message="No subcategory sales in this category" />
                             ) : (
                                 <ResponsiveContainer width="100%" height={240}>
-                                    <PieChart>
-                                        <Pie 
-                                            data={filteredSubcategories} 
-                                            cx="50%" 
-                                            cy="50%" 
-                                            innerRadius={55} 
-                                            outerRadius={80} 
-                                            paddingAngle={4} 
-                                            dataKey="value"
-                                        >
+                                    <BarChart data={filteredSubcategories} layout="vertical">
+                                        <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#f0f0f0" />
+                                        <XAxis type="number" axisLine={false} tickLine={false} tick={chartStyle.axisTickStyle} />
+                                        <YAxis type="category" dataKey="name" axisLine={false} tickLine={false} tick={chartStyle.axisTickStyle} width={80} />
+                                        <Tooltip contentStyle={chartStyle.contentStyle} formatter={(value) => [value, 'Sales']} />
+                                        <Bar dataKey="value" radius={[0, 6, 6, 0]}>
                                             {filteredSubcategories.map((_, i) => (
                                                 <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />
                                             ))}
-                                        </Pie>
-                                        <Tooltip contentStyle={chartStyle.contentStyle} formatter={(value) => [value, 'Customers']} />
-                                        <Legend verticalAlign="bottom" height={36} iconType="circle" iconSize={8} />
-                                    </PieChart>
+                                        </Bar>
+                                    </BarChart>
                                 </ResponsiveContainer>
                             )}
                         </ChartCard>
@@ -686,43 +882,45 @@ export default function DashboardPage() {
                         <ChartCard title="Customer Growth" subtitle="New customers over time">
                             {!data.customerGrowth?.some(d => d.new_customers > 0) ? <EmptyChart icon="UserPlus" message="No new customers in this period" /> : (
                                 <ResponsiveContainer width="100%" height={220}>
-                                    <AreaChart data={data.customerGrowth}>
-                                        <defs>
-                                            <linearGradient id="gradCust" x1="0" y1="0" x2="0" y2="1">
-                                                <stop offset="5%" stopColor="#30D158" stopOpacity={0.2} />
-                                                <stop offset="95%" stopColor="#30D158" stopOpacity={0} />
-                                            </linearGradient>
-                                        </defs>
+                                    <BarChart data={data.customerGrowth}>
                                         <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
                                         <XAxis dataKey="date" axisLine={false} tickLine={false} tick={chartStyle.axisTickStyle} tickFormatter={formatDateShort} />
                                         <YAxis axisLine={false} tickLine={false} tick={chartStyle.axisTickStyle} allowDecimals={false} />
                                         <Tooltip contentStyle={chartStyle.contentStyle} formatter={v => [v, 'New Customers']} labelFormatter={formatDate} />
-                                        <Area type="monotone" dataKey="new_customers" stroke="#30D158" strokeWidth={2.5} fillOpacity={1} fill="url(#gradCust)" name="New Customers" />
-                                    </AreaChart>
+                                        <Bar dataKey="new_customers" fill="#30D158" radius={[4, 4, 0, 0]} name="New Customers" />
+                                    </BarChart>
                                 </ResponsiveContainer>
                             )}
                         </ChartCard>
 
                         {/* Invoice Status Distribution */}
                         <ChartCard title="Invoice Status" subtitle="Payment status breakdown for period">
-                            <ResponsiveContainer width="100%" height={220}>
-                                <PieChart>
-                                    <Pie
-                                        data={[
-                                            { name: 'Paid', value: data.duesByStatus?.Paid || 0 },
-                                            { name: 'Partial', value: data.duesByStatus?.Partial || 0 },
-                                            { name: 'Unpaid', value: data.duesByStatus?.Unpaid || 0 }
-                                        ].filter(d => d.value > 0)}
-                                        cx="50%" cy="50%" innerRadius={55} outerRadius={80} paddingAngle={4} dataKey="value"
-                                    >
-                                        <Cell fill="#30D158" />
-                                        <Cell fill="#FF9F0A" />
-                                        <Cell fill="#FF3B30" />
-                                    </Pie>
-                                    <Tooltip contentStyle={chartStyle.contentStyle} />
-                                    <Legend verticalAlign="bottom" height={36} iconType="circle" iconSize={8} />
-                                </PieChart>
-                            </ResponsiveContainer>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', padding: '16px 8px' }}>
+                                {[
+                                    { name: 'Paid', value: data.duesByStatus?.Paid || 0, color: '#30D158' },
+                                    { name: 'Partial', value: data.duesByStatus?.Partial || 0, color: '#FF9F0A' },
+                                    { name: 'Unpaid', value: data.duesByStatus?.Unpaid || 0, color: '#FF3B30' }
+                                ].map((item, idx) => {
+                                    const totalStatusVal = (data.duesByStatus?.Paid || 0) + (data.duesByStatus?.Partial || 0) + (data.duesByStatus?.Unpaid || 0);
+                                    const pct = totalStatusVal > 0 ? ((item.value / totalStatusVal) * 100).toFixed(1) : 0;
+                                    return (
+                                        <div key={idx} style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '13px' }}>
+                                                <span style={{ fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--text-primary)' }}>
+                                                    <span style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: item.color }}></span>
+                                                    {item.name}
+                                                </span>
+                                                <span style={{ color: 'var(--text-secondary)' }}>
+                                                    <strong>{item.value}</strong> ({pct}%)
+                                                </span>
+                                            </div>
+                                            <div style={{ height: '8px', backgroundColor: 'var(--border)', borderRadius: '4px', overflow: 'hidden' }}>
+                                                <div style={{ height: '100%', width: `${pct}%`, backgroundColor: item.color, borderRadius: '4px', transition: 'width 0.4s ease' }}></div>
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                            </div>
                         </ChartCard>
                     </div>
                 </div>
@@ -749,18 +947,31 @@ export default function DashboardPage() {
                         {/* Payment Method Breakdown */}
                         <ChartCard title="Payment Method Distribution" subtitle="How customers pay">
                             {!data.paymentMethodBreakdown?.length ? <EmptyChart icon="CreditCard" message="No payment data for this period" /> : (
-                                <ResponsiveContainer width="100%" height={260}>
-                                    <PieChart>
-                                        <Pie
-                                            data={data.paymentMethodBreakdown.map(p => ({ name: p.method || 'Cash', value: Number(p.total) }))}
-                                            cx="50%" cy="50%" innerRadius={60} outerRadius={90} paddingAngle={4} dataKey="value"
-                                        >
-                                            {data.paymentMethodBreakdown.map((_, i) => <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />)}
-                                        </Pie>
-                                        <Tooltip contentStyle={chartStyle.contentStyle} formatter={v => [fmt(v), 'Amount']} />
-                                        <Legend verticalAlign="bottom" height={36} iconType="circle" iconSize={8} />
-                                    </PieChart>
-                                </ResponsiveContainer>
+                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '12px', padding: '8px 0' }}>
+                                    {data.paymentMethodBreakdown.map((p, idx) => {
+                                        const amount = Number(p.total);
+                                        const method = p.method || 'Cash';
+                                        return (
+                                            <div key={idx} style={{ 
+                                                background: 'rgba(255, 255, 255, 0.05)', 
+                                                border: '1px solid var(--border)', 
+                                                borderRadius: '12px', 
+                                                padding: '16px', 
+                                                display: 'flex', 
+                                                flexDirection: 'column', 
+                                                gap: '8px',
+                                                boxShadow: '0 4px 12px rgba(0,0,0,0.02)'
+                                            }}>
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--text-secondary)', fontSize: '13px' }}>
+                                                    <span style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: CHART_COLORS[idx % CHART_COLORS.length] }}></span>
+                                                    <strong>{method}</strong>
+                                                </div>
+                                                <span style={{ fontSize: '18px', fontWeight: 700, color: 'var(--text-primary)' }}>{fmt(amount)}</span>
+                                                <span style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>{p.count} transactions</span>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
                             )}
                         </ChartCard>
 
@@ -768,13 +979,16 @@ export default function DashboardPage() {
                         <ChartCard title="Transactions by Method" subtitle="Number of transactions per payment type">
                             {!data.paymentMethodBreakdown?.length ? <EmptyChart icon="CreditCard" message="No payment data" /> : (
                                 <ResponsiveContainer width="100%" height={260}>
-                                    <BarChart data={data.paymentMethodBreakdown.map(p => ({ name: p.method || 'Cash', count: p.count, amount: p.total }))} layout="vertical">
-                                        <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#f0f0f0" />
-                                        <XAxis type="number" axisLine={false} tickLine={false} tick={chartStyle.axisTickStyle} />
-                                        <YAxis type="category" dataKey="name" axisLine={false} tickLine={false} tick={chartStyle.axisTickStyle} width={60} />
-                                        <Tooltip contentStyle={chartStyle.contentStyle} />
-                                        <Bar dataKey="count" fill="#0071E3" radius={[0, 6, 6, 0]} name="Transactions" />
-                                    </BarChart>
+                                    <PieChart>
+                                        <Pie
+                                            data={data.paymentMethodBreakdown.map(p => ({ name: p.method || 'Cash', value: p.count }))}
+                                            cx="50%" cy="50%" innerRadius={60} outerRadius={90} paddingAngle={4} dataKey="value"
+                                        >
+                                            {data.paymentMethodBreakdown.map((_, i) => <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />)}
+                                        </Pie>
+                                        <Tooltip contentStyle={chartStyle.contentStyle} formatter={v => [v, 'Transactions']} />
+                                        <Legend verticalAlign="bottom" height={36} iconType="circle" iconSize={8} />
+                                    </PieChart>
                                 </ResponsiveContainer>
                             )}
                         </ChartCard>
@@ -829,22 +1043,33 @@ export default function DashboardPage() {
                         {/* AI vs Manual */}
                         <ChartCard title="AI vs Manual Orders" subtitle={`Orders comparison · ${TIMEFRAME_LABELS[timeframe]}`}>
                             {(!data.aiVsManual?.aiOrders && !data.aiVsManual?.manualOrders) ? <EmptyChart icon="Zap" message="No order data for this period" /> : (
-                                <ResponsiveContainer width="100%" height={260}>
-                                    <PieChart>
-                                        <Pie
-                                            data={[
-                                                { name: 'AI Orders', value: data.aiVsManual?.aiOrders || 0 },
-                                                { name: 'Manual Orders', value: data.aiVsManual?.manualOrders || 0 }
-                                            ]}
-                                            cx="50%" cy="50%" innerRadius={65} outerRadius={90} paddingAngle={4} dataKey="value"
-                                        >
-                                            <Cell fill="#5856D6" />
-                                            <Cell fill="#0071E3" />
-                                        </Pie>
-                                        <Tooltip contentStyle={chartStyle.contentStyle} />
-                                        <Legend verticalAlign="bottom" height={36} iconType="circle" iconSize={8} />
-                                    </PieChart>
-                                </ResponsiveContainer>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', padding: '16px 8px' }}>
+                                    {[
+                                        { name: 'AI Orders', value: data.aiVsManual?.aiOrders || 0, color: '#5856D6', icon: 'Zap' },
+                                        { name: 'Manual Orders', value: data.aiVsManual?.manualOrders || 0, color: '#0071E3', icon: 'User' }
+                                    ].map((item, idx) => {
+                                        const totalVal = (data.aiVsManual?.aiOrders || 0) + (data.aiVsManual?.manualOrders || 0);
+                                        const pct = totalVal > 0 ? ((item.value / totalVal) * 100).toFixed(1) : 0;
+                                        return (
+                                            <div key={idx} style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                        <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '28px', height: '28px', borderRadius: '8px', background: `${item.color}15`, color: item.color }}>
+                                                            {item.icon === 'Zap' ? <Icons.Zap size={14} /> : <Icons.User size={14} />}
+                                                        </span>
+                                                        <span style={{ fontWeight: 600, fontSize: '13px', color: 'var(--text-primary)' }}>{item.name}</span>
+                                                    </div>
+                                                    <span style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>
+                                                        <strong>{item.value}</strong> ({pct}%)
+                                                    </span>
+                                                </div>
+                                                <div style={{ height: '8px', backgroundColor: 'var(--border)', borderRadius: '4px', overflow: 'hidden' }}>
+                                                    <div style={{ height: '100%', width: `${pct}%`, backgroundColor: item.color, borderRadius: '4px' }}></div>
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
                             )}
                         </ChartCard>
 
@@ -884,19 +1109,13 @@ export default function DashboardPage() {
                             </div>
                         ) : (
                             <ResponsiveContainer width="100%" height={220}>
-                                <AreaChart data={data.aiOrdersByDay}>
-                                    <defs>
-                                        <linearGradient id="gradAI" x1="0" y1="0" x2="0" y2="1">
-                                            <stop offset="5%" stopColor="#5856D6" stopOpacity={0.2} />
-                                            <stop offset="95%" stopColor="#5856D6" stopOpacity={0} />
-                                        </linearGradient>
-                                    </defs>
+                                <LineChart data={data.aiOrdersByDay}>
                                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
                                     <XAxis dataKey="date" axisLine={false} tickLine={false} tick={chartStyle.axisTickStyle} tickFormatter={formatDateShort} />
                                     <YAxis axisLine={false} tickLine={false} tick={chartStyle.axisTickStyle} allowDecimals={false} />
                                     <Tooltip contentStyle={chartStyle.contentStyle} formatter={v => [v, 'AI Orders']} labelFormatter={formatDate} />
-                                    <Area type="monotone" dataKey="count" stroke="#5856D6" strokeWidth={2.5} fillOpacity={1} fill="url(#gradAI)" name="AI Orders" />
-                                </AreaChart>
+                                    <Line type="monotone" dataKey="count" stroke="#5856D6" strokeWidth={2.5} dot={{ r: 4 }} activeDot={{ r: 6 }} name="AI Orders" />
+                                </LineChart>
                             </ResponsiveContainer>
                         )}
                     </ChartCard>
@@ -1085,7 +1304,13 @@ export default function DashboardPage() {
                         </div>
                         <div className="mini-kpi-card green">
                             <span className="mini-kpi-label">Net (Rev - Exp)</span>
-                            <span className="mini-kpi-value">{fmt((data.monthlyRevenue || 0) - (data.totalExpenses || 0))}</span>
+                            <span className="mini-kpi-value">
+                                {fmt(
+                                    (data.salesOverTime ? data.salesOverTime.reduce((sum, item) => sum + (item.total || 0), 0) : 0) - 
+                                    (data.totalExpenses || 0)
+                                )}
+                            </span>
+                            <span className="mini-kpi-sub">{TIMEFRAME_LABELS[timeframe]}</span>
                         </div>
                     </div>
 
@@ -1093,25 +1318,15 @@ export default function DashboardPage() {
                     <ChartCard title="Revenue vs Expenses" subtitle="Overlay comparison over the period">
                         {!data.revenueVsExpenses?.some(d => d.revenue > 0 || d.expenses > 0) ? <EmptyChart icon="BarChart2" message="No financial data for this period" /> : (
                             <ResponsiveContainer width="100%" height={260}>
-                                <AreaChart data={data.revenueVsExpenses}>
-                                    <defs>
-                                        <linearGradient id="gradRev" x1="0" y1="0" x2="0" y2="1">
-                                            <stop offset="5%" stopColor="#0071E3" stopOpacity={0.15} />
-                                            <stop offset="95%" stopColor="#0071E3" stopOpacity={0} />
-                                        </linearGradient>
-                                        <linearGradient id="gradExp" x1="0" y1="0" x2="0" y2="1">
-                                            <stop offset="5%" stopColor="#FF3B30" stopOpacity={0.15} />
-                                            <stop offset="95%" stopColor="#FF3B30" stopOpacity={0} />
-                                        </linearGradient>
-                                    </defs>
+                                <LineChart data={data.revenueVsExpenses}>
                                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
                                     <XAxis dataKey="date" axisLine={false} tickLine={false} tick={chartStyle.axisTickStyle} tickFormatter={formatDateShort} />
                                     <YAxis axisLine={false} tickLine={false} tick={chartStyle.axisTickStyle} tickFormatter={v => `₹${v}`} width={60} />
                                     <Tooltip contentStyle={chartStyle.contentStyle} formatter={(v, n) => [fmt(v), n === 'revenue' ? 'Revenue' : 'Expenses']} labelFormatter={formatDate} />
-                                    <Area type="monotone" dataKey="revenue" stroke="#0071E3" strokeWidth={2.5} fill="url(#gradRev)" name="revenue" />
-                                    <Area type="monotone" dataKey="expenses" stroke="#FF3B30" strokeWidth={2.5} fill="url(#gradExp)" name="expenses" />
+                                    <Line type="monotone" dataKey="revenue" stroke="#0071E3" strokeWidth={2.5} dot={{ r: 3 }} name="revenue" />
+                                    <Line type="monotone" dataKey="expenses" stroke="#FF3B30" strokeWidth={2.5} dot={{ r: 3 }} name="expenses" />
                                     <Legend />
-                                </AreaChart>
+                                </LineChart>
                             </ResponsiveContainer>
                         )}
                     </ChartCard>
@@ -1121,16 +1336,15 @@ export default function DashboardPage() {
                         <ChartCard title="Expenses by Category" subtitle="Spending breakdown">
                             {!data.expensesByCategory?.length ? <EmptyChart icon="Tag" message="No expense data for this period" /> : (
                                 <ResponsiveContainer width="100%" height={260}>
-                                    <PieChart>
-                                        <Pie
-                                            data={data.expensesByCategory.map(e => ({ name: e.name || 'Uncategorized', value: Number(e.amount) }))}
-                                            cx="50%" cy="50%" innerRadius={60} outerRadius={88} paddingAngle={4} dataKey="value"
-                                        >
-                                            {data.expensesByCategory.map((_, i) => <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />)}
-                                        </Pie>
+                                    <BarChart data={data.expensesByCategory.map(e => ({ name: e.name || 'Uncategorized', value: Number(e.amount) }))} layout="vertical">
+                                        <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#f0f0f0" />
+                                        <XAxis type="number" axisLine={false} tickLine={false} tick={chartStyle.axisTickStyle} tickFormatter={v => `₹${v}`} />
+                                        <YAxis type="category" dataKey="name" axisLine={false} tickLine={false} tick={chartStyle.axisTickStyle} width={100} />
                                         <Tooltip contentStyle={chartStyle.contentStyle} formatter={v => [fmt(v), 'Expense']} />
-                                        <Legend verticalAlign="bottom" height={36} iconType="circle" iconSize={8} />
-                                    </PieChart>
+                                        <Bar dataKey="value" radius={[0, 6, 6, 0]}>
+                                            {data.expensesByCategory.map((_, i) => <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />)}
+                                        </Bar>
+                                    </BarChart>
                                 </ResponsiveContainer>
                             )}
                         </ChartCard>

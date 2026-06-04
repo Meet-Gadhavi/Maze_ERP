@@ -505,9 +505,87 @@ router.post('/:id/adjust', async (req, res, next) => {
         let updatedProduct;
         db.transaction(() => {
             db.run('UPDATE products SET stock_quantity = ? WHERE id = ?', [Number(quantity), productId]);
+
+            // Synchronize serial tracking
+            if (product.track_serials) {
+                if (diff > 0) {
+                    const serialPrefix = `SN-${product.product_code || product.id}-`;
+                    for (let i = 0; i < diff; i++) {
+                        let serialNumber = `${serialPrefix}${Math.random().toString(36).substr(2, 9).toUpperCase()}`;
+                        db.run(
+                            'INSERT INTO product_serials (product_id, serial_number, status) VALUES (?, ?, ?)',
+                            [productId, serialNumber, 'Available']
+                        );
+                    }
+                } else if (diff < 0) {
+                    const deleteCount = Math.abs(diff);
+                    const availableSerials = db.all(
+                        "SELECT id FROM product_serials WHERE product_id = ? AND status = 'Available' ORDER BY id DESC LIMIT ?",
+                        [productId, deleteCount]
+                    );
+                    for (const s of availableSerials) {
+                        db.run('DELETE FROM product_serials WHERE id = ?', [s.id]);
+                    }
+                }
+            }
+
+            // Synchronize batch tracking
+            let batchId = null;
+            if (product.track_batches) {
+                if (diff > 0) {
+                    const latestBatch = db.get(
+                        'SELECT * FROM product_batches WHERE product_id = ? ORDER BY id DESC LIMIT 1',
+                        [productId]
+                    );
+                    if (latestBatch) {
+                        db.run(
+                            'UPDATE product_batches SET initial_quantity = initial_quantity + ?, current_quantity = current_quantity + ? WHERE id = ?',
+                            [diff, diff, latestBatch.id]
+                        );
+                        batchId = latestBatch.id;
+                    } else {
+                        const batchNumber = `BAT-ADJ-${productId}-${Date.now()}`;
+                        const bRes = db.run(
+                            'INSERT INTO product_batches (product_id, batch_number, initial_quantity, current_quantity, cost_price) VALUES (?, ?, ?, ?, ?)',
+                            [productId, batchNumber, diff, diff, product.cost_price || 0]
+                        );
+                        batchId = bRes.lastInsertRowid;
+                    }
+                } else if (diff < 0) {
+                    let remainingToDeduct = Math.abs(diff);
+                    const activeBatches = db.all(
+                        'SELECT * FROM product_batches WHERE product_id = ? AND current_quantity > 0 ORDER BY id DESC',
+                        [productId]
+                    );
+                    for (const batch of activeBatches) {
+                        if (remainingToDeduct <= 0) break;
+                        const deductQty = Math.min(batch.current_quantity, remainingToDeduct);
+                        db.run(
+                            'UPDATE product_batches SET current_quantity = current_quantity - ? WHERE id = ?',
+                            [deductQty, batch.id]
+                        );
+                        remainingToDeduct -= deductQty;
+                    }
+                    if (remainingToDeduct > 0) {
+                        // Deduct from latest batch anyway (could go negative)
+                        const latestBatch = db.get(
+                            'SELECT * FROM product_batches WHERE product_id = ? ORDER BY id DESC LIMIT 1',
+                            [productId]
+                        );
+                        if (latestBatch) {
+                            db.run(
+                                'UPDATE product_batches SET current_quantity = current_quantity - ? WHERE id = ?',
+                                [remainingToDeduct, latestBatch.id]
+                            );
+                            batchId = latestBatch.id;
+                        }
+                    }
+                }
+            }
+
             db.run(
-                'INSERT INTO stock_movements (product_id, type, quantity, reference_type, notes) VALUES (?, ?, ?, ?, ?)',
-                [productId, 'ADJUSTMENT', diff, 'Manual', notes || 'Manual adjustment']
+                'INSERT INTO stock_movements (product_id, type, quantity, reference_type, batch_id, notes) VALUES (?, ?, ?, ?, ?, ?)',
+                [productId, 'ADJUSTMENT', diff, 'Manual', batchId, notes || 'Manual adjustment']
             );
             updatedProduct = db.get('SELECT * FROM products WHERE id = ?', [productId]);
         });
@@ -545,12 +623,22 @@ router.get('/:id/variants', async (req, res, next) => {
 router.post('/:id/variants', async (req, res, next) => {
     try {
         await db.ready;
+        const productId = Number(req.params.id);
         const { name, sku, cost_price, selling_price, stock_quantity, min_stock_level, max_stock_level, attributes } = req.body;
-        const result = db.run(
-            'INSERT INTO product_variants (product_id, name, sku, cost_price, selling_price, stock_quantity, min_stock_level, max_stock_level, attributes) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
-            [Number(req.params.id), name, sku || '', cost_price || 0, selling_price || 0, stock_quantity || 0, min_stock_level || 0, max_stock_level || 0, JSON.stringify(attributes || {})]
-        );
-        res.status(201).json({ id: result.lastInsertRowid, product_id: Number(req.params.id), name, sku, cost_price, selling_price, stock_quantity, min_stock_level, max_stock_level, attributes });
+        let resultId;
+        db.transaction(() => {
+            const result = db.run(
+                'INSERT INTO product_variants (product_id, name, sku, cost_price, selling_price, stock_quantity, min_stock_level, max_stock_level, attributes) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+                [productId, name, sku || '', cost_price || 0, selling_price || 0, stock_quantity || 0, min_stock_level || 0, max_stock_level || 0, JSON.stringify(attributes || {})]
+            );
+            resultId = result.lastInsertRowid;
+
+            // Sync parent product stock
+            const sumRow = db.get('SELECT SUM(stock_quantity) as total FROM product_variants WHERE product_id = ?', [productId]);
+            const total = sumRow ? (sumRow.total || 0) : 0;
+            db.run('UPDATE products SET stock_quantity = ? WHERE id = ?', [total, productId]);
+        });
+        res.status(201).json({ id: resultId, product_id: productId, name, sku, cost_price, selling_price, stock_quantity, min_stock_level, max_stock_level, attributes });
     } catch (err) {
         next(err);
     }
@@ -615,6 +703,11 @@ router.put('/variants/:id', async (req, res, next) => {
                     }
                 }
             }
+
+            // Sync parent product stock
+            const sumRow = db.get('SELECT SUM(stock_quantity) as total FROM product_variants WHERE product_id = ?', [existing.product_id]);
+            const total = sumRow ? (sumRow.total || 0) : 0;
+            db.run('UPDATE products SET stock_quantity = ? WHERE id = ?', [total, existing.product_id]);
         });
 
         res.json({ success: true });
@@ -627,7 +720,17 @@ router.put('/variants/:id', async (req, res, next) => {
 router.delete('/variants/:id', async (req, res, next) => {
     try {
         await db.ready;
-        db.run('DELETE FROM product_variants WHERE id = ?', [Number(req.params.id)]);
+        const variantId = Number(req.params.id);
+        const existing = db.get('SELECT product_id FROM product_variants WHERE id = ?', [variantId]);
+        if (existing) {
+            db.transaction(() => {
+                db.run('DELETE FROM product_variants WHERE id = ?', [variantId]);
+                // Sync parent product stock
+                const sumRow = db.get('SELECT SUM(stock_quantity) as total FROM product_variants WHERE product_id = ?', [existing.product_id]);
+                const total = sumRow ? (sumRow.total || 0) : 0;
+                db.run('UPDATE products SET stock_quantity = ? WHERE id = ?', [total, existing.product_id]);
+            });
+        }
         res.json({ success: true });
     } catch (err) {
         next(err);

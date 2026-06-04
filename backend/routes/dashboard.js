@@ -26,7 +26,7 @@ router.get('/', async (req, res, next) => {
         ).total;
 
         const lowStockCount = db.get(
-            'SELECT COUNT(*) AS count FROM products WHERE stock_quantity <= min_stock_level AND stock_quantity > 0'
+            'SELECT COUNT(*) AS count FROM products WHERE stock_quantity <= min_stock_level AND min_stock_level > 0'
         ).count;
 
         const currentMonthStart = new Date();
@@ -120,13 +120,14 @@ router.get('/', async (req, res, next) => {
         const peakSellingHours = (() => {
             try {
                 return db.all(`
-                    SELECT CAST(strftime('%H', created_at) AS INTEGER) AS hour,
+                    SELECT CAST(strftime('%w', created_at) AS INTEGER) AS day,
+                           CAST(strftime('%H', created_at) AS INTEGER) AS hour,
                            COALESCE(SUM(total), 0) AS revenue,
                            COUNT(*) AS orders
                     FROM invoices
                     WHERE date >= date('now', 'localtime', ${rangeSql})
-                    GROUP BY hour
-                    ORDER BY hour ASC
+                    GROUP BY day, hour
+                    ORDER BY day ASC, hour ASC
                 `);
             } catch (e) { return []; }
         })();
@@ -170,7 +171,7 @@ router.get('/', async (req, res, next) => {
         const lowStockProducts = db.all(`
             SELECT name, stock_quantity, min_stock_level, unit
             FROM products
-            WHERE stock_quantity <= min_stock_level AND stock_quantity >= 0
+            WHERE stock_quantity <= min_stock_level AND min_stock_level > 0
             ORDER BY (stock_quantity * 1.0 / NULLIF(min_stock_level, 0)) ASC
             LIMIT 10
         `);

@@ -23,6 +23,20 @@ const PERSONA_OPTIONS = [
     { value: 'Multipurpose', label: 'Multipurpose (Balanced)' }
 ];
 
+const DEFAULT_PROMPTS = {
+    'Sales': 'You are an aggressive and persuasive sales closing assistant. Your goal is to convince the customer to place an order.',
+    'Support': 'You are an empathetic and helpful customer support assistant. Your goal is to resolve the customer\'s queries.',
+    'Purchase': 'You are an analytical and firm procurement assistant. Your goal is to negotiate vendor rates.',
+    'Multipurpose': 'You are a balanced and professional business assistant.'
+};
+
+const DEFAULT_FIRST_MESSAGES = {
+    'Sales': 'Hello! I\'m calling from our sales department. How are you doing today?',
+    'Support': 'Hello! Thanks for calling customer support. How can I help you today?',
+    'Purchase': 'Hello, I\'m calling to discuss our recent vendor procurement request.',
+    'Multipurpose': 'Hello, how can I help you today?'
+};
+
 const NameInput = ({ value, onChange }) => {
     const [localValue, setLocalValue] = useState(value);
     
@@ -49,6 +63,7 @@ export default function AutomationPage() {
     const [showModal, setShowModal] = useState(false);
     const [step, setStep] = useState(1);
     const [syncingNow, setSyncingNow] = useState(false);
+    const [isWaitingForPayment, setIsWaitingForPayment] = useState(false);
     const [lastSyncedAt, setLastSyncedAt] = useState('');
     const [mazewayApiKey, setMazewayApiKey] = useState('');
     const [selectedAgent, setSelectedAgent] = useState(null);
@@ -64,10 +79,14 @@ export default function AutomationPage() {
     const [formData, setFormData] = useState({
         name: '',
         business_name: '',
-        language: 'en-IN',
+        language: 'en',
         personality: 'Sales',
+        system_prompt: 'You are an aggressive and persuasive sales closing assistant. Your goal is to convince the customer to place an order.',
+        first_message: 'Hello! I\'m calling from our sales department. How are you doing today?',
         providerType: 'BUY_NOW',
         plan: 'starter',
+        model: 'Cheap',
+        voice_id: 'FmBhnvP58BK0vz65OOj7',
         sip_trunk: {
             label: '',
             phone_number: '',
@@ -77,6 +96,11 @@ export default function AutomationPage() {
             address: ''
         }
     });
+
+    const formDataRef = React.useRef(formData);
+    useEffect(() => {
+        formDataRef.current = formData;
+    }, [formData]);
     const stats = [
         {
             label: 'Total AI Minutes',
@@ -169,10 +193,14 @@ export default function AutomationPage() {
         setFormData({
             name: '',
             business_name: '',
-            language: 'en-IN',
+            language: 'en',
             personality: 'Sales',
+            system_prompt: DEFAULT_PROMPTS['Sales'],
+            first_message: DEFAULT_FIRST_MESSAGES['Sales'],
             providerType: 'BUY_NOW',
             plan: 'starter',
+            model: 'Cheap',
+            voice_id: 'FmBhnvP58BK0vz65OOj7',
             sip_trunk: {
                 label: '',
                 phone_number: '',
@@ -189,23 +217,30 @@ export default function AutomationPage() {
     const handleOpenEdit = (agent) => {
         setIsEditing(true);
         setEditingAgentId(agent.id);
+        
+        const isOwn = !!agent.config?.sip || !!agent.config?.phone;
+        
         setFormData({
             name: agent.name,
             business_name: agent.metadata?.business_name || '',
-            language: agent.language || 'en-IN',
-            personality: agent.persona || 'Sales',
-            providerType: 'OWN_PROVIDER', // Only Own Provider agents reach here
-            plan: 'starter',
+            language: agent.config?.language || agent.language || 'en',
+            personality: 'Sales',
+            system_prompt: agent.persona || '',
+            first_message: agent.config?.first_message || '',
+            providerType: isOwn ? 'OWN_PROVIDER' : 'BUY_NOW',
+            plan: agent.config?.plan || 'starter',
+            model: agent.config?.model || 'Cheap',
+            voice_id: agent.config?.voice_id || 'FmBhnvP58BK0vz65OOj7',
             sip_trunk: {
-                label: agent.config?.label || '',
-                phone_number: agent.config?.phone_number || '',
-                media_encryption: agent.config?.media_encryption || 'allowed',
-                username: agent.config?.username || '',
-                password: agent.config?.password || '',
-                address: agent.config?.address || ''
+                label: agent.config?.sip?.label || agent.config?.label || '',
+                phone_number: agent.config?.phone || agent.config?.phone_number || '',
+                media_encryption: agent.config?.sip?.mediaEncryption || agent.config?.media_encryption || 'allowed',
+                username: agent.config?.sip?.inboundUsername || agent.config?.username || '',
+                password: agent.config?.sip?.inboundPassword || agent.config?.password || '',
+                address: agent.config?.sip?.outboundAddress || agent.config?.address || ''
             }
         });
-        setStep(2); // Directly open the provider configuration tab
+        setStep(1); // Open step 1 to allow prompt & message edits
         setShowModal(true);
     };
     const fetchAgents = async () => {
@@ -232,7 +267,7 @@ export default function AutomationPage() {
                 // 1. Try to find by agent_id first
                 let { data, error } = await mazewaySupabase
                     .from('mazeway_number_requests')
-                    .select('status, agent_id, agent_name')
+                    .select('status, agent_id, agent_name, notes')
                     .eq('agent_id', agent.id)
                     .maybeSingle();
 
@@ -241,7 +276,7 @@ export default function AutomationPage() {
                     console.log(`[Sync] ID match failed for ${agent.name}, trying name fallback...`);
                     const { data: nameData, error: nameError } = await mazewaySupabase
                         .from('mazeway_number_requests')
-                        .select('status, agent_id, agent_name')
+                        .select('status, agent_id, agent_name, notes')
                         .ilike('agent_name', agent.name)
                         .eq('status', 'approved')
                         .order('created_at', { ascending: false })
@@ -309,6 +344,42 @@ export default function AutomationPage() {
             });
     }, []);
 
+    useEffect(() => {
+        const handlePaymentMessage = async (event) => {
+            if (event.data?.type === 'payment-success') {
+                setIsWaitingForPayment(false);
+                setShowModal(false);
+                
+                const { agent_id, name, persona, language, model, voice_id } = event.data;
+                if (agent_id) {
+                    try {
+                        const currentForm = formDataRef.current || {};
+                        const newAgent = {
+                            id: agent_id,
+                            name: currentForm.name || name || 'AI Voice Agent',
+                            type: 'Voice',
+                            persona: currentForm.system_prompt || persona || '',
+                            status: 'ACTIVE',
+                            is_active: true,
+                            config: {
+                                language: currentForm.language || language || 'en',
+                                first_message: currentForm.first_message || 'Hello, how can I help you?',
+                                model: currentForm.model || model || 'Cheap',
+                                voice_id: currentForm.voice_id || voice_id || 'FmBhnvP58BK0vz65OOj7'
+                            }
+                        };
+                        await api.saveAgent(newAgent);
+                    } catch (e) {
+                        console.error('Failed to save provisioned agent locally:', e);
+                    }
+                }
+                fetchAgents();
+            }
+        };
+        window.addEventListener('message', handlePaymentMessage);
+        return () => window.removeEventListener('message', handlePaymentMessage);
+    }, []);
+
     // Polling for status updates every 10 seconds if there are provisioning agents
     useEffect(() => {
         const interval = setInterval(() => {
@@ -361,149 +432,96 @@ export default function AutomationPage() {
         }
 
         if (formData.providerType === 'BUY_NOW') {
-            // Simulate Razorpay
-            toast.loading('Redirecting to Razorpay...');
-            setTimeout(() => {
-                toast.dismiss();
-                toast.success('Payment Successful! Provisioning Agent...');
-                finalizeAgent();
-            }, 2000);
+            setIsWaitingForPayment(true);
+            const isElectron = !!(window.maze || navigator.userAgent.toLowerCase().includes('electron'));
+            const redirectTo = 'maze-erp://provision-agent';
+            const webPayUrl = `https://quantro-web.onrender.com/?action=buy-agent&plan=${formData.plan}&redirect=${encodeURIComponent(redirectTo)}`;
+
+            if (isElectron && window.maze?.openExternal) {
+                window.maze.openExternal(webPayUrl);
+            } else {
+                window.open(webPayUrl, '_blank');
+            }
         } else {
             finalizeAgent();
         }
     };
 
+
     const finalizeAgent = async () => {
-        const loadingId = toast.loading(isEditing ? 'Updating agent configuration...' : 'Syncing agent configuration with Mazeway...');
+        const currentAgent = agents.find(a => a.id === editingAgentId);
+        const isProvisioning = currentAgent?.status === 'PROVISIONING';
+
+        const loadingId = toast.loading(isEditing ? 'Updating agent configuration...' : 'Creating voice agent on ElevenLabs...');
         try {
-            let agentId = editingAgentId;
-            let currentStatus = isEditing ? agents.find(a => a.id === editingAgentId)?.status : 'PROVISIONING';
-
-            // Only sync with Mazeway if NOT editing or if it's a new agent
-            if (!isEditing) {
-                // Generate a stable ID locally first
-                const localId = `AG_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`.toUpperCase();
-                agentId = localId;
-
-                // Map personas to high-quality ElevenLabs Voice IDs
-                const voiceMap = {
-                    'Sales': 'cgSgspJ2msm6clMCkdW9', // Jessica
-                    'Support': 'EXAVITQu4vr4xnSDxMaL', // Bella
-                    'Purchase': 'onwK4e9ZLuTAKqWqbcWc', // George
-                    'Multipurpose': 'Lcf7W9Y6C03XisXz4X4Y' // Emily
-                };
-
-                // Prepare payload for Mazeway
-                const payload = {
-                    agent_id: localId,
-                    agentId: localId,
-                    agent_name: formData.name,
-                    business_name: formData.business_name,
-                    language: formData.language,
-                    persona: formData.personality,
-                    agent_type: 'voice',
-                    elevenlabs_config: {
-                        model_id: 'eleven_multilingual_v2',
-                        voice_id: voiceMap[formData.personality] || 'cgSgspJ2msm6clMCkdW9', // Default to Jessica
-                        language: formData.language
-                    }
-                };
-
-                console.log('[Mazeway Sync] Sending Provisioning Payload:', payload);
-
-                if (formData.providerType === 'OWN_PROVIDER') {
-                    payload.el_trunk_label = formData.sip_trunk.label;
-                    payload.el_outbound_address = formData.sip_trunk.address;
-                    payload.el_media_encryption = formData.sip_trunk.media_encryption;
-                    payload.el_inbound_username = formData.sip_trunk.username;
-                    payload.el_inbound_password = formData.sip_trunk.password;
-                    payload.outbound_trunk = {
-                        phone: formData.sip_trunk.phone_number
-                    };
-                }
-
-                const result = await api.createMazewayAgent(payload, mazewayApiKey);
-                console.log('[Mazeway Sync] Backend Response:', result);
-                
-                if (result.agent_id) agentId = result.agent_id;
-
-                // --- SELF-CORRECTION STEP (with Retry) ---
-                if (localId) {
-                    const trySync = async (attempt = 1) => {
-                        console.log(`[Mazeway Sync] Self-correction attempt ${attempt}...`);
-                        try {
-                            const { data: existing, error: findError } = await mazewaySupabase
-                                .from('mazeway_number_requests')
-                                .select('id, agent_name')
-                                .ilike('agent_name', `%${formData.name.trim()}%`) // Use partial match to be safe
-                                .eq('status', 'pending')
-                                .is('agent_id', null)
-                                .order('created_at', { ascending: false })
-                                .limit(1);
-
-                            if (findError) {
-                                console.error('[Mazeway Sync] Error finding request:', findError);
-                            }
-
-                            if (!findError && existing && existing.length > 0) {
-                                console.log('[Mazeway Sync] Found matching request:', existing[0].id);
-                                const { error: updateError } = await mazewaySupabase
-                                    .from('mazeway_number_requests')
-                                    .update({ agent_id: localId })
-                                    .eq('id', existing[0].id);
-                                
-                                if (!updateError) {
-                                    console.log('[Mazeway Sync] Successfully self-corrected Agent ID in Cloud.');
-                                    return true;
-                                } else {
-                                    console.error('[Mazeway Sync] Update failed:', updateError);
-                                }
-                            } else {
-                                console.log('[Mazeway Sync] No matching pending request found yet.');
-                            }
-
-                            if (attempt < 5) {
-                                setTimeout(() => trySync(attempt + 1), 2000); // Retry every 2s
-                            }
-                        } catch (e) {
-                            console.error('[Mazeway Sync] Self-correction attempt failed:', e);
-                        }
-                        return false;
-                    };
-                    trySync();
-                }
-            }
+            let agentId = editingAgentId || 'NEW';
 
             const updatedAgent = {
-                id: agentId || (isEditing ? editingAgentId : `agent_${Date.now()}`),
+                id: agentId,
                 name: formData.name,
                 type: 'Voice',
-                persona: formData.personality,
-                language: formData.language,
-                status: currentStatus || 'PROVISIONING',
-                is_active: isEditing ? agents.find(a => a.id === editingAgentId)?.is_active : false,
+                persona: formData.system_prompt,
+                status: isProvisioning ? 'PROVISIONING' : 'ACTIVE',
+                is_active: isEditing ? currentAgent?.is_active : true,
                 metadata: {
                     business_name: formData.business_name
                 },
-                config: formData.providerType === 'OWN_PROVIDER' ? formData.sip_trunk : {
-                    plan: formData.plan,
-                    price: formData.plan === 'starter' ? 600 : formData.plan === 'pro' ? 700 : 1100
+                config: {
+                    language: formData.language,
+                    first_message: formData.first_message || 'Hello, how can I help you?',
+                    phone: formData.sip_trunk?.phone_number || '',
+                    model: formData.model || 'Cheap',
+                    voice_id: formData.voice_id || 'FmBhnvP58BK0vz65OOj7',
+                    plan: formData.plan || 'starter',
+                    price: AGENT_PLANS.find(p => p.id === formData.plan)?.price || 600,
+                    sip: formData.providerType === 'OWN_PROVIDER' ? {
+                        label: formData.sip_trunk.label || `${formData.name} Trunk`,
+                        phoneNumber: formData.sip_trunk.phone_number
+                    } : null
                 }
             };
 
-            // Save locally
+            if (isProvisioning) {
+                let accountEmail = 'test@erp.local';
+                try {
+                    const settings = await api.getSettings();
+                    accountEmail = settings?.email || 'test@erp.local';
+                } catch (_) {}
+
+                const notesPayload = JSON.stringify({
+                    account_email: accountEmail,
+                    persona: formData.system_prompt,
+                    language: formData.language,
+                    model: formData.model || 'Cheap',
+                    plan: formData.plan || 'starter',
+                    first_message: formData.first_message,
+                    business_name: formData.business_name,
+                    voice_id: formData.voice_id || 'FmBhnvP58BK0vz65OOj7'
+                });
+
+                const { error } = await mazewaySupabase
+                    .from('mazeway_number_requests')
+                    .update({
+                        agent_name: formData.name,
+                        notes: notesPayload
+                    })
+                    .eq('agent_id', agentId);
+
+                if (error) {
+                    console.warn('[Mazeway Cloud] Failed to update request metadata on Supabase:', error);
+                }
+            }
+
+            // Save agent directly on ElevenLabs (or locally if provisioning) via backend POST /agents
             await api.saveAgent(updatedAgent);
             
-            if (isEditing) {
-                setAgents(prev => prev.map(a => a.id === editingAgentId ? updatedAgent : a));
-            } else {
-                setAgents([...agents, updatedAgent]);
-            }
+            // Reload list from ElevenLabs
+            await fetchAgents();
 
             setShowModal(false);
             setIsEditing(false);
             setStep(1);
-            toast.success(isEditing ? 'Agent updated successfully!' : 'AI Agent provisioned successfully on Mazeway!', { id: loadingId });
+            toast.success(isEditing ? 'Agent updated successfully!' : 'AI Agent created successfully on ElevenLabs!', { id: loadingId });
         } catch (err) {
             console.error('Operation failed:', err);
             toast.error(err.message || 'Failed to process agent', { id: loadingId });
@@ -558,18 +576,38 @@ export default function AutomationPage() {
                 onOpenConfig={handleOpenConfig}
                 onToggleActive={toggleAgentActive}
                 onDeleteAgent={handleDeleteAgent}
+                onEditAgent={handleOpenEdit}
             />
 
             <Modal
                 open={showModal}
-                onClose={() => setShowModal(false)}
-                heading={step === 1 ? (isEditing ? 'Edit Agent Profile' : 'Create Agent Profile') : 'Infrastructure Setup'}
+                onClose={() => {
+                    setShowModal(false);
+                    setIsWaitingForPayment(false);
+                }}
+                heading={isWaitingForPayment ? 'Payment Verification' : (step === 1 ? (isEditing ? 'Edit Agent Profile' : 'Create Agent Profile') : 'Infrastructure Setup')}
                 size="large"
             >
-                <div className="modal-stepper mb-24">
-                    <div className={`step-pill ${step === 1 ? 'active' : 'done'}`}>1. Persona</div>
-                    <div className={`step-pill ${step === 2 ? 'active' : ''}`}>2. Provider</div>
-                </div>
+                {isWaitingForPayment ? (
+                    <div className="flex-column align-center justify-center p-48 text-center" style={{ gap: '24px' }}>
+                        <div className="spinner" style={{ width: '48px', height: '48px', borderTopColor: 'var(--accent)', margin: '0 auto' }}></div>
+                        <div>
+                            <h4 className="size-16 fw-600 mb-8">Payment in Progress</h4>
+                            <p className="size-14 text-secondary ls-tight mx-auto animate-pulse" style={{ maxWidth: '360px' }}>
+                                We have redirected you to your web browser to complete the payment for your managed AI Voice Agent plan. 
+                                Once the transaction is complete, click <strong>"Provision Agent"</strong> in the browser to return and activate.
+                            </p>
+                        </div>
+                        <SButton variant="secondary" onClick={() => setIsWaitingForPayment(false)}>
+                            Cancel & Back
+                        </SButton>
+                    </div>
+                ) : (
+                    <>
+                        <div className="modal-stepper mb-24">
+                            <div className={`step-pill ${step === 1 ? 'active' : 'done'}`}>1. Persona</div>
+                            <div className={`step-pill ${step === 2 ? 'active' : ''}`}>2. Provider</div>
+                        </div>
 
                 {step === 1 ? (
                     <div className="flex-column gap-24">
@@ -602,11 +640,11 @@ export default function AutomationPage() {
                                         value={formData.language}
                                         onChange={(value) => setFormData({ ...formData, language: value })}
                                         options={[
-                                            { value: 'en-IN', label: 'English (Indian)' },
-                                            { value: 'hi-IN', label: 'Hindi' },
-                                            { value: 'gu-IN', label: 'Gujarati' },
-                                            { value: 'mr-IN', label: 'Marathi' },
-                                            { value: 'ta-IN', label: 'Tamil' }
+                                            { value: 'en', label: 'English (Indian)' },
+                                            { value: 'hi', label: 'Hindi' },
+                                            { value: 'gu', label: 'Gujarati' },
+                                            { value: 'mr', label: 'Marathi' },
+                                            { value: 'ta', label: 'Tamil' }
                                         ]}
                                         placeholder="Select language"
                                     />
@@ -615,11 +653,65 @@ export default function AutomationPage() {
                                     <label className="block mb-8">Personality / Role</label>
                                     <CustomSelect
                                         value={formData.personality}
-                                        onChange={(value) => setFormData({ ...formData, personality: value })}
+                                        onChange={(value) => setFormData({ 
+                                            ...formData, 
+                                            personality: value,
+                                            system_prompt: DEFAULT_PROMPTS[value] || '',
+                                            first_message: DEFAULT_FIRST_MESSAGES[value] || ''
+                                        })}
                                         options={PERSONA_OPTIONS}
                                         placeholder="Select personality"
                                     />
                                 </div>
+                            </div>
+                            <div className="form-grid" style={{ marginTop: '16px' }}>
+                                <div className="form-group">
+                                    <label className="block mb-8">Model Selection</label>
+                                    <CustomSelect
+                                        value={formData.model || 'Cheap'}
+                                        onChange={(value) => setFormData({ ...formData, model: value })}
+                                        options={[
+                                            { value: 'Cheap', label: 'Cheap (GPT-4o-Mini)' },
+                                            { value: 'Medium', label: 'Medium (GPT-4o)' },
+                                            { value: 'Expensive', label: 'Expensive (Claude 3.5 Sonnet)' }
+                                        ]}
+                                        placeholder="Select model"
+                                    />
+                                </div>
+                                <div className="form-group">
+                                    <label className="block mb-8">Voice Agent Voice</label>
+                                    <CustomSelect
+                                        value={formData.voice_id || 'FmBhnvP58BK0vz65OOj7'}
+                                        onChange={(value) => setFormData({ ...formData, voice_id: value })}
+                                        options={[
+                                            { value: 'FmBhnvP58BK0vz65OOj7', label: 'Vraj' },
+                                            { value: '1qEiC6qsybMkmnNdVMbK', label: 'Monika' }
+                                        ]}
+                                        placeholder="Select voice"
+                                    />
+                                </div>
+                            </div>
+                            <div className="form-group mb-16" style={{ marginTop: '16px' }}>
+                                <label className="block mb-8">System Prompt / Instructions</label>
+                                <textarea
+                                    className="form-control"
+                                    rows={4}
+                                    placeholder="Instructions for the AI agent behavior, goals..."
+                                    value={formData.system_prompt}
+                                    onChange={(e) => setFormData({ ...formData, system_prompt: e.target.value })}
+                                    style={{ width: '100%', resize: 'vertical', minHeight: '80px', fontFamily: 'inherit' }}
+                                />
+                            </div>
+                            <div className="form-group mb-16">
+                                <label className="block mb-8">First Message</label>
+                                <textarea
+                                    className="form-control"
+                                    rows={2}
+                                    placeholder="Greeting spoken by the agent when call is answered..."
+                                    value={formData.first_message}
+                                    onChange={(e) => setFormData({ ...formData, first_message: e.target.value })}
+                                    style={{ width: '100%', resize: 'vertical', minHeight: '50px', fontFamily: 'inherit' }}
+                                />
                             </div>
                         </div>
                         <div className="mt-8">
@@ -805,7 +897,9 @@ export default function AutomationPage() {
                         </div>
                     </div>
                 )}
-            </Modal>
+                </>
+            )}
+        </Modal>
 
             <Modal
                 open={showConfigModal && !!selectedAgent}

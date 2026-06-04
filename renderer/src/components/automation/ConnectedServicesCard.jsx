@@ -5,12 +5,31 @@ import api from '../../api';
 import { toast } from 'sonner';
 import Modal from '../Modal';
 
+const LANGUAGE_LABELS = {
+    en: 'English (Indian)',
+    hi: 'Hindi',
+    gu: 'Gujarati',
+    mr: 'Marathi',
+    ta: 'Tamil'
+};
+
+function getPersonalityLabel(prompt) {
+    if (!prompt) return 'Custom';
+    const cleanPrompt = prompt.trim();
+    if (cleanPrompt.includes('aggressive and persuasive sales closing assistant')) return 'Sales';
+    if (cleanPrompt.includes('empathetic and helpful customer support assistant')) return 'Support';
+    if (cleanPrompt.includes('analytical and firm procurement assistant')) return 'Purchase';
+    if (cleanPrompt.includes('balanced and professional business assistant')) return 'Multipurpose';
+    return 'Custom';
+}
+
 export default function ConnectedServicesCard({
     agents = [],
     onCreateVoiceAgent,
     onOpenConfig,
     onToggleActive,
-    onDeleteAgent
+    onDeleteAgent,
+    onEditAgent
 }) {
     const voiceAgents = (agents || []).filter(a => a.type?.toLowerCase() === 'voice');
 
@@ -118,8 +137,17 @@ export default function ConnectedServicesCard({
                 fetchConnections();
             }
         };
+        const handleWhatsAppConnected = (event) => {
+            if (event.data?.type === 'whatsapp-connected') {
+                fetchWhatsAppConnections();
+            }
+        };
         window.addEventListener('message', handleGmailConnected);
-        return () => window.removeEventListener('message', handleGmailConnected);
+        window.addEventListener('message', handleWhatsAppConnected);
+        return () => {
+            window.removeEventListener('message', handleGmailConnected);
+            window.removeEventListener('message', handleWhatsAppConnected);
+        };
     }, []);
 
     const handleConnect = () => {
@@ -511,21 +539,48 @@ export default function ConnectedServicesCard({
                                                 </span>
                                             </div>
                                             <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginTop: '6px', fontSize: '12px', color: 'var(--text-tertiary)' }}>
-                                                <span>Persona: {conn.persona}</span>
+                                                <span>Persona: {getPersonalityLabel(conn.persona)}</span>
                                                 <span>•</span>
-                                                <span>Language: {conn.language}</span>
+                                                <span>Language: {LANGUAGE_LABELS[conn.language] || conn.language || 'English'}</span>
                                                 <span>•</span>
                                                 <span>Plan: {conn.config?.plan ? conn.config.plan.toUpperCase() : 'STARTER'} (₹{conn.config?.price || 600}/mo)</span>
                                             </div>
-                                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '6px', fontSize: '12px', fontWeight: 500, color: 'var(--text-secondary)' }}>
-                                                <span>VoIP Number:</span>
-                                                <span style={{ color: conn.config?.phone_number ? 'var(--text-primary)' : 'var(--danger)', fontWeight: 600 }}>
-                                                    {conn.config?.phone_number || 'Provisioning Phone Number...'}
-                                                </span>
-                                            </div>
+                                            {(() => {
+                                                const phoneNumber = conn.config?.phone || conn.config?.phone_number || conn.config?.sip?.phoneNumber;
+                                                const isOwnProvider = !!conn.config?.sip;
+
+                                                if (isOwnProvider) {
+                                                    if (phoneNumber) {
+                                                        return (
+                                                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '6px', fontSize: '12px', fontWeight: 500, color: 'var(--text-secondary)' }}>
+                                                                <span>VoIP Number:</span>
+                                                                <span style={{ color: 'var(--text-primary)', fontWeight: 600 }}>
+                                                                    {phoneNumber}
+                                                                </span>
+                                                            </div>
+                                                        );
+                                                    }
+                                                    return null;
+                                                } else {
+                                                    if (!phoneNumber) {
+                                                        return (
+                                                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '6px', fontSize: '12px', fontWeight: 500, color: 'var(--text-secondary)' }}>
+                                                                <span>VoIP Number:</span>
+                                                                <span style={{ color: 'var(--danger)', fontWeight: 600 }}>
+                                                                    Provisioning Phone Number...
+                                                                </span>
+                                                            </div>
+                                                        );
+                                                    }
+                                                    return null;
+                                                }
+                                            })()}
                                         </div>
                                     </div>
                                     <div style={{ display: 'flex', gap: '8px' }}>
+                                        <SButton variant="secondary" size="small" onClick={() => onEditAgent(conn)}>
+                                            Edit
+                                        </SButton>
                                         <SButton variant="secondary" size="small" onClick={() => onOpenConfig(conn)}>
                                             Manage Logs
                                         </SButton>

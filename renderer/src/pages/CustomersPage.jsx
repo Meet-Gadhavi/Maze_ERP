@@ -9,6 +9,7 @@ import { FormGroup, Input } from '../components/FormComponents';
 import { formatDate, validateCustomer } from '../utils';
 import { EMPTY_CUSTOMER } from '../constants';
 import './CustomersPage.css';
+import Skeleton from '../components/Skeleton';
 
 const getInvoiceMockTemplateHtml = (customerName, settings) => {
     const companyName = (settings.company_name && settings.company_name.trim() !== '' && settings.company_name !== 'Quantro')
@@ -487,6 +488,20 @@ export default function CustomersPage() {
     const [campaignSearch, setCampaignSearch] = useState('');
     const [previewCustomerId, setPreviewCustomerId] = useState(null);
 
+    // Voice Campaign Progress states
+    const [agents, setAgents] = useState([]);
+    const [showProgressModal, setShowProgressModal] = useState(false);
+    const [progressCampaign, setProgressCampaign] = useState(null);
+    const [progressData, setProgressData] = useState(null);
+    const [selectedProgressDate, setSelectedProgressDate] = useState('');
+    const [loadingProgress, setLoadingProgress] = useState(false);
+
+    useEffect(() => {
+        api.getAgents().then(data => {
+            setAgents(data || []);
+        }).catch(console.error);
+    }, []);
+
     // Catalog search and filter states inside coupon modal
     const [catalogSearch, setCatalogSearch] = useState('');
     const [catalogCategory, setCatalogCategory] = useState('All');
@@ -519,6 +534,25 @@ export default function CustomersPage() {
             console.error('Failed to load campaigns', err);
         } finally {
             setLoadingCampaigns(false);
+        }
+    }, []);
+
+    const handleViewVoiceProgress = useCallback(async (camp) => {
+        setProgressCampaign(camp);
+        setShowProgressModal(true);
+        setLoadingProgress(true);
+        setProgressData(null);
+        setSelectedProgressDate('');
+        try {
+            const data = await api.getVoiceCampaignProgress(camp.id);
+            setProgressData(data);
+            if (data && data.progress && data.progress.length > 0) {
+                setSelectedProgressDate(data.progress[0].date);
+            }
+        } catch (err) {
+            toast.error(err.message || 'Failed to fetch voice campaign progress');
+        } finally {
+            setLoadingProgress(false);
         }
     }, []);
 
@@ -1008,8 +1042,8 @@ export default function CustomersPage() {
                     </div>
 
                     {loading ? (
-                        <div className="customers-table-wrap card">
-                            <div className="loading">Loading customers…</div>
+                        <div className="customers-table-wrap card" style={{ padding: '20px' }}>
+                            <Skeleton type="table" count={5} />
                         </div>
                     ) : customers.length === 0 ? (
                         <div className="empty-state-premium">
@@ -1334,6 +1368,24 @@ export default function CustomersPage() {
                         >
                             WhatsApp Campaigns
                         </button>
+                        <button 
+                            className={`crm-tab-btn ${marketingSubTab === 'voice' ? 'active' : ''}`}
+                            onClick={() => setMarketingSubTab('voice')}
+                            style={{ 
+                                background: marketingSubTab === 'voice' ? '#fff' : 'none', 
+                                border: 'none', 
+                                padding: '8px 20px', 
+                                fontWeight: 600, 
+                                cursor: 'pointer', 
+                                borderRadius: '8px',
+                                boxShadow: marketingSubTab === 'voice' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
+                                color: marketingSubTab === 'voice' ? 'var(--accent)' : 'var(--text-secondary)',
+                                transition: 'all 0.2s ease',
+                                borderBottom: 'none'
+                            }}
+                        >
+                            Voice Campaigns (Outbound)
+                        </button>
                     </div>
 
                     {marketingSubTab === 'coupons' ? (
@@ -1348,8 +1400,8 @@ export default function CustomersPage() {
                                 </SButton>
                             </div>
                             {loadingCoupons ? (
-                                <div className="customers-table-wrap card">
-                                    <div className="loading">Loading coupons…</div>
+                                <div className="customers-table-wrap card" style={{ padding: '20px' }}>
+                                    <Skeleton type="table" count={3} />
                                 </div>
                             ) : coupons.length === 0 ? (
                                 <div className="empty-state-premium">
@@ -1450,27 +1502,27 @@ export default function CustomersPage() {
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                 <div>
                                     <h4 style={{ margin: 0, fontSize: '16px', fontWeight: 600 }}>
-                                        {marketingSubTab === 'whatsapp' ? 'Scheduled WhatsApp Campaigns' : 'Scheduled Email Campaigns'}
+                                        {marketingSubTab === 'whatsapp' ? 'Scheduled WhatsApp Campaigns' : marketingSubTab === 'voice' ? 'Scheduled Voice Agent Campaigns (Outbound)' : 'Scheduled Email Campaigns'}
                                     </h4>
                                     <p style={{ margin: '4px 0 0 0', fontSize: '13px', color: 'var(--text-secondary)' }}>
                                         {marketingSubTab === 'whatsapp' 
                                             ? 'Automate sending text updates and promotions to customers via WhatsApp.' 
-                                            : 'Automate sending newsletters, confirmations, and feedback requests to customers.'}
+                                            : marketingSubTab === 'voice'
+                                                ? 'Automate calling customers and running phone promotional campaigns via AI Voice Agents.'
+                                                : 'Automate sending newsletters, confirmations, and feedback requests to customers.'}
                                     </p>
                                 </div>
                                 <SButton variant="primary" onClick={() => {
-                                    if (marketingSubTab === 'whatsapp') {
-                                        alert('Coming Soon!');
-                                        return;
-                                    }
+                                    const channel = marketingSubTab === 'whatsapp' ? 'whatsapp' : (marketingSubTab === 'voice' ? 'voice' : 'email');
+                                    const defaultTemplate = channel === 'voice' ? (agents[0]?.id || '') : 'marketing_newsletter';
                                     setCampaignForm({
                                         name: '',
                                         customers: [],
                                         startDate: '',
                                         endDate: '',
                                         timeToSend: '09:00',
-                                        template: 'marketing_newsletter',
-                                        channel: 'email',
+                                        template: defaultTemplate,
+                                        channel: channel,
                                         customContent: ''
                                     });
                                     setShowCampaignModal(true);
@@ -1480,38 +1532,38 @@ export default function CustomersPage() {
                             </div>
 
                             {loadingCampaigns ? (
-                                <div className="customers-table-wrap card">
-                                    <div className="loading">Loading campaigns…</div>
+                                <div className="customers-table-wrap card" style={{ padding: '20px' }}>
+                                    <Skeleton type="table" count={3} />
                                 </div>
                             ) : (() => {
                                 const list = campaigns.filter(camp => 
-                                    marketingSubTab === 'whatsapp' ? camp.channel === 'whatsapp' : (camp.channel === 'email' || !camp.channel)
+                                    marketingSubTab === 'whatsapp' ? camp.channel === 'whatsapp' : marketingSubTab === 'voice' ? camp.channel === 'voice' : (camp.channel === 'email' || !camp.channel)
                                 );
                                 if (list.length === 0) {
                                     return (
                                         <div className="empty-state-premium">
                                             <div className="empty-icon-wrapper">
-                                                {marketingSubTab === 'whatsapp' ? <Icons.MessageSquare size={40} /> : <Icons.Mail size={40} />}
+                                                {marketingSubTab === 'whatsapp' ? <Icons.MessageSquare size={40} /> : marketingSubTab === 'voice' ? <Icons.Phone size={40} /> : <Icons.Mail size={40} />}
                                             </div>
                                             <h3>No Campaigns Found</h3>
                                             <p>
                                                 {marketingSubTab === 'whatsapp' 
                                                     ? 'Schedule your first WhatsApp campaign to engage with your customers.'
-                                                    : 'Schedule your first email campaign to engage with your customers.'}
+                                                    : marketingSubTab === 'voice'
+                                                        ? 'Schedule your first voice calling campaign to engage with your customers.'
+                                                        : 'Schedule your first email campaign to engage with your customers.'}
                                             </p>
                                             <SButton variant="primary" onClick={() => {
-                                                if (marketingSubTab === 'whatsapp') {
-                                                    alert('Coming Soon!');
-                                                    return;
-                                                }
+                                                const channel = marketingSubTab === 'whatsapp' ? 'whatsapp' : (marketingSubTab === 'voice' ? 'voice' : 'email');
+                                                const defaultTemplate = channel === 'voice' ? (agents[0]?.id || '') : 'marketing_newsletter';
                                                 setCampaignForm({
                                                     name: '',
                                                     customers: [],
                                                     startDate: '',
                                                     endDate: '',
                                                     timeToSend: '09:00',
-                                                    template: 'marketing_newsletter',
-                                                    channel: 'email',
+                                                    template: defaultTemplate,
+                                                    channel: channel,
                                                     customContent: ''
                                                 });
                                                 setShowCampaignModal(true);
@@ -1561,7 +1613,12 @@ export default function CustomersPage() {
                                                                 {camp.status}
                                                             </span>
                                                         </td>
-                                                        <td className="text-right">
+                                                        <td className="text-right" style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', alignItems: 'center' }}>
+                                                            {camp.channel === 'voice' && (
+                                                                <SButton variant="secondary" size="small" onClick={() => handleViewVoiceProgress(camp)}>
+                                                                    View Progress
+                                                                </SButton>
+                                                            )}
                                                             {camp.status === 'scheduled' && (
                                                                 <SButton variant="secondary" size="small" onClick={() => handleCancelCampaign(camp.id)} style={{ color: 'var(--danger)' }}>
                                                                     Cancel
@@ -1819,7 +1876,9 @@ export default function CustomersPage() {
                             {/* Timeline list */}
                             <div className="communications-timeline">
                                 {loadingLogs ? (
-                                    <div className="loading" style={{ padding: 20 }}>Loading history…</div>
+                                    <div style={{ padding: '20px' }}>
+                                        <Skeleton type="list" count={4} />
+                                    </div>
                                 ) : logs.length === 0 ? (
                                     <div className="empty-state">
                                         <Icons.MessageSquare size={32} />
@@ -2136,7 +2195,7 @@ export default function CustomersPage() {
             <Modal
                 open={showCampaignModal}
                 onClose={() => setShowCampaignModal(false)}
-                heading={campaignForm.channel === 'whatsapp' ? "Schedule WhatsApp Campaign" : "Schedule Email Campaign"}
+                heading={campaignForm.channel === 'voice' ? "Schedule Voice Agent Campaign" : (campaignForm.channel === 'whatsapp' ? "Schedule WhatsApp Campaign" : "Schedule Email Campaign")}
                 size="large"
                 primaryAction={
                     <SButton variant="primary" onClick={handleSaveCampaign} loading={savingCampaign} disabled={savingCampaign}>
@@ -2157,20 +2216,24 @@ export default function CustomersPage() {
                                 placeholder="e.g. Summer Discount Blast"
                             />
                         </FormGroup>
-                        <FormGroup label="Template Selection" required>
+                        <FormGroup label={campaignForm.channel === 'voice' ? "Voice Agent Selection" : "Template Selection"} required>
                             <CustomSelect
                                 value={campaignForm.template}
                                 onChange={template => setCampaignForm({ ...campaignForm, template })}
-                                options={[
-                                    { value: 'marketing_newsletter', label: 'General Marketing Newsletter' },
-                                    { value: 'due_balance', label: 'Due Balance Statement' },
-                                    { value: 'festival_offer', label: 'Festival Offer (Diwali/Holi/Eid Sale)' },
-                                    { value: 'discount_coupon', label: 'Discount Coupon' },
-                                    { value: 'new_arrivals', label: 'New Arrivals' },
-                                    { value: 'flash_sale', label: 'Flash Sale (Limited Offer)' },
-                                    { value: 'clearance_sale', label: 'Clearance Sale (Stock Clearance)' },
-                                    { value: 'back_in_stock', label: 'Back In Stock (Available Again)' }
-                                ]}
+                                options={
+                                    campaignForm.channel === 'voice'
+                                        ? agents.map(agent => ({ value: agent.id, label: agent.name }))
+                                        : [
+                                            { value: 'marketing_newsletter', label: 'General Marketing Newsletter' },
+                                            { value: 'due_balance', label: 'Due Balance Statement' },
+                                            { value: 'festival_offer', label: 'Festival Offer (Diwali/Holi/Eid Sale)' },
+                                            { value: 'discount_coupon', label: 'Discount Coupon' },
+                                            { value: 'new_arrivals', label: 'New Arrivals' },
+                                            { value: 'flash_sale', label: 'Flash Sale (Limited Offer)' },
+                                            { value: 'clearance_sale', label: 'Clearance Sale (Stock Clearance)' },
+                                            { value: 'back_in_stock', label: 'Back In Stock (Available Again)' }
+                                        ]
+                                }
                             />
                         </FormGroup>
 
@@ -2228,12 +2291,12 @@ export default function CustomersPage() {
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '8px' }}>
                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                     <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-secondary)' }}>
-                                        Selected: {campaignForm.customers.length} of {customers.filter(c => campaignForm.channel === 'whatsapp' ? c.phone : c.email).length}
+                                        Selected: {campaignForm.customers.length} of {customers.filter(c => (campaignForm.channel === 'whatsapp' || campaignForm.channel === 'voice') ? c.phone : c.email).length}
                                     </span>
                                     <button 
                                         type="button"
                                         onClick={() => {
-                                            const filteredCustomers = customers.filter(c => campaignForm.channel === 'whatsapp' ? c.phone : c.email);
+                                            const filteredCustomers = customers.filter(c => (campaignForm.channel === 'whatsapp' || campaignForm.channel === 'voice') ? c.phone : c.email);
                                             const hasAll = campaignForm.customers.length === filteredCustomers.length;
                                             setCampaignForm({
                                                 ...campaignForm,
@@ -2250,7 +2313,7 @@ export default function CustomersPage() {
                                             padding: 0
                                         }}
                                     >
-                                        {campaignForm.customers.length === customers.filter(c => campaignForm.channel === 'whatsapp' ? c.phone : c.email).length ? 'Deselect All' : 'Select All'}
+                                        {campaignForm.customers.length === customers.filter(c => (campaignForm.channel === 'whatsapp' || campaignForm.channel === 'voice') ? c.phone : c.email).length ? 'Deselect All' : 'Select All'}
                                     </button>
                                 </div>
                                 {campaignForm.customers.length > 0 && (
@@ -2294,7 +2357,7 @@ export default function CustomersPage() {
                                 )}
                                 <div style={{ position: 'relative' }}>
                                     <Input
-                                        placeholder={`Search customers by name or ${campaignForm.channel === 'whatsapp' ? 'phone' : 'email'}...`}
+                                        placeholder={`Search customers by name or ${(campaignForm.channel === 'whatsapp' || campaignForm.channel === 'voice') ? 'phone' : 'email'}...`}
                                         value={campaignSearch}
                                         onChange={e => setCampaignSearch(e.target.value)}
                                         style={{ paddingLeft: '36px' }}
@@ -2317,12 +2380,12 @@ export default function CustomersPage() {
                                 background: '#f8fafc'
                             }}>
                                 {(() => {
-                                    const isWa = campaignForm.channel === 'whatsapp';
+                                    const isPhoneChannel = campaignForm.channel === 'whatsapp' || campaignForm.channel === 'voice';
                                     const filtered = customers.filter(c => {
-                                        if (isWa ? !c.phone : !c.email) return false;
+                                        if (isPhoneChannel ? !c.phone : !c.email) return false;
                                         if (!campaignSearch) return true;
                                         const query = campaignSearch.toLowerCase();
-                                        return c.name.toLowerCase().includes(query) || (isWa ? c.phone.includes(query) : c.email.toLowerCase().includes(query));
+                                        return c.name.toLowerCase().includes(query) || (isPhoneChannel ? c.phone.includes(query) : c.email.toLowerCase().includes(query));
                                     });
                                     if (filtered.length === 0) {
                                         return (
@@ -2333,7 +2396,7 @@ export default function CustomersPage() {
                                     }
                                     return filtered.map(c => {
                                         const isChecked = campaignForm.customers.includes(c.id);
-                                        const displayContact = isWa ? c.phone : c.email;
+                                        const displayContact = isPhoneChannel ? c.phone : c.email;
                                         return (
                                             <div
                                                 key={c.id}
@@ -2447,7 +2510,123 @@ export default function CustomersPage() {
                             height: '100%',
                             minHeight: '380px'
                         }}>
-                             {campaignForm.channel === 'whatsapp' ? (() => {
+                              {campaignForm.channel === 'voice' ? (() => {
+                                 const selectedAgent = agents.find(a => a.id === campaignForm.template);
+                                 if (!selectedAgent) {
+                                     return (
+                                         <div style={{
+                                             display: 'flex',
+                                             flexDirection: 'column',
+                                             alignItems: 'center',
+                                             justifyContent: 'center',
+                                             width: '100%',
+                                             height: '100%',
+                                             color: 'var(--text-secondary)',
+                                             fontSize: '14px',
+                                             gap: '12px'
+                                         }}>
+                                             <Icons.AlertCircle size={32} style={{ color: 'var(--text-tertiary)' }} />
+                                             <span>No Voice Agent selected or configured.</span>
+                                         </div>
+                                     );
+                                 }
+
+                                 const firstMsg = selectedAgent.config?.first_message || "Hello! How can I help you today?";
+                                 const phoneNum = selectedAgent.config?.phone || "ElevenLabs Telephony Trunk";
+                                 const agentPersona = selectedAgent.persona || "Helpful customer assistant";
+
+                                 return (
+                                     <div style={{
+                                         width: '100%',
+                                         height: '100%',
+                                         borderRadius: '8px',
+                                         background: '#090d16',
+                                         color: '#f8fafc',
+                                         padding: '20px',
+                                         display: 'flex',
+                                         flexDirection: 'column',
+                                         justifyContent: 'space-between',
+                                         boxShadow: 'inset 0 0 20px rgba(0, 0, 0, 0.6)',
+                                         border: '1px solid #1e293b',
+                                         fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
+                                     }}>
+                                         {/* Agent Header */}
+                                         <div style={{ display: 'flex', alignItems: 'center', gap: '12px', borderBottom: '1px solid #1e293b', paddingBottom: '12px' }}>
+                                             <div style={{
+                                                 width: '40px',
+                                                 height: '40px',
+                                                 borderRadius: '12px',
+                                                 background: 'linear-gradient(135deg, #3b82f6, #8b5cf6)',
+                                                 display: 'flex',
+                                                 alignItems: 'center',
+                                                 justifyContent: 'center',
+                                                 boxShadow: '0 0 10px rgba(59, 130, 246, 0.4)'
+                                             }}>
+                                                 <Icons.Phone size={20} color="#fff" />
+                                             </div>
+                                             <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
+                                                 <span style={{ fontWeight: 700, fontSize: '15px', color: '#fff' }}>{selectedAgent.name}</span>
+                                                 <span style={{ fontSize: '11px', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Outbound Voice Agent</span>
+                                             </div>
+                                         </div>
+
+                                         {/* Visual Voice Pulse */}
+                                         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', margin: '24px 0', gap: '12px' }}>
+                                             <div style={{ display: 'flex', alignItems: 'center', gap: '6px', height: '40px' }}>
+                                                 <span className="pulse-bar" style={{ animationDelay: '0.1s' }}></span>
+                                                 <span className="pulse-bar" style={{ animationDelay: '0.3s' }}></span>
+                                                 <span className="pulse-bar" style={{ animationDelay: '0.5s' }}></span>
+                                                 <span className="pulse-bar" style={{ animationDelay: '0.2s' }}></span>
+                                                 <span className="pulse-bar" style={{ animationDelay: '0.4s' }}></span>
+                                             </div>
+                                             <span style={{ fontSize: '12px', color: '#38bdf8', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                                 <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#38bdf8', animation: 'ping 1s infinite' }}></span>
+                                                 Synthesizing Outbound Voice Line
+                                             </span>
+                                         </div>
+
+                                         {/* Calling details */}
+                                         <div className="flex-column gap-12" style={{ display: 'flex', flexDirection: 'column', gap: '12px', flex: 1, overflowY: 'auto' }}>
+                                             <div>
+                                                 <div style={{ fontSize: '10px', color: '#64748b', fontWeight: 600, textTransform: 'uppercase', marginBottom: '4px' }}>Caller Trunk ID</div>
+                                                 <div style={{ fontSize: '13px', color: '#cbd5e1', fontWeight: 500 }}>{phoneNum}</div>
+                                             </div>
+
+                                             <div>
+                                                 <div style={{ fontSize: '10px', color: '#64748b', fontWeight: 600, textTransform: 'uppercase', marginBottom: '4px' }}>Greeting Phrase</div>
+                                                 <div style={{
+                                                     fontSize: '12.5px',
+                                                     color: '#e2e8f0',
+                                                     fontStyle: 'italic',
+                                                     background: 'rgba(255,255,255,0.03)',
+                                                     padding: '8px 12px',
+                                                     borderRadius: '6px',
+                                                     borderLeft: '3px solid #3b82f6'
+                                                 }}>
+                                                     "{firstMsg}"
+                                                 </div>
+                                             </div>
+
+                                             <div>
+                                                 <div style={{ fontSize: '10px', color: '#64748b', fontWeight: 600, textTransform: 'uppercase', marginBottom: '4px' }}>System Prompt / Instructions</div>
+                                                 <div style={{
+                                                     fontSize: '11px',
+                                                     color: '#94a3b8',
+                                                     maxHeight: '80px',
+                                                     overflowY: 'auto',
+                                                     background: 'rgba(0,0,0,0.2)',
+                                                     padding: '8px',
+                                                     borderRadius: '6px',
+                                                     border: '1px solid #1e293b',
+                                                     lineHeight: '1.4'
+                                                 }}>
+                                                     {agentPersona}
+                                                 </div>
+                                             </div>
+                                         </div>
+                                     </div>
+                                 );
+                             })() : campaignForm.channel === 'whatsapp' ? (() => {
                                  const previewCust = (previewCustomerId && campaignForm.customers.includes(previewCustomerId)
                                      ? customers.find(c => c.id === previewCustomerId)
                                      : customers.find(c => c.id === campaignForm.customers[0]));
@@ -2567,6 +2746,218 @@ export default function CustomersPage() {
                         </div>
                     </div>
                 </div>
+            </Modal>
+
+            {/* Voice Campaign Progress Modal */}
+            <Modal
+                open={showProgressModal}
+                onClose={() => setShowProgressModal(false)}
+                heading={`Voice Campaign Progress: ${progressCampaign?.name || ''}`}
+                size="large"
+                secondaryActions={
+                    <SButton onClick={() => setShowProgressModal(false)}>Close</SButton>
+                }
+            >
+                {loadingProgress ? (
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '300px', gap: '16px' }}>
+                        <div className="spinner" style={{
+                            width: '40px',
+                            height: '40px',
+                            border: '3px solid rgba(10, 110, 255, 0.1)',
+                            borderTop: '3px solid var(--accent)',
+                            borderRadius: '50%',
+                            animation: 'spin 1s linear infinite'
+                        }}></div>
+                        <span style={{ fontSize: '14px', color: 'var(--text-secondary)' }}>Syncing status from ElevenLabs...</span>
+                    </div>
+                ) : !progressData || !progressData.progress || progressData.progress.length === 0 ? (
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '300px', gap: '12px', color: 'var(--text-secondary)' }}>
+                        <Icons.AlertCircle size={32} style={{ color: 'var(--text-tertiary)' }} />
+                        <span>No calling progress found for this campaign.</span>
+                    </div>
+                ) : (() => {
+                    const currentDay = progressData.progress.find(p => p.date === selectedProgressDate) || progressData.progress[0];
+                    if (!currentDay) return null;
+
+                    // Calculate overall progress across all days
+                    const overallTotal = progressData.progress.reduce((sum, d) => sum + (d.total || 0), 0);
+                    const overallCompleted = progressData.progress.reduce((sum, d) => sum + (d.completed || 0), 0);
+                    const overallPct = overallTotal > 0 ? Math.round((overallCompleted / overallTotal) * 100) : 0;
+
+                    return (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', minHeight: '400px' }}>
+                            {/* Overall Progress Banner */}
+                            <div style={{
+                                background: 'linear-gradient(135deg, rgba(10, 110, 255, 0.05) 0%, rgba(139, 92, 246, 0.05) 100%)',
+                                border: '1px solid rgba(10, 110, 255, 0.15)',
+                                borderRadius: '12px',
+                                padding: '16px 20px',
+                                display: 'flex',
+                                flexDirection: 'column',
+                                gap: '10px'
+                            }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                        <Icons.Activity size={18} style={{ color: 'var(--accent)' }} />
+                                        <span style={{ fontWeight: 600, fontSize: '14px', color: 'var(--text-primary)' }}>Overall Outbound Campaign Status</span>
+                                    </div>
+                                    <span style={{ fontSize: '13px', fontWeight: 700, color: 'var(--accent)' }}>
+                                        {overallCompleted} / {overallTotal} Calls Completed ({overallPct}%)
+                                    </span>
+                                </div>
+                                <div style={{ width: '100%', height: '8px', background: 'rgba(0,0,0,0.05)', borderRadius: '4px', overflow: 'hidden' }}>
+                                    <div style={{ width: `${overallPct}%`, height: '100%', background: 'linear-gradient(90deg, #0a6eff, #8b5cf6)', borderRadius: '4px', transition: 'width 0.4s ease' }} />
+                                </div>
+                            </div>
+
+                            {/* Date Navigation Tabs */}
+                            <div style={{
+                                display: 'flex',
+                                gap: '8px',
+                                borderBottom: '1px solid var(--border-light)',
+                                overflowX: 'auto',
+                                paddingBottom: '4px'
+                            }}>
+                                {progressData.progress.map(d => {
+                                    const isActive = d.date === selectedProgressDate;
+                                    return (
+                                        <button
+                                            key={d.date}
+                                            onClick={() => setSelectedProgressDate(d.date)}
+                                            style={{
+                                                background: isActive ? 'rgba(10, 110, 255, 0.06)' : 'none',
+                                                border: 'none',
+                                                borderBottom: isActive ? '2px solid var(--accent)' : '2px solid transparent',
+                                                padding: '8px 16px',
+                                                fontSize: '13px',
+                                                fontWeight: 600,
+                                                color: isActive ? 'var(--accent)' : 'var(--text-secondary)',
+                                                cursor: 'pointer',
+                                                whiteSpace: 'nowrap',
+                                                transition: 'all 0.2s ease',
+                                                borderRadius: '6px 6px 0 0',
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                gap: '6px'
+                                            }}
+                                        >
+                                            <Icons.Calendar size={14} />
+                                            {formatDate(d.date)}
+                                            <span style={{
+                                                fontSize: '10px',
+                                                padding: '2px 6px',
+                                                background: d.isDone ? 'rgba(52, 199, 89, 0.15)' : 'rgba(0,0,0,0.05)',
+                                                color: d.isDone ? 'var(--success)' : 'var(--text-secondary)',
+                                                borderRadius: '10px',
+                                                fontWeight: 700
+                                            }}>
+                                                {d.completed}/{d.total}
+                                            </span>
+                                        </button>
+                                    );
+                                })}
+                            </div>
+
+                            {/* Day Call List */}
+                            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                    <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-secondary)' }}>
+                                        Calling Queue for {formatDate(currentDay.date)}
+                                    </span>
+                                    {currentDay.batchId && (
+                                        <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
+                                            Batch ID: {currentDay.batchId} ({currentDay.batchStatus})
+                                        </span>
+                                    )}
+                                </div>
+
+                                <div style={{
+                                    display: 'grid',
+                                    gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
+                                    gap: '12px',
+                                    maxHeight: '340px',
+                                    overflowY: 'auto',
+                                    padding: '4px'
+                                }}>
+                                    {currentDay.calls.map(call => {
+                                        let statusColor = '#64748b';
+                                        let statusBg = 'rgba(100, 116, 139, 0.1)';
+                                        let statusIcon = <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#64748b' }} />;
+
+                                        if (call.status === 'called') {
+                                            statusColor = 'var(--success)';
+                                            statusBg = 'rgba(52, 199, 89, 0.1)';
+                                            statusIcon = <Icons.CheckCircle size={16} style={{ color: 'var(--success)' }} />;
+                                        } else if (call.status === 'failed') {
+                                            statusColor = 'var(--danger)';
+                                            statusBg = 'rgba(239, 68, 68, 0.1)';
+                                            statusIcon = <Icons.AlertCircle size={16} style={{ color: 'var(--danger)' }} />;
+                                        } else if (call.status === 'dispatched') {
+                                            statusColor = 'var(--accent)';
+                                            statusBg = 'rgba(10, 110, 255, 0.1)';
+                                            statusIcon = (
+                                                <div className="spinner" style={{
+                                                    width: '14px',
+                                                    height: '14px',
+                                                    border: '2px solid rgba(10, 110, 255, 0.2)',
+                                                    borderTop: '2px solid var(--accent)',
+                                                    borderRadius: '50%',
+                                                    animation: 'spin 1s linear infinite'
+                                                }}></div>
+                                            );
+                                        } else {
+                                            // pending
+                                            statusColor = 'var(--text-secondary)';
+                                            statusBg = 'rgba(0, 0, 0, 0.05)';
+                                            statusIcon = <Icons.Clock size={16} style={{ color: 'var(--text-secondary)' }} />;
+                                        }
+
+                                        return (
+                                            <div
+                                                key={call.id}
+                                                style={{
+                                                    display: 'flex',
+                                                    alignItems: 'center',
+                                                    justifyContent: 'space-between',
+                                                    padding: '12px 16px',
+                                                    borderRadius: '10px',
+                                                    border: '1px solid var(--border)',
+                                                    background: 'var(--bg-card)',
+                                                    boxShadow: 'var(--shadow-sm)'
+                                                }}
+                                            >
+                                                <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', minWidth: 0 }}>
+                                                    <span style={{ fontWeight: 600, fontSize: '13px', color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                                        {call.customerName}
+                                                    </span>
+                                                    <span style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>
+                                                        {call.customerPhone}
+                                                    </span>
+                                                </div>
+
+                                                <div style={{
+                                                    display: 'flex',
+                                                    alignItems: 'center',
+                                                    gap: '8px',
+                                                    padding: '4px 10px',
+                                                    borderRadius: '20px',
+                                                    background: statusBg,
+                                                    color: statusColor,
+                                                    fontSize: '11.5px',
+                                                    fontWeight: 600,
+                                                    textTransform: 'capitalize'
+                                                }}>
+                                                    {statusIcon}
+                                                    {call.status}
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+                        </div>
+                    );
+                })()}
             </Modal>
         </div>
     );

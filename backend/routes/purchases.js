@@ -152,9 +152,9 @@ router.post('/', async (req, res, next) => {
 
             // 3. Insert Purchase Item
             const pItemRes = db.run(
-                `INSERT INTO purchase_items (purchase_id, product_id, product_name, hsn_code, quantity, unit, purchase_price, discount_percent, gst_percent, cgst, sgst, igst, line_total)
-                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-                [purchaseId, productId, item.product_name, item.hsn_code || '', qty, item.unit || 'PCS', price, discPer, gstPer, cgst, sgst, igst, lineTotal]
+                `INSERT INTO purchase_items (purchase_id, product_id, product_name, hsn_code, quantity, unit, purchase_price, discount_percent, gst_percent, cgst, sgst, igst, line_total, variant_id)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                [purchaseId, productId, item.product_name, item.hsn_code || '', qty, item.unit || 'PCS', price, discPer, gstPer, cgst, sgst, igst, lineTotal, item.variant_id || null]
             );
             const pItemId = pItemRes.lastInsertRowid;
 
@@ -176,6 +176,25 @@ router.post('/', async (req, res, next) => {
                         'UPDATE products SET stock_quantity = ?, cost_price = ? WHERE id = ?',
                         [newStock, newAvgCost, productId]
                     );
+
+                    if (item.variant_id) {
+                        const variant = db.get('SELECT * FROM product_variants WHERE id = ?', [item.variant_id]);
+                        if (variant) {
+                            const oldVarStock = Number(variant.stock_quantity || 0);
+                            const oldVarCost = Number(variant.cost_price || 0);
+                            const newVarStock = oldVarStock + qty;
+
+                            let newVarAvgCost = price;
+                            if (newVarStock > 0) {
+                                newVarAvgCost = ((oldVarStock * oldVarCost) + (qty * price)) / newVarStock;
+                            }
+
+                            db.run(
+                                'UPDATE product_variants SET stock_quantity = ?, cost_price = ? WHERE id = ?',
+                                [newVarStock, newVarAvgCost, item.variant_id]
+                            );
+                        }
+                    }
 
                     let batchId = null;
                     if (item.batch_number) {
@@ -215,8 +234,8 @@ router.post('/', async (req, res, next) => {
                     }
 
                     db.run(
-                        'INSERT INTO stock_movements (product_id, type, quantity, reference_type, reference_id, batch_id, notes) VALUES (?, ?, ?, ?, ?, ?, ?)',
-                        [productId, 'IN', qty, 'Purchase', purchaseId, batchId, 'Purchase Receipt']
+                        'INSERT INTO stock_movements (product_id, variant_id, type, quantity, reference_type, reference_id, batch_id, notes) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+                        [productId, item.variant_id || null, 'IN', qty, 'Purchase', purchaseId, batchId, 'Purchase Receipt']
                     );
                 }
             }
@@ -356,6 +375,9 @@ router.post('/:id/return', async (req, res, next) => {
                     if (serialRecord.status === 'Sold') {
                         return res.status(400).json({ error: `Serial number "${sn}" has already been sold and cannot be returned to supplier` });
                     }
+                    if (serialRecord.status === 'Returned_To_Supplier') {
+                        return res.status(400).json({ error: `Serial number "${sn}" has already been returned to supplier` });
+                    }
                 }
                 for (const sn of serialsToReturn) {
                     db.run(
@@ -365,10 +387,13 @@ router.post('/:id/return', async (req, res, next) => {
                 }
             }
 
-            const productItems = db.all(
-                'SELECT * FROM purchase_items WHERE purchase_id = ? AND product_id = ?',
-                [purchaseId, ret.product_id]
-            );
+            let query = 'SELECT * FROM purchase_items WHERE purchase_id = ? AND product_id = ?';
+            const params = [purchaseId, ret.product_id];
+            if (ret.variant_id) {
+                query += ' AND variant_id = ?';
+                params.push(ret.variant_id);
+            }
+            const productItems = db.all(query, params);
             if (productItems.length === 0) continue;
 
             let qtyToReturn = Number(ret.quantity);
@@ -376,7 +401,15 @@ router.post('/:id/return', async (req, res, next) => {
             for (const line of productItems) {
                 if (qtyToReturn <= 0) break;
 
-                const lineReturned = db.get('SELECT SUM(quantity) as total FROM purchase_returns WHERE purchase_id = ? AND product_id = ? AND batch_id IS ?', [purchaseId, line.product_id, line.batch_id])?.total || 0;
+                let returnQuery = 'SELECT SUM(quantity) as total FROM purchase_returns WHERE purchase_id = ? AND product_id = ? AND batch_id IS ?';
+                const returnParams = [purchaseId, line.product_id, line.batch_id];
+                if (line.variant_id) {
+                    returnQuery += ' AND variant_id = ?';
+                    returnParams.push(line.variant_id);
+                } else {
+                    returnQuery += ' AND variant_id IS NULL';
+                }
+                const lineReturned = db.get(returnQuery, returnParams)?.total || 0;
                 const returnableForLine = line.quantity - lineReturned;
 
                 if (returnableForLine > 0) {
@@ -390,8 +423,8 @@ router.post('/:id/return', async (req, res, next) => {
 
                     // Record return
                     db.run(
-                        'INSERT INTO purchase_returns (purchase_id, product_id, quantity, return_amount, refund_method, batch_id) VALUES (?, ?, ?, ?, ?, ?)',
-                        [purchaseId, ret.product_id, returnQtyForLine, returnAmount, refund_method, line.batch_id || null]
+                        'INSERT INTO purchase_returns (purchase_id, product_id, variant_id, quantity, return_amount, refund_method, batch_id) VALUES (?, ?, ?, ?, ?, ?, ?)',
+                        [purchaseId, ret.product_id, line.variant_id || null, returnQtyForLine, returnAmount, refund_method, line.batch_id || null]
                     );
 
                     // Reduce stock
@@ -400,9 +433,16 @@ router.post('/:id/return', async (req, res, next) => {
                         [returnQtyForLine, ret.product_id]
                     );
 
+                    if (line.variant_id) {
+                        db.run(
+                            'UPDATE product_variants SET stock_quantity = stock_quantity - ? WHERE id = ?',
+                            [returnQtyForLine, line.variant_id]
+                        );
+                    }
+
                     db.run(
-                        'INSERT INTO stock_movements (product_id, type, quantity, reference_type, reference_id, batch_id, notes) VALUES (?, ?, ?, ?, ?, ?, ?)',
-                        [ret.product_id, 'RETURN', returnQtyForLine, 'Purchase Return', purchaseId, line.batch_id || null, 'Purchase Return to Supplier']
+                        'INSERT INTO stock_movements (product_id, variant_id, type, quantity, reference_type, reference_id, batch_id, notes) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+                        [ret.product_id, line.variant_id || null, 'RETURN', returnQtyForLine, 'Purchase Return', purchaseId, line.batch_id || null, 'Purchase Return to Supplier']
                     );
 
                     if (line.batch_id) {

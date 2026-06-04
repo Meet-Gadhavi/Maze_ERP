@@ -10,6 +10,7 @@ import { formatDate, amountToWords, validateProduct } from '../utils';
 import { EMPTY_SUPPLIER, EMPTY_EXPENSE, EMPTY_PRODUCT, UNIT_CATEGORIES, DECIMAL_UNITS } from '../constants';
 import { supabase } from '../supabase';
 import './PurchasePage.css';
+import Skeleton from '../components/Skeleton';
 
 export default function PurchasePage() {
     const [activeTab, setActiveTab] = useState('upload_invoice'); // 'upload_invoice', 'bill', 'history', 'suppliers', 'payments', 'returns'
@@ -157,16 +158,42 @@ export default function PurchasePage() {
     };
 
     // --- Bill Actions ---
-    const addToCart = (product) => {
-        const exists = cart.find(item => item.product_id === product.id);
-        if (exists) return; // or increment qty
+    const [variantModalProduct, setVariantModalProduct] = useState(null);
+    const [variantModalVariants, setVariantModalVariants] = useState([]);
+    const [variantModalLoading, setVariantModalLoading] = useState(false);
+
+    const addToCart = async (product) => {
+        try {
+            setVariantModalLoading(true);
+            const variants = await api.getVariants(product.id);
+            setVariantModalLoading(false);
+
+            if (variants && variants.length > 0) {
+                setVariantModalProduct(product);
+                setVariantModalVariants(variants);
+                return;
+            }
+        } catch (err) {
+            console.error('Failed to check variants', err);
+            setVariantModalLoading(false);
+        }
+
+        addFinalToCart(product, null);
+    };
+
+    const addFinalToCart = (product, variant = null) => {
+        const variantId = variant ? variant.id : null;
+        const exists = cart.find(item => item.product_id === product.id && item.variant_id === variantId);
+        if (exists) return;
 
         setCart([...cart, {
             product_id: product.id,
-            product_name: product.name,
+            variant_id: variantId,
+            variant_name: variant ? variant.name : null,
+            product_name: variant ? `${product.name} (${variant.name})` : product.name,
             quantity: 1,
             unit: product.unit || 'PCS',
-            purchase_price: product.cost_price || 0,
+            purchase_price: variant ? (variant.cost_price || 0) : (product.cost_price || 0),
             discount_percent: 0,
             gst_percent: 18,
             is_new_product: false,
@@ -177,6 +204,7 @@ export default function PurchasePage() {
             serials: []
         }]);
         setProductSearch('');
+        setVariantModalProduct(null);
         setCartPulse(true);
         setTimeout(() => setCartPulse(false), 500);
     };
@@ -1274,18 +1302,26 @@ export default function PurchasePage() {
                                 </thead>
                                 <tbody>
                                     {paginatedReturnItems.map(item => {
-                                        const retQty = returnItems[item.product_id] || 0;
+                                        const itemKey = `${item.product_id}${item.variant_id ? `_${item.variant_id}` : ''}`;
+                                        const retQty = returnItems[itemKey] || 0;
                                         const unitPrice = item.line_total / item.quantity;
                                         return (
-                                            <tr key={item.product_id}>
-                                                <td className="fw-500">{item.product_name}</td>
+                                            <tr key={itemKey}>
+                                                <td className="fw-500">
+                                                    {item.product_name}
+                                                    {item.variant_id && (
+                                                        <div style={{ fontSize: '11px', color: 'var(--text-secondary)', marginTop: '2px' }}>
+                                                            Variant ID: {item.variant_id}
+                                                        </div>
+                                                    )}
+                                                </td>
                                                 <td className="text-center text-secondary">{item.quantity} {item.unit}</td>
                                                 <td className="text-center">
                                                     <input 
                                                         type="number" 
                                                         className="qty-input"
                                                         value={retQty} 
-                                                        onChange={e => setReturnItems({...returnItems, [item.product_id]: parseInt(e.target.value) || 0})}
+                                                        onChange={e => setReturnItems({...returnItems, [itemKey]: parseInt(e.target.value) || 0})}
                                                         max={item.quantity}
                                                         min={0}
                                                         style={{ width: '80px', textAlign: 'center' }}
@@ -1376,8 +1412,9 @@ export default function PurchasePage() {
                         <div className="summary-row total" style={{ marginTop: '20px', borderTop: '1px solid var(--border)', paddingTop: '16px' }}>
                             <span>Total Refund:</span>
                             <span className="amount color-danger">
-                                ₹{Object.entries(returnItems).reduce((sum, [pid, qty]) => {
-                                    const itm = returnBill.items.find(i => i.product_id == pid);
+                                ₹{Object.entries(returnItems).reduce((sum, [key, qty]) => {
+                                    const itm = returnBill.items.find(i => `${i.product_id}${i.variant_id ? `_${i.variant_id}` : ''}` === key);
+                                    if (!itm) return sum;
                                     return sum + (qty * (itm.line_total / itm.quantity));
                                 }, 0).toFixed(2)}
                             </span>
@@ -1386,7 +1423,14 @@ export default function PurchasePage() {
                                 const payload = {
                                     items: Object.entries(returnItems)
                                         .filter(([_, qty]) => qty > 0)
-                                        .map(([pid, qty]) => ({ product_id: parseInt(pid), quantity: qty })),
+                                        .map(([key, qty]) => {
+                                            const itm = returnBill.items.find(i => `${i.product_id}${i.variant_id ? `_${i.variant_id}` : ''}` === key);
+                                            return {
+                                                product_id: itm.product_id,
+                                                variant_id: itm.variant_id || null,
+                                                quantity: qty
+                                            };
+                                        }),
                                     refund_method: refundMethod
                                 };
                                 if (payload.items.length === 0) return toast.error('Select items to return');
@@ -2791,6 +2835,50 @@ export default function PurchasePage() {
                         </div>
                     )}
                 </div>
+            </Modal>
+
+            {/* Variant Selection Modal */}
+            <Modal
+                open={!!variantModalProduct}
+                onClose={() => setVariantModalProduct(null)}
+                heading={`Select Variant: ${variantModalProduct?.name}`}
+                size="small"
+                secondaryAction={
+                    <SButton onClick={() => setVariantModalProduct(null)}>Cancel</SButton>
+                }
+            >
+                {variantModalLoading ? (
+                    <div style={{ padding: '20px' }}>
+                        <Skeleton type="list" count={3} />
+                    </div>
+                ) : (
+                    <div className="variants-grid" style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '10px', maxHeight: '400px', overflowY: 'auto' }}>
+                        {variantModalVariants.map(v => (
+                            <div
+                                key={v.id}
+                                className="variant-card"
+                                onClick={() => addFinalToCart(variantModalProduct, v)}
+                                style={{
+                                    padding: '12px 16px',
+                                    border: '1px solid var(--border)',
+                                    borderRadius: '8px',
+                                    cursor: 'pointer',
+                                    display: 'flex',
+                                    justifyContent: 'space-between',
+                                    alignItems: 'center',
+                                    background: '#fff',
+                                    transition: 'all 0.2s'
+                                }}
+                            >
+                                <div>
+                                    <div style={{ fontWeight: 600 }}>{v.name}</div>
+                                    <div style={{ fontSize: '12px', color: '#666' }}>SKU: {v.sku || 'N/A'} • Stock: {v.stock_quantity}</div>
+                                </div>
+                                <div style={{ fontWeight: 700, color: 'var(--accent)' }}>₹{Number(v.selling_price).toLocaleString('en-IN')}</div>
+                            </div>
+                        ))}
+                    </div>
+                )}
             </Modal>
         </div>
     );

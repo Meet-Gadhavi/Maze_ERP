@@ -309,6 +309,11 @@ export default function InvoicePreviewModal({ invoice, onClose, autoOpenShare = 
 
     function handlePrint() {
         if (!contentRef.current) return;
+
+        if (settings?.enable_cash_drawer === 'true' && window.maze?.triggerCashDrawer) {
+            window.maze.triggerCashDrawer();
+        }
+
         const printContent = contentRef.current.cloneNode(true);
         printContent.classList.add('maze-print-el');
         document.body.appendChild(printContent);

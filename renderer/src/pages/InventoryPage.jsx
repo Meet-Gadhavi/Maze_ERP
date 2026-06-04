@@ -11,6 +11,7 @@ import { EMPTY_PRODUCT, UNIT_CATEGORIES, DECIMAL_UNITS } from '../constants';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import './InventoryPage.css';
+import Skeleton from '../components/Skeleton';
 
 
 
@@ -624,7 +625,13 @@ export default function InventoryPage() {
                         </div>
                     </div>
 
-                    {products.length === 0 && !loading ? (
+                    {loading ? (
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(350px, 1fr))', gap: '20px', padding: '20px 0' }}>
+                            <Skeleton type="card" />
+                            <Skeleton type="card" />
+                            <Skeleton type="card" />
+                        </div>
+                    ) : products.length === 0 ? (
                         <div className="empty-state-premium">
                             <div className="empty-icon-wrapper">
                                 <Icons.Package size={40} />
@@ -741,15 +748,21 @@ export default function InventoryPage() {
                                                                         <td style={{ textAlign: 'right' }}>₹{Number(p.cost_price).toLocaleString('en-IN')}</td>
                                                                         <td style={{ textAlign: 'right' }} className="color-accent fw-600">₹{Number(p.selling_price).toLocaleString('en-IN')}</td>
                                                                         <td>
-                                                                            <span className={`stock-level ${p.stock_quantity <= p.min_stock_level ? 'low' : (p.stock_quantity <= 0 ? 'danger' : 'ok')}`}>
-                                                                                {p.stock_quantity} {p.unit}
+                                                                            <span className={`stock-level ${(p.variants_count > 0 ? (p.variants_stock || 0) : p.stock_quantity) <= p.min_stock_level ? 'low' : ((p.variants_count > 0 ? (p.variants_stock || 0) : p.stock_quantity) <= 0 ? 'danger' : 'ok')}`}>
+                                                                                {p.variants_count > 0 ? (p.variants_stock || 0) : p.stock_quantity} {p.unit}
                                                                             </span>
                                                                         </td>
                                                                         <td style={{ textAlign: 'right' }}>
                                                                             <div className="action-row" style={{ justifyContent: 'flex-end', gap: '4px' }}>
-                                                                                <SButton variant="secondary" onClick={() => { setAdjustModalProduct(p); setAdjustQuantity(p.stock_quantity); setAdjustNotes(''); }} title="Adjust Stock">
-                                                                                    <Icons.Activity size={14} />
-                                                                                </SButton>
+                                                                                {p.variants_count > 0 ? (
+                                                                                    <SButton variant="secondary" disabled title="Adjust stock via Edit > Variants">
+                                                                                        <Icons.Activity size={14} style={{ opacity: 0.5 }} />
+                                                                                    </SButton>
+                                                                                ) : (
+                                                                                    <SButton variant="secondary" onClick={() => { setAdjustModalProduct(p); setAdjustQuantity(p.stock_quantity); setAdjustNotes(''); }} title="Adjust Stock">
+                                                                                        <Icons.Activity size={14} />
+                                                                                    </SButton>
+                                                                                )}
                                                                                 <SButton variant="secondary" onClick={() => openEdit(p)} title="Edit Product">
                                                                                     <Icons.Edit size={14} />
                                                                                 </SButton>
@@ -784,7 +797,9 @@ export default function InventoryPage() {
                     </div>
                     <div className="product-table-wrap">
                         {loading ? (
-                            <div className="loading">Loading pending items…</div>
+                            <div style={{ padding: '20px' }}>
+                                <Skeleton type="table" count={3} />
+                            </div>
                         ) : pendingItems.length === 0 ? (
                             <div className="empty-state-premium">
                                 <div className="empty-icon-wrapper" style={{ color: 'var(--success)', background: 'var(--success-bg)', boxShadow: '0 8px 16px -4px rgba(40, 185, 78, 0.15)' }}>
@@ -1568,7 +1583,9 @@ export default function InventoryPage() {
                             <div className="modal-section-title">Serial / IMEI Tracking List</div>
                             
                             {loadingSerials ? (
-                                <div style={{ padding: '20px 0', textAlign: 'center', color: 'var(--text-secondary)' }}>Loading serial numbers...</div>
+                                <div style={{ padding: '20px 0' }}>
+                                    <Skeleton type="list" count={3} />
+                                </div>
                             ) : productSerials.length === 0 ? (
                                 <div style={{ padding: '30px', textAlign: 'center', color: 'var(--text-tertiary)', border: '1px dashed var(--border)', borderRadius: '12px' }}>
                                     No serial numbers registered yet. Enter a serial below or purchase stock to register serials.

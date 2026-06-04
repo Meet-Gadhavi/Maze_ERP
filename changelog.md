@@ -4,6 +4,113 @@ All notable changes to the Quantro ERP application will be documented here.
 
 ---
 
+## [2.9.5] - 2026-06-04
+### Added
+- **Admin Console Edit & Delete Provisioned Agents**: Integrated options to edit voice agent configurations (name, language, model, voice ID, system prompt, first message) or delete them permanently directly from the online admin console. Deletes are automatically synchronized to local ERP client databases on their next status sync cycle.
+- **Dynamic Autopay Resolution**: Resolved placeholder Card templates during payment setup on the Quantro Web Portal. The system now dynamically fetches actual Razorpay transaction details to configure Autopay for UPI and Net Banking users.
+- **Enhanced Payment Method Renderer**: Styled Net Banking visual elements with a dedicated blue `BANK` badge, clean bank name labels, and hidden expiry date metrics inside the local Billing dashboard.
+- **ElevenLabs Non-English Agent Fix**: Fixed conversational voice agent creation and updates for non-English languages (Hindi, Gujarati, Tamil, etc.) by dynamically selecting the ElevenLabs multilingual model (eleven_flash_v2_5) to prevent the "Non-english Agents must use turbo or flash v2_5" validation error.
+
+## [2.9.4] - 2026-06-04
+### Added
+- **Outbound Voice Agent Campaigns**: Integrated ElevenLabs Conversational AI Voice Agents into the CRM Campaigns system, enabling automated outbound phone calls for customer engagement.
+- **Daily Dispatcher Scheduler**: Implemented a daily rolling scheduler in the backend (`campaignScheduler.js`) that automatically chunks multi-day campaigns into daily dispatcher jobs, scheduling call batches with ElevenLabs on a daily rolling basis at 12:00 AM (midnight) to optimize telephony trunk operations.
+- **Dynamic Phone Trunk Resolution**: Configured the dispatcher to dynamically fetch the ElevenLabs agent's bound phone/SIP trunk ID required to trigger the batch call payload automatically.
+- **Interactive Daily Checklist & Progress Tracker**: Designed a premium horizontal tabbed daily progress checklist modal in the CRM. It pulls real-time call statuses from ElevenLabs batches, rendering individual completion counters, progress bars, visual status indicators (pending, dispatched spinner, called tick, failed warning), and date-based tabs.
+
+## [2.9.3] - 2026-06-04
+### Added
+- **Horizontal Funnel Chart for Category-wise Selling**: Converted the Category-wise Selling RadarChart into a custom SVG horizontal Funnel flow chart. It renders smooth bezier curves, matching colors (Blue, Red, Orange, Yellow, Green), value text indicators inside segments, hover shadow triggers, and a detailed bottom legend.
+- **Brand Blue Heatmap Palette**: Refined the Peak Selling Hours activity heatmap to color-scale based on the brand's blue palette (gray for zero, and light gray-blue to deep dark blue for higher activities).
+
+## [2.9.2] - 2026-06-04
+### Added
+- **Peak Selling Hours Heatmap Grid**: Converted the Peak Selling Hours BarChart into a premium 7x24 weekday-by-hour activity heatmap grid (similar to GitHub's contribution graph and modern Figma chart UI components). It visualizes hourly sales intensities colored by revenue thresholds with interactive scale-ups, hover brightness filters, and descriptive hover tooltips.
+- **Red Required Indicators on Auth Page**: Styled the mandatory indicator `(REQUIRED)` in red color next to Email, Password, and Captcha labels on the login/signup gateway.
+
+## [2.9.1] - 2026-06-04
+### Added
+- **Global Loading Skeletons**: Integrated modern shimmering loader elements across Customers, Inventory, Sales/Billing, Purchases, Settings, and Dashboard views to improve visual perception and create a premium fluid app experience.
+- **Direct Cash Refund for Sales Returns**: Added a dedicated "Direct Cash Refund" option in the returns window. It allows users to issue physical cash back immediately without modifying or adjusting outstanding credit balances.
+- **Dashboard Visual Analytics Diversification**: Complete overhaul of the Recharts components inside `DashboardPage.jsx` to ensure each panel has a unique visual representation:
+  - *Inventory*: Subcategory PieChart replaced with a horizontal BarChart.
+  - *Customers*: Customer Growth AreaChart replaced with a vertical column BarChart.
+  - *Customers*: Invoice Status PieChart replaced with custom styled percentage progress bars.
+  - *Payments*: Method Distribution PieChart replaced with custom grid KPI cards.
+  - *Payments*: Transactions count BarChart replaced with a clean donut PieChart.
+  - *AI*: AI vs Manual orders PieChart replaced with custom progress comparison cards.
+  - *AI*: Orders Over Time AreaChart replaced with a smooth LineChart.
+  - *Financials*: Revenue vs Expenses AreaChart replaced with a dual LineChart.
+  - *Financials*: Expenses by Category PieChart replaced with a horizontal BarChart.
+- **Auto-Sync Push Metadata**: Added a "Last Sync/Push" metadata log underneath the auto-sync configuration panel to track the exact date and time the ElevenLabs agent prompt file was updated.
+
+## [2.9.0] - 2026-06-04
+### Added
+- **AI Agent Knowledge Base Folder Synchronization**: Added a complete, automated synchronization system to map local ERP data snapshots into the ElevenLabs Conversational AI Agent's Knowledge Base.
+- **Dynamic Markdown Snapshot Generation**: Implemented a backend utility to automatically format crucial SQLite business tables (Products, Customers, Suppliers, Sales, and Invoices) into a clean, structured Markdown format (`.md`) optimized for LLM readability.
+- **Folder and Document Lifecycle Management**: Configured the sync workflow to create/find a designated ElevenLabs Knowledge Base folder named after the Agent's ID, automatically purge outdated Markdown snapshots, upload the fresh ERP database snapshot, and register/select it directly inside the target agent's `knowledge_base` configuration array.
+- **Multi-Agent Select Prompts**: Implemented dynamic agent selection picker modals in settings for manual pushes ("Push Latest"), enabling Auto-Sync, and selecting "End of Session" backup frequency when more than one active agent is configured.
+
+### Fixed
+- **Knowledge Base Prompt Mode Constraint**: Resolved the `document_cannot_be_used_in_prompt_mode` error by linking the individual `.md` backup file locator rather than the parent folder (which is not allowed in agent prompt lists).
+- **Stable Document Referencing**: Implemented in-place text document updates via ElevenLabs `PATCH /v1/convai/knowledge-base/{docId}`. This keeps the file ID stable across all sync runs, eliminating deletion conflicts and preventing broken agent configurations.
+
+## [2.8.0] - 2026-06-04
+### Added
+- **Global Timezone Support**: Automatically configured the process timezone to `Asia/Kolkata` (Indian Standard Time) at system initialization for uniform tracking and date formatting.
+- **Provisioning Agent Editing**: Added full support for editing voice agents in the `PROVISIONING` state directly from the manage voice console. Edits dynamically update the local SQLite database configurations and sync metadata updates to the cloud-hosted Mazeway table on Supabase.
+### Fixed
+- **ElevenLabs Agent Customization**: Fixed a critical bug in the ElevenLabs integration payload mapping where the selected voice, model, and language options were ignored. Correctly mapped the keys to `conversation_config.tts.voice_id` and `conversation_config.agent.prompt.llm`.
+- **Payment Config Propagation**: Fixed a bug where configuring an agent through "Buy Now" checkout would lose the user's custom settings on completion by dynamically merging UI form inputs upon payment success.
+- **Orphaned Provisioning Cleanup**: Fixed SQLite duplication by automatically removing outdated temporary agent records when provisioned agents are successfully activated.
+
+## [2.7.9] - 2026-06-04
+### Added
+- **AI Voice Agent Customization**: Added dropdown inputs to choose **Model Selection** (Cheap: GPT-4o-Mini, Medium: GPT-4o, Expensive: Claude 3.5 Sonnet) and **Voice Agent Voice** (Vraj, Monika) inside both the desktop app creation modal and web console page.
+- **Deep Link Param Syncing**: Updated deep link callbacks and payment message handlers to propagate language, model, and voice_id parameters seamlessly from web checkouts to local SQLite database records.
+- **Bound Telephony Auto-Cleanup**: Configured the desktop client agent deletion process to query ElevenLabs and automatically delete any phone numbers/SIP trunks bound to the agent ID from ElevenLabs telephony list.
+- **Interactive KPI Navigation Indicators**: Added a sleek, premium inclined arrow icon (`ArrowUpRight`) in the top-right corner of interactive KPI cards ("Low Stock", "Pending Dues", "AI Orders") on the Dashboard overview to clearly guide users that clicking the cards redirects them directly to their corresponding pages/tabs.
+### Fixed
+- **Persona & Language Display**: Resolved a mapping bug in the voice agents listing card where Persona and Language fields were displayed as blank, and replaced raw prompt texts and language codes with user-friendly label values.
+
+## [2.7.8] - 2026-06-04
+### Added
+- **Native ElevenLabs Conversational AI Integration**: Completely removed Mazeway dependencies, transitioning all real-time voice agents to direct ElevenLabs APIs with custom SIP Trunking configuration.
+- **Voice Agent Management Console**: Built a secure verification-protected configuration page (`/managevoice=2008` or password verification) to set up agent behaviors, languages, prompts, and detailed inbound/outbound SIP Trunk parameters directly.
+- **Dynamic Telephony Control**: Allowed prompt, first message, and full SIP configurations (Label, phone number, and outbound parameters) to be edited, updated, or deleted directly from the desktop ERP client.
+- **Local Agent Isolation Filtering**: Filtered the ElevenLabs voice agents list using local SQLite metadata mappings to isolate and display only the user's own agents rather than showing all agents on the shared account.
+- **Direct Active Provisioning**: Configured both own provider (SIP Trunk) and managed (paid) voice agents to bypass provisioning states and create directly as active.
+- **Cleaned Settings Integration**: Removed legacy Mazeway AI Integration panel, connection state, handshake listeners, and the connect authorization modal from app settings.
+
+## [2.7.7] - 2026-06-04
+### Added
+- **Live Razorpay Web Checkout for Managed Agents**: Replaced simulated checkout with a live Razorpay integration. Managed Voice Agent purchases are redirected to the web portal where payments (Starter ₹600, Pro ₹700, Enterprise ₹1100) are securely processed via Razorpay. Once confirmed, users receive the "Provision Agent" button to deep-link back and unlock their AI voice agent.
+- **Voice Agent Campaigns CRM marketing tab**: Added a new tab for scheduling Voice Agent Campaigns inside the CRM's Marketing module, configured with placeholder layout details and "Coming Soon!" scheduling alerts.
+
+## [2.7.6] - 2026-06-04
+### Fixed
+- **Professional Google Auth Redirection**: Integrated desktop-to-web Google Sign-In routing. The desktop application now initiates authentication requests through the hosted marketing domain (`https://quantro-web.onrender.com`), eliminating raw Supabase OAuth authorize links for a secure, branded, and professional auth experience.
+- **Google OAuth Captcha Enforcement**: Enforced visual Canvas security verification captcha checks on Google Sign-In inside the desktop auth view, blocking bot or automated sign-in triggers before launching the browser.
+
+## [2.7.5] - 2026-06-03
+### Added
+- **Authentication Security Captcha**: Implemented a secure, custom HTML5 Canvas-based alphanumeric verification captcha in `AuthPage.jsx`. It includes dynamic character rotation, color variations, random background noise lines, and distorting dots to block bot or robot automated login attempts.
+- **Nested Hardware Settings**: Restructured the hardware integration settings tab layout in `SettingsPage.jsx` to nest and conditionally hide barcode scanner connection tests and cash drawer trigger tests under their respective feature-enabled toggle switches.
+- **UPI Autopay & Account Support**: Added native support for registering UPI accounts for Autopay. Users paying outstanding dues via UPI inside the simulated Razorpay Checkout portal can save their UPI VPA directly as their default payment method (saved as brand `'UPI'` with no card expiry dates) instead of dummy Visa details.
+- **Variant Buying & Return Capability on Purchases**: Added variant-level stock and average cost updates on purchase receipt saving. Updated the Purchase Bill interface to allow searching, selecting, and adding specific variants to the cart, and submitting them in the purchase payload. Added support for processing purchase returns at the variant level, including composite variant-aware key tracking on the return table.
+
+### Fixed
+- **Dashboard Cards Border Line**: Modified the KPI cards design system inside `DashboardPage.css` to render a colored accent line at the left edge of all dashboard cards for cohesive aesthetics, matching custom status variants.
+- **Cash Drawer Integration Trigger**: Configured the POS print process inside `InvoicePreviewModal.jsx` to automatically trigger the cash drawer kick command via Electron IPC bridge if the `enable_cash_drawer` setting is enabled.
+- **Real VoIP Minute Counts**: Corrected telephony minute reporting in `mazeway.js` by querying and summing actual duration seconds (`duration_seconds`) from the `mazeway_orders` database table rather than generating calculated simulated estimates.
+- **WhatsApp OAuth Loopback Redirect**: Resolved Meta connection failures in production. Switched callback redirects from a hardcoded localhost port to the `maze-erp://whatsapp-auth-callback` deep link protocol, allowing successful OAuth completion inside the desktop Electron environment.
+- **Stock Adjustment Tracking Sync**: Fixed inventory de-synchronization for tracked products. Manual adjustments now automatically sync serial numbers (inserting placeholder serials on increases or LIFO-purging available serials on decreases) and batches (LIFO-deducting quantities or creating adjustment batches).
+- **Return Records Migration during Invoice Merge**: Fixed data loss of return history on invoice merging. Merging invoices now preserves associated invoice return logs, stock movements, and audit logs by re-linking them to the newly generated merged invoice.
+- **Duplicate Supplier Serial Returns**: Prevented returning the same supplier serial number multiple times by adding status validation checking for `'Returned_To_Supplier'` in the return route.
+- **Mazeway Callback Handshake Origin Mismatch**: Fixed handshake message blocking by changing `postMessage` target origin to `'*'` to resolve the origin mismatch between Electron and local callback servers.
+- **Out-of-sync Parent Product Stock**: Synchronized parent product stock quantities automatically when variants are created, edited, deleted, sold, returned, fulfilled, or converted, and updated the Inventory view to display correct summed stock for variant products.
+- **Dashboard Financial Mismatch & Low Stock Count**: Corrected net KPI calculation using range-specific summed revenue in the financial tab, and aligned low stock counts and products list queries on the dashboard.
+
 ## [2.7.4] - 2026-06-03
 ### Fixed
 - **Sales Return Quantity Cap**: Fixed a stock and financial leak vulnerability inside the invoice return processor. Enforced returned quantity verification limits based on actual delivered products (`qty_delivered`) rather than ordered/requested quantities (`qty_requested`). This prevents inventory inflation (ghost stock) and financial refund leaks for undelivered items in advance or partial checkout flows.

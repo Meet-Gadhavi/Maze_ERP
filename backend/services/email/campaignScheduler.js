@@ -423,23 +423,274 @@ async function processCampaigns() {
     }
 }
 
+function getCampaignDates(startDate, endDate) {
+    if (!endDate) return [startDate];
+    const dates = [];
+    let curr = new Date(`${startDate}T00:00:00`);
+    const end = new Date(`${endDate}T00:00:00`);
+    while (curr <= end) {
+        dates.push(curr.toISOString().split('T')[0]);
+        curr.setDate(curr.getDate() + 1);
+    }
+    return dates;
+}
+
+function getScheduledTimeUnix(dateStr, timeStr) {
+    const now = new Date();
+    const targetDate = new Date(`${dateStr}T${timeStr}:00`);
+    if (isNaN(targetDate.getTime())) {
+        return Math.floor(Date.now() / 1000) + 10;
+    }
+    if (targetDate.getTime() < now.getTime()) {
+        return Math.floor(now.getTime() / 1000) + 10;
+    }
+    return Math.floor(targetDate.getTime() / 1000);
+}
+
+function formatPhoneNumber(phone) {
+    if (!phone) return null;
+    let cleaned = phone.replace(/\D/g, ''); // keep digits only
+    if (cleaned.length === 10) {
+        return `+91${cleaned}`;
+    }
+    if (cleaned.length > 10) {
+        return `+${cleaned}`;
+    }
+    return null;
+}
+
+async function processVoiceCampaigns() {
+    try {
+        await db.ready;
+        const campaigns = db.all("SELECT * FROM email_campaigns WHERE channel = 'voice' AND status IN ('scheduled', 'sending')");
+        if (campaigns.length === 0) return;
+
+        const todayStr = new Date().toLocaleDateString('sv-SE'); // YYYY-MM-DD local
+        
+        const tomorrow = new Date();
+        tomorrow.setDate(tomorrow.getDate() + 1);
+        const tomorrowStr = tomorrow.toLocaleDateString('sv-SE');
+
+        const apiKey = 'sk_90d44071c16ffe8316f7b6507c48b3ed083a51212c92c989';
+
+        let rawPhones = [];
+        try {
+            const phonesRes = await fetch('https://api.elevenlabs.io/v1/convai/phone-numbers', {
+                headers: { 'xi-api-key': apiKey }
+            });
+            if (phonesRes.ok) {
+                const phonesData = await phonesRes.json();
+                rawPhones = phonesData.phone_numbers || (Array.isArray(phonesData) ? phonesData : []);
+            }
+        } catch (e) {
+            console.warn('[Campaign Scheduler] Failed to fetch ElevenLabs phone numbers:', e.message);
+        }
+
+        for (const campaign of campaigns) {
+            const dates = getCampaignDates(campaign.start_date, campaign.end_date);
+            const eligibleDates = dates.filter(d => (d === todayStr || d === tomorrowStr));
+
+            for (const dateStr of eligibleDates) {
+                const existingBatch = db.get("SELECT id FROM voice_campaign_batches WHERE campaign_id = ? AND call_date = ?", [campaign.id, dateStr]);
+                if (existingBatch) continue;
+
+                console.log(`[Campaign Scheduler] Dispatching voice campaign "${campaign.name}" (ID: ${campaign.id}) for date ${dateStr}...`);
+
+                const agentId = campaign.template;
+                const phoneMatch = rawPhones.find(p => p.agent_id === agentId);
+                const phoneId = phoneMatch ? (phoneMatch.phone_number_id || phoneMatch.id) : '';
+
+                if (!phoneId) {
+                    console.warn(`[Campaign Scheduler] Warning: No active phone number found for Agent ${agentId}. Submitting batch without phone_number_id.`);
+                }
+
+                const customerIds = JSON.parse(campaign.customers || '[]');
+                const recipients = [];
+                for (const cId of customerIds) {
+                    const customer = db.get("SELECT id, name, phone FROM customers WHERE id = ?", [cId]);
+                    if (customer && customer.phone) {
+                        const formattedPhone = formatPhoneNumber(customer.phone);
+                        if (formattedPhone) {
+                            recipients.push({
+                                phone_number: formattedPhone,
+                                name: customer.name || '',
+                                dynamic_variables: {
+                                    name: customer.name || 'Customer'
+                                }
+                            });
+                        }
+                    }
+                }
+
+                if (recipients.length === 0) {
+                    console.log(`[Campaign Scheduler] No valid customer recipients with phone numbers found for Campaign ${campaign.id}. Skipping.`);
+                    db.run("INSERT INTO voice_campaign_batches (campaign_id, call_date, batch_id, status) VALUES (?, ?, ?, 'completed')", [campaign.id, dateStr, `empty_batch_${Date.now()}`]);
+                    continue;
+                }
+
+                const scheduledTimeUnix = getScheduledTimeUnix(dateStr, campaign.time_to_send);
+
+                const payload = {
+                    call_name: `${campaign.name} - ${dateStr}`,
+                    agent_id: agentId,
+                    scheduled_time_unix: scheduledTimeUnix,
+                    recipients: recipients
+                };
+                if (phoneId) {
+                    payload.phone_number_id = phoneId;
+                }
+
+                try {
+                    const submitRes = await fetch('https://api.elevenlabs.io/v1/convai/batch-calling/submit', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'xi-api-key': apiKey
+                        },
+                        body: JSON.stringify(payload)
+                    });
+
+                    const resText = await submitRes.text();
+                    if (!submitRes.ok) {
+                        throw new Error(`ElevenLabs API returned ${submitRes.status}: ${resText}`);
+                    }
+
+                    let submitData = {};
+                    try {
+                        submitData = JSON.parse(resText);
+                    } catch (e) {}
+
+                    const batchId = submitData.id || submitData.batch_id || `mock_batch_${Date.now()}`;
+                    console.log(`[Campaign Scheduler] Successfully submitted ElevenLabs Batch! ID: ${batchId}`);
+
+                    db.run("INSERT INTO voice_campaign_batches (campaign_id, call_date, batch_id, status) VALUES (?, ?, ?, 'dispatched')", [campaign.id, dateStr, batchId]);
+
+                    for (const cId of customerIds) {
+                        db.run(`
+                            INSERT INTO voice_campaign_calls (campaign_id, customer_id, call_date, batch_id, status)
+                            VALUES (?, ?, ?, ?, 'pending')
+                        `, [campaign.id, cId, dateStr, batchId]);
+                    }
+
+                    if (campaign.status === 'scheduled') {
+                        db.run("UPDATE email_campaigns SET status = 'sending' WHERE id = ?", [campaign.id]);
+                    }
+
+                } catch (err) {
+                    console.error(`[Campaign Scheduler] Failed to submit batch to ElevenLabs for date ${dateStr}:`, err.message);
+                }
+            }
+        }
+    } catch (err) {
+        console.error('[Campaign Scheduler] Error processing voice campaigns:', err);
+    }
+}
+
+async function syncVoiceCallStatuses() {
+    try {
+        await db.ready;
+        const apiKey = 'sk_90d44071c16ffe8316f7b6507c48b3ed083a51212c92c989';
+        
+        const activeBatches = db.all("SELECT * FROM voice_campaign_batches WHERE status != 'completed'");
+        
+        for (const batch of activeBatches) {
+            if (!batch.batch_id || batch.batch_id.startsWith('empty_batch_') || batch.batch_id.startsWith('mock_batch_')) {
+                db.run("UPDATE voice_campaign_batches SET status = 'completed' WHERE id = ?", [batch.id]);
+                continue;
+            }
+            
+            console.log(`[Campaign Scheduler Sync] Fetching status for batch ${batch.batch_id} on ElevenLabs...`);
+            const res = await fetch(`https://api.elevenlabs.io/v1/convai/batch-calling/${batch.batch_id}`, {
+                headers: { 'xi-api-key': apiKey }
+            });
+            
+            if (res.ok) {
+                const data = await res.json();
+                const recipients = data.recipients || [];
+                let allRecipientsFinished = true;
+                
+                for (const rec of recipients) {
+                    const phone = rec.phone_number;
+                    const recStatus = rec.status;
+                    
+                    let localStatus = 'pending';
+                    if (recStatus === 'completed' || recStatus === 'success') {
+                        localStatus = 'called';
+                    } else if (recStatus === 'failed') {
+                        localStatus = 'failed';
+                    } else if (recStatus === 'dispatched') {
+                        localStatus = 'dispatched';
+                        allRecipientsFinished = false;
+                    } else {
+                        allRecipientsFinished = false;
+                    }
+                    
+                    const cleanPhone = phone.replace(/\D/g, '').slice(-10);
+                    if (cleanPhone) {
+                        const callRow = db.get(`
+                            SELECT vcc.id FROM voice_campaign_calls vcc
+                            JOIN customers c ON vcc.customer_id = c.id
+                            WHERE vcc.campaign_id = ? AND vcc.call_date = ? AND vcc.batch_id = ?
+                            AND (c.phone LIKE ? OR replace(c.phone, ' ', '') LIKE ?)
+                        `, [batch.campaign_id, batch.call_date, batch.batch_id, `%${cleanPhone}`, `%${cleanPhone}`]);
+                        
+                        if (callRow) {
+                            db.run("UPDATE voice_campaign_calls SET status = ? WHERE id = ?", [localStatus, callRow.id]);
+                        }
+                    }
+                }
+                
+                const batchFinished = data.status === 'completed' || allRecipientsFinished;
+                if (batchFinished) {
+                    db.run("UPDATE voice_campaign_batches SET status = 'completed' WHERE id = ?", [batch.id]);
+                    console.log(`[Campaign Scheduler Sync] Batch ${batch.batch_id} marked as completed.`);
+                } else {
+                    db.run("UPDATE voice_campaign_batches SET status = 'dispatched' WHERE id = ?", [batch.id]);
+                }
+            } else {
+                console.error(`[Campaign Scheduler Sync] Failed to fetch batch ${batch.batch_id}:`, res.statusText);
+            }
+        }
+        
+        const activeVoiceCampaigns = db.all("SELECT * FROM email_campaigns WHERE channel = 'voice' AND status IN ('scheduled', 'sending')");
+        for (const campaign of activeVoiceCampaigns) {
+            const dates = getCampaignDates(campaign.start_date, campaign.end_date);
+            let allDatesCompleted = true;
+            for (const d of dates) {
+                const batch = db.get("SELECT status FROM voice_campaign_batches WHERE campaign_id = ? AND call_date = ?", [campaign.id, d]);
+                if (!batch || batch.status !== 'completed') {
+                    allDatesCompleted = false;
+                    break;
+                }
+            }
+            
+            if (allDatesCompleted && dates.length > 0) {
+                console.log(`[Campaign Scheduler Sync] Voice campaign "${campaign.name}" (ID: ${campaign.id}) fully completed.`);
+                db.run("UPDATE email_campaigns SET status = 'completed' WHERE id = ?", [campaign.id]);
+            }
+        }
+    } catch (err) {
+        console.error('[Campaign Scheduler Sync] Error syncing voice call statuses:', err);
+    }
+}
+
 function startCampaignScheduler() {
     console.log('[Campaign Scheduler] Starting background campaign and reminder runner...');
     
-    // Start campaigns pulling and cloud syncing
     campaignSyncService.startSyncSchedule();
 
-    // Check campaigns every 60 seconds
     setInterval(processCampaigns, 60000);
+    setInterval(processVoiceCampaigns, 60000);
+    setInterval(syncVoiceCallStatuses, 120000);
     
-    // Run due reminders check every 30 minutes
     setInterval(checkDuePaymentReminders, 1800000);
     
-    // Run once immediately on start
     setTimeout(() => {
         processCampaigns();
+        processVoiceCampaigns();
+        syncVoiceCallStatuses();
         checkDuePaymentReminders();
     }, 5000);
 }
 
-module.exports = { startCampaignScheduler, checkDuePaymentReminders };
+module.exports = { startCampaignScheduler, checkDuePaymentReminders, syncVoiceCallStatuses };

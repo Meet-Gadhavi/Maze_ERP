@@ -486,6 +486,50 @@ export default function App() {
                             console.error('Failed to parse Google OAuth callback:', e);
                         }
                     }
+                    // Handle WhatsApp OAuth Callback (Query Params)
+                    else if (url.includes('whatsapp-auth-callback')) {
+                        try {
+                            const urlObj = new URL(url.replace('maze-erp://', 'http://'));
+                            const status = urlObj.searchParams.get('status');
+                            const message = urlObj.searchParams.get('message');
+
+                            if (status === 'success') {
+                                toast.success('WhatsApp service connected successfully!');
+                                // Dispatch event to refresh WhatsApp connection status in UI
+                                window.postMessage({ type: 'whatsapp-connected' }, '*');
+                            } else {
+                                toast.error(`WhatsApp Connection Failed: ${message || 'Unknown error'}`);
+                            }
+                        } catch (e) {
+                            console.error('Failed to parse WhatsApp OAuth callback:', e);
+                        }
+                    }
+                    // Handle Provision Agent Callback (Query Params)
+                    else if (url.includes('provision-agent')) {
+                        try {
+                            const urlObj = new URL(url.replace('maze-erp://', 'http://'));
+                            const status = urlObj.searchParams.get('status');
+                            if (status === 'success') {
+                                const agentId = urlObj.searchParams.get('agent_id');
+                                const name = urlObj.searchParams.get('name');
+                                const persona = urlObj.searchParams.get('persona');
+                                const language = urlObj.searchParams.get('language') || 'en';
+                                const model = urlObj.searchParams.get('model') || 'Cheap';
+                                const voice_id = urlObj.searchParams.get('voice_id') || 'FmBhnvP58BK0vz65OOj7';
+                                window.postMessage({
+                                    type: 'payment-success',
+                                    agent_id: agentId,
+                                    name: name,
+                                    persona: persona,
+                                    language: language,
+                                    model: model,
+                                    voice_id: voice_id
+                                }, '*');
+                            }
+                        } catch (e) {
+                            console.error('Failed to parse provision agent callback:', e);
+                        }
+                    }
                 });
             }
 
@@ -505,13 +549,28 @@ export default function App() {
                             
                             setShutdownProgress(30);
                             setShutdownMessage('Generating local data snapshot...');
-                            const { filename } = await api.backupNow();
+                            await api.backupNow();
                             
-                            if (settings.auto_push_to_ai === 'true') {
-                                setShutdownProgress(60);
-                                setShutdownMessage('Synchronizing with Mazeway AI Cloud...');
-                                const content = await api.getBackupContent(filename);
-                                await api.pushBackupToMazewayAI(filename, content);
+                            setShutdownProgress(60);
+                            setShutdownMessage('Synchronizing with Agent Knowledge Base...');
+                            
+                            let targetAgentId = settings.session_end_agent_id || settings.auto_sync_agent_id;
+                            if (!targetAgentId) {
+                                try {
+                                    const agents = await api.getAgents();
+                                    const activeAgents = agents.filter(a => a.status !== 'PROVISIONING');
+                                    if (activeAgents.length > 0) {
+                                        targetAgentId = activeAgents[0].id;
+                                    }
+                                } catch (err) {
+                                    console.error('[Quantro] Failed to fetch agents for session close backup:', err);
+                                }
+                            }
+                            
+                            if (targetAgentId) {
+                                await api.syncAgentKnowledgeBase(targetAgentId);
+                            } else {
+                                console.warn('[Quantro] No target agent found for session end knowledge-base sync.');
                             }
                             
                             setShutdownProgress(100);

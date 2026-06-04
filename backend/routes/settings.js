@@ -27,7 +27,7 @@ const ALLOWED_SETTINGS_KEYS = new Set([
     'billing_payment_method_added', 'billing_phone_number_purchased', 'billing_phone_number_details',
     'billing_whatsapp_non_csw_count', 'billing_voice_agent_seconds', 'billing_email_sent_count',
     'billing_email_package_active', 'billing_email_package_due', 'billing_simulated_day',
-    'license_key', 'license_plan', 'license_status', 'license_user_id'
+    'license_key', 'license_plan', 'license_status', 'license_user_id', 'last_push_date'
 ]);
 
 // GET /api/settings

@@ -2956,30 +2956,44 @@ export default function SalesPage() {
                                                 ₹{currentDue.toLocaleString('en-IN')} will adjust due, ₹{(totalReturnVal - currentDue).toLocaleString('en-IN')} will be refunded.
                                             </div>
                                         )}
+                                        {returningInvoice.paid_amount > 0 && (
+                                            <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)', marginTop: '6px', borderTop: '1px dashed var(--border)', paddingTop: '6px' }}>
+                                                Tip: Select <strong>Direct Cash Refund</strong> to pay back directly without reducing the customer's outstanding due.
+                                            </div>
+                                        )}
                                     </>
                                 )}
 
-                                <div style={{ width: '100%', display: 'flex', gap: '8px', justifyContent: 'flex-end', marginTop: '24px', borderTop: '1px solid var(--border)', paddingTop: '16px' }}>
+                                <div style={{ width: '100%', display: 'flex', gap: '8px', justifyContent: 'flex-end', marginTop: '24px', borderTop: '1px solid var(--border)', paddingTop: '16px', flexWrap: 'wrap' }}>
                                     <SButton onClick={() => setReturningInvoice(null)}>Cancel</SButton>
                                     {totalReturnVal === 0 ? (
                                         <SButton variant="primary" onClick={() => handleProcessReturn('refund')} loading={saving}>
                                             Thank You
                                         </SButton>
-                                    ) : currentDue < totalReturnVal ? (
+                                    ) : (
                                         <>
-                                            <SButton variant="primary" onClick={() => handleProcessReturn('refund')} loading={saving}>
-                                                Refund Back
-                                            </SButton>
-                                            {returningInvoice.customer_id && (
-                                                <SButton variant="primary" style={{ background: 'var(--accent)' }} onClick={() => handleProcessReturn('p_credit')} loading={saving}>
-                                                    Convert to P-Credit
+                                            {currentDue < totalReturnVal ? (
+                                                <>
+                                                    <SButton variant="primary" onClick={() => handleProcessReturn('refund')} loading={saving}>
+                                                        Refund Back (Adjust Due)
+                                                    </SButton>
+                                                    {returningInvoice.customer_id && (
+                                                        <SButton variant="primary" style={{ background: 'var(--accent)' }} onClick={() => handleProcessReturn('p_credit')} loading={saving}>
+                                                            Convert to P-Credit
+                                                        </SButton>
+                                                    )}
+                                                </>
+                                            ) : (
+                                                <SButton variant="primary" onClick={() => handleProcessReturn('refund')} loading={saving}>
+                                                    Confirm Return (Reduce Due)
+                                                </SButton>
+                                            )}
+                                            {returningInvoice.paid_amount > 0 && (
+                                                <SButton variant="primary" style={{ background: 'var(--warning)', borderColor: 'var(--warning)' }} onClick={() => handleProcessReturn('direct_cash')} loading={saving}>
+                                                    Direct Cash Refund
                                                 </SButton>
                                             )}
                                         </>
-                                    ) : (
-                                        <SButton variant="primary" onClick={() => handleProcessReturn('refund')} loading={saving}>
-                                            Confirm Return
-                                        </SButton>
                                     )}
                                 </div>
                             </div>

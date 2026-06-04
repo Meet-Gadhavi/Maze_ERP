@@ -348,7 +348,7 @@ router.get('/callback', async (req, res) => {
                             type: 'mazeway-connected', 
                             api_key: '${api_key}', 
                             webhook_url: '${webhook_url}' 
-                        }, window.location.origin);
+                        }, '*');
                     }
                     setTimeout(() => {
                         window.close();
@@ -365,58 +365,342 @@ router.get('/callback', async (req, res) => {
 
 // --- Agent Persistence Routes ---
 
-// GET /api/mazeway/agents - Fetch all local agents
-router.get('/agents', (req, res) => {
+// GET /api/mazeway/agents - Fetch all local agents and map/filter against ElevenLabs
+router.get('/agents', async (req, res) => {
     try {
-        const agents = db.all('SELECT * FROM mazeway_agents ORDER BY created_at DESC');
-        const parsedAgents = agents.map(a => ({
-            ...a,
-            is_active: a.is_active === 1,
-            config: JSON.parse(a.config || '{}')
-        }));
-        res.json(parsedAgents);
+        const apiKey = 'sk_90d44071c16ffe8316f7b6507c48b3ed083a51212c92c989';
+
+        // 1. Fetch agents from ElevenLabs
+        let rawAgents = [];
+        let fetchedElevenLabsSuccessfully = false;
+        try {
+            const agentsRes = await fetch('https://api.elevenlabs.io/v1/convai/agents', {
+                headers: { 'xi-api-key': apiKey }
+            });
+            if (agentsRes.ok) {
+                const agentsData = await agentsRes.json();
+                rawAgents = agentsData.agents || (Array.isArray(agentsData) ? agentsData : []);
+                fetchedElevenLabsSuccessfully = true;
+            } else {
+                console.warn('[ElevenLabs API] Failed to fetch agents list:', await agentsRes.text());
+            }
+        } catch (e) {
+            console.warn('[ElevenLabs API] Network error fetching agents:', e.message);
+        }
+
+        // 2. Fetch local agents
+        const localAgents = db.all('SELECT * FROM mazeway_agents');
+
+        // Clean up any local active agents that have been deleted from ElevenLabs
+        let filteredLocalAgents = localAgents;
+        if (fetchedElevenLabsSuccessfully) {
+            filteredLocalAgents = localAgents.filter(localMatch => {
+                if (localMatch.status !== 'PROVISIONING') {
+                    const exists = rawAgents.some(a => (a.agent_id || a.id) === localMatch.id);
+                    if (!exists) {
+                        console.log(`[Sync] Local active agent ${localMatch.name} (ID: ${localMatch.id}) was deleted from ElevenLabs. Cleaning up locally.`);
+                        db.run('DELETE FROM mazeway_agents WHERE id = ?', [localMatch.id]);
+                        return false;
+                    }
+                }
+                return true;
+            });
+        }
+
+        // 3. Fetch phone numbers to bind phone/SIP metadata
+        let rawPhones = [];
+        try {
+            const phonesRes = await fetch('https://api.elevenlabs.io/v1/convai/phone-numbers', {
+                headers: { 'xi-api-key': apiKey }
+            });
+            if (phonesRes.ok) {
+                const phonesData = await phonesRes.json();
+                rawPhones = phonesData.phone_numbers || (Array.isArray(phonesData) ? phonesData : []);
+            }
+        } catch (e) {
+            console.warn('[ElevenLabs API] Failed to fetch phone numbers:', e.message);
+        }
+
+        // 4. Map SQLite agents and merge ElevenLabs metadata
+        const mappedAgents = filteredLocalAgents.map(localMatch => {
+            const agentId = localMatch.id;
+            const agent = rawAgents.find(a => (a.agent_id || a.id) === agentId);
+            const phoneMatch = rawPhones.find(p => p.agent_id === agentId);
+            
+            // Parse local config if available
+            let localConfig = {};
+            if (localMatch.config) {
+                try {
+                    localConfig = JSON.parse(localMatch.config);
+                } catch (e) {}
+            }
+
+            const language = agent?.conversation_config?.agent?.language || localConfig.language || 'en';
+            const firstMessage = agent?.conversation_config?.agent?.first_message || localConfig.first_message || '';
+            const systemPrompt = agent?.conversation_config?.agent?.prompt?.prompt || localMatch.persona || '';
+            const voiceId = agent?.conversation_config?.tts?.voice_id || localConfig.voice_id || 'FmBhnvP58BK0vz65OOj7';
+
+            // Sync back to local SQLite if it differs
+            if (agent) {
+                const newName = agent.name || localMatch.name;
+                const newPersona = systemPrompt;
+                const newFirstMsg = firstMessage;
+                const newLang = language;
+                const newVoiceId = voiceId;
+
+                if (newName !== localMatch.name || newPersona !== localMatch.persona || newFirstMsg !== localConfig.first_message || newLang !== localConfig.language || newVoiceId !== localConfig.voice_id) {
+                    const mergedConfig = {
+                        ...localConfig,
+                        language: newLang,
+                        first_message: newFirstMsg,
+                        voice_id: newVoiceId
+                    };
+                    db.run(
+                        'UPDATE mazeway_agents SET name = ?, persona = ?, config = ? WHERE id = ?',
+                        [newName, newPersona, JSON.stringify(mergedConfig), agentId]
+                    );
+                }
+            }
+
+            return {
+                id: agentId,
+                name: agent?.name || localMatch.name || 'Unnamed Agent',
+                type: 'Voice',
+                persona: systemPrompt,
+                status: localMatch.status || 'ACTIVE',
+                is_active: localMatch.is_active === 1,
+                language: language,
+                config: {
+                    language,
+                    first_message: firstMessage,
+                    phone: phoneMatch ? phoneMatch.phone_number : (localConfig.phone || ''),
+                    phone_number_id: phoneMatch ? phoneMatch.phone_number_id : '',
+                    sip: phoneMatch ? {
+                        label: phoneMatch.label || '',
+                        phoneNumber: phoneMatch.phone_number || ''
+                    } : (localConfig.sip || null),
+                    model: localConfig.model || 'Cheap',
+                    voice_id: voiceId
+                }
+            };
+        });
+
+        res.json(mappedAgents);
     } catch (err) {
+        console.error('[GET /agents Error]', err);
         res.status(500).json({ error: err.message });
     }
 });
 
-// POST /api/mazeway/agents - Create or Update a local agent
-router.post('/agents', (req, res) => {
+// POST /api/mazeway/agents - Create or Update an agent directly on ElevenLabs
+router.post('/agents', async (req, res) => {
     const { id, name, type, persona, status, is_active, config } = req.body;
     
-    if (!id || !name) {
-        return res.status(400).json({ error: 'Missing agent ID or name' });
+    if (!name) {
+        return res.status(400).json({ error: 'Missing agent name' });
+    }
+
+    if (status === 'PROVISIONING') {
+        try {
+            const sql = `
+                INSERT OR REPLACE INTO mazeway_agents (id, name, type, persona, status, is_active, config)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+            `;
+            db.run(sql, [
+                id,
+                name,
+                type || 'Voice',
+                persona || '',
+                status,
+                is_active ? 1 : 0,
+                JSON.stringify(config || {})
+            ]);
+            return res.json({ success: true, agentId: id });
+        } catch (err) {
+            console.error('[Agent Provisioning Save Error]', err);
+            return res.status(500).json({ error: err.message });
+        }
     }
 
     try {
-        if (is_active && status === 'ACTIVE') {
-            const pmAdded = db.get("SELECT value FROM settings WHERE key = 'billing_payment_method_added'")?.value === 'true';
-            if (!pmAdded) {
-                return res.status(400).json({ error: 'Payment Method Required: Please add a payment method in the Billing tab to activate Voice Agents.' });
+        const apiKey = 'sk_90d44071c16ffe8316f7b6507c48b3ed083a51212c92c989';
+        let agentId = id;
+        let isNew = !id || id.startsWith('AG_') || id === 'NEW' || id.startsWith('test_');
+
+        if (id && !id.startsWith('AG_') && id !== 'NEW' && !id.startsWith('test_')) {
+            const checkRes = await fetch(`https://api.elevenlabs.io/v1/convai/agents/${id}`, {
+                headers: { 'xi-api-key': apiKey }
+            });
+            if (!checkRes.ok) {
+                isNew = true;
             }
+        } else {
+            isNew = true;
         }
 
+        const timezoneInstruction = `\n\n[System Context: Timezone is Asia/Kolkata (asia/culcutta)]`;
+        const fullPersona = (persona || '') + timezoneInstruction;
+
+        if (isNew) {
+            console.log(`[ElevenLabs API] Creating agent "${name}"...`);
+            const createRes = await fetch('https://api.elevenlabs.io/v1/convai/agents/create', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'xi-api-key': apiKey
+                },
+                body: JSON.stringify({
+                    name,
+                    conversation_config: {
+                        agent: {
+                            prompt: {
+                                prompt: fullPersona,
+                                llm: config?.model === 'Expensive' ? 'claude-3-5-sonnet' : (config?.model === 'Medium' ? 'gpt-4o' : 'gpt-4o-mini')
+                            },
+                            first_message: config?.first_message || 'Hello, how can I help you?',
+                            language: config?.language || 'en',
+                            model: (config?.language && config?.language !== 'en') ? 'eleven_flash_v2_5' : 'eleven_flash_v2'
+                        },
+                        tts: {
+                            voice_id: config?.voice_id || 'FmBhnvP58BK0vz65OOj7'
+                        }
+                    }
+                })
+            });
+
+            const agentData = await createRes.json();
+            if (!createRes.ok) {
+                console.error('[ElevenLabs API] Create Error:', agentData);
+                return res.status(createRes.status).json({ error: agentData.detail?.message || agentData.error || 'Failed to create agent' });
+            }
+
+            agentId = agentData.agent_id || agentData.id;
+            console.log(`[ElevenLabs API] Created agent ID: ${agentId}`);
+
+            // If phone number is configured, import and bind it
+            const phoneVal = config?.phone || config?.phone_number;
+            if (phoneVal) {
+                const label = config.sip?.label || config?.label || `${name} Trunk`;
+                await importAndBindPhoneNumber(phoneVal, label, agentId, apiKey);
+            }
+        } else {
+            console.log(`[ElevenLabs API] Updating agent "${name}" (${agentId})...`);
+            const updateRes = await fetch(`https://api.elevenlabs.io/v1/convai/agents/${agentId}`, {
+                method: 'PATCH',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'xi-api-key': apiKey
+                },
+                body: JSON.stringify({
+                    name,
+                    conversation_config: {
+                        agent: {
+                            prompt: {
+                                prompt: fullPersona,
+                                llm: config?.model === 'Expensive' ? 'claude-3-5-sonnet' : (config?.model === 'Medium' ? 'gpt-4o' : 'gpt-4o-mini')
+                            },
+                            first_message: config?.first_message,
+                            language: config?.language,
+                            model: (config?.language && config?.language !== 'en') ? 'eleven_flash_v2_5' : 'eleven_flash_v2'
+                        },
+                        tts: {
+                            voice_id: config?.voice_id || 'FmBhnvP58BK0vz65OOj7'
+                        }
+                    }
+                })
+            });
+
+            if (!updateRes.ok) {
+                const errData = await updateRes.json();
+                console.error('[ElevenLabs API] Update Error:', errData);
+                return res.status(updateRes.status).json({ error: errData.detail?.message || errData.error || 'Failed to update agent' });
+            }
+
+            const phoneVal = config?.phone || config?.phone_number;
+            if (phoneVal) {
+                const label = config.sip?.label || config?.label || `${name} Trunk`;
+                await importAndBindPhoneNumber(phoneVal, label, agentId, apiKey);
+            }
+        }
+        // Save locally to SQLite database
         const sql = `
             INSERT OR REPLACE INTO mazeway_agents (id, name, type, persona, status, is_active, config)
             VALUES (?, ?, ?, ?, ?, ?, ?)
         `;
         db.run(sql, [
-            id, name, type, persona, status, 
-            is_active ? 1 : 0, 
+            agentId,
+            name,
+            type || 'Voice',
+            persona || '',
+            status || 'ACTIVE',
+            is_active ? 1 : 0,
             JSON.stringify(config || {})
         ]);
-        res.json({ success: true });
+
+        if (id && id !== agentId) {
+            db.run('DELETE FROM mazeway_agents WHERE id = ?', [id]);
+        }
+
+        res.json({ success: true, agentId });
     } catch (err) {
         console.error('[Agent Save Error]', err);
-        res.status(500).json({ error: 'Failed to save agent' });
+        res.status(500).json({ error: err.message });
     }
 });
 
-// DELETE /api/mazeway/agents/:id - Remove a local agent
-router.delete('/agents/:id', (req, res) => {
+// DELETE /api/mazeway/agents/:id - Delete an agent in ElevenLabs
+router.delete('/agents/:id', async (req, res) => {
     const { id } = req.params;
     try {
+        const apiKey = 'sk_90d44071c16ffe8316f7b6507c48b3ed083a51212c92c989';
+
+        // 1. Delete associated phone numbers on ElevenLabs
+        try {
+            console.log(`[ElevenLabs Telephony] Searching for phone numbers bound to agent: ${id}`);
+            const listPhonesRes = await fetch('https://api.elevenlabs.io/v1/convai/phone-numbers', {
+                headers: { 'xi-api-key': apiKey }
+            });
+            if (listPhonesRes.ok) {
+                const listPhonesData = await listPhonesRes.json();
+                const existingPhones = listPhonesData.phone_numbers || (Array.isArray(listPhonesData) ? listPhonesData : []);
+                const matchedPhones = existingPhones.filter(p => p.agent_id === id);
+                
+                for (const phone of matchedPhones) {
+                    const phoneId = phone.phone_number_id || phone.id;
+                    console.log(`[ElevenLabs Telephony] Deleting bound phone number: ${phone.phone_number} (ID: ${phoneId})`);
+                    const delPhoneRes = await fetch(`https://api.elevenlabs.io/v1/convai/phone-numbers/${phoneId}`, {
+                        method: 'DELETE',
+                        headers: { 'xi-api-key': apiKey }
+                    });
+                    if (delPhoneRes.ok) {
+                        console.log(`[ElevenLabs Telephony] Phone number ${phone.phone_number} deleted successfully.`);
+                    } else {
+                        console.error(`[ElevenLabs Telephony] Failed to delete phone number:`, await delPhoneRes.text());
+                    }
+                }
+            }
+        } catch (e) {
+            console.warn('[ElevenLabs Telephony] Failed to delete associated phone numbers:', e.message);
+        }
+
+        // 2. Delete from ElevenLabs
+        console.log(`[ElevenLabs API] Deleting agent ID: ${id}`);
+        const deleteRes = await fetch(`https://api.elevenlabs.io/v1/convai/agents/${id}`, {
+            method: 'DELETE',
+            headers: {
+                'xi-api-key': apiKey
+            }
+        });
+
+        if (!deleteRes.ok) {
+            const errData = await deleteRes.json();
+            console.error('[ElevenLabs API] Delete Error:', errData);
+            return res.status(deleteRes.status).json({ error: errData.detail?.message || errData.error || 'Failed to delete agent' });
+        }
+
+        // 3. Delete from local SQLite database
         db.run('DELETE FROM mazeway_agents WHERE id = ?', [id]);
+
         res.json({ success: true });
     } catch (err) {
         res.status(500).json({ error: err.message });
@@ -451,9 +735,11 @@ router.get('/logs', (req, res) => {
     }
 });
 
-// GET /api/mazeway/stats - Fetch real stats for the Automation Dashboard
-router.get('/stats', (req, res) => {
+// GET /api/mazeway/stats - Fetch stats dynamically combining orders and ElevenLabs agent count
+router.get('/stats', async (req, res) => {
     try {
+        const apiKey = 'sk_90d44071c16ffe8316f7b6507c48b3ed083a51212c92c989';
+
         const orderStats = db.get(`
             SELECT 
                 COUNT(*) as total_leads,
@@ -461,30 +747,29 @@ router.get('/stats', (req, res) => {
             FROM mazeway_orders
         `);
 
-        // Fetch all agents and sum the price of bought ones
-        const agents = db.all("SELECT config FROM mazeway_agents");
+        let agentCount = 0;
         let agentRevenue = 0;
-        agents.forEach(a => {
-            try {
-                const config = JSON.parse(a.config || '{}');
-                if (config.price) {
-                    agentRevenue += Number(config.price);
-                }
-            } catch (e) {
-                console.error('[Stats] Error parsing agent config for revenue:', e);
+
+        try {
+            const agentsRes = await fetch('https://api.elevenlabs.io/v1/convai/agents', {
+                headers: { 'xi-api-key': apiKey }
+            });
+            if (agentsRes.ok) {
+                const agentsData = await agentsRes.json();
+                const rawAgents = agentsData.agents || (Array.isArray(agentsData) ? agentsData : []);
+                agentCount = rawAgents.length;
+                agentRevenue = agentCount * 700; // estimated ₹700/mo agent plan revenue for dashboard metrics
             }
-        });
+        } catch (e) {
+            console.error('[Stats] ElevenLabs fetch failed for stats:', e.message);
+        }
 
         const totalRevenue = (orderStats.total_revenue || 0) + agentRevenue;
-
-        const agentCount = db.get('SELECT COUNT(*) as count FROM mazeway_agents WHERE is_active = 1').count;
-
-        // Estimate minutes: 5 mins per processed order + 2 mins per active agent (just for demo consistency)
-        // In a real system, this would come from call logs.
-        const estimatedMinutes = (orderStats.total_leads * 5) + (agentCount * 2);
+        const durationRow = db.get("SELECT COALESCE(SUM(duration_seconds), 0) AS total FROM mazeway_orders");
+        const actualMinutes = Math.ceil((durationRow ? durationRow.total : 0) / 60);
 
         res.json({
-            totalMinutes: estimatedMinutes.toLocaleString('en-IN'),
+            totalMinutes: actualMinutes.toLocaleString('en-IN'),
             leadsProcessed: (orderStats.total_leads || 0).toLocaleString('en-IN'),
             revenue: totalRevenue.toLocaleString('en-IN', {
                 style: 'currency',
@@ -494,6 +779,271 @@ router.get('/stats', (req, res) => {
         });
     } catch (err) {
         console.error('[Mazeway Stats Error]', err);
+        res.status(500).json({ error: err.message });
+    }
+});
+
+async function importAndBindPhoneNumber(phoneVal, label, agentId, apiKey) {
+    if (!phoneVal) return null;
+    const cleanInputPhone = phoneVal.replace(/\D/g, '');
+    console.log(`[ElevenLabs Telephony] Checking for existing phone: ${phoneVal}`);
+    
+    let phoneId = null;
+    try {
+        const listPhonesRes = await fetch('https://api.elevenlabs.io/v1/convai/phone-numbers', {
+            headers: { 'xi-api-key': apiKey }
+        });
+        if (listPhonesRes.ok) {
+            const listPhonesData = await listPhonesRes.json();
+            const existingPhones = listPhonesData.phone_numbers || (Array.isArray(listPhonesData) ? listPhonesData : []);
+            const matchedPhone = existingPhones.find(p => {
+                const cleanExisting = (p.phone_number || '').replace(/\D/g, '');
+                return cleanExisting && (cleanExisting === cleanInputPhone || cleanExisting.endsWith(cleanInputPhone) || cleanInputPhone.endsWith(cleanExisting));
+            });
+            if (matchedPhone) {
+                phoneId = matchedPhone.phone_number_id || matchedPhone.id;
+                console.log(`[ElevenLabs Telephony] Found matching registered phone: ${phoneId}`);
+            }
+        }
+    } catch (e) {
+        console.warn('[ElevenLabs Telephony] Lookup failed:', e.message);
+    }
+
+    if (!phoneId) {
+        console.log(`[ElevenLabs Telephony] Importing new phone: ${phoneVal}`);
+        const importPhoneRes = await fetch('https://api.elevenlabs.io/v1/convai/phone-numbers', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'xi-api-key': apiKey
+            },
+            body: JSON.stringify({
+                phone_number: phoneVal,
+                label: label || 'Custom Trunk'
+            })
+        });
+
+        if (importPhoneRes.ok) {
+            const phoneData = await importPhoneRes.json();
+            phoneId = phoneData.phone_number_id || phoneData.id;
+            console.log(`[ElevenLabs Telephony] Imported phone successfully. ID: ${phoneId}`);
+        } else {
+            console.error('[ElevenLabs Telephony] Import failed:', await importPhoneRes.text());
+        }
+    }
+
+    if (phoneId) {
+        console.log(`[ElevenLabs Telephony] Binding agent ${agentId} to phone ${phoneId}...`);
+        const assignRes = await fetch(`https://api.elevenlabs.io/v1/convai/phone-numbers/${phoneId}`, {
+            method: 'PATCH',
+            headers: {
+                'Content-Type': 'application/json',
+                'xi-api-key': apiKey
+            },
+            body: JSON.stringify({
+                agent_id: agentId
+            })
+        });
+        if (assignRes.ok) {
+            console.log(`[ElevenLabs Telephony] Bound agent successfully.`);
+            return phoneId;
+        } else {
+            console.error('[ElevenLabs Telephony] Binding failed:', await assignRes.text());
+        }
+    }
+    return null;
+}
+
+// POST /api/mazeway/agents/:agentId/kb-sync - Sync ERP backup to ElevenLabs KB for a specific agent
+router.post('/agents/:agentId/kb-sync', async (req, res) => {
+    const { agentId } = req.params;
+    const apiKey = 'sk_90d44071c16ffe8316f7b6507c48b3ed083a51212c92c989';
+
+    try {
+        console.log(`[KB Sync] Starting sync for agent: ${agentId}`);
+
+        // 1. Generate Markdown snapshot and save it locally
+        const backupUtil = require('../backupUtil');
+        const { filepath, content } = await backupUtil.generateMarkdownBackup(agentId);
+        console.log(`[KB Sync] Generated local Markdown backup at: ${filepath}`);
+
+        // 2. Fetch all KB documents from ElevenLabs to look for our folder & document
+        const kbListRes = await fetch('https://api.elevenlabs.io/v1/convai/knowledge-base', {
+            headers: { 'xi-api-key': apiKey }
+        });
+
+        if (!kbListRes.ok) {
+            const errText = await kbListRes.text();
+            console.error('[KB Sync] Failed to list KB documents:', errText);
+            return res.status(kbListRes.status).json({ error: `ElevenLabs API error: ${errText}` });
+        }
+
+        const kbData = await kbListRes.json();
+        const items = Array.isArray(kbData) ? kbData : (kbData.documentation || kbData.documents || []);
+
+        // 3. Find or Create folder named after the agentId
+        let folderId = null;
+        const existingFolder = items.find(item => item.name === agentId && (item.type === 'folder' || item.file_size === undefined));
+
+        if (existingFolder) {
+            folderId = existingFolder.id;
+            console.log(`[KB Sync] Found existing folder for agent: ${agentId} (ID: ${folderId})`);
+        } else {
+            console.log(`[KB Sync] Folder not found. Creating folder: ${agentId}`);
+            const createFolderRes = await fetch('https://api.elevenlabs.io/v1/convai/knowledge-base/folder', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'xi-api-key': apiKey
+                },
+                body: JSON.stringify({ name: agentId })
+            });
+
+            if (createFolderRes.ok) {
+                const folderData = await createFolderRes.json();
+                folderId = folderData.id;
+                console.log(`[KB Sync] Created new folder for agent: ${agentId} (ID: ${folderId})`);
+            } else {
+                console.warn('[KB Sync] Failed to create folder. Proceeding to root level.', await createFolderRes.text());
+            }
+        }
+
+        // 4. Check if an existing ERP_Backup.md document exists inside this folder (or root if folderId is null)
+        const existingDoc = items.find(item => {
+            if (item.name !== 'ERP_Backup.md') return false;
+            if (item.type === 'folder') return false;
+            const parentId = item.folder_parent_id || item.parent_folder_id;
+            if (folderId) {
+                if (parentId === folderId) return true;
+                if (Array.isArray(item.folder_path)) {
+                    return item.folder_path.some(f => f.id === folderId);
+                }
+            } else {
+                return !parentId;
+            }
+            return false;
+        });
+
+        let targetDocId = null;
+        if (existingDoc) {
+            targetDocId = existingDoc.id;
+            console.log(`[KB Sync] Found existing backup document: ${targetDocId}. Updating in-place...`);
+            const updateRes = await fetch(`https://api.elevenlabs.io/v1/convai/knowledge-base/${targetDocId}`, {
+                method: 'PATCH',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'xi-api-key': apiKey
+                },
+                body: JSON.stringify({
+                    name: 'ERP_Backup.md',
+                    content: content
+                })
+            });
+
+            if (!updateRes.ok) {
+                const errText = await updateRes.text();
+                console.error(`[KB Sync] In-place update failed for ${targetDocId}:`, errText);
+                return res.status(updateRes.status).json({ error: `ElevenLabs update failed: ${errText}` });
+            }
+            console.log(`[KB Sync] Successfully updated document ${targetDocId} in-place.`);
+        } else {
+            console.log(`[KB Sync] No existing backup document found. Uploading new one...`);
+            const uploadBody = {
+                text: content,
+                name: 'ERP_Backup.md'
+            };
+            if (folderId) {
+                uploadBody.parent_folder_id = folderId;
+            }
+
+            const uploadRes = await fetch('https://api.elevenlabs.io/v1/convai/knowledge-base/text', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'xi-api-key': apiKey
+                },
+                body: JSON.stringify(uploadBody)
+            });
+
+            if (!uploadRes.ok) {
+                const errText = await uploadRes.text();
+                console.error('[KB Sync] Upload failed:', errText);
+                return res.status(uploadRes.status).json({ error: `ElevenLabs upload failed: ${errText}` });
+            }
+
+            const uploadData = await uploadRes.json();
+            targetDocId = uploadData.id;
+            console.log(`[KB Sync] Uploaded new backup document. ID: ${targetDocId}`);
+        }
+
+        // 6. Fetch agent details to update knowledge_base array
+        console.log(`[KB Sync] Fetching agent ${agentId} detail...`);
+        const agentGetRes = await fetch(`https://api.elevenlabs.io/v1/convai/agents/${agentId}`, {
+            headers: { 'xi-api-key': apiKey }
+        });
+
+        if (!agentGetRes.ok) {
+            const errText = await agentGetRes.text();
+            console.error('[KB Sync] Failed to fetch agent details:', errText);
+            return res.status(agentGetRes.status).json({ error: `Failed to fetch agent details: ${errText}` });
+        }
+
+        const agentDetail = await agentGetRes.json();
+        let kbList = agentDetail.conversation_config?.agent?.prompt?.knowledge_base || [];
+        console.log('[KB Sync] Current agent KB list:', JSON.stringify(kbList));
+
+        // Filter out folderId, old file references, and any folder objects
+        kbList = kbList.filter(item => {
+            if (typeof item === 'string') {
+                return item !== folderId && item !== targetDocId;
+            }
+            const id = item?.id || item?.documentation_id;
+            return id && id !== folderId && id !== targetDocId && item?.type !== 'folder';
+        });
+
+        // Add the correct document locator object for our ERP_Backup.md file
+        kbList.push({
+            type: 'file',
+            id: targetDocId,
+            name: 'ERP_Backup.md',
+            usage_mode: 'auto'
+        });
+
+        // 7. Update agent config
+        console.log(`[KB Sync] Updating agent ${agentId} with knowledge_base config...`);
+        const agentUpdateRes = await fetch(`https://api.elevenlabs.io/v1/convai/agents/${agentId}`, {
+            method: 'PATCH',
+            headers: {
+                'Content-Type': 'application/json',
+                'xi-api-key': apiKey
+            },
+            body: JSON.stringify({
+                conversation_config: {
+                    agent: {
+                        prompt: {
+                            knowledge_base: kbList
+                        }
+                    }
+                }
+            })
+        });
+
+        if (!agentUpdateRes.ok) {
+            const errText = await agentUpdateRes.text();
+            console.error('[KB Sync] Failed to update agent config:', errText);
+            return res.status(agentUpdateRes.status).json({ error: `Failed to link document to agent: ${errText}` });
+        }
+
+        console.log(`[KB Sync] Agent knowledge base sync completed successfully.`);
+        try {
+            db.run("INSERT OR REPLACE INTO settings (key, value) VALUES ('last_push_date', ?)", [new Date().toISOString()]);
+        } catch (dbErr) {
+            console.error('[KB Sync] Failed to save last_push_date:', dbErr.message);
+        }
+        res.json({ success: true, folderId, documentId: targetDocId });
+
+    } catch (err) {
+        console.error('[KB Sync Error]', err);
         res.status(500).json({ error: err.message });
     }
 });

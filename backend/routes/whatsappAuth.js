@@ -52,7 +52,7 @@ router.get('/callback', async (req, res, next) => {
                     // Sync WhatsApp connection metadata
                     campaignSyncService.pushMetadata().catch(err => console.error('[Sync] Failed to push metadata on WhatsApp bypass callback:', err.message));
 
-                    return res.redirect('http://localhost:5175/#/automation?whatsapp=success');
+                    return res.redirect('maze-erp://whatsapp-auth-callback?status=success');
                 } else {
                     console.error('[WhatsApp Auth] Failed to fetch phone numbers via permanent token:', phoneData);
                 }
@@ -102,37 +102,26 @@ router.get('/callback', async (req, res, next) => {
                             // Sync WhatsApp connection metadata
                             campaignSyncService.pushMetadata().catch(err => console.error('[Sync] Failed to push metadata on WhatsApp OAuth callback:', err.message));
 
-                            return res.redirect('http://localhost:5175/#/automation?whatsapp=success');
+                            return res.redirect('maze-erp://whatsapp-auth-callback?status=success');
                         } else {
                             console.error('[WhatsApp Auth] Failed to fetch phone numbers via user access token:', phoneData);
-                            return res.status(400).send(`
-                                <h2>Meta Onboarding Error</h2>
-                                <p>No phone numbers were found under WABA ID: ${wabaId}.</p>
-                                <p>Please register a phone number in your Meta Business Suite under this WhatsApp Business Account.</p>
-                            `);
+                            const errMsg = `No phone numbers found under WABA ID: ${wabaId}. Please register a phone number in Meta Business Suite.`;
+                            return res.redirect(`maze-erp://whatsapp-auth-callback?status=error&message=${encodeURIComponent(errMsg)}`);
                         }
                     } else {
                         console.error('[WhatsApp Auth] Failed to fetch WABA accounts via user access token:', accountsData);
-                        return res.status(400).send(`
-                            <h2>Meta Onboarding Error</h2>
-                            <p>No WhatsApp Business Accounts (WABA) were found associated with your Facebook profile.</p>
-                            <p>Ensure you have created a WABA in your Meta Business Suite and it is linked to your Meta Developer App.</p>
-                        `);
+                        const errMsg = 'No WhatsApp Business Accounts (WABA) found. Ensure you created one in Meta Business Suite.';
+                        return res.redirect(`maze-erp://whatsapp-auth-callback?status=error&message=${encodeURIComponent(errMsg)}`);
                     }
                 } else {
                     console.error('[WhatsApp Auth] Token exchange failed:', tokenData);
-                    return res.status(400).send(`
-                        <h2>Meta Onboarding Callback Error</h2>
-                        <p>Failed to exchange authorization code: ${tokenData.error?.message || 'Unknown error'}</p>
-                        <p>Please verify your Meta App credentials in Settings, or make sure your permanent System User Access Token is configured and valid.</p>
-                    `);
+                    const errMsg = `Failed to exchange authorization code: ${tokenData.error?.message || 'Unknown error'}`;
+                    return res.redirect(`maze-erp://whatsapp-auth-callback?status=error&message=${encodeURIComponent(errMsg)}`);
                 }
             } catch (exchangeErr) {
                 console.error('[WhatsApp Auth] Code exchange flow failed:', exchangeErr);
-                return res.status(500).send(`
-                    <h2>Meta Onboarding Internal Error</h2>
-                    <p>Internal error processing OAuth callback: ${exchangeErr.message}</p>
-                `);
+                const errMsg = `Internal error processing OAuth callback: ${exchangeErr.message}`;
+                return res.redirect(`maze-erp://whatsapp-auth-callback?status=error&message=${encodeURIComponent(errMsg)}`);
             }
         }
 
@@ -152,13 +141,11 @@ router.get('/callback', async (req, res, next) => {
             // Sync WhatsApp connection metadata
             campaignSyncService.pushMetadata().catch(err => console.error('[Sync] Failed to push metadata on WhatsApp fallback connect:', err.message));
 
-            return res.redirect('http://localhost:5175/#/automation?whatsapp=success');
+            return res.redirect('maze-erp://whatsapp-auth-callback?status=success');
         }
 
-        return res.status(400).send(`
-            <h2>Meta Onboarding Connection Error</h2>
-            <p>Could not automatically complete the WhatsApp Business connection. Please verify that your system user access token in Settings is valid and has permissions for your WhatsApp Business Account.</p>
-        `);
+        const errMsg = 'Could not automatically complete the WhatsApp Business connection. Please verify that your system user access token in Settings is valid.';
+        return res.redirect(`maze-erp://whatsapp-auth-callback?status=error&message=${encodeURIComponent(errMsg)}`);
     } catch (err) {
         next(err);
     }
