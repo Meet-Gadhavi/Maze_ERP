@@ -661,6 +661,18 @@ export default function InventoryPage() {
                     <p className="text-secondary">Track warehouse stock, batches, variants, and product categories</p>
                 </div>
                 <div className="header-actions">
+                    {activeTab === 'adjustments' && (
+                        <s-button onClick={() => {
+                            setBulkAdjustItems([]);
+                            setBulkAdjustReason('Stock Take');
+                            setBulkAdjustNotes('');
+                            setNewManualSerial('');
+                            setAdjustQuantity('');
+                            setShowBulkAdjustModal(true);
+                        }}>
+                            + New Adjustment
+                        </s-button>
+                    )}
                     <s-button onClick={() => setShowCatModal(true)} aria-label="Create category">
                         Create Category
                     </s-button>
@@ -1073,23 +1085,6 @@ export default function InventoryPage() {
 
             {activeTab === 'adjustments' && (
                 <div className="adjustments-view" style={{ padding: '0 20px 20px 20px' }}>
-                    <div className="section-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-                        <div>
-                            <h2 style={{ fontSize: '1.1em', fontWeight: 600, color: 'var(--text-primary)' }}>Stock Adjustment History</h2>
-                            <p className="text-secondary size-12">View and log inventory write-offs, stock take corrections and audits</p>
-                        </div>
-                        <s-button variant="primary" onClick={() => {
-                            setBulkAdjustItems([]);
-                            setBulkAdjustReason('Stock Take');
-                            setBulkAdjustNotes('');
-                            setNewManualSerial('');
-                            setAdjustQuantity('');
-                            setShowBulkAdjustModal(true);
-                        }}>
-                            + New Adjustment
-                        </s-button>
-                    </div>
-
                     <div className="product-table-wrap">
                         {loadingAdjustments ? (
                             <Skeleton type="table" count={3} />
