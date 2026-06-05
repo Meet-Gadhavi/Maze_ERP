@@ -11,6 +11,30 @@ db.ready.then(() => {
     } catch (_) { /* indexes may already exist */ }
 });
 
+function resolveBundleStock(product) {
+    if (!product || product.is_bundle !== 1) return product ? product.stock_quantity : 0;
+    try {
+        const components = db.all(`
+            SELECT bi.quantity as component_qty, p.stock_quantity 
+            FROM product_bundle_items bi 
+            JOIN products p ON bi.component_id = p.id 
+            WHERE bi.bundle_id = ?
+        `, [product.id]);
+        if (components.length === 0) return 0;
+        let minStock = Infinity;
+        for (const comp of components) {
+            const stockRatio = Math.floor((comp.stock_quantity || 0) / (comp.component_qty || 1));
+            if (stockRatio < minStock) {
+                minStock = stockRatio;
+            }
+        }
+        return minStock === Infinity ? 0 : minStock;
+    } catch (err) {
+        console.error('Failed to resolve bundle stock:', err);
+        return 0;
+    }
+}
+
 // GET /api/products
 router.get('/', async (req, res, next) => {
     try {
@@ -50,6 +74,11 @@ router.get('/', async (req, res, next) => {
         sql += ' ORDER BY p.created_at DESC';
 
         const products = db.all(sql, params);
+        for (const p of products) {
+            if (p.is_bundle === 1) {
+                p.stock_quantity = resolveBundleStock(p);
+            }
+        }
         res.json(products);
     } catch (err) {
         next(err);
@@ -243,9 +272,15 @@ router.delete('/brands/:id', async (req, res, next) => {
 router.get('/alerts/stock', async (req, res, next) => {
     try {
         await db.ready;
-        const outOfStock = db.all('SELECT * FROM products WHERE stock_quantity <= 0');
-        const lowStock = db.all('SELECT * FROM products WHERE stock_quantity > 0 AND stock_quantity <= min_stock_level');
-        const overStock = db.all('SELECT * FROM products WHERE max_stock_level > 0 AND stock_quantity > max_stock_level');
+        const allProducts = db.all('SELECT * FROM products');
+        for (const p of allProducts) {
+            if (p.is_bundle === 1) {
+                p.stock_quantity = resolveBundleStock(p);
+            }
+        }
+        const outOfStock = allProducts.filter(p => p.stock_quantity <= 0);
+        const lowStock = allProducts.filter(p => p.stock_quantity > 0 && p.stock_quantity <= p.min_stock_level);
+        const overStock = allProducts.filter(p => p.max_stock_level > 0 && p.stock_quantity > p.max_stock_level);
         
         const settingsRows = db.all('SELECT key, value FROM settings');
         const settings = {};
@@ -288,6 +323,374 @@ router.get('/alerts/stock', async (req, res, next) => {
     }
 });
 
+// GET /api/products/valuation
+router.get('/valuation', async (req, res, next) => {
+    try {
+        await db.ready;
+        const products = db.all('SELECT * FROM products');
+        
+        let totalFifoValue = 0;
+        let totalLifoValue = 0;
+        let totalWacValue = 0;
+        const itemsValuation = [];
+        
+        for (const p of products) {
+            if (p.is_bundle === 1) {
+                p.stock_quantity = resolveBundleStock(p);
+            }
+            
+            const currentStock = Number(p.stock_quantity || 0);
+            if (currentStock <= 0) {
+                itemsValuation.push({
+                    id: p.id,
+                    name: p.name,
+                    product_code: p.product_code,
+                    category: p.category,
+                    stock_quantity: currentStock,
+                    fifo_value: 0,
+                    lifo_value: 0,
+                    wac_value: 0,
+                    cost_price: p.cost_price,
+                    avg_purchase_price: p.cost_price
+                });
+                continue;
+            }
+            
+            const purchases = db.all(`
+                SELECT pi.quantity, pi.purchase_price, p.purchase_date, pi.id
+                FROM purchase_items pi
+                JOIN purchases p ON pi.purchase_id = p.id
+                WHERE pi.product_id = ? AND p.is_draft = 0
+                ORDER BY p.purchase_date ASC, pi.id ASC
+            `, [p.id]);
+            
+            let remainingFifo = currentStock;
+            let fifoValue = 0;
+            const purchasesDesc = [...purchases].reverse();
+            for (const layer of purchasesDesc) {
+                if (remainingFifo <= 0) break;
+                const qty = Math.min(layer.quantity, remainingFifo);
+                fifoValue += qty * layer.purchase_price;
+                remainingFifo -= qty;
+            }
+            if (remainingFifo > 0) {
+                fifoValue += remainingFifo * p.cost_price;
+            }
+            
+            let remainingLifo = currentStock;
+            let lifoValue = 0;
+            for (const layer of purchases) {
+                if (remainingLifo <= 0) break;
+                const qty = Math.min(layer.quantity, remainingLifo);
+                lifoValue += qty * layer.purchase_price;
+                remainingLifo -= qty;
+            }
+            if (remainingLifo > 0) {
+                lifoValue += remainingLifo * p.cost_price;
+            }
+            
+            let totalPurchasedQty = 0;
+            let totalPurchasedCost = 0;
+            for (const layer of purchases) {
+                totalPurchasedQty += layer.quantity;
+                totalPurchasedCost += layer.quantity * layer.purchase_price;
+            }
+            
+            let wacPrice = p.cost_price;
+            if (totalPurchasedQty > 0) {
+                wacPrice = totalPurchasedCost / totalPurchasedQty;
+            }
+            const wacValue = currentStock * wacPrice;
+            
+            totalFifoValue += fifoValue;
+            totalLifoValue += lifoValue;
+            totalWacValue += wacValue;
+            
+            itemsValuation.push({
+                id: p.id,
+                name: p.name,
+                product_code: p.product_code,
+                category: p.category,
+                stock_quantity: currentStock,
+                fifo_value: fifoValue,
+                lifo_value: lifoValue,
+                wac_value: wacValue,
+                cost_price: p.cost_price,
+                avg_purchase_price: totalPurchasedQty > 0 ? (totalPurchasedCost / totalPurchasedQty) : p.cost_price
+            });
+        }
+        
+        res.json({
+            totals: {
+                fifo: totalFifoValue,
+                lifo: totalLifoValue,
+                wac: totalWacValue
+            },
+            items: itemsValuation
+        });
+    } catch (err) {
+        next(err);
+    }
+});
+
+// GET /api/products/reorders
+router.get('/reorders', async (req, res, next) => {
+    try {
+        await db.ready;
+        const products = db.all('SELECT * FROM products');
+        const suggestions = [];
+        
+        for (const p of products) {
+            if (p.is_bundle === 1) {
+                p.stock_quantity = resolveBundleStock(p);
+            }
+            
+            const currentStock = Number(p.stock_quantity || 0);
+            const minStock = Number(p.min_stock_level || 0);
+            
+            if (currentStock <= minStock) {
+                const lastPurchase = db.get(`
+                    SELECT p.supplier_id, s.name as supplier_name, pi.purchase_price
+                    FROM purchase_items pi
+                    JOIN purchases p ON pi.purchase_id = p.id
+                    JOIN suppliers s ON p.supplier_id = s.id
+                    WHERE pi.product_id = ? AND p.is_draft = 0
+                    ORDER BY p.purchase_date DESC, pi.id DESC
+                    LIMIT 1
+                `, [p.id]);
+                
+                const reorderQty = Number(p.reorder_quantity || 0) || Math.max(10, minStock * 2);
+                const estimatedCost = lastPurchase ? lastPurchase.purchase_price : p.cost_price;
+                
+                suggestions.push({
+                    product_id: p.id,
+                    name: p.name,
+                    product_code: p.product_code,
+                    category: p.category,
+                    stock_quantity: currentStock,
+                    min_stock_level: minStock,
+                    reorder_quantity: reorderQty,
+                    last_supplier_id: lastPurchase ? lastPurchase.supplier_id : null,
+                    last_supplier_name: lastPurchase ? lastPurchase.supplier_name : 'No Last Supplier',
+                    last_price: estimatedCost
+                });
+            }
+        }
+        
+        res.json(suggestions);
+    } catch (err) {
+        next(err);
+    }
+});
+
+// POST /api/products/reorders/create-bills
+router.post('/reorders/create-bills', async (req, res, next) => {
+    try {
+        await db.ready;
+        const { items } = req.body;
+        
+        if (!items || !items.length) {
+            return res.status(400).json({ error: 'No items selected' });
+        }
+        
+        const groups = {};
+        for (const item of items) {
+            const sId = item.supplier_id || 'unassigned';
+            if (!groups[sId]) groups[sId] = [];
+            groups[sId].push(item);
+        }
+        
+        const createdPurchaseIds = [];
+        
+        db.transaction(() => {
+            for (const [supplierIdStr, groupItems] of Object.entries(groups)) {
+                let supplierId = supplierIdStr === 'unassigned' ? null : Number(supplierIdStr);
+                
+                if (!supplierId) {
+                    const firstSupplier = db.get('SELECT id FROM suppliers ORDER BY id LIMIT 1');
+                    if (firstSupplier) {
+                        supplierId = firstSupplier.id;
+                    } else {
+                        res.status(400).json({ error: 'No suppliers registered in system. Please create a supplier first.' });
+                        const err = new Error('Abort'); err.apiResponse = true; throw err;
+                    }
+                }
+                
+                const billNumber = `DRAFT-REORDER-${Date.now()}`;
+                const purchaseResult = db.run(
+                    `INSERT INTO purchases (supplier_id, bill_number, purchase_date, status, payment_mode, is_draft, grand_total, subtotal, due_amount)
+                     VALUES (?, ?, date('now', 'localtime'), 'Draft', 'Cash', 1, 0, 0, 0)`,
+                    [supplierId, billNumber]
+                );
+                const purchaseId = purchaseResult.lastInsertRowid;
+                createdPurchaseIds.push(purchaseId);
+                
+                let grand_total = 0;
+                for (const item of groupItems) {
+                    const qty = Number(item.quantity);
+                    const price = Number(item.price);
+                    const lineTotal = qty * price;
+                    grand_total += lineTotal;
+                    
+                    const product = db.get('SELECT * FROM products WHERE id = ?', [item.product_id]);
+                    const pName = product ? product.name : (item.product_name || 'Unknown Item');
+                    
+                    db.run(
+                        `INSERT INTO purchase_items (purchase_id, product_id, product_name, quantity, purchase_price, line_total)
+                         VALUES (?, ?, ?, ?, ?, ?)`,
+                        [purchaseId, item.product_id, pName, qty, price, lineTotal]
+                    );
+                }
+                
+                db.run(
+                    'UPDATE purchases SET subtotal = ?, grand_total = ? WHERE id = ?',
+                    [grand_total, grand_total, purchaseId]
+                );
+            }
+        });
+        
+        res.status(201).json({ success: true, purchase_ids: createdPurchaseIds });
+    } catch (err) {
+        if (err.apiResponse) return;
+        next(err);
+    }
+});
+
+// GET /api/products/adjustments
+router.get('/adjustments', async (req, res, next) => {
+    try {
+        await db.ready;
+        const adjustments = db.all('SELECT * FROM stock_adjustments ORDER BY created_at DESC');
+        for (const adj of adjustments) {
+            adj.items = db.all(`
+                SELECT ai.*, p.name as product_name, p.product_code, pv.name as variant_name, pb.batch_number
+                FROM stock_adjustment_items ai
+                JOIN products p ON ai.product_id = p.id
+                LEFT JOIN product_variants pv ON ai.variant_id = pv.id
+                LEFT JOIN product_batches pb ON ai.batch_id = pb.id
+                WHERE ai.adjustment_id = ?
+            `, [adj.id]);
+        }
+        res.json(adjustments);
+    } catch (err) {
+        next(err);
+    }
+});
+
+// POST /api/products/adjustments
+router.post('/adjustments', async (req, res, next) => {
+    try {
+        await db.ready;
+        const { reason, notes, type, items } = req.body;
+        
+        if (!items || !items.length) {
+            return res.status(400).json({ error: 'No items provided for adjustment' });
+        }
+        
+        const adjustmentNumber = `ADJ-${Date.now()}`;
+        let resultObj;
+        
+        db.transaction(() => {
+            const adjResult = db.run(
+                'INSERT INTO stock_adjustments (adjustment_number, reason, type, notes) VALUES (?, ?, ?, ?)',
+                [adjustmentNumber, reason || 'Stock Take', type || 'Manual', notes || '']
+            );
+            const adjustmentId = adjResult.lastInsertRowid;
+            
+            for (const item of items) {
+                const qty = Number(item.quantity);
+                if (qty === 0) continue;
+                
+                db.run(
+                    'INSERT INTO stock_adjustment_items (adjustment_id, product_id, variant_id, batch_id, quantity, serials) VALUES (?, ?, ?, ?, ?, ?)',
+                    [adjustmentId, item.product_id, item.variant_id || null, item.batch_id || null, qty, item.serials ? item.serials.join(',') : null]
+                );
+                
+                if (item.variant_id) {
+                    db.run('UPDATE product_variants SET stock_quantity = stock_quantity + ? WHERE id = ?', [qty, item.variant_id]);
+                    db.run('UPDATE products SET stock_quantity = stock_quantity + ? WHERE id = ?', [qty, item.product_id]);
+                } else {
+                    db.run('UPDATE products SET stock_quantity = stock_quantity + ? WHERE id = ?', [qty, item.product_id]);
+                }
+                
+                if (item.batch_id) {
+                    db.run('UPDATE product_batches SET current_quantity = current_quantity + ? WHERE id = ?', [qty, item.batch_id]);
+                }
+                
+                if (item.serials && item.serials.length > 0) {
+                    for (const sn of item.serials) {
+                        const trimmedSn = sn.trim().toUpperCase();
+                        if (qty > 0) {
+                            const existingSerial = db.get('SELECT id FROM product_serials WHERE product_id = ? AND UPPER(serial_number) = ?', [item.product_id, trimmedSn]);
+                            if (existingSerial) {
+                                db.run("UPDATE product_serials SET status = 'Available' WHERE id = ?", [existingSerial.id]);
+                            } else {
+                                db.run(
+                                    'INSERT INTO product_serials (product_id, serial_number, status) VALUES (?, ?, ?)',
+                                    [item.product_id, trimmedSn, 'Available']
+                                );
+                            }
+                        } else {
+                            db.run("DELETE FROM product_serials WHERE product_id = ? AND UPPER(serial_number) = ?", [item.product_id, trimmedSn]);
+                        }
+                    }
+                }
+                
+                db.run(
+                    'INSERT INTO stock_movements (product_id, variant_id, type, quantity, reference_type, reference_id, batch_id, notes) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+                    [item.product_id, item.variant_id || null, qty > 0 ? 'IN' : 'OUT', Math.abs(qty), 'Adjustment', adjustmentId, item.batch_id || null, notes || `Stock Adjustment: ${reason}`]
+                );
+            }
+            
+            resultObj = { id: adjustmentId, adjustment_number: adjustmentNumber };
+        });
+        
+        res.status(201).json(resultObj);
+    } catch (err) {
+        next(err);
+    }
+});
+
+// GET /api/products/:id/bundle-items
+router.get('/:id/bundle-items', async (req, res, next) => {
+    try {
+        await db.ready;
+        const bundleId = Number(req.params.id);
+        const items = db.all(`
+            SELECT bi.*, p.name as component_name, p.product_code as component_code, p.stock_quantity as component_stock
+            FROM product_bundle_items bi
+            JOIN products p ON bi.component_id = p.id
+            WHERE bi.bundle_id = ?
+        `, [bundleId]);
+        res.json(items);
+    } catch (err) {
+        next(err);
+    }
+});
+
+// POST /api/products/:id/bundle-items
+router.post('/:id/bundle-items', async (req, res, next) => {
+    try {
+        await db.ready;
+        const bundleId = Number(req.params.id);
+        const { items } = req.body;
+        
+        db.transaction(() => {
+            db.run('DELETE FROM product_bundle_items WHERE bundle_id = ?', [bundleId]);
+            for (const item of items) {
+                db.run(
+                    'INSERT INTO product_bundle_items (bundle_id, component_id, quantity) VALUES (?, ?, ?)',
+                    [bundleId, item.component_id, item.quantity]
+                );
+            }
+            db.run('UPDATE products SET is_bundle = 1 WHERE id = ?', [bundleId]);
+        });
+        res.json({ success: true });
+    } catch (err) {
+        next(err);
+    }
+});
+
 // GET /api/products/:id
 router.get('/:id', async (req, res, next) => {
     try {
@@ -299,6 +702,9 @@ router.get('/:id', async (req, res, next) => {
             err.apiResponse = true;
             throw err;
         }
+        if (product.is_bundle === 1) {
+            product.stock_quantity = resolveBundleStock(product);
+        }
         res.json(product);
     } catch (err) {
         next(err);
@@ -309,7 +715,7 @@ router.get('/:id', async (req, res, next) => {
 router.post('/', async (req, res, next) => {
     try {
         await db.ready;
-        const { name, category, subcategory_id, brand_id, tags, cost_price, selling_price, stock_quantity, product_code, unit, secondary_unit, conversion_factor, allow_decimal, conversion_rate, min_stock_level, max_stock_level, track_batches, track_serials } = req.body;
+        const { name, category, subcategory_id, brand_id, tags, cost_price, selling_price, stock_quantity, product_code, unit, secondary_unit, conversion_factor, allow_decimal, conversion_rate, min_stock_level, max_stock_level, track_batches, track_serials, is_bundle, reorder_quantity } = req.body;
         if (!name) return res.status(400).json({ error: 'Product name is required' });
 
         // M006: Check for duplicate product (by product_code if provided, else by name+category)
@@ -322,8 +728,8 @@ router.post('/', async (req, res, next) => {
         }
 
         const result = db.run(
-            `INSERT INTO products (name, category, subcategory_id, brand_id, tags, cost_price, selling_price, stock_quantity, product_code, unit, secondary_unit, conversion_factor, allow_decimal, conversion_rate, min_stock_level, max_stock_level, track_batches, track_serials) 
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            `INSERT INTO products (name, category, subcategory_id, brand_id, tags, cost_price, selling_price, stock_quantity, product_code, unit, secondary_unit, conversion_factor, allow_decimal, conversion_rate, min_stock_level, max_stock_level, track_batches, track_serials, is_bundle, reorder_quantity) 
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
             [
                 name,
                 category || 'General',
@@ -342,7 +748,9 @@ router.post('/', async (req, res, next) => {
                 min_stock_level !== undefined ? min_stock_level : 5,
                 max_stock_level || 0,
                 track_batches ? 1 : 0,
-                track_serials ? 1 : 0
+                track_serials ? 1 : 0,
+                is_bundle ? 1 : 0,
+                reorder_quantity || 0
             ]
         );
 
@@ -366,7 +774,7 @@ router.post('/', async (req, res, next) => {
 router.put('/:id', async (req, res, next) => {
     try {
         await db.ready;
-        const { name, category, subcategory_id, brand_id, tags, cost_price, selling_price, stock_quantity, product_code, unit, secondary_unit, conversion_factor, allow_decimal, conversion_rate, min_stock_level, max_stock_level, track_batches, track_serials } = req.body;
+        const { name, category, subcategory_id, brand_id, tags, cost_price, selling_price, stock_quantity, product_code, unit, secondary_unit, conversion_factor, allow_decimal, conversion_rate, min_stock_level, max_stock_level, track_batches, track_serials, is_bundle, reorder_quantity } = req.body;
         let product;
         try {
         db.transaction(() => {
@@ -379,7 +787,7 @@ router.put('/:id', async (req, res, next) => {
         }
 
         db.run(
-            `UPDATE products SET name = ?, category = ?, subcategory_id = ?, brand_id = ?, tags = ?, cost_price = ?, selling_price = ?, stock_quantity = ?, product_code = ?, unit = ?, secondary_unit = ?, conversion_factor = ?, allow_decimal = ?, conversion_rate = ?, min_stock_level = ?, max_stock_level = ?, track_batches = ?, track_serials = ? WHERE id = ?`,
+            `UPDATE products SET name = ?, category = ?, subcategory_id = ?, brand_id = ?, tags = ?, cost_price = ?, selling_price = ?, stock_quantity = ?, product_code = ?, unit = ?, secondary_unit = ?, conversion_factor = ?, allow_decimal = ?, conversion_rate = ?, min_stock_level = ?, max_stock_level = ?, track_batches = ?, track_serials = ?, is_bundle = ?, reorder_quantity = ? WHERE id = ?`,
             [
                 name ?? existing.name,
                 category ?? existing.category,
@@ -399,6 +807,8 @@ router.put('/:id', async (req, res, next) => {
                 max_stock_level !== undefined ? max_stock_level : existing.max_stock_level,
                 (track_batches !== undefined) ? (track_batches ? 1 : 0) : existing.track_batches,
                 (track_serials !== undefined) ? (track_serials ? 1 : 0) : existing.track_serials,
+                (is_bundle !== undefined) ? (is_bundle ? 1 : 0) : existing.is_bundle,
+                reorder_quantity !== undefined ? reorder_quantity : existing.reorder_quantity,
                 Number(req.params.id)
             ]
         );

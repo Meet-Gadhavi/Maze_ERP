@@ -112,6 +112,13 @@ const api = {
     getProductSerials: (productId) => request(`/products/${productId}/serials`),
     addProductSerial: (productId, data) => request(`/products/${productId}/serials`, { method: 'POST', body: data }),
     deleteProductSerial: (serialId) => request(`/products/serials/${serialId}`, { method: 'DELETE' }),
+    getInventoryValuation: () => request('/products/valuation'),
+    getReorderSuggestions: () => request('/products/reorders'),
+    createReorderBills: (items) => request('/products/reorders/create-bills', { method: 'POST', body: { items } }),
+    getAdjustmentsHistory: () => request('/products/adjustments'),
+    createBulkAdjustment: (data) => request('/products/adjustments', { method: 'POST', body: data }),
+    getBundleItems: (productId) => request(`/products/${productId}/bundle-items`),
+    saveBundleItems: (productId, items) => request(`/products/${productId}/bundle-items`, { method: 'POST', body: { items } }),
 
     // Invoices
     getInvoices: () => request('/invoices'),

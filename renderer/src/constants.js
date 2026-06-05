@@ -25,7 +25,9 @@ export const EMPTY_PRODUCT = {
     min_stock_level: 5,
     max_stock_level: 0,
     track_batches: false,
-    track_serials: false
+    track_serials: false,
+    is_bundle: false,
+    reorder_quantity: 0
 };
 
 export const EMPTY_CUSTOMER = {

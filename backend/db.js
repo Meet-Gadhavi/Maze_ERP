@@ -183,6 +183,12 @@ ready = (async () => {
       if (!columns.includes('track_serials')) {
         db.run('ALTER TABLE products ADD COLUMN track_serials BOOLEAN DEFAULT 0');
       }
+      if (!columns.includes('is_bundle')) {
+        db.run('ALTER TABLE products ADD COLUMN is_bundle BOOLEAN DEFAULT 0');
+      }
+      if (!columns.includes('reorder_quantity')) {
+        db.run('ALTER TABLE products ADD COLUMN reorder_quantity REAL DEFAULT 0');
+      }
       // Note: SQLite doesn't directly support changing column types. 
       // Existing data will be handled as REAL when read/written.
     }
@@ -885,6 +891,45 @@ ready = (async () => {
       FOREIGN KEY (invoice_id) REFERENCES invoices(id) ON DELETE SET NULL,
       FOREIGN KEY (invoice_item_id) REFERENCES invoice_items(id) ON DELETE SET NULL,
       UNIQUE(product_id, serial_number)
+    )
+  `);
+
+  // Kit/Bundle Management Tables
+  db.run(`
+    CREATE TABLE IF NOT EXISTS product_bundle_items (
+      id            INTEGER PRIMARY KEY AUTOINCREMENT,
+      bundle_id     INTEGER NOT NULL,
+      component_id  INTEGER NOT NULL,
+      quantity      REAL NOT NULL DEFAULT 1,
+      FOREIGN KEY (bundle_id) REFERENCES products(id) ON DELETE CASCADE,
+      FOREIGN KEY (component_id) REFERENCES products(id) ON DELETE CASCADE,
+      UNIQUE(bundle_id, component_id)
+    )
+  `);
+
+  // Stock Adjustment Tables
+  db.run(`
+    CREATE TABLE IF NOT EXISTS stock_adjustments (
+      id          INTEGER PRIMARY KEY AUTOINCREMENT,
+      adjustment_number TEXT UNIQUE NOT NULL,
+      reason      TEXT DEFAULT '',
+      type        TEXT NOT NULL DEFAULT 'Manual',
+      notes       TEXT DEFAULT '',
+      created_at  TEXT NOT NULL DEFAULT (datetime('now','localtime'))
+    )
+  `);
+
+  db.run(`
+    CREATE TABLE IF NOT EXISTS stock_adjustment_items (
+      id            INTEGER PRIMARY KEY AUTOINCREMENT,
+      adjustment_id INTEGER NOT NULL,
+      product_id    INTEGER NOT NULL,
+      variant_id    INTEGER DEFAULT NULL,
+      batch_id      INTEGER DEFAULT NULL,
+      quantity      REAL NOT NULL,
+      serials       TEXT DEFAULT NULL,
+      FOREIGN KEY (adjustment_id) REFERENCES stock_adjustments(id) ON DELETE CASCADE,
+      FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE
     )
   `);
 

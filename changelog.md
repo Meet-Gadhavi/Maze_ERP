@@ -4,6 +4,13 @@ All notable changes to the Quantro ERP application will be documented here.
 
 ---
 
+## [2.9.6] - 2026-06-05
+### Added
+- **Dedicated Stock Adjustment UI**: Replaced single-item adjustments with a comprehensive bulk adjustments history and management suite, supporting write-offs, stock take audits, and custom notes.
+- **Dynamic Inventory Valuation**: Built an interactive valuation panel calculating total asset value across FIFO, LIFO, and Weighted Average Cost (WAC) models using real-time purchase cost layers.
+- **Kit & Bundle Product Management**: Integrated bundle product configuration. Stock is dynamically calculated from component availability, and sales checkout automatically decrements component stocks (with automatic return restoral).
+- **Automated Reorder Point Triggers**: Added smart suggestions for low-stock items with one-click draft purchase order generation, grouped by preferred/last used supplier.
+
 ## [2.9.5] - 2026-06-04
 ### Added
 - **Admin Console Edit & Delete Provisioned Agents**: Integrated options to edit voice agent configurations (name, language, model, voice ID, system prompt, first message) or delete them permanently directly from the online admin console. Deletes are automatically synchronized to local ERP client databases on their next status sync cycle.

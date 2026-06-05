@@ -8,6 +8,111 @@ const whatsappSender = require('../services/whatsappSender');
 const { generateInvoicePDF } = require('../services/pdfGenerator');
 const hostedInvoiceService = require('../services/hostedInvoiceService');
 
+function resolveBundleStock(product) {
+    if (!product || product.is_bundle !== 1) return product ? product.stock_quantity : 0;
+    try {
+        const components = db.all(`
+            SELECT bi.quantity as component_qty, p.stock_quantity 
+            FROM product_bundle_items bi 
+            JOIN products p ON bi.component_id = p.id 
+            WHERE bi.bundle_id = ?
+        `, [product.id]);
+        if (components.length === 0) return 0;
+        let minStock = Infinity;
+        for (const comp of components) {
+            const stockRatio = Math.floor((comp.stock_quantity || 0) / (comp.component_qty || 1));
+            if (stockRatio < minStock) {
+                minStock = stockRatio;
+            }
+        }
+        return minStock === Infinity ? 0 : minStock;
+    } catch (err) {
+        console.error('Failed to resolve bundle stock:', err);
+        return 0;
+    }
+}
+
+function deductProductStock(productId, variantId, qtyToDeduct, invoiceId, notes) {
+    const product = db.get('SELECT * FROM products WHERE id = ?', [productId]);
+    if (!product) return;
+    
+    if (variantId) {
+        db.run('UPDATE product_variants SET stock_quantity = stock_quantity - ? WHERE id = ?', [qtyToDeduct, variantId]);
+        db.run('UPDATE products SET stock_quantity = stock_quantity - ? WHERE id = ?', [qtyToDeduct, productId]);
+    } else {
+        db.run('UPDATE products SET stock_quantity = stock_quantity - ? WHERE id = ?', [qtyToDeduct, productId]);
+    }
+    
+    // Batch tracking
+    let batchId = null;
+    if (product.track_batches) {
+        const batches = db.all('SELECT * FROM product_batches WHERE product_id = ? AND current_quantity > 0 ORDER BY expiry_date ASC, created_at ASC', [productId]);
+        let remaining = qtyToDeduct;
+        for (const batch of batches) {
+            if (remaining <= 0) break;
+            const deduct = Math.min(batch.current_quantity, remaining);
+            db.run('UPDATE product_batches SET current_quantity = current_quantity - ? WHERE id = ?', [deduct, batch.id]);
+            remaining -= deduct;
+            if (!batchId) batchId = batch.id;
+        }
+        if (remaining > 0) {
+            const latest = db.get('SELECT * FROM product_batches WHERE product_id = ? ORDER BY id DESC LIMIT 1', [productId]);
+            if (latest) {
+                db.run('UPDATE product_batches SET current_quantity = current_quantity - ? WHERE id = ?', [remaining, latest.id]);
+                batchId = latest.id;
+            }
+        }
+    }
+    
+    // Serial tracking
+    if (product.track_serials) {
+        const serials = db.all('SELECT * FROM product_serials WHERE product_id = ? AND status = "Available" ORDER BY id ASC LIMIT ?', [productId, Math.ceil(qtyToDeduct)]);
+        for (const serial of serials) {
+            db.run("UPDATE product_serials SET status = 'Sold', invoice_id = ? WHERE id = ?", [invoiceId, serial.id]);
+        }
+    }
+    
+    db.run(
+        'INSERT INTO stock_movements (product_id, variant_id, type, quantity, reference_type, reference_id, batch_id, notes) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+        [productId, variantId || null, 'OUT', qtyToDeduct, 'Invoice', invoiceId, batchId, notes]
+    );
+}
+
+function restoreProductStock(productId, variantId, qtyToRestore, invoiceId, notes) {
+    const product = db.get('SELECT * FROM products WHERE id = ?', [productId]);
+    if (!product) return;
+    
+    if (variantId) {
+        db.run('UPDATE product_variants SET stock_quantity = stock_quantity + ? WHERE id = ?', [qtyToRestore, variantId]);
+        db.run('UPDATE products SET stock_quantity = stock_quantity + ? WHERE id = ?', [qtyToRestore, productId]);
+    } else {
+        db.run('UPDATE products SET stock_quantity = stock_quantity + ? WHERE id = ?', [qtyToRestore, productId]);
+    }
+    
+    // Batch tracking
+    let batchId = null;
+    if (product.track_batches) {
+        const latest = db.get('SELECT * FROM product_batches WHERE product_id = ? ORDER BY id DESC LIMIT 1', [productId]);
+        if (latest) {
+            db.run('UPDATE product_batches SET current_quantity = current_quantity + ? WHERE id = ?', [qtyToRestore, latest.id]);
+            batchId = latest.id;
+        }
+    }
+    
+    // Serial tracking
+    if (product.track_serials) {
+        const serials = db.all('SELECT * FROM product_serials WHERE product_id = ? AND status = "Sold" AND invoice_id = ? ORDER BY id DESC LIMIT ?', [productId, invoiceId, Math.ceil(qtyToRestore)]);
+        for (const serial of serials) {
+            db.run("UPDATE product_serials SET status = 'Available', invoice_id = NULL, invoice_item_id = NULL WHERE id = ?", [serial.id]);
+        }
+    }
+    
+    db.run(
+        'INSERT INTO stock_movements (product_id, variant_id, type, quantity, reference_type, reference_id, batch_id, notes) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+        [productId, variantId || null, 'RETURN', qtyToRestore, 'Invoice Return', invoiceId, batchId, notes]
+    );
+}
+
 // Auto-sync helper for hosted invoices when updated in ERP
 async function syncInvoiceIfShared(invoiceId) {
     try {
@@ -352,6 +457,9 @@ router.post('/', async (req, res, next) => {
             const conversionFactor = isSecondary ? (product.conversion_factor || 1) : 1;
             const baseQuantity = requestedQty * conversionFactor;
             
+            if (product.is_bundle === 1) {
+                product.stock_quantity = resolveBundleStock(product);
+            }
             const currentStock = variant ? Number(variant.stock_quantity || 0) : Number(product.stock_quantity || 0);
             const unit = item.unit || product.unit || 'PCS';
             const promoExpense = isFree ? (requestedQty * originalPrice) : 0;
@@ -367,9 +475,22 @@ router.post('/', async (req, res, next) => {
                 invoiceDeliveryStatus = 'Pending';
             } else {
                 if (settings.flexible_inventory === 'false') {
-                    if (currentStock < baseQuantity) {
-                        res.status(400).json({ error: `Insufficient stock for product: ${product.name}. Required: ${requestedQty} ${unit}, Available: ${variant ? variant.stock_quantity : product.stock_quantity}` });
-                        const err = new Error('Abort'); err.apiResponse = true; throw err;
+                    if (product.is_bundle === 1) {
+                        const components = db.all('SELECT * FROM product_bundle_items WHERE bundle_id = ?', [product.id]);
+                        for (const comp of components) {
+                            const requiredQty = comp.quantity * baseQuantity;
+                            const compProduct = db.get('SELECT * FROM products WHERE id = ?', [comp.component_id]);
+                            const compStock = compProduct ? compProduct.stock_quantity : 0;
+                            if (compStock < requiredQty) {
+                                res.status(400).json({ error: `Insufficient stock for bundle component: ${compProduct ? compProduct.name : 'Unknown'}. Required: ${requiredQty}, Available: ${compStock}` });
+                                const err = new Error('Abort'); err.apiResponse = true; throw err;
+                            }
+                        }
+                    } else {
+                        if (currentStock < baseQuantity) {
+                            res.status(400).json({ error: `Insufficient stock for product: ${product.name}. Required: ${requestedQty} ${unit}, Available: ${variant ? variant.stock_quantity : product.stock_quantity}` });
+                            const err = new Error('Abort'); err.apiResponse = true; throw err;
+                        }
                     }
                 }
 
@@ -465,20 +586,28 @@ router.post('/', async (req, res, next) => {
             }
 
             if (!is_advance && reduceBy > 0) {
-                if (variant) {
-                    db.run('UPDATE product_variants SET stock_quantity = stock_quantity - ? WHERE id = ?', [reduceBy, variant.id]);
-                    db.run('UPDATE products SET stock_quantity = stock_quantity - ? WHERE id = ?', [reduceBy, product.id]);
+                if (product.is_bundle === 1) {
+                    const components = db.all('SELECT * FROM product_bundle_items WHERE bundle_id = ?', [product.id]);
+                    for (const comp of components) {
+                        const requiredQty = comp.quantity * reduceBy;
+                        deductProductStock(comp.component_id, null, requiredQty, invoiceId, `Bundle component deduction for bundle product: ${product.name}`);
+                    }
                 } else {
-                    db.run('UPDATE products SET stock_quantity = stock_quantity - ? WHERE id = ?', [reduceBy, product.id]);
-                }
+                    if (variant) {
+                        db.run('UPDATE product_variants SET stock_quantity = stock_quantity - ? WHERE id = ?', [reduceBy, variant.id]);
+                        db.run('UPDATE products SET stock_quantity = stock_quantity - ? WHERE id = ?', [reduceBy, product.id]);
+                    } else {
+                        db.run('UPDATE products SET stock_quantity = stock_quantity - ? WHERE id = ?', [reduceBy, product.id]);
+                    }
 
-                db.run(
-                    'INSERT INTO stock_movements (product_id, variant_id, type, quantity, reference_type, reference_id, batch_id, notes) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-                    [product.id, variant ? variant.id : null, 'OUT', reduceBy, 'Invoice', invoiceId, item.batch_id || null, 'Sale']
-                );
+                    db.run(
+                        'INSERT INTO stock_movements (product_id, variant_id, type, quantity, reference_type, reference_id, batch_id, notes) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+                        [product.id, variant ? variant.id : null, 'OUT', reduceBy, 'Invoice', invoiceId, item.batch_id || null, 'Sale']
+                    );
 
-                if (item.batch_id) {
-                    db.run('UPDATE product_batches SET current_quantity = current_quantity - ? WHERE id = ?', [reduceBy, item.batch_id]);
+                    if (item.batch_id) {
+                        db.run('UPDATE product_batches SET current_quantity = current_quantity - ? WHERE id = ?', [reduceBy, item.batch_id]);
+                    }
                 }
             }
         }
@@ -880,32 +1009,40 @@ router.post('/:id/return', async (req, res, next) => {
                     returnDetails.push(`${returnQtyForLine}x ${prodName} (₹${lineFinalReturnAmount.toFixed(2)})`);
 
                     // Restore product stock (always restore parent product for non-variant items)
-                    if (line.variant_id) {
-                        // Item was sold as a variant — restore variant stock
-                        db.run(
-                            'UPDATE product_variants SET stock_quantity = stock_quantity + ? WHERE id = ?',
-                            [returnQtyForLine, line.variant_id]
-                        );
-                        db.run(
-                            'UPDATE products SET stock_quantity = stock_quantity + ? WHERE id = ?',
-                            [returnQtyForLine, ret.product_id]
-                        );
+                    if (product && product.is_bundle === 1) {
+                        const components = db.all('SELECT * FROM product_bundle_items WHERE bundle_id = ?', [product.id]);
+                        for (const comp of components) {
+                            const restoreQty = comp.quantity * returnQtyForLine;
+                            restoreProductStock(comp.component_id, null, restoreQty, invoiceId, `Bundle component restore for returned bundle: ${product.name}`);
+                        }
                     } else {
-                        // No variant — restore parent product stock directly
+                        if (line.variant_id) {
+                            // Item was sold as a variant — restore variant stock
+                            db.run(
+                                'UPDATE product_variants SET stock_quantity = stock_quantity + ? WHERE id = ?',
+                                [returnQtyForLine, line.variant_id]
+                            );
+                            db.run(
+                                'UPDATE products SET stock_quantity = stock_quantity + ? WHERE id = ?',
+                                [returnQtyForLine, ret.product_id]
+                            );
+                        } else {
+                            // No variant — restore parent product stock directly
+                            db.run(
+                                'UPDATE products SET stock_quantity = stock_quantity + ? WHERE id = ?',
+                                [returnQtyForLine, ret.product_id]
+                            );
+                        }
+
+                        // Record stock movement for return (include variant_id for audit trail)
                         db.run(
-                            'UPDATE products SET stock_quantity = stock_quantity + ? WHERE id = ?',
-                            [returnQtyForLine, ret.product_id]
+                            'INSERT INTO stock_movements (product_id, variant_id, type, quantity, reference_type, reference_id, batch_id, notes) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+                            [ret.product_id, line.variant_id || null, 'RETURN', returnQtyForLine, 'Invoice Return', invoiceId, line.batch_id || null, 'Sale Return']
                         );
-                    }
 
-                    // Record stock movement for return (include variant_id for audit trail)
-                    db.run(
-                        'INSERT INTO stock_movements (product_id, variant_id, type, quantity, reference_type, reference_id, batch_id, notes) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-                        [ret.product_id, line.variant_id || null, 'RETURN', returnQtyForLine, 'Invoice Return', invoiceId, line.batch_id || null, 'Sale Return']
-                    );
-
-                    if (line.batch_id) {
-                        db.run('UPDATE product_batches SET current_quantity = current_quantity + ? WHERE id = ?', [returnQtyForLine, line.batch_id]);
+                        if (line.batch_id) {
+                            db.run('UPDATE product_batches SET current_quantity = current_quantity + ? WHERE id = ?', [returnQtyForLine, line.batch_id]);
+                        }
                     }
                 }
             }
@@ -1255,10 +1392,50 @@ router.post('/:id/fulfill', async (req, res, next) => {
             if (deliverQty > item.pending_qty) {
                 return res.status(400).json({ error: `Cannot deliver more than pending for ${item.product_name}` });
             }
-            if (deliverQty > product.stock_quantity) {
-                return res.status(400).json({ error: `Insufficient stock for ${product.name}` });
-            }
+            if (product.is_bundle === 1) {
+                const components = db.all('SELECT * FROM product_bundle_items WHERE bundle_id = ?', [product.id]);
+                for (const comp of components) {
+                    const requiredQty = comp.quantity * deliverQty;
+                    const compProduct = db.get('SELECT * FROM products WHERE id = ?', [comp.component_id]);
+                    const compStock = compProduct ? compProduct.stock_quantity : 0;
+                    if (compStock < requiredQty) {
+                        return res.status(400).json({ error: `Insufficient stock for bundle component: ${compProduct ? compProduct.name : 'Unknown'}. Required: ${requiredQty}, Available: ${compStock}` });
+                    }
+                }
+                for (const comp of components) {
+                    const requiredQty = comp.quantity * deliverQty;
+                    deductProductStock(comp.component_id, null, requiredQty, invoiceId, `Bundle component deduction for bundle product: ${product.name} (Fulfillment)`);
+                }
+            } else {
+                if (deliverQty > product.stock_quantity) {
+                    return res.status(400).json({ error: `Insufficient stock for ${product.name}` });
+                }
 
+                if (item.variant_id) {
+                    db.run(
+                        'UPDATE product_variants SET stock_quantity = stock_quantity - ? WHERE id = ?',
+                        [deliverQty, item.variant_id]
+                    );
+                }
+
+                db.run(
+                    'UPDATE products SET stock_quantity = stock_quantity - ? WHERE id = ?',
+                    [deliverQty, product.id]
+                );
+
+                db.run(
+                    'INSERT INTO stock_movements (product_id, variant_id, type, quantity, reference_type, reference_id, notes) VALUES (?, ?, ?, ?, ?, ?, ?)',
+                    [product.id, item.variant_id || null, 'OUT', deliverQty, 'Invoice Fulfillment', invoiceId, 'Fulfillment Delivery']
+                );
+                
+                // M035: Verify batch availability before deducting
+                if (f.batch_id) {
+                    const batch = db.get('SELECT current_quantity FROM product_batches WHERE id = ?', [f.batch_id]);
+                    if (!batch || batch.current_quantity < deliverQty) {
+                        return res.status(400).json({ error: `Insufficient batch stock for ${item.product_name}. Available: ${batch?.current_quantity ?? 0}` });
+                    }
+                }
+            }
             const newDelivered = item.qty_delivered + deliverQty;
             const newPending = item.qty_requested - newDelivered;
             const newStatus = newPending === 0 ? 'Delivered' : 'Partial';
@@ -1269,32 +1446,6 @@ router.post('/:id/fulfill', async (req, res, next) => {
                 'UPDATE invoice_items SET qty_delivered = ?, pending_qty = ?, delivery_status = ?, total = ? WHERE id = ?',
                 [newDelivered, newPending, newStatus, newLineTotal, item.id]
             );
-
-            if (item.variant_id) {
-                db.run(
-                    'UPDATE product_variants SET stock_quantity = stock_quantity - ? WHERE id = ?',
-                    [deliverQty, item.variant_id]
-                );
-            }
-
-            db.run(
-                'UPDATE products SET stock_quantity = stock_quantity - ? WHERE id = ?',
-                [deliverQty, product.id]
-            );
-
-            db.run(
-                'INSERT INTO stock_movements (product_id, variant_id, type, quantity, reference_type, reference_id, notes) VALUES (?, ?, ?, ?, ?, ?, ?)',
-                [product.id, item.variant_id || null, 'OUT', deliverQty, 'Invoice Fulfillment', invoiceId, 'Fulfillment Delivery']
-            );
-            
-            // M035: Verify batch availability before deducting
-            if (f.batch_id) {
-                const batch = db.get('SELECT current_quantity FROM product_batches WHERE id = ?', [f.batch_id]);
-                if (!batch || batch.current_quantity < deliverQty) {
-                    return res.status(400).json({ error: `Insufficient batch stock for ${item.product_name}. Available: ${batch?.current_quantity ?? 0}` });
-                }
-                db.run('UPDATE product_batches SET current_quantity = current_quantity - ? WHERE id = ?', [deliverQty, f.batch_id]);
-            }
 
             db.run('INSERT INTO audit_logs (invoice_id, action, details) VALUES (?, ?, ?)',
                 [invoiceId, 'Fulfillment', `Delivered ${deliverQty} units of ${item.product_name}`]);
@@ -1383,7 +1534,21 @@ router.post('/:id/process-advance', async (req, res, next) => {
             let status = item.delivery_status;
             let reduceBy = 0;
 
-            const currentStock = Number(product.stock_quantity || 0);
+            let currentStock = Number(product.stock_quantity || 0);
+            if (product.is_bundle === 1) {
+                const components = db.all('SELECT * FROM product_bundle_items WHERE bundle_id = ?', [product.id]);
+                let bundleStock = Infinity;
+                for (const comp of components) {
+                    const compProduct = db.get('SELECT * FROM products WHERE id = ?', [comp.component_id]);
+                    const compStock = compProduct ? compProduct.stock_quantity : 0;
+                    const possible = Math.floor(compStock / comp.quantity);
+                    if (possible < bundleStock) {
+                        bundleStock = possible;
+                    }
+                }
+                currentStock = bundleStock === Infinity ? 0 : bundleStock;
+            }
+
             if (currentStock >= pendingQtyBefore) {
                 deliverNow = pendingQtyBefore;
                 status = 'Delivered';
@@ -1412,22 +1577,30 @@ router.post('/:id/process-advance', async (req, res, next) => {
             );
 
             if (reduceBy > 0) {
-                if (item.variant_id) {
+                if (product.is_bundle === 1) {
+                    const components = db.all('SELECT * FROM product_bundle_items WHERE bundle_id = ?', [product.id]);
+                    for (const comp of components) {
+                        const requiredQty = comp.quantity * reduceBy;
+                        deductProductStock(comp.component_id, null, requiredQty, invoiceId, `Bundle component deduction for bundle product: ${product.name} (Advance Fulfillment)`);
+                    }
+                } else {
+                    if (item.variant_id) {
+                        db.run(
+                            'UPDATE product_variants SET stock_quantity = stock_quantity - ? WHERE id = ?',
+                            [reduceBy, item.variant_id]
+                        );
+                    }
+
                     db.run(
-                        'UPDATE product_variants SET stock_quantity = stock_quantity - ? WHERE id = ?',
-                        [reduceBy, item.variant_id]
+                        'UPDATE products SET stock_quantity = stock_quantity - ? WHERE id = ?',
+                        [reduceBy, product.id]
+                    );
+                    
+                    db.run(
+                        'INSERT INTO stock_movements (product_id, variant_id, type, quantity, reference_type, reference_id, notes) VALUES (?, ?, ?, ?, ?, ?, ?)',
+                        [product.id, item.variant_id || null, 'OUT', reduceBy, 'Advance Invoice', invoiceId, 'Advance Delivery']
                     );
                 }
-
-                db.run(
-                    'UPDATE products SET stock_quantity = stock_quantity - ? WHERE id = ?',
-                    [reduceBy, product.id]
-                );
-                
-                db.run(
-                    'INSERT INTO stock_movements (product_id, variant_id, type, quantity, reference_type, reference_id, notes) VALUES (?, ?, ?, ?, ?, ?, ?)',
-                    [product.id, item.variant_id || null, 'OUT', reduceBy, 'Advance Invoice', invoiceId, 'Advance Delivery']
-                );
             }
         }
 

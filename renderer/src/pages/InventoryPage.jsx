@@ -69,6 +69,87 @@ export default function InventoryPage() {
     const [newManualSerial, setNewManualSerial] = useState('');
     const [editingSubCatName, setEditingSubCatName] = useState('');
 
+    // Valuation state
+    const [valuationData, setValuationData] = useState({ totals: { fifo: 0, lifo: 0, wac: 0 }, items: [] });
+    const [valuationMethod, setValuationMethod] = useState('fifo'); // 'fifo', 'lifo', 'wac'
+    const [loadingValuation, setLoadingValuation] = useState(false);
+    
+    // Reorders state
+    const [reorderSuggestions, setReorderSuggestions] = useState([]);
+    const [selectedReorders, setSelectedReorders] = useState({}); // { product_id: true }
+    const [loadingReorders, setLoadingReorders] = useState(false);
+    
+    // Adjustments state
+    const [adjustmentsHistory, setAdjustmentsHistory] = useState([]);
+    const [loadingAdjustments, setLoadingAdjustments] = useState(false);
+    const [showBulkAdjustModal, setShowBulkAdjustModal] = useState(false);
+    const [bulkAdjustItems, setBulkAdjustItems] = useState([]); // Array of { product_id, variant_id, batch_id, quantity, serials }
+    const [bulkAdjustReason, setBulkAdjustReason] = useState('Stock Take');
+    const [bulkAdjustNotes, setBulkAdjustNotes] = useState('');
+
+    // Bundle items state
+    const [bundleItems, setBundleItems] = useState([]); // { component_id, component_name, quantity, component_stock }
+    const [newBundleCompId, setNewBundleCompId] = useState('');
+    const [newBundleQty, setNewBundleQty] = useState('1');
+    const [loadingBundleItems, setLoadingBundleItems] = useState(false);
+
+    const loadValuation = useCallback(async () => {
+        try {
+            setLoadingValuation(true);
+            const data = await api.getInventoryValuation();
+            setValuationData(data);
+        } catch (err) {
+            console.error('Failed to load valuation', err);
+            toast.error('Failed to load valuation data');
+        } finally {
+            setLoadingValuation(false);
+        }
+    }, []);
+
+    const loadReorders = useCallback(async () => {
+        try {
+            setLoadingReorders(true);
+            const data = await api.getReorderSuggestions();
+            setReorderSuggestions(data);
+            const initialSelected = {};
+            data.forEach(item => {
+                initialSelected[item.product_id] = true;
+            });
+            setSelectedReorders(initialSelected);
+        } catch (err) {
+            console.error('Failed to load reorders', err);
+            toast.error('Failed to load reorder suggestions');
+        } finally {
+            setLoadingReorders(false);
+        }
+    }, []);
+
+    const loadAdjustments = useCallback(async () => {
+        try {
+            setLoadingAdjustments(true);
+            const data = await api.getAdjustmentsHistory();
+            setAdjustmentsHistory(data);
+        } catch (err) {
+            console.error('Failed to load adjustments', err);
+            toast.error('Failed to load stock adjustments history');
+        } finally {
+            setLoadingAdjustments(false);
+        }
+    }, []);
+
+    async function loadBundleItems(productId) {
+        try {
+            setLoadingBundleItems(true);
+            const data = await api.getBundleItems(productId);
+            setBundleItems(data);
+        } catch (err) {
+            console.error('Failed to load bundle items', err);
+            toast.error('Failed to load bundle components');
+        } finally {
+            setLoadingBundleItems(false);
+        }
+    }
+
     async function loadSerials(productId) {
         try {
             setLoadingSerials(true);
@@ -171,8 +252,14 @@ export default function InventoryPage() {
             loadPendingItems();
         } else if (activeTab === 'alerts') {
             api.getStockAlerts().then(setAlertsData).catch(err => toast.error('Failed to load alerts'));
+        } else if (activeTab === 'valuation') {
+            loadValuation();
+        } else if (activeTab === 'reorders') {
+            loadReorders();
+        } else if (activeTab === 'adjustments') {
+            loadAdjustments();
         }
-    }, [activeTab, loadProducts, loadPendingItems]);
+    }, [activeTab, loadProducts, loadPendingItems, loadValuation, loadReorders, loadAdjustments]);
 
     // Close category menu on outside click
     useEffect(() => {
@@ -204,8 +291,9 @@ export default function InventoryPage() {
         setEditingProduct(null);
         // Use first available category or empty string as default
         const defaultCat = categories.length > 0 ? categories[0] : '';
-        setForm({ ...EMPTY_PRODUCT, category: defaultCat });
+        setForm({ ...EMPTY_PRODUCT, category: defaultCat, is_bundle: false, reorder_quantity: '0' });
         setTempVariants([]);
+        setBundleItems([]);
         setVariantForm({ name: '', sku: '', selling_price: '', cost_price: '', stock_quantity: 0, min_stock_level: 0, max_stock_level: 0 });
         setShowModal(true);
         setActiveModalTab('basic');
@@ -231,14 +319,21 @@ export default function InventoryPage() {
             min_stock_level: product.min_stock_level ?? 5,
             max_stock_level: product.max_stock_level ?? 0,
             track_batches: !!product.track_batches,
-            track_serials: !!product.track_serials
+            track_serials: !!product.track_serials,
+            is_bundle: product.is_bundle === 1,
+            reorder_quantity: String(product.reorder_quantity || 0)
         });
         setTempVariants([]);
+        setBundleItems([]);
         setVariantForm({ name: '', sku: '', selling_price: '', cost_price: '', stock_quantity: 0, min_stock_level: 0, max_stock_level: 0 });
         setShowModal(true);
         setActiveModalTab('basic');
         loadPendingOrders(product.id);
-        loadProductVariants(product.id);
+        if (product.is_bundle === 1) {
+            loadBundleItems(product.id);
+        } else {
+            loadProductVariants(product.id);
+        }
     }
 
     async function loadProductVariants(productId) {
@@ -280,6 +375,11 @@ export default function InventoryPage() {
             return;
         }
 
+        if (form.is_bundle && bundleItems.length === 0) {
+            toast.error('A bundle product must have at least one component');
+            return;
+        }
+
         const payload = {
             name: form.name.trim(),
             category: form.category.trim() || (categories.length > 0 ? categories[0] : 'General'),
@@ -298,7 +398,9 @@ export default function InventoryPage() {
             min_stock_level: parseFloat(form.min_stock_level) || 0,
             max_stock_level: parseFloat(form.max_stock_level) || 0,
             track_batches: form.track_batches,
-            track_serials: form.track_serials
+            track_serials: form.track_serials,
+            is_bundle: form.is_bundle ? 1 : 0,
+            reorder_quantity: parseFloat(form.reorder_quantity) || 0
         };
 
         setSaving(true);
@@ -307,8 +409,12 @@ export default function InventoryPage() {
                 ? await api.updateProduct(editingProduct.id, payload)
                 : await api.createProduct(payload);
 
+            if (form.is_bundle) {
+                await api.saveBundleItems(product.id, bundleItems);
+            }
+
             // If new product and has temp variants, create them
-            if (!editingProduct && tempVariants.length > 0) {
+            if (!editingProduct && tempVariants.length > 0 && !form.is_bundle) {
                 for (const v of tempVariants) {
                     await api.createVariant(product.id, v);
                 }
@@ -565,7 +671,7 @@ export default function InventoryPage() {
             </div>
 
             <div className="tabs" style={{ marginBottom: 20 }}>
-                {['inventory', 'pending', 'alerts'].map((tab, idx, arr) => (
+                {['inventory', 'pending', 'alerts', 'adjustments', 'valuation', 'reorders'].map((tab, idx, arr) => (
                     <button
                         key={tab}
                         id={`tab-${tab}`}
@@ -586,7 +692,12 @@ export default function InventoryPage() {
                             }
                         }}
                     >
-                        {tab === 'inventory' ? 'All products' : tab === 'pending' ? 'Pending Product' : 'Smart Alerts'}
+                        {tab === 'inventory' ? 'All products' : 
+                         tab === 'pending' ? 'Pending Product' : 
+                         tab === 'alerts' ? 'Smart Alerts' :
+                         tab === 'adjustments' ? 'Stock Adjustments' :
+                         tab === 'valuation' ? 'Valuation' :
+                         'Reorders'}
                     </button>
                 ))}
             </div>
@@ -738,7 +849,10 @@ export default function InventoryPage() {
                                                                 {subProducts.map(p => (
                                                                     <tr key={p.id} className="product-row">
                                                                         <td>
-                                                                            <div className="fw-600">{p.name}</div>
+                                                                            <div className="fw-600 flex items-center gap-8">
+                                                                                {p.name}
+                                                                                {p.is_bundle === 1 && <span className="badge badge-info" style={{ fontSize: '0.7em', padding: '2px 6px', background: 'var(--border-subtle)', color: 'var(--text-secondary)', borderRadius: '4px', border: '1px solid var(--border)' }}>Bundle</span>}
+                                                                            </div>
                                                                             {p.tags && <div className="p-tags">{p.tags.split(',').map(t => <span key={t} className="tag-pill">{t.trim()}</span>)}</div>}
                                                                         </td>
                                                                         <td>
@@ -957,6 +1071,451 @@ export default function InventoryPage() {
                 </div>
             )}
 
+            {activeTab === 'adjustments' && (
+                <div className="adjustments-view" style={{ padding: '0 20px 20px 20px' }}>
+                    <div className="section-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+                        <div>
+                            <h2 style={{ fontSize: '1.1em', fontWeight: 600, color: 'var(--text-primary)' }}>Stock Adjustment History</h2>
+                            <p className="text-secondary size-12">View and log inventory write-offs, stock take corrections and audits</p>
+                        </div>
+                        <s-button variant="primary" onClick={() => {
+                            setBulkAdjustItems([]);
+                            setBulkAdjustReason('Stock Take');
+                            setBulkAdjustNotes('');
+                            setNewManualSerial('');
+                            setAdjustQuantity('');
+                            setShowBulkAdjustModal(true);
+                        }}>
+                            + New Adjustment
+                        </s-button>
+                    </div>
+
+                    <div className="product-table-wrap">
+                        {loadingAdjustments ? (
+                            <Skeleton type="table" count={3} />
+                        ) : adjustmentsHistory.length === 0 ? (
+                            <div className="empty-state-premium">
+                                <div className="empty-icon-wrapper">
+                                    <Icons.Activity size={40} />
+                                </div>
+                                <h3>No Adjustments Recorded</h3>
+                                <p>You have not logged any manual stock adjustments or counts yet.</p>
+                            </div>
+                        ) : (
+                            <div className="pending-items-table-wrap">
+                                <table className="pending-items-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Ref Number</th>
+                                            <th>Date & Time</th>
+                                            <th>Reason</th>
+                                            <th>Type</th>
+                                            <th>Notes</th>
+                                            <th>Items Adjusted</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {adjustmentsHistory.map((adj, idx) => (
+                                            <tr key={idx} style={{ verticalAlign: 'top' }}>
+                                                <td className="fw-600 color-accent">{adj.adjustment_number}</td>
+                                                <td>{formatDate(adj.created_at)}</td>
+                                                <td>
+                                                    <span className="badge badge-warning">{adj.reason}</span>
+                                                </td>
+                                                <td>{adj.type}</td>
+                                                <td style={{ maxWidth: '250px', whiteSpace: 'normal' }}>{adj.notes || '—'}</td>
+                                                <td>
+                                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                                        {adj.items && adj.items.map((item, i) => (
+                                                            <div key={i} className="size-11 flex justify-between" style={{ borderBottom: '1px solid var(--border-subtle)', paddingBottom: '2px', gap: '20px' }}>
+                                                                <span className="fw-500">{item.product_name}</span>
+                                                                <strong className={item.quantity > 0 ? 'color-success' : 'color-danger'}>
+                                                                    {item.quantity > 0 ? `+${item.quantity}` : item.quantity}
+                                                                </strong>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                        )}
+                    </div>
+                </div>
+            )}
+
+            {activeTab === 'valuation' && (
+                <div className="valuation-view" style={{ padding: '0 20px 20px 20px' }}>
+                    <div className="section-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+                        <div>
+                            <h2 style={{ fontSize: '1.1em', fontWeight: 600, color: 'var(--text-primary)' }}>Inventory Valuation</h2>
+                            <p className="text-secondary size-12">Total value of currently held stock based on cost layers</p>
+                        </div>
+                        <div className="flex gap-8">
+                            {['fifo', 'lifo', 'wac'].map(method => (
+                                <s-button
+                                    key={method}
+                                    variant={valuationMethod === method ? 'primary' : 'secondary'}
+                                    onClick={() => setValuationMethod(method)}
+                                >
+                                    {method.toUpperCase()}
+                                </s-button>
+                            ))}
+                        </div>
+                    </div>
+
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '20px', marginBottom: '24px' }}>
+                        <div className="dashboard-metric-card" style={{ borderLeft: '4px solid var(--accent)', padding: '16px', borderRadius: '8px', background: 'var(--bg-card)' }}>
+                            <div className="metric-label" style={{ fontSize: '0.85em', color: 'var(--text-secondary)' }}>FIFO Value</div>
+                            <div className="metric-value" style={{ fontSize: '1.5em', fontWeight: 700, color: 'var(--text-primary)' }}>₹{Number(valuationData.totals?.fifo || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
+                        </div>
+                        <div className="dashboard-metric-card" style={{ borderLeft: '4px solid var(--warning)', padding: '16px', borderRadius: '8px', background: 'var(--bg-card)' }}>
+                            <div className="metric-label" style={{ fontSize: '0.85em', color: 'var(--text-secondary)' }}>LIFO Value</div>
+                            <div className="metric-value" style={{ fontSize: '1.5em', fontWeight: 700, color: 'var(--text-primary)' }}>₹{Number(valuationData.totals?.lifo || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
+                        </div>
+                        <div className="dashboard-metric-card" style={{ borderLeft: '4px solid var(--success)', padding: '16px', borderRadius: '8px', background: 'var(--bg-card)' }}>
+                            <div className="metric-label" style={{ fontSize: '0.85em', color: 'var(--text-secondary)' }}>WAC Value</div>
+                            <div className="metric-value" style={{ fontSize: '1.5em', fontWeight: 700, color: 'var(--text-primary)' }}>₹{Number(valuationData.totals?.wac || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
+                        </div>
+                    </div>
+
+                    <div className="product-table-wrap">
+                        {loadingValuation ? (
+                            <Skeleton type="table" count={3} />
+                        ) : valuationData.items?.length === 0 ? (
+                            <div className="empty-state-premium">
+                                <div className="empty-icon-wrapper">
+                                    <Icons.PieChart size={40} />
+                                </div>
+                                <h3>No Valuation Data</h3>
+                                <p>No products are currently in stock to perform valuation calculations.</p>
+                            </div>
+                        ) : (
+                            <div className="pending-items-table-wrap">
+                                <table className="pending-items-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Product</th>
+                                            <th>Code</th>
+                                            <th>Category</th>
+                                            <th style={{ textAlign: 'right' }}>Stock Qty</th>
+                                            <th style={{ textAlign: 'right' }}>Default Cost</th>
+                                            <th style={{ textAlign: 'right' }}>Avg. Cost</th>
+                                            <th style={{ textAlign: 'right' }}>Valuation (Selected)</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {valuationData.items?.map((item, idx) => {
+                                            const selectedVal = valuationMethod === 'fifo' ? item.fifo_value : (valuationMethod === 'lifo' ? item.lifo_value : item.wac_value);
+                                            return (
+                                                <tr key={idx}>
+                                                    <td className="fw-600">{item.name}</td>
+                                                    <td>{item.product_code || '—'}</td>
+                                                    <td>{item.category || 'General'}</td>
+                                                    <td style={{ textAlign: 'right' }} className="fw-600">{item.stock_quantity}</td>
+                                                    <td style={{ textAlign: 'right' }}>₹{Number(item.cost_price).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
+                                                    <td style={{ textAlign: 'right' }}>₹{Number(item.avg_purchase_price).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
+                                                    <td style={{ textAlign: 'right' }} className="fw-600 color-accent">₹{Number(selectedVal).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
+                                                </tr>
+                                            );
+                                        })}
+                                    </tbody>
+                                </table>
+                            </div>
+                        )}
+                    </div>
+                </div>
+            )}
+
+            {activeTab === 'reorders' && (
+                <div className="reorders-view" style={{ padding: '0 20px 20px 20px' }}>
+                    <div className="section-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+                        <div>
+                            <h2 style={{ fontSize: '1.1em', fontWeight: 600, color: 'var(--text-primary)' }}>Reorder Suggestions</h2>
+                            <p className="text-secondary size-12">Automated recommendations for items below or at minimum stock levels</p>
+                        </div>
+                        <s-button
+                            variant="primary"
+                            disabled={!Object.values(selectedReorders).some(Boolean) || reorderSuggestions.length === 0}
+                            onClick={async () => {
+                                const selectedItems = reorderSuggestions.filter(item => selectedReorders[item.product_id]);
+                                if (selectedItems.length === 0) return;
+                                
+                                const payload = selectedItems.map(item => ({
+                                    product_id: item.product_id,
+                                    product_name: item.name,
+                                    quantity: item.reorder_quantity,
+                                    price: item.last_price,
+                                    supplier_id: item.last_supplier_id
+                                }));
+                                
+                                try {
+                                    const res = await api.createReorderBills(payload);
+                                    toast.success(`Created ${res.purchase_ids?.length} draft purchase orders successfully!`);
+                                    loadReorders();
+                                } catch (err) {
+                                    toast.error(err.message || 'Failed to generate purchase orders');
+                                }
+                            }}
+                        >
+                            Generate Draft Purchase Orders
+                        </s-button>
+                    </div>
+
+                    <div className="product-table-wrap">
+                        {loadingReorders ? (
+                            <Skeleton type="table" count={3} />
+                        ) : reorderSuggestions.length === 0 ? (
+                            <div className="empty-state-premium">
+                                <div className="empty-icon-wrapper" style={{ color: 'var(--success)', background: 'var(--success-bg)' }}>
+                                    <Icons.CheckCircle size={40} />
+                                </div>
+                                <h3>Stock Levels are Perfect</h3>
+                                <p>All items have stock levels above their minimum limits.</p>
+                            </div>
+                        ) : (
+                            <div className="pending-items-table-wrap">
+                                <table className="pending-items-table">
+                                    <thead>
+                                        <tr>
+                                            <th style={{ width: '40px', textAlign: 'center' }}>
+                                                <input
+                                                    type="checkbox"
+                                                    checked={reorderSuggestions.length > 0 && reorderSuggestions.every(item => selectedReorders[item.product_id])}
+                                                    onChange={e => {
+                                                        const checked = e.target.checked;
+                                                        const nextSelected = {};
+                                                        reorderSuggestions.forEach(item => {
+                                                            nextSelected[item.product_id] = checked;
+                                                        });
+                                                        setSelectedReorders(nextSelected);
+                                                    }}
+                                                />
+                                            </th>
+                                            <th>Product</th>
+                                            <th>SKU/Code</th>
+                                            <th style={{ textAlign: 'right' }}>Current Stock</th>
+                                            <th style={{ textAlign: 'right' }}>Min Stock Limit</th>
+                                            <th style={{ textAlign: 'right' }}>Suggested Reorder Qty</th>
+                                            <th>Preferred/Last Supplier</th>
+                                            <th style={{ textAlign: 'right' }}>Estimated Unit Cost</th>
+                                            <th style={{ textAlign: 'right' }}>Estimated Total</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {reorderSuggestions.map((item, idx) => (
+                                            <tr key={idx}>
+                                                <td style={{ textAlign: 'center' }}>
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={!!selectedReorders[item.product_id]}
+                                                        onChange={e => {
+                                                            setSelectedReorders({
+                                                                ...selectedReorders,
+                                                                [item.product_id]: e.target.checked
+                                                            });
+                                                        }}
+                                                    />
+                                                </td>
+                                                <td className="fw-600">{item.name}</td>
+                                                <td>{item.product_code || '—'}</td>
+                                                <td style={{ textAlign: 'right' }} className="color-danger fw-600">{item.stock_quantity}</td>
+                                                <td style={{ textAlign: 'right' }}>{item.min_stock_level}</td>
+                                                <td style={{ textAlign: 'right' }}>
+                                                    <input
+                                                        type="number"
+                                                        style={{ width: '80px', padding: '4px', textAlign: 'right', border: '1px solid var(--border)', borderRadius: '4px', background: 'var(--bg-primary)', color: 'var(--text-primary)' }}
+                                                        value={item.reorder_quantity}
+                                                        onChange={e => {
+                                                            const val = parseFloat(e.target.value) || 0;
+                                                            setReorderSuggestions(reorderSuggestions.map((s, i) => i === idx ? { ...s, reorder_quantity: val } : s));
+                                                        }}
+                                                    />
+                                                </td>
+                                                <td>{item.last_supplier_name}</td>
+                                                <td style={{ textAlign: 'right' }}>₹{Number(item.last_price).toLocaleString('en-IN')}</td>
+                                                <td style={{ textAlign: 'right' }} className="fw-600">₹{Number(item.reorder_quantity * item.last_price).toLocaleString('en-IN')}</td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                        )}
+                    </div>
+                </div>
+            )}
+
+            {showBulkAdjustModal && (
+            <s-modal
+                id="bulk-adjustment-modal"
+                heading="New Stock Adjustment"
+                size="large"
+                ref={el => {
+                    if (el && !el.dataset.init) {
+                        el.dataset.init = '1';
+                        setTimeout(() => {
+                            let btn = document.getElementById('trigger-' + el.id);
+                            if (btn) btn.remove();
+                            btn = document.createElement('s-button');
+                            btn.id = 'trigger-' + el.id;
+                            btn.setAttribute('commandFor', el.id);
+                            btn.setAttribute('command', '--show');
+                            btn.style.display = 'none';
+                            document.body.appendChild(btn);
+                            setTimeout(() => btn.click(), 100);
+                        }, 10);
+                        el.addEventListener('hide', () => setShowBulkAdjustModal(false));
+                    }
+                }}
+            >
+                <div className="grid grid-2 gap-12" style={{ marginBottom: '16px' }}>
+                    <FormGroup label="Reason" required>
+                        <CustomSelect
+                            value={bulkAdjustReason}
+                            onChange={val => setBulkAdjustReason(val)}
+                            options={[
+                                { value: 'Stock Take', label: 'Stock Take / Inventory Count' },
+                                { value: 'Damage', label: 'Damaged Goods / Scrap' },
+                                { value: 'Theft', label: 'Theft / Loss' },
+                                { value: 'Correction', label: 'Data Correction' },
+                                { value: 'Return', label: 'Unrecorded Customer Return' }
+                            ]}
+                        />
+                    </FormGroup>
+                    <FormGroup label="Adjustment Notes">
+                        <Input
+                            placeholder="Add reference notes..."
+                            value={bulkAdjustNotes}
+                            onChange={e => setBulkAdjustNotes(e.target.value)}
+                        />
+                    </FormGroup>
+                </div>
+
+                <h4 className="size-14 fw-600 mb-12 mt-20">Adjusted Items</h4>
+                <div className="p-16 bg-secondary rounded-8 mb-16 flex gap-12 items-end">
+                    <div style={{ flex: 2 }}>
+                        <label className="form-label size-12 fw-600 mb-4 block">Product</label>
+                        <CustomSelect
+                            options={[
+                                { value: '', label: 'Select Product to Adjust...' },
+                                ...products.filter(p => p.is_bundle !== 1).map(p => ({
+                                    value: p.id,
+                                    label: `${p.name} (${p.product_code || 'No SKU'} • Stock: ${p.stock_quantity})`
+                                }))
+                            ]}
+                            value={newManualSerial}
+                            onChange={val => setNewManualSerial(val)}
+                        />
+                    </div>
+                    <div style={{ flex: 1 }}>
+                        <label className="form-label size-12 fw-600 mb-4 block">Quantity Difference</label>
+                        <Input
+                            type="number"
+                            placeholder="e.g. -5, 10"
+                            value={adjustQuantity}
+                            onChange={e => setAdjustQuantity(e.target.value)}
+                        />
+                    </div>
+                    <s-button
+                        variant="primary"
+                        style={{ height: '42px' }}
+                        onClick={() => {
+                            const prodId = Number(newManualSerial);
+                            if (!prodId) return toast.error('Select a product');
+                            const diff = parseFloat(adjustQuantity);
+                            if (isNaN(diff) || diff === 0) return toast.error('Enter a valid non-zero difference');
+                            
+                            const p = products.find(prod => prod.id === prodId);
+                            if (!p) return;
+                            
+                            if (bulkAdjustItems.some(item => item.product_id === prodId)) {
+                                return toast.error('Product already added to list');
+                            }
+                            
+                            setBulkAdjustItems([...bulkAdjustItems, {
+                                product_id: p.id,
+                                name: p.name,
+                                product_code: p.product_code,
+                                quantity: diff,
+                                current_stock: p.stock_quantity
+                            }]);
+                            setNewManualSerial('');
+                            setAdjustQuantity('');
+                        }}
+                    >
+                        Add Item
+                    </s-button>
+                </div>
+
+                <div className="premium-table-wrap" style={{ maxHeight: '35vh', overflowY: 'auto' }}>
+                    <table className="premium-table compact">
+                        <thead>
+                            <tr>
+                                <th>Product Name</th>
+                                <th>SKU/Code</th>
+                                <th style={{ textAlign: 'right' }}>Current Stock</th>
+                                <th style={{ textAlign: 'right' }}>Difference</th>
+                                <th style={{ textAlign: 'right' }}>New Stock</th>
+                                <th style={{ textAlign: 'right' }}>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {bulkAdjustItems.length === 0 ? (
+                                <tr>
+                                    <td colSpan={6} className="text-center p-24 text-secondary italic">No products added. Add products above.</td>
+                                </tr>
+                            ) : (
+                                bulkAdjustItems.map((item, idx) => (
+                                    <tr key={idx}>
+                                        <td className="fw-600">{item.name}</td>
+                                        <td>{item.product_code || '—'}</td>
+                                        <td style={{ textAlign: 'right' }}>{item.current_stock}</td>
+                                        <td style={{ textAlign: 'right' }} className={item.quantity > 0 ? 'color-success fw-600' : 'color-danger fw-600'}>
+                                            {item.quantity > 0 ? `+${item.quantity}` : item.quantity}
+                                        </td>
+                                        <td style={{ textAlign: 'right' }} className="fw-600">{item.current_stock + item.quantity}</td>
+                                        <td style={{ textAlign: 'right' }}>
+                                            <s-button tone="critical" onClick={() => {
+                                                setBulkAdjustItems(bulkAdjustItems.filter((_, i) => i !== idx));
+                                            }}>Remove</s-button>
+                                        </td>
+                                    </tr>
+                                ))
+                            )}
+                        </tbody>
+                    </table>
+                </div>
+
+                <s-button slot="secondary-actions" onClick={() => setShowBulkAdjustModal(false)}>Cancel</s-button>
+                <s-button
+                    slot="primary-action"
+                    variant="primary"
+                    disabled={bulkAdjustItems.length === 0}
+                    onClick={async () => {
+                        try {
+                            await api.createBulkAdjustment({
+                                reason: bulkAdjustReason,
+                                notes: bulkAdjustNotes,
+                                type: 'Manual',
+                                items: bulkAdjustItems
+                            });
+                            toast.success('Adjustment saved successfully');
+                            setShowBulkAdjustModal(false);
+                            setBulkAdjustItems([]);
+                            loadAdjustments();
+                            loadProducts();
+                        } catch (err) {
+                            toast.error(err.message || 'Failed to apply adjustments');
+                        }
+                    }}
+                >
+                    Apply Adjustments
+                </s-button>
+            </s-modal>
+            )}
+
             {!!adjustModalProduct && (
             <s-modal
                 id="adjust-stock-modal"
@@ -1118,8 +1677,16 @@ export default function InventoryPage() {
             >
                 <div className="modal-tabs" style={{ marginBottom: 20 }}>
                     <button className={`modal-tab ${activeModalTab === 'basic' ? 'active' : ''}`} onClick={() => setActiveModalTab('basic')}>Basic Details</button>
-                    <button className={`modal-tab ${activeModalTab === 'variants' ? 'active' : ''}`} onClick={() => setActiveModalTab('variants')}>Variants & SKUs</button>
-                    {editingProduct && settings.enable_serial_tracking === 'true' && form.track_serials && (
+                    {!form.is_bundle && (
+                        <button className={`modal-tab ${activeModalTab === 'variants' ? 'active' : ''}`} onClick={() => setActiveModalTab('variants')}>Variants & SKUs</button>
+                    )}
+                    {form.is_bundle && (
+                        <button className={`modal-tab ${activeModalTab === 'bundle' ? 'active' : ''}`} onClick={() => {
+                            setActiveModalTab('bundle');
+                            if (editingProduct) loadBundleItems(editingProduct.id);
+                        }}>Bundle Components</button>
+                    )}
+                    {editingProduct && settings.enable_serial_tracking === 'true' && form.track_serials && !form.is_bundle && (
                         <button className={`modal-tab ${activeModalTab === 'serials' ? 'active' : ''}`} onClick={() => { setActiveModalTab('serials'); loadSerials(editingProduct.id); }}>Serial/IMEI Numbers</button>
                     )}
                 </div>
@@ -1251,15 +1818,25 @@ export default function InventoryPage() {
                                     <Input type="number" min="0" step="0.01" value={form.selling_price} onChange={e => setForm({ ...form, selling_price: e.target.value })} placeholder="0.00" />
                                 </FormGroup>
                             </div>
-                            <div className="grid grid-3 gap-12" style={{ marginBottom: 20 }}>
+                            <div className="grid grid-4 gap-12" style={{ marginBottom: 20 }}>
                                 <FormGroup label="Current Stock">
-                                    <Input type="number" min="0" value={form.stock_quantity} onChange={e => setForm({ ...form, stock_quantity: e.target.value })} placeholder="0" />
+                                    <Input 
+                                        type="number" 
+                                        min="0" 
+                                        disabled={form.is_bundle} 
+                                        value={form.is_bundle ? (products.find(p => p.id === editingProduct?.id)?.stock_quantity || 0) : form.stock_quantity} 
+                                        onChange={e => setForm({ ...form, stock_quantity: e.target.value })} 
+                                        placeholder={form.is_bundle ? "Derived" : "0"} 
+                                    />
                                 </FormGroup>
                                 <FormGroup label="Min Stock Alert">
                                     <Input type="number" min="0" value={form.min_stock_level} onChange={e => setForm({ ...form, min_stock_level: e.target.value })} placeholder="5" />
                                 </FormGroup>
                                 <FormGroup label="Max Stock Level">
                                     <Input type="number" min="0" value={form.max_stock_level} onChange={e => setForm({ ...form, max_stock_level: e.target.value })} placeholder="0" />
+                                </FormGroup>
+                                <FormGroup label="Reorder Quantity">
+                                    <Input type="number" min="0" value={form.reorder_quantity} onChange={e => setForm({ ...form, reorder_quantity: e.target.value })} placeholder="0" />
                                 </FormGroup>
                             </div>
 
@@ -1269,6 +1846,26 @@ export default function InventoryPage() {
                                 <label className="option-row">
                                     <input
                                         type="checkbox"
+                                        checked={form.is_bundle}
+                                        onChange={e => {
+                                            const checked = e.target.checked;
+                                            setForm(prev => ({
+                                                ...prev,
+                                                is_bundle: checked,
+                                                track_batches: checked ? false : prev.track_batches,
+                                                track_serials: checked ? false : prev.track_serials
+                                            }));
+                                        }}
+                                    />
+                                    <div className="option-row-label">
+                                        <span>Product Bundle / Kit</span>
+                                        <small>This product is a combo of multiple component items</small>
+                                    </div>
+                                </label>
+                                <label className="option-row">
+                                    <input
+                                        type="checkbox"
+                                        disabled={form.is_bundle}
                                         checked={form.allow_decimal}
                                         onChange={e => setForm({ ...form, allow_decimal: e.target.checked })}
                                     />
@@ -1280,6 +1877,7 @@ export default function InventoryPage() {
                                 <label className="option-row">
                                     <input
                                         type="checkbox"
+                                        disabled={form.is_bundle}
                                         checked={form.track_batches}
                                         onChange={e => setForm({ ...form, track_batches: e.target.checked })}
                                     />
@@ -1292,6 +1890,7 @@ export default function InventoryPage() {
                                     <label className="option-row">
                                         <input
                                             type="checkbox"
+                                            disabled={form.is_bundle}
                                             checked={form.track_serials}
                                             onChange={e => setForm({ ...form, track_serials: e.target.checked })}
                                         />
@@ -1571,6 +2170,113 @@ export default function InventoryPage() {
                                                     </td>
                                                 </tr>
                                             ))
+                                        )}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    )}
+
+                    {activeModalTab === 'bundle' && (
+                        <div className="bundle-section">
+                            <div className="p-20 bg-secondary rounded-8 mb-24">
+                                <h4 className="size-14 fw-600 mb-16">Add Bundle Component</h4>
+                                <div className="grid grid-2 gap-12 mb-12">
+                                    <FormGroup label="Select Component Product" className="m-0">
+                                        <CustomSelect
+                                            options={[
+                                                { value: '', label: 'Choose component...' },
+                                                ...products
+                                                    .filter(p => p.id !== editingProduct?.id && p.is_bundle !== 1)
+                                                    .map(p => ({
+                                                        value: p.id,
+                                                        label: `${p.name} (${p.product_code || 'No SKU'} • Stock: ${p.stock_quantity})`
+                                                    }))
+                                            ]}
+                                            value={bundleCompId}
+                                            onChange={val => setBundleCompId(val)}
+                                        />
+                                    </FormGroup>
+                                    <FormGroup label="Quantity per Bundle" className="m-0">
+                                        <div className="flex gap-8 items-end">
+                                            <Input
+                                                type="number"
+                                                min="0.01"
+                                                step="any"
+                                                placeholder="e.g. 1, 2.5"
+                                                value={bundleCompQty}
+                                                onChange={e => setBundleCompQty(e.target.value)}
+                                                style={{ flex: 1, height: '42px' }}
+                                            />
+                                            <s-button
+                                                variant="primary"
+                                                style={{ height: '42px' }}
+                                                onClick={() => {
+                                                    const cid = Number(bundleCompId);
+                                                    if (!cid) return toast.error('Please select a component product');
+                                                    const qty = parseFloat(bundleCompQty);
+                                                    if (isNaN(qty) || qty <= 0) return toast.error('Enter a valid quantity greater than 0');
+                                                    
+                                                    const comp = products.find(p => p.id === cid);
+                                                    if (!comp) return;
+
+                                                    if (bundleItems.some(item => item.component_id === cid)) {
+                                                        return toast.error('Component product is already in the list');
+                                                    }
+
+                                                    setBundleItems([...bundleItems, {
+                                                        component_id: comp.id,
+                                                        name: comp.name,
+                                                        product_code: comp.product_code,
+                                                        quantity: qty,
+                                                        stock_quantity: comp.stock_quantity
+                                                    }]);
+                                                    setBundleCompId('');
+                                                    setBundleCompQty('1');
+                                                }}
+                                            >
+                                                Add Component
+                                            </s-button>
+                                        </div>
+                                    </FormGroup>
+                                </div>
+                            </div>
+
+                            <div className="premium-table-wrap">
+                                <table className="premium-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Component Product</th>
+                                            <th>Code/SKU</th>
+                                            <th style={{ textAlign: 'right' }}>Qty per Bundle</th>
+                                            <th style={{ textAlign: 'right' }}>Current Component Stock</th>
+                                            <th style={{ textAlign: 'right' }}>Max Bundles Possible</th>
+                                            <th style={{ width: '100px', textAlign: 'right' }}>Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {bundleItems.length === 0 ? (
+                                            <tr>
+                                                <td colSpan={6} className="text-center p-24 text-secondary italic">No components added. Setup this bundle by adding component items.</td>
+                                            </tr>
+                                        ) : (
+                                            bundleItems.map((item, idx) => {
+                                                const maxPossible = item.quantity > 0 ? Math.floor(item.stock_quantity / item.quantity) : 0;
+                                                return (
+                                                    <tr key={idx}>
+                                                        <td className="fw-600">{item.name}</td>
+                                                        <td>{item.product_code || '—'}</td>
+                                                        <td style={{ textAlign: 'right' }} className="fw-600 color-accent">{item.quantity}</td>
+                                                        <td style={{ textAlign: 'right' }}>{item.stock_quantity}</td>
+                                                        <td style={{ textAlign: 'right' }} className="fw-600">{maxPossible}</td>
+                                                        <td style={{ textAlign: 'right' }}>
+                                                            <s-button tone="critical" onClick={() => {
+                                                                setBundleItems(bundleItems.filter((_, i) => i !== idx));
+                                                            }}>Remove</s-button>
+                                                        </td>
+                                                    </tr>
+                                                );
+                                            })
                                         )}
                                     </tbody>
                                 </table>
