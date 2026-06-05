@@ -182,6 +182,23 @@ const gmailSender = {
                 }
             });
 
+            // Track this outgoing thread so the AI receiver only replies to
+            // threads that Quantro itself started — never personal Gmail emails.
+            const sentThreadId = response.data.threadId;
+            if (sentThreadId) {
+                db.run(
+                    `CREATE TABLE IF NOT EXISTS quantro_sent_threads (
+                        thread_id TEXT PRIMARY KEY,
+                        sender_email TEXT,
+                        sent_at TEXT DEFAULT (datetime('now','localtime'))
+                    )`
+                );
+                db.run(
+                    "INSERT OR IGNORE INTO quantro_sent_threads (thread_id, sender_email) VALUES (?, ?)",
+                    [sentThreadId, senderEmail]
+                );
+            }
+
             // Increment daily usage count
             await EmailConnection.incrementDailyUsage(senderEmail);
 

@@ -4,6 +4,16 @@ All notable changes to the Quantro ERP application will be documented here.
 
 ---
 
+## [2.9.8] - 2026-06-05
+### Added
+- **Manual Batch & Expiry Management**: Added tab interface to manually register or delete batches, input stock levels, and set custom cost prices and expiration dates.
+- **Enhanced Settings Warnings**: Added inline guidance links and warnings under the Batch and Serial tracking checkboxes to guide users if global features are turned off in Settings.
+- **Robust SQLite Self-Healing Migrations**: Implemented auto-creation for batch and serial tracking fields in the database schema.
+
+### Fixed
+- **Email Auto-Reply Loop (mailer-daemon / DSN)**: Prevented the AI email receiver from sending replies to system-generated emails. Added three layers of protection — a sender blocklist (`mailer-daemon`, `postmaster`, `noreply`, `bounce`, `donotreply`, etc.), a subject blocklist (`Delivery Status Notification`, `Undeliverable`, `Mail Delivery Failed`, `Out of Office`, `Automatic Reply`), and RFC 3834 header checks (`Auto-Submitted`, `Precedence: bulk/list/junk`). Blocked emails are silently marked as read without any AI response.
+- **Tracking Hint Text Overflow**: Moved the batch/serial tracking guidance messages inside the `option-row-label` flex column so they are constrained within the light-blue tinted Settings section container and no longer overflow its borders.
+
 ## [2.9.7] - 2026-06-05
 ### Fixed
 - **System Print Dialogue & Interactive Preview**: Routed printing commands directly to the native Windows system dialogue using a secure IPC tunnel (`webContents.print({ useSystemDialogue: true })`), enabling fully interactive OS-level print previews for invoices and daily Z-reports.

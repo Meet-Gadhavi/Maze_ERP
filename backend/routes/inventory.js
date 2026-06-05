@@ -1010,10 +1010,86 @@ router.get('/:id/batches', async (req, res, next) => {
     try {
         await db.ready;
         const batches = db.all(
-            'SELECT * FROM product_batches WHERE product_id = ? AND current_quantity > 0 ORDER BY expiry_date ASC, created_at ASC',
+            'SELECT * FROM product_batches WHERE product_id = ? ORDER BY current_quantity DESC, expiry_date ASC, created_at ASC',
             [Number(req.params.id)]
         );
         res.json(batches);
+    } catch (err) {
+        next(err);
+    }
+});
+
+// POST /api/products/:id/batches
+router.post('/:id/batches', async (req, res, next) => {
+    try {
+        await db.ready;
+        const productId = Number(req.params.id);
+        const { batch_number, current_quantity, cost_price, expiry_date } = req.body;
+        if (!batch_number || !batch_number.trim()) {
+            return res.status(400).json({ error: 'Batch number is required' });
+        }
+        const trimmedBatch = batch_number.trim();
+        const qty = parseFloat(current_quantity) || 0;
+        const cost = parseFloat(cost_price) || 0;
+
+        // Verify if batch number already exists for this product
+        const existing = db.get('SELECT * FROM product_batches WHERE product_id = ? AND batch_number = ?', [productId, trimmedBatch]);
+        if (existing) {
+            return res.status(400).json({ error: 'Batch number already exists for this product' });
+        }
+
+        let insertResult;
+        db.transaction(() => {
+            insertResult = db.run(
+                'INSERT INTO product_batches (product_id, batch_number, initial_quantity, current_quantity, cost_price, expiry_date) VALUES (?, ?, ?, ?, ?, ?)',
+                [productId, trimmedBatch, qty, qty, cost, expiry_date || null]
+            );
+
+            if (qty > 0) {
+                // Increment product stock
+                db.run('UPDATE products SET stock_quantity = stock_quantity + ? WHERE id = ?', [qty, productId]);
+                
+                // Record stock movement
+                db.run(
+                    'INSERT INTO stock_movements (product_id, type, quantity, reference_type, batch_id, notes) VALUES (?, ?, ?, ?, ?, ?)',
+                    [productId, 'IN', qty, 'Manual', insertResult.lastInsertRowid, `Manually created batch: ${trimmedBatch}`]
+                );
+            }
+        });
+
+        res.status(201).json({ id: insertResult.lastInsertRowid, product_id: productId, batch_number: trimmedBatch, initial_quantity: qty, current_quantity: qty, cost_price: cost, expiry_date });
+    } catch (err) {
+        next(err);
+    }
+});
+
+// DELETE /api/products/:id/batches/:batchId
+router.delete('/:id/batches/:batchId', async (req, res, next) => {
+    try {
+        await db.ready;
+        const productId = Number(req.params.id);
+        const batchId = Number(req.params.batchId);
+
+        const batch = db.get('SELECT * FROM product_batches WHERE id = ? AND product_id = ?', [batchId, productId]);
+        if (!batch) {
+            return res.status(404).json({ error: 'Batch not found' });
+        }
+
+        db.transaction(() => {
+            // Deduct product stock
+            if (batch.current_quantity > 0) {
+                db.run('UPDATE products SET stock_quantity = MAX(0, stock_quantity - ?) WHERE id = ?', [batch.current_quantity, productId]);
+                
+                // Record stock movement
+                db.run(
+                    'INSERT INTO stock_movements (product_id, type, quantity, reference_type, batch_id, notes) VALUES (?, ?, ?, ?, ?, ?)',
+                    [productId, 'OUT', batch.current_quantity, 'Manual', batchId, `Manually deleted batch: ${batch.batch_number}`]
+                );
+            }
+            db.run('DELETE FROM product_batches WHERE id = ?', [batchId]);
+        });
+
+        res.json({ message: 'Batch deleted successfully', batch_id: batchId });
     } catch (err) {
         next(err);
     }

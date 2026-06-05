@@ -68,7 +68,7 @@ async function checkUnreadEmails(connection) {
                     continue;
                 }
 
-                // Skip emails sent by ourselves to prevent loop loops
+                // Skip emails sent by ourselves to prevent reply loops
                 if (senderEmail === email.toLowerCase()) {
                     console.log(`[Email Receiver] Skipping self-sent message in thread`);
                     await markAsRead(gmail, msg.id);
@@ -76,7 +76,60 @@ async function checkUnreadEmails(connection) {
                     continue;
                 }
 
-                // AI only answers if the user has sent a reply to any email
+                // --- SYSTEM SENDER BLOCKLIST ---
+                // Never auto-reply to mailer-daemon, postmaster, bounce/DSN addresses,
+                // no-reply senders, or any automated system notifications.
+                const BLOCKED_SENDER_PATTERNS = [
+                    /^mailer-daemon/i,
+                    /^postmaster/i,
+                    /^no-?reply/i,
+                    /^noreply/i,
+                    /^bounce/i,
+                    /^auto-?reply/i,
+                    /^donotreply/i,
+                    /^do-not-reply/i,
+                    /^notifications?@/i,
+                    /^alerts?@/i,
+                    /^daemon@/i,
+                    /^MAILER-DAEMON/i,
+                ];
+                const BLOCKED_SUBJECT_PATTERNS = [
+                    /delivery status notification/i,
+                    /undeliverable/i,
+                    /mail delivery failed/i,
+                    /failure notice/i,
+                    /returned mail/i,
+                    /auto.?reply/i,
+                    /out of office/i,
+                    /automatic reply/i,
+                ];
+                const isBlockedSender = BLOCKED_SENDER_PATTERNS.some(re => re.test(senderEmail));
+                const isBlockedSubject = BLOCKED_SUBJECT_PATTERNS.some(re => re.test(subjectHeader));
+                if (isBlockedSender || isBlockedSubject) {
+                    console.log(`[Email Receiver] Skipping system/automated email from "${senderEmail}" (Subject: "${subjectHeader}") — blocked sender or subject.`);
+                    await markAsRead(gmail, msg.id);
+                    db.run("INSERT OR IGNORE INTO processed_emails (message_id) VALUES (?)", [msg.id]);
+                    continue;
+                }
+                // --- END BLOCKLIST ---
+
+                // Also check Auto-Submitted header (RFC 3834) — skip all auto-generated emails
+                const autoSubmitted = headers.find(h => h.name.toLowerCase() === 'auto-submitted')?.value || '';
+                const precedence = headers.find(h => h.name.toLowerCase() === 'precedence')?.value || '';
+                if (autoSubmitted && autoSubmitted.toLowerCase() !== 'no') {
+                    console.log(`[Email Receiver] Skipping auto-submitted email from "${senderEmail}" (Auto-Submitted: ${autoSubmitted}).`);
+                    await markAsRead(gmail, msg.id);
+                    db.run("INSERT OR IGNORE INTO processed_emails (message_id) VALUES (?)", [msg.id]);
+                    continue;
+                }
+                if (precedence && /bulk|list|junk/i.test(precedence)) {
+                    console.log(`[Email Receiver] Skipping bulk/list email from "${senderEmail}" (Precedence: ${precedence}).`);
+                    await markAsRead(gmail, msg.id);
+                    db.run("INSERT OR IGNORE INTO processed_emails (message_id) VALUES (?)", [msg.id]);
+                    continue;
+                }
+
+                // AI only answers if the user has sent a reply to any email in this thread
                 const inReplyTo = headers.find(h => h.name.toLowerCase() === 'in-reply-to')?.value || '';
                 const references = headers.find(h => h.name.toLowerCase() === 'references')?.value || '';
                 const isReply = subjectHeader.toLowerCase().startsWith('re:') || inReplyTo || references;
@@ -88,39 +141,31 @@ async function checkUnreadEmails(connection) {
                     continue;
                 }
 
-                // Fetch the thread to verify if we have ever sent an email in this thread
+                // Only reply to threads that Quantro itself sent via gmailSender.
+                // This prevents hijacking personal Gmail conversations that were never
+                // started through Quantro campaigns or invoice emails.
                 const threadId = msgDetails.data.threadId;
                 if (!threadId) {
                     console.warn(`[Email Receiver] No threadId found for message ID ${msg.id}`);
+                    db.run("INSERT OR IGNORE INTO processed_emails (message_id) VALUES (?)", [msg.id]);
                     continue;
                 }
 
-                let hasSentMessageInThread = false;
-                try {
-                    const threadRes = await gmail.users.threads.get({
-                        userId: 'me',
-                        id: threadId
-                    });
-                    const threadMessages = threadRes.data.messages || [];
-                    hasSentMessageInThread = threadMessages.some(m => {
-                        // Check if the message has 'SENT' label
-                        if (m.labelIds && m.labelIds.includes('SENT')) {
-                            return true;
-                        }
-                        // Check headers for 'From'
-                        const msgHeaders = m.payload?.headers || [];
-                        const fromVal = msgHeaders.find(h => h.name.toLowerCase() === 'from')?.value || '';
-                        const fromMatch = fromVal.match(/<([^>]+)>/) || [null, fromVal];
-                        const fromEmailClean = (fromMatch[1] || fromVal).trim().toLowerCase();
-                        return fromEmailClean === email.toLowerCase();
-                    });
-                } catch (threadErr) {
-                    console.error(`[Email Receiver] Error fetching thread ${threadId}:`, threadErr.message);
-                }
+                // Ensure table exists (in case receiver starts before any email is sent)
+                db.run(`CREATE TABLE IF NOT EXISTS quantro_sent_threads (
+                    thread_id TEXT PRIMARY KEY,
+                    sender_email TEXT,
+                    sent_at TEXT DEFAULT (datetime('now','localtime'))
+                )`);
 
-                if (!hasSentMessageInThread) {
-                    console.log(`[Email Receiver] Skipping email from ${senderEmail} (Subject: "${subjectHeader}"): We have not sent any emails in this thread.`);
-                    // Insert into processed_emails so we don't query it again, but leave it UNREAD in Gmail
+                const isQuantroThread = db.get(
+                    "SELECT 1 FROM quantro_sent_threads WHERE thread_id = ?",
+                    [threadId]
+                );
+
+                if (!isQuantroThread) {
+                    console.log(`[Email Receiver] Skipping email from ${senderEmail} (Subject: "${subjectHeader}"): Thread was not started by Quantro.`);
+                    // Mark processed so we don't re-check it, but leave unread in Gmail
                     db.run("INSERT OR IGNORE INTO processed_emails (message_id) VALUES (?)", [msg.id]);
                     continue;
                 }

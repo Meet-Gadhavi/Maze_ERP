@@ -67,6 +67,12 @@ export default function InventoryPage() {
     const [loadingSerials, setLoadingSerials] = useState(false);
     const [settings, setSettings] = useState({});
     const [newManualSerial, setNewManualSerial] = useState('');
+    const [productBatches, setProductBatches] = useState([]);
+    const [loadingBatches, setLoadingBatches] = useState(false);
+    const [newBatchNumber, setNewBatchNumber] = useState('');
+    const [newBatchQty, setNewBatchQty] = useState('0');
+    const [newBatchCost, setNewBatchCost] = useState('0');
+    const [newBatchExpiry, setNewBatchExpiry] = useState('');
     const [editingSubCatName, setEditingSubCatName] = useState('');
 
     // Valuation state
@@ -188,6 +194,61 @@ export default function InventoryPage() {
             loadProducts(); // reload products to update stock quantity
         } catch (err) {
             toast.error(err.message || 'Failed to delete serial number');
+        }
+    }
+
+    async function loadBatches(productId) {
+        try {
+            setLoadingBatches(true);
+            const data = await api.getProductBatches(productId);
+            setProductBatches(data);
+        } catch (err) {
+            console.error('Failed to load batches', err);
+            toast.error('Failed to load product batches');
+        } finally {
+            setLoadingBatches(false);
+        }
+    }
+
+    async function handleManualAddBatch() {
+        if (!editingProduct) return;
+        if (!newBatchNumber.trim()) {
+            toast.error('Batch number is required');
+            return;
+        }
+        try {
+            const qty = parseFloat(newBatchQty) || 0;
+            const cost = parseFloat(newBatchCost) || 0;
+            await api.addProductBatch(editingProduct.id, {
+                batch_number: newBatchNumber.trim(),
+                current_quantity: qty,
+                cost_price: cost,
+                expiry_date: newBatchExpiry || null
+            });
+            toast.success('Batch registered successfully');
+            setNewBatchNumber('');
+            setNewBatchQty('0');
+            setNewBatchCost('0');
+            setNewBatchExpiry('');
+            loadBatches(editingProduct.id);
+            loadProducts();
+        } catch (err) {
+            console.error('Failed to add batch', err);
+            toast.error(err.message || 'Failed to register batch');
+        }
+    }
+
+    async function handleManualDeleteBatch(batchId, batchNumber) {
+        if (!editingProduct) return;
+        if (!confirm(`Are you sure you want to delete batch "${batchNumber}"? This will subtract its current stock from the overall product stock.`)) return;
+        try {
+            await api.deleteProductBatch(editingProduct.id, batchId);
+            toast.success('Batch deleted successfully');
+            loadBatches(editingProduct.id);
+            loadProducts();
+        } catch (err) {
+            console.error('Failed to delete batch', err);
+            toast.error(err.message || 'Failed to delete batch');
         }
     }
 
@@ -1725,6 +1786,9 @@ export default function InventoryPage() {
                     {editingProduct && settings.enable_serial_tracking === 'true' && form.track_serials && !form.is_bundle && (
                         <button className={`modal-tab ${activeModalTab === 'serials' ? 'active' : ''}`} onClick={() => { setActiveModalTab('serials'); loadSerials(editingProduct.id); }}>Serial/IMEI Numbers</button>
                     )}
+                    {editingProduct && settings.enable_batch_system === 'true' && form.track_batches && !form.is_bundle && (
+                        <button className={`modal-tab ${activeModalTab === 'batches' ? 'active' : ''}`} onClick={() => { setActiveModalTab('batches'); loadBatches(editingProduct.id); }}>Batches & Expiry</button>
+                    )}
                 </div>
 
                 <div className="modal-body-scroll" style={{ maxHeight: '65vh', overflowY: 'auto', paddingRight: 20 }}>
@@ -1920,22 +1984,34 @@ export default function InventoryPage() {
                                     <div className="option-row-label">
                                         <span>Track Batches &amp; Expiry dates</span>
                                         <small>Assigns batch numbers and expiry tracking for this product</small>
+                                        {form.track_batches && (
+                                            <small style={{ color: settings.enable_batch_system === 'true' ? 'var(--accent)' : '#b25e00', marginTop: 2 }}>
+                                                {settings.enable_batch_system === 'true'
+                                                    ? (editingProduct ? '✓ Go to the "Batches & Expiry" tab at the top to manage batches.' : '✓ A "Batches & Expiry" tab will appear once this product is saved.')
+                                                    : '⚠️ Batch system is disabled globally — enable it in Settings.'}
+                                            </small>
+                                        )}
                                     </div>
                                 </label>
-                                {settings.enable_serial_tracking === 'true' && (
-                                    <label className="option-row">
-                                        <input
-                                            type="checkbox"
-                                            disabled={form.is_bundle}
-                                            checked={form.track_serials}
-                                            onChange={e => setForm({ ...form, track_serials: e.target.checked })}
-                                        />
-                                        <div className="option-row-label">
-                                            <span>Track Serial / IMEI Numbers</span>
-                                            <small>Track unique individual serial numbers for this product</small>
-                                        </div>
-                                    </label>
-                                )}
+                                <label className="option-row">
+                                    <input
+                                        type="checkbox"
+                                        disabled={form.is_bundle}
+                                        checked={form.track_serials}
+                                        onChange={e => setForm({ ...form, track_serials: e.target.checked })}
+                                    />
+                                    <div className="option-row-label">
+                                        <span>Track Serial / IMEI Numbers</span>
+                                        <small>Track unique individual serial numbers for this product</small>
+                                        {form.track_serials && (
+                                            <small style={{ color: settings.enable_serial_tracking === 'true' ? 'var(--accent)' : '#b25e00', marginTop: 2 }}>
+                                                {settings.enable_serial_tracking === 'true'
+                                                    ? (editingProduct ? '✓ Go to the "Serial/IMEI Numbers" tab at the top to manage serials.' : '✓ A "Serial/IMEI Numbers" tab will appear once this product is saved.')
+                                                    : '⚠️ Serial tracking is disabled globally — enable it in Settings.'}
+                                            </small>
+                                        )}
+                                    </div>
+                                </label>
                             </div>
 
                             {editingProduct && pendingOrders.length > 0 && (
@@ -2400,6 +2476,99 @@ export default function InventoryPage() {
                                     </FormGroup>
                                 </div>
                                 <s-button onClick={handleManualAddSerial} style={{ height: '36px', marginBottom: '4px' }}>Add Serial</s-button>
+                            </div>
+                        </div>
+                    )}
+
+                    {activeModalTab === 'batches' && (
+                        <div>
+                            <div className="modal-section-title">Batch &amp; Lot Tracking List</div>
+                            
+                            {loadingBatches ? (
+                                <div style={{ padding: '20px 0' }}>
+                                    <Skeleton type="list" count={3} />
+                                </div>
+                            ) : productBatches.length === 0 ? (
+                                <div style={{ padding: '30px', textAlign: 'center', color: 'var(--text-tertiary)', border: '1px dashed var(--border)', borderRadius: '12px' }}>
+                                    No active batches registered yet. Add a manual batch below or create a purchase receipt to track batches.
+                                </div>
+                            ) : (
+                                <div style={{ maxHeight: '350px', overflowY: 'auto', marginBottom: '16px' }}>
+                                    <table className="compact-table w-full text-sm">
+                                        <thead>
+                                            <tr className="border-b" style={{ paddingBottom: '8px' }}>
+                                                <th className="text-left" style={{ padding: '8px' }}>Batch Number</th>
+                                                <th className="text-right" style={{ padding: '8px' }}>Cost Price</th>
+                                                <th className="text-right" style={{ padding: '8px' }}>Current Stock</th>
+                                                <th className="text-left" style={{ padding: '8px' }}>Expiry Date</th>
+                                                <th className="text-right" style={{ padding: '8px' }}>Actions</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {productBatches.map((b, idx) => (
+                                                <tr key={b.id || idx} className="border-b hover:bg-tinted">
+                                                    <td style={{ padding: '8px', fontWeight: 500 }}>{b.batch_number}</td>
+                                                    <td className="text-right" style={{ padding: '8px' }}>₹{(b.cost_price || 0).toFixed(2)}</td>
+                                                    <td className="text-right" style={{ padding: '8px', fontWeight: 600 }}>{b.current_quantity}</td>
+                                                    <td style={{ padding: '8px', color: b.expiry_date && new Date(b.expiry_date) < new Date() ? 'var(--error)' : 'var(--text-secondary)' }}>
+                                                        {b.expiry_date ? b.expiry_date : 'No Expiry'}
+                                                    </td>
+                                                    <td className="text-right" style={{ padding: '8px' }}>
+                                                        <s-button
+                                                            type="text"
+                                                            style={{ color: 'var(--error)', padding: '4px 8px' }}
+                                                            onClick={() => handleManualDeleteBatch(b.id, b.batch_number)}
+                                                        >
+                                                            Delete
+                                                        </s-button>
+                                                    </td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            )}
+
+                            {/* Manual Batch Add Form */}
+                            <div className="p-16 bg-secondary rounded-8" style={{ marginTop: '16px' }}>
+                                <h4 className="size-13 fw-600 mb-12">Add Batch Manually</h4>
+                                <div className="grid grid-4 gap-8 mb-12">
+                                    <FormGroup label="Batch Number" className="m-0">
+                                        <Input
+                                            value={newBatchNumber}
+                                            onChange={e => setNewBatchNumber(e.target.value)}
+                                            placeholder="e.g. BAT-001"
+                                        />
+                                    </FormGroup>
+                                    <FormGroup label="Initial Stock" className="m-0">
+                                        <Input
+                                            type="number"
+                                            value={newBatchQty}
+                                            onChange={e => setNewBatchQty(e.target.value)}
+                                            placeholder="0"
+                                        />
+                                    </FormGroup>
+                                    <FormGroup label="Cost Price" className="m-0">
+                                        <Input
+                                            type="number"
+                                            value={newBatchCost}
+                                            onChange={e => setNewBatchCost(e.target.value)}
+                                            placeholder="0.00"
+                                        />
+                                    </FormGroup>
+                                    <FormGroup label="Expiry Date" className="m-0">
+                                        <Input
+                                            type="date"
+                                            value={newBatchExpiry}
+                                            onChange={e => setNewBatchExpiry(e.target.value)}
+                                        />
+                                    </FormGroup>
+                                </div>
+                                <div className="flex justify-end">
+                                    <s-button variant="primary" onClick={handleManualAddBatch}>
+                                        Register Batch
+                                    </s-button>
+                                </div>
                             </div>
                         </div>
                     )}
