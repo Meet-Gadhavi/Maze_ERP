@@ -319,7 +319,11 @@ export default function InvoicePreviewModal({ invoice, onClose, autoOpenShare = 
         document.body.appendChild(printContent);
         
         setTimeout(() => {
-            window.print();
+            if (window.maze?.printPage) {
+                window.maze.printPage();
+            } else {
+                window.print();
+            }
             document.body.removeChild(printContent);
         }, 50);
     }

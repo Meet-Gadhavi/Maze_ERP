@@ -74,7 +74,11 @@ export default function DailyReportModal({ onClose }) {
         printContent.classList.add('maze-print-el');
         document.body.appendChild(printContent);
         setTimeout(() => {
-            window.print();
+            if (window.maze?.printPage) {
+                window.maze.printPage();
+            } else {
+                window.print();
+            }
             document.body.removeChild(printContent);
         }, 50);
     }

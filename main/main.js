@@ -99,6 +99,20 @@ ipcMain.on('trigger-cash-drawer', () => {
     }
 });
 
+ipcMain.on('print-page', (event) => {
+    console.log('[Maze ERP] Printing page with system dialogue...');
+    const webContents = event.sender;
+    webContents.print({
+        silent: false,
+        printBackground: true,
+        useSystemDialogue: true
+    }, (success, failureReason) => {
+        if (!success && failureReason !== 'cancelled') {
+            console.warn(`[Maze ERP] Printing failed: ${failureReason}`);
+        }
+    });
+});
+
 ipcMain.on('open-external', (event, url) => {
     const { shell } = require('electron');
     shell.openExternal(url);

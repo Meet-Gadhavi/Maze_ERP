@@ -12,6 +12,7 @@ contextBridge.exposeInMainWorld('maze', {
         return () => ipcRenderer.removeListener('customer-display-update', listener);
     },
     triggerCashDrawer: () => ipcRenderer.send('trigger-cash-drawer'),
+    printPage: () => ipcRenderer.send('print-page'),
     onCashDrawerResult: (callback) => {
         const listener = (_event, result) => callback(result);
         ipcRenderer.on('cash-drawer-test-result', listener);
