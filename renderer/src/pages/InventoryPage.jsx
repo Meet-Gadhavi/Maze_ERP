@@ -686,6 +686,33 @@ export default function InventoryPage() {
                             ))}
                         </div>
                     )}
+                    {activeTab === 'reorders' && (
+                        <s-button
+                            disabled={!Object.values(selectedReorders).some(Boolean) || reorderSuggestions.length === 0}
+                            onClick={async () => {
+                                const selectedItems = reorderSuggestions.filter(item => selectedReorders[item.product_id]);
+                                if (selectedItems.length === 0) return;
+                                
+                                const payload = selectedItems.map(item => ({
+                                    product_id: item.product_id,
+                                    product_name: item.name,
+                                    quantity: item.reorder_quantity,
+                                    price: item.last_price,
+                                    supplier_id: item.last_supplier_id
+                                }));
+                                
+                                try {
+                                    const res = await api.createReorderBills(payload);
+                                    toast.success(`Created ${res.purchase_ids?.length} draft purchase orders successfully!`);
+                                    loadReorders();
+                                } catch (err) {
+                                    toast.error(err.message || 'Failed to generate purchase orders');
+                                }
+                            }}
+                        >
+                            Generate Draft Purchase Orders
+                        </s-button>
+                    )}
                     <s-button onClick={() => setShowCatModal(true)} aria-label="Create category">
                         Create Category
                     </s-button>
@@ -1221,39 +1248,6 @@ export default function InventoryPage() {
 
             {activeTab === 'reorders' && (
                 <div className="reorders-view" style={{ padding: '0 20px 20px 20px' }}>
-                    <div className="section-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-                        <div>
-                            <h2 style={{ fontSize: '1.1em', fontWeight: 600, color: 'var(--text-primary)' }}>Reorder Suggestions</h2>
-                            <p className="text-secondary size-12">Automated recommendations for items below or at minimum stock levels</p>
-                        </div>
-                        <s-button
-                            variant="primary"
-                            disabled={!Object.values(selectedReorders).some(Boolean) || reorderSuggestions.length === 0}
-                            onClick={async () => {
-                                const selectedItems = reorderSuggestions.filter(item => selectedReorders[item.product_id]);
-                                if (selectedItems.length === 0) return;
-                                
-                                const payload = selectedItems.map(item => ({
-                                    product_id: item.product_id,
-                                    product_name: item.name,
-                                    quantity: item.reorder_quantity,
-                                    price: item.last_price,
-                                    supplier_id: item.last_supplier_id
-                                }));
-                                
-                                try {
-                                    const res = await api.createReorderBills(payload);
-                                    toast.success(`Created ${res.purchase_ids?.length} draft purchase orders successfully!`);
-                                    loadReorders();
-                                } catch (err) {
-                                    toast.error(err.message || 'Failed to generate purchase orders');
-                                }
-                            }}
-                        >
-                            Generate Draft Purchase Orders
-                        </s-button>
-                    </div>
-
                     <div className="product-table-wrap">
                         {loadingReorders ? (
                             <Skeleton type="table" count={3} />
@@ -1273,6 +1267,20 @@ export default function InventoryPage() {
                                             <th style={{ width: '40px', textAlign: 'center' }}>
                                                 <input
                                                     type="checkbox"
+                                                    style={{ 
+                                                        cursor: 'pointer', 
+                                                        accentColor: 'var(--accent)',
+                                                        width: '16px',
+                                                        height: '16px',
+                                                        minWidth: '16px',
+                                                        minHeight: '16px',
+                                                        padding: 0,
+                                                        margin: 0,
+                                                        border: '1px solid var(--border)',
+                                                        background: '#fff',
+                                                        boxShadow: 'none',
+                                                        flexShrink: 0
+                                                    }}
                                                     checked={reorderSuggestions.length > 0 && reorderSuggestions.every(item => selectedReorders[item.product_id])}
                                                     onChange={e => {
                                                         const checked = e.target.checked;
@@ -1300,6 +1308,20 @@ export default function InventoryPage() {
                                                 <td style={{ textAlign: 'center' }}>
                                                     <input
                                                         type="checkbox"
+                                                        style={{ 
+                                                            cursor: 'pointer', 
+                                                            accentColor: 'var(--accent)',
+                                                            width: '16px',
+                                                            height: '16px',
+                                                            minWidth: '16px',
+                                                            minHeight: '16px',
+                                                            padding: 0,
+                                                            margin: 0,
+                                                            border: '1px solid var(--border)',
+                                                            background: '#fff',
+                                                            boxShadow: 'none',
+                                                            flexShrink: 0
+                                                        }}
                                                         checked={!!selectedReorders[item.product_id]}
                                                         onChange={e => {
                                                             setSelectedReorders({
