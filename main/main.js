@@ -6,8 +6,8 @@ const { autoUpdater } = require('electron-updater');
 autoUpdater.autoDownload = false;
 autoUpdater.autoInstallOnAppQuit = true;
 
-// Disable Chromium's print preview component to force native system print dialog direct activation
-app.commandLine.appendSwitch('disable-print-preview');
+// Enable Chromium's print preview component to allow print previews in print dialog
+// app.commandLine.appendSwitch('disable-print-preview');
 
 // Register custom protocol for deep linking
 if (process.defaultApp) {
