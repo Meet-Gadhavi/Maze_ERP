@@ -2229,8 +2229,8 @@ export default function InventoryPage() {
                                                         label: `${p.name} (${p.product_code || 'No SKU'} • Stock: ${p.stock_quantity})`
                                                     }))
                                             ]}
-                                            value={bundleCompId}
-                                            onChange={val => setBundleCompId(val)}
+                                            value={newBundleCompId}
+                                            onChange={val => setNewBundleCompId(val)}
                                         />
                                     </FormGroup>
                                     <FormGroup label="Quantity per Bundle" className="m-0">
@@ -2240,17 +2240,17 @@ export default function InventoryPage() {
                                                 min="0.01"
                                                 step="any"
                                                 placeholder="e.g. 1, 2.5"
-                                                value={bundleCompQty}
-                                                onChange={e => setBundleCompQty(e.target.value)}
+                                                value={newBundleQty}
+                                                onChange={e => setNewBundleQty(e.target.value)}
                                                 style={{ flex: 1, height: '42px' }}
                                             />
                                             <s-button
                                                 variant="primary"
                                                 style={{ height: '42px' }}
                                                 onClick={() => {
-                                                    const cid = Number(bundleCompId);
+                                                    const cid = Number(newBundleCompId);
                                                     if (!cid) return toast.error('Please select a component product');
-                                                    const qty = parseFloat(bundleCompQty);
+                                                    const qty = parseFloat(newBundleQty);
                                                     if (isNaN(qty) || qty <= 0) return toast.error('Enter a valid quantity greater than 0');
                                                     
                                                     const comp = products.find(p => p.id === cid);
@@ -2267,8 +2267,8 @@ export default function InventoryPage() {
                                                         quantity: qty,
                                                         stock_quantity: comp.stock_quantity
                                                     }]);
-                                                    setBundleCompId('');
-                                                    setBundleCompQty('1');
+                                                    setNewBundleCompId('');
+                                                    setNewBundleQty('1');
                                                 }}
                                             >
                                                 Add Component
