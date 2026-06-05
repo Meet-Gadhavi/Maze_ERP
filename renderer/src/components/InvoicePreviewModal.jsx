@@ -340,7 +340,8 @@ export default function InvoicePreviewModal({ invoice, onClose, autoOpenShare = 
             const canvas = await html2canvas(el, {
                 useCORS: true,
                 allowTaint: true,
-                scale: 2,
+                scale: 4,
+                logging: false,
                 backgroundColor: '#ffffff',
                 scrollX: 0,
                 scrollY: 0,
