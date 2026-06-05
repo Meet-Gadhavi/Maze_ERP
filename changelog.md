@@ -4,6 +4,12 @@ All notable changes to the Quantro ERP application will be documented here.
 
 ---
 
+## [2.9.7] - 2026-06-05
+### Fixed
+- **System Print Dialogue & Interactive Preview**: Routed printing commands directly to the native Windows system dialogue using a secure IPC tunnel (`webContents.print({ useSystemDialogue: true })`), enabling fully interactive OS-level print previews for invoices and daily Z-reports.
+- **Widescreen Print & PDF Accuracy**: Removed restrictive print overrides (such as `font-weight: 400 !important` and flat `color: #000 !important`), ensuring that printed documents and saved PDFs preserve their original colors, typography, layout structures, and bold emphasis exactly as shown on the screen preview.
+- **Invoice PDF Quality Enhancements**: Increased the `html2canvas` render scale factor to `4` inside the Invoice Preview Modal to output high-resolution vectors, resolving blurry text on invoice PDF downloads.
+
 ## [2.9.6] - 2026-06-05
 ### Added
 - **Dedicated Stock Adjustment UI**: Replaced single-item adjustments with a comprehensive bulk adjustments history and management suite, supporting write-offs, stock take audits, and custom notes.

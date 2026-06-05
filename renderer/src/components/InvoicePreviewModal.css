@@ -538,11 +538,9 @@
         overflow: visible !important;
     }
 
-    /* Global non-bold and print colors */
+    /* Global print colors adjustment */
     .invoice-preview-content:not(.minimalist-mode),
     .invoice-preview-content:not(.minimalist-mode) * {
-        font-weight: 400 !important;
-        color: #000 !important;
         -webkit-print-color-adjust: exact !important;
         print-color-adjust: exact !important;
     }
@@ -894,8 +892,8 @@
     }
     
     .formal-invoice-container * {
-        color: #000 !important;
-        font-family: Arial, sans-serif !important;
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
     }
 }
 
