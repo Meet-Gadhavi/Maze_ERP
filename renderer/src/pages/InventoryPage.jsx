@@ -615,7 +615,7 @@ export default function InventoryPage() {
                     lineWidth: { bottom: 0.5 }
                 },
                 columnStyles: {
-                    0: { halign: 'center', cellWidth: 8 },    // Index compact
+                    0: { halign: 'center', cellWidth: 15 },    // Index compact
                     1: { halign: 'left' },                     // Product auto
                     2: { halign: 'left' },                     // Category auto
                     3: { halign: 'left' },                     // Product Code auto
@@ -711,6 +711,14 @@ export default function InventoryPage() {
                             }}
                         >
                             Generate Draft Purchase Orders
+                        </s-button>
+                    )}
+                    {activeTab === 'pending' && (
+                        <s-button
+                            disabled={pendingItems.length === 0}
+                            onClick={handleExportPDF}
+                        >
+                            Export to PDF
                         </s-button>
                     )}
                     <s-button onClick={() => setShowCatModal(true)} aria-label="Create category">
@@ -954,13 +962,7 @@ export default function InventoryPage() {
             )}
 
             {activeTab === 'pending' && (
-                <div className="pending-products-view">
-                    <div className="section-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-                        <h2 style={{ fontSize: '1.1em', fontWeight: 600, color: 'var(--text-primary)' }}>Backordered Items</h2>
-                        <SButton variant="secondary" onClick={handleExportPDF} disabled={pendingItems.length === 0}>
-                            Export to PDF
-                        </SButton>
-                    </div>
+                <div className="pending-products-view" style={{ padding: '0 20px 20px 20px' }}>
                     <div className="product-table-wrap">
                         {loading ? (
                             <div style={{ padding: '20px' }}>
