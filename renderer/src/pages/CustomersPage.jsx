@@ -453,6 +453,13 @@ export default function CustomersPage() {
     const [logForm, setLogForm] = useState({ type: 'Call', notes: '' });
     const [savingLog, setSavingLog] = useState(false);
 
+    // Loyalty Points state
+    const [loyaltyDetails, setLoyaltyDetails] = useState(null);
+    const [loadingLoyalty, setLoadingLoyalty] = useState(false);
+    const [showAdjustPointsModal, setShowAdjustPointsModal] = useState(false);
+    const [adjustPointsForm, setAdjustPointsForm] = useState({ points: '', note: '' });
+    const [adjustingPoints, setAdjustingPoints] = useState(false);
+
     // Marketing/Coupons page tab
     const [activePageTab, setActivePageTab] = useState('directory'); // 'directory' or 'marketing'
     const [coupons, setCoupons] = useState([]);
@@ -495,6 +502,24 @@ export default function CustomersPage() {
     const [progressData, setProgressData] = useState(null);
     const [selectedProgressDate, setSelectedProgressDate] = useState('');
     const [loadingProgress, setLoadingProgress] = useState(false);
+
+    // Pricelists state
+    const [pricelists, setPricelists] = useState([]);
+    const [loadingPricelists, setLoadingPricelists] = useState(false);
+    const [showPricelistModal, setShowPricelistModal] = useState(false);
+    const [editingPricelist, setEditingPricelist] = useState(null);
+    const [savingPricelist, setSavingPricelist] = useState(false);
+    const [pricelistForm, setPricelistForm] = useState({
+        name: '',
+        coupon_code: '',
+        description: '',
+        discount_type: 'Percentage',
+        discount_value: '',
+        min_order_amount: '0',
+        max_uses: '0',
+        active: 1
+    });
+    const [pricelistSearch, setPricelistSearch] = useState('');
 
     useEffect(() => {
         api.getAgents().then(data => {
@@ -556,6 +581,18 @@ export default function CustomersPage() {
         }
     }, []);
 
+    const loadPricelists = useCallback(async () => {
+        setLoadingPricelists(true);
+        try {
+            const data = await api.getPricelists();
+            setPricelists(data || []);
+        } catch (err) {
+            console.error('Failed to load pricelists', err);
+        } finally {
+            setLoadingPricelists(false);
+        }
+    }, []);
+
     useEffect(() => {
         if (activePageTab === 'marketing') {
             if (marketingSubTab === 'coupons') {
@@ -566,8 +603,91 @@ export default function CustomersPage() {
             api.getProducts().then(data => {
                 setProducts(Array.isArray(data) ? data : (data?.items || []));
             }).catch(console.error);
+        } else if (activePageTab === 'pricelists') {
+            loadPricelists();
         }
-    }, [activePageTab, marketingSubTab, loadCoupons, loadCampaigns]);
+    }, [activePageTab, marketingSubTab, loadCoupons, loadCampaigns, loadPricelists]);
+
+    const openCreatePricelistModal = () => {
+        setEditingPricelist(null);
+        setPricelistForm({
+            name: '',
+            coupon_code: '',
+            description: '',
+            discount_type: 'Percentage',
+            discount_value: '',
+            min_order_amount: '0',
+            max_uses: '0',
+            active: 1
+        });
+        setShowPricelistModal(true);
+    };
+
+    const openEditPricelist = (pl) => {
+        setEditingPricelist(pl);
+        setPricelistForm({
+            name: pl.name,
+            coupon_code: pl.coupon_code,
+            description: pl.description || '',
+            discount_type: pl.discount_type,
+            discount_value: pl.discount_value,
+            min_order_amount: String(pl.min_order_amount || 0),
+            max_uses: String(pl.max_uses || 0),
+            active: pl.active
+        });
+        setShowPricelistModal(true);
+    };
+
+    const handleSavePricelist = async () => {
+        if (!pricelistForm.name.trim()) {
+            return toast.error('Pricelist Name is required');
+        }
+        if (!pricelistForm.coupon_code.trim()) {
+            return toast.error('Coupon Code is required');
+        }
+        if (pricelistForm.discount_value === '' || Number(pricelistForm.discount_value) < 0) {
+            return toast.error('Discount Value must be a valid positive number');
+        }
+
+        setSavingPricelist(true);
+        try {
+            const payload = {
+                name: pricelistForm.name.trim(),
+                coupon_code: pricelistForm.coupon_code.trim().toUpperCase(),
+                description: pricelistForm.description.trim(),
+                discount_type: pricelistForm.discount_type,
+                discount_value: Number(pricelistForm.discount_value),
+                min_order_amount: Number(pricelistForm.min_order_amount || 0),
+                max_uses: Number(pricelistForm.max_uses || 0),
+                active: Number(pricelistForm.active)
+            };
+
+            if (editingPricelist) {
+                await api.updatePricelist(editingPricelist.id, payload);
+                toast.success('Price list updated successfully');
+            } else {
+                await api.createPricelist(payload);
+                toast.success('Price list created successfully');
+            }
+            setShowPricelistModal(false);
+            loadPricelists();
+        } catch (err) {
+            toast.error(err.message || 'Failed to save price list');
+        } finally {
+            setSavingPricelist(false);
+        }
+    };
+
+    const handleDeletePricelist = async (id) => {
+        if (!window.confirm('Are you sure you want to delete this price list?')) return;
+        try {
+            await api.deletePricelist(id);
+            toast.success('Price list deleted successfully');
+            loadPricelists();
+        } catch (err) {
+            toast.error(err.message || 'Failed to delete price list');
+        }
+    };
 
     async function handleSaveCoupon() {
         if (!couponForm.code.trim()) {
@@ -851,6 +971,43 @@ export default function CustomersPage() {
         }
     };
 
+    const loadLoyaltyDetails = async (customerId) => {
+        setLoadingLoyalty(true);
+        try {
+            const data = await api.getLoyaltyDetails(customerId);
+            setLoyaltyDetails(data);
+        } catch (err) {
+            console.error('Failed to load loyalty details', err);
+            toast.error(err.message || 'Failed to load loyalty details');
+        } finally {
+            setLoadingLoyalty(false);
+        }
+    };
+
+    async function handleAdjustPoints() {
+        const pts = parseInt(adjustPointsForm.points, 10);
+        if (isNaN(pts) || pts === 0) {
+            return toast.error('Please enter a non-zero integer for points adjustment.');
+        }
+        setAdjustingPoints(true);
+        try {
+            await api.adjustLoyaltyPoints({
+                customerId: historyCustomer.id,
+                points: pts,
+                note: adjustPointsForm.note.trim()
+            });
+            toast.success('Loyalty points adjusted successfully');
+            setShowAdjustPointsModal(false);
+            setAdjustPointsForm({ points: '', note: '' });
+            loadLoyaltyDetails(historyCustomer.id);
+            loadCustomers();
+        } catch (err) {
+            toast.error(err.message || 'Failed to adjust points');
+        } finally {
+            setAdjustingPoints(false);
+        }
+    }
+
     async function viewHistory(customer) {
         setHistoryCustomer(customer);
         setActiveTab('purchases');
@@ -863,6 +1020,9 @@ export default function CustomersPage() {
             setPurchases([]);
         }
         loadLogs(customer.id);
+        if (settings.enable_loyalty_points === 'true') {
+            loadLoyaltyDetails(customer.id);
+        }
     }
 
     async function handleAddLog() {
@@ -938,16 +1098,22 @@ export default function CustomersPage() {
                     <p className="text-secondary">
                         {activePageTab === 'directory' 
                             ? 'Manage customer profiles, contact directories, and credits' 
-                            : 'Create and manage promo codes, flat discount vouchers, and free product rewards'}
+                            : activePageTab === 'marketing'
+                                ? 'Create and manage promo codes, flat discount vouchers, and free product rewards'
+                                : 'Create and manage campaign-based discount price lists'}
                     </p>
                 </div>
                 {activePageTab === 'directory' ? (
                     <SButton variant="primary" onClick={openAdd} aria-label="Add customer">
                         Add Customer
                     </SButton>
-                ) : (
+                ) : activePageTab === 'marketing' ? (
                     <SButton variant="primary" onClick={openCreateCouponModal} aria-label="Create coupon">
                         Create Coupon
+                    </SButton>
+                ) : (
+                    <SButton variant="primary" onClick={openCreatePricelistModal} aria-label="Create price list">
+                        Create Price List
                     </SButton>
                 )}
             </div>
@@ -967,6 +1133,13 @@ export default function CustomersPage() {
                 >
                     <Icons.Tag size={16} />
                     Marketing
+                </button>
+                <button 
+                    className={`crm-tab-btn ${activePageTab === 'pricelists' ? 'active' : ''}`}
+                    onClick={() => setActivePageTab('pricelists')}
+                >
+                    <Icons.Settings size={16} />
+                    Price Lists
                 </button>
             </div>
 
@@ -1159,6 +1332,7 @@ export default function CustomersPage() {
                                             <th>Tier</th>
                                             <th>Credit Limit</th>
                                             <th>P-Credit Balance</th>
+                                            {settings.enable_loyalty_points === 'true' && <th>Loyalty Points</th>}
                                             <th>GSTIN</th>
                                             <th>Address</th>
                                             <th>Joined</th>
@@ -1220,6 +1394,11 @@ export default function CustomersPage() {
                                                 <td className="fw-600" style={{ color: isNegativeCredit ? 'var(--danger)' : 'inherit' }}>
                                                     ₹{Number(c.p_credit_balance || 0).toLocaleString('en-IN')}
                                                 </td>
+                                                {settings.enable_loyalty_points === 'true' && (
+                                                    <td className="fw-600" style={{ color: 'var(--primary-color)' }}>
+                                                        {Number(c.loyalty_points || 0).toLocaleString('en-IN')} pts
+                                                    </td>
+                                                )}
                                                 <td className="text-secondary">{c.gstin || 'Not Provided'}</td>
                                                 <td className="text-secondary">{c.address || '—'}</td>
                                                 <td className="text-secondary">{formatDate(c.created_at)}</td>
@@ -1301,7 +1480,7 @@ export default function CustomersPage() {
                         </>
                     )}
                 </>
-            ) : (
+            ) : activePageTab === 'marketing' ? (
                 /* Marketing Tab */
                 <div className="coupons-section flex-column gap-20" style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
                     <div style={{ 
@@ -1635,6 +1814,156 @@ export default function CustomersPage() {
                         </div>
                     )}
                 </div>
+            ) : (
+                /* Price Lists Tab */
+                <div className="pricelists-section flex-column gap-20" style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <div style={{ position: 'relative', width: '300px' }}>
+                            <span style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-secondary)' }}>
+                                <Icons.Search size={16} />
+                            </span>
+                            <input
+                                type="text"
+                                className="form-control"
+                                placeholder="Search price lists..."
+                                value={pricelistSearch}
+                                onChange={e => setPricelistSearch(e.target.value)}
+                                style={{ paddingLeft: '38px', borderRadius: '10px' }}
+                            />
+                        </div>
+                    </div>
+
+                    {loadingPricelists ? (
+                        <div className="customers-table-wrap card" style={{ padding: '20px' }}>
+                            <Skeleton type="table" count={3} />
+                        </div>
+                    ) : pricelists.length === 0 ? (
+                        <div className="empty-state-premium">
+                            <div className="empty-icon-wrapper">
+                                <Icons.Settings size={40} />
+                            </div>
+                            <h3>No Price Lists Found</h3>
+                            <p>Create campaign-based discount price lists to apply custom rates during checkout.</p>
+                            <SButton variant="primary" onClick={openCreatePricelistModal}>
+                                Create Price List
+                            </SButton>
+                        </div>
+                    ) : (() => {
+                        const filtered = pricelists.filter(pl => 
+                            pl.name.toLowerCase().includes(pricelistSearch.toLowerCase()) ||
+                            pl.coupon_code.toLowerCase().includes(pricelistSearch.toLowerCase()) ||
+                            (pl.description && pl.description.toLowerCase().includes(pricelistSearch.toLowerCase()))
+                        );
+
+                        if (filtered.length === 0) {
+                            return (
+                                <div className="empty-state-premium" style={{ padding: '40px' }}>
+                                    <h3>No Matching Results</h3>
+                                    <p>Try searching for a different price list name or coupon code.</p>
+                                </div>
+                            );
+                        }
+
+                        return (
+                            <div className="customers-table-wrap card">
+                                <table className="premium-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Name</th>
+                                            <th>Coupon Code</th>
+                                            <th>Description</th>
+                                            <th>Discount</th>
+                                            <th>Min Order</th>
+                                            <th>Uses</th>
+                                            <th>Status</th>
+                                            <th className="text-right">Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {filtered.map(pl => {
+                                            const isLimitReached = pl.max_uses > 0 && pl.times_used >= pl.max_uses;
+                                            return (
+                                                <tr key={pl.id}>
+                                                    <td className="fw-600">{pl.name}</td>
+                                                    <td className="fw-600">
+                                                        <span style={{ 
+                                                            background: 'var(--accent-light)', 
+                                                            color: 'var(--accent)', 
+                                                            padding: '4px 8px', 
+                                                            borderRadius: '4px', 
+                                                            fontFamily: 'monospace', 
+                                                            fontWeight: 'bold',
+                                                            letterSpacing: '0.5px' 
+                                                        }}>
+                                                            {pl.coupon_code}
+                                                        </span>
+                                                    </td>
+                                                    <td className="text-secondary" style={{ maxWidth: '250px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                                        {pl.description || '—'}
+                                                    </td>
+                                                    <td className="fw-600">
+                                                        {pl.discount_type === 'Percentage' ? `${pl.discount_value}% Off` : `₹${pl.discount_value} Off`}
+                                                    </td>
+                                                    <td>
+                                                        {pl.min_order_amount > 0 ? `₹${pl.min_order_amount}` : 'No Min'}
+                                                    </td>
+                                                    <td>
+                                                        {pl.times_used} / {pl.max_uses > 0 ? pl.max_uses : '∞'}
+                                                    </td>
+                                                    <td>
+                                                        {pl.active === 1 && !isLimitReached ? (
+                                                            <span style={{
+                                                                background: 'rgba(46, 204, 113, 0.1)',
+                                                                color: 'var(--success)',
+                                                                padding: '4px 8px',
+                                                                borderRadius: '4px',
+                                                                fontSize: '12px',
+                                                                fontWeight: '600'
+                                                            }}>
+                                                                Active
+                                                            </span>
+                                                        ) : (
+                                                            <span style={{
+                                                                background: 'rgba(231, 76, 60, 0.1)',
+                                                                color: 'var(--danger)',
+                                                                padding: '4px 8px',
+                                                                borderRadius: '4px',
+                                                                fontSize: '12px',
+                                                                fontWeight: '600'
+                                                            }}>
+                                                                {isLimitReached ? 'Limit Reached' : 'Inactive'}
+                                                            </span>
+                                                        )}
+                                                    </td>
+                                                    <td className="text-right">
+                                                        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', alignItems: 'center' }}>
+                                                            <button 
+                                                                className="tier-card-settings-btn" 
+                                                                onClick={() => openEditPricelist(pl)} 
+                                                                title="Edit Price List"
+                                                                style={{ border: 'none', background: 'transparent', cursor: 'pointer', color: 'var(--text-secondary)' }}
+                                                            >
+                                                                <Icons.Settings size={16} />
+                                                            </button>
+                                                            <button 
+                                                                className="tier-card-settings-btn" 
+                                                                onClick={() => handleDeletePricelist(pl.id)} 
+                                                                title="Delete Price List"
+                                                                style={{ border: 'none', background: 'transparent', cursor: 'pointer', color: 'var(--danger)' }}
+                                                            >
+                                                                <Icons.Delete size={16} />
+                                                            </button>
+                                                        </div>
+                                                    </td>
+                                                </tr>
+                                            );
+                                        })}
+                                    </tbody>
+                                </table>
+                            </div>
+                        );
+                    })()}
+                </div>
             )}
 
             {/* Save/Add Customer Modal */}
@@ -1806,9 +2135,21 @@ export default function CustomersPage() {
                             <Icons.MessageSquare size={16} />
                             Communication Logs
                         </button>
+                        {settings.enable_loyalty_points === 'true' && (
+                            <button 
+                                className={`crm-tab-btn ${activeTab === 'loyalty' ? 'active' : ''}`}
+                                onClick={() => {
+                                    setActiveTab('loyalty');
+                                    loadLoyaltyDetails(historyCustomer.id);
+                                }}
+                            >
+                                <Icons.Award size={16} />
+                                Loyalty Points
+                            </button>
+                        )}
                     </div>
 
-                    {activeTab === 'purchases' ? (
+                    {activeTab === 'purchases' && (
                         <div className="card" style={{ border: 'none', boxShadow: 'none', padding: 0 }}>
                             {purchases.length === 0 ? (
                                 <div className="empty-state">
@@ -1838,7 +2179,9 @@ export default function CustomersPage() {
                                 </table>
                             )}
                         </div>
-                    ) : (
+                    )}
+
+                    {activeTab === 'communication' && (
                         <div>
                             {/* Log new activity form */}
                             <div className="log-activity-form">
@@ -1933,6 +2276,158 @@ export default function CustomersPage() {
                             </div>
                         </div>
                     )}
+
+                    {activeTab === 'loyalty' && (
+                        <div>
+                            {loadingLoyalty ? (
+                                <div style={{ padding: '20px' }}>
+                                    <Skeleton type="list" count={4} />
+                                </div>
+                            ) : !loyaltyDetails ? (
+                                <div className="empty-state">
+                                    <Icons.Award size={32} />
+                                    <p>Failed to load loyalty details</p>
+                                </div>
+                            ) : (
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                                    {/* Loyalty KPI Cards */}
+                                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '16px' }}>
+                                        <div style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border-light)', borderRadius: '12px', padding: '20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                            <div>
+                                                <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Current Balance</div>
+                                                <div style={{ fontSize: '28px', fontWeight: 700, color: 'var(--accent)', marginTop: '8px' }}>
+                                                    {loyaltyDetails.points.toLocaleString('en-IN')} <span style={{ fontSize: '16px', fontWeight: 500 }}>pts</span>
+                                                </div>
+                                            </div>
+                                            <div style={{ background: 'var(--accent-light)', color: 'var(--accent)', borderRadius: '50%', width: '48px', height: '48px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                                <Icons.Award size={24} />
+                                            </div>
+                                        </div>
+
+                                        <div style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border-light)', borderRadius: '12px', padding: '20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                            <div>
+                                                <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Redeemable Value</div>
+                                                <div style={{ fontSize: '28px', fontWeight: 700, color: 'var(--success)', marginTop: '8px' }}>
+                                                    ₹{loyaltyDetails.cashValue.toLocaleString('en-IN')}
+                                                </div>
+                                            </div>
+                                            <SButton variant="secondary" onClick={() => setShowAdjustPointsModal(true)} style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                                <Icons.Settings size={14} /> Adjust Points
+                                            </SButton>
+                                        </div>
+                                    </div>
+
+                                    {/* Transaction History */}
+                                    <div>
+                                        <h4 style={{ margin: '0 0 12px 0', fontSize: '15px', fontWeight: 600 }}>Loyalty Transactions History</h4>
+                                        {loyaltyDetails.history.length === 0 ? (
+                                            <div className="empty-state" style={{ padding: '30px' }}>
+                                                <Icons.Award size={24} style={{ opacity: 0.5, marginBottom: '8px' }} />
+                                                <p style={{ fontSize: '13px' }}>No transactions recorded yet.</p>
+                                            </div>
+                                        ) : (
+                                            <div style={{ overflowX: 'auto', border: '1px solid var(--border-light)', borderRadius: '8px' }}>
+                                                <table className="premium-table" style={{ margin: 0 }}>
+                                                    <thead>
+                                                        <tr>
+                                                            <th>Date</th>
+                                                            <th>Type</th>
+                                                            <th className="text-right">Points</th>
+                                                            <th className="text-right">Balance After</th>
+                                                            <th>Note</th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody>
+                                                        {loyaltyDetails.history.map(tx => {
+                                                            let badgeColor = 'var(--text-secondary)';
+                                                            let badgeBg = 'rgba(0,0,0,0.05)';
+                                                            if (tx.type === 'EARN') {
+                                                                badgeColor = 'var(--success)';
+                                                                badgeBg = 'rgba(46, 204, 113, 0.1)';
+                                                            } else if (tx.type === 'REDEEM') {
+                                                                badgeColor = 'var(--warning)';
+                                                                badgeBg = 'rgba(243, 156, 18, 0.1)';
+                                                            } else if (tx.type === 'REVERSAL') {
+                                                                badgeColor = 'var(--danger)';
+                                                                badgeBg = 'rgba(231, 76, 60, 0.1)';
+                                                            } else if (tx.type === 'ADJUST') {
+                                                                badgeColor = 'var(--accent)';
+                                                                badgeBg = 'var(--accent-light)';
+                                                            } else if (tx.type === 'EXPIRE') {
+                                                                badgeColor = '#7f8c8d';
+                                                                badgeBg = '#f2f2f2';
+                                                            }
+
+                                                            const isPositive = tx.points > 0;
+
+                                                            return (
+                                                                <tr key={tx.id}>
+                                                                    <td className="text-secondary">{formatDate(tx.created_at, true)}</td>
+                                                                    <td>
+                                                                        <span style={{ 
+                                                                            display: 'inline-block',
+                                                                            padding: '2px 8px', 
+                                                                            borderRadius: '20px', 
+                                                                            fontSize: '11px', 
+                                                                            fontWeight: 700, 
+                                                                            color: badgeColor, 
+                                                                            background: badgeBg,
+                                                                            textTransform: 'uppercase'
+                                                                        }}>
+                                                                            {tx.type}
+                                                                        </span>
+                                                                    </td>
+                                                                    <td className="fw-600 text-right" style={{ color: isPositive ? 'var(--success)' : 'var(--danger)' }}>
+                                                                        {isPositive ? `+${tx.points}` : tx.points}
+                                                                    </td>
+                                                                    <td className="fw-600 text-right">{tx.balance_after}</td>
+                                                                    <td className="text-secondary">{tx.note || '—'}</td>
+                                                                </tr>
+                                                            );
+                                                        })}
+                                                    </tbody>
+                                                </table>
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    )}
+                </div>
+            </Modal>
+
+            {/* Adjust Points Modal */}
+            <Modal
+                open={showAdjustPointsModal}
+                onClose={() => setShowAdjustPointsModal(false)}
+                heading="Adjust Loyalty Points"
+                size="base"
+                primaryAction={
+                    <SButton variant="primary" onClick={handleAdjustPoints} loading={adjustingPoints} disabled={adjustingPoints}>
+                        Apply Adjustment
+                    </SButton>
+                }
+                secondaryActions={
+                    <SButton onClick={() => setShowAdjustPointsModal(false)}>Cancel</SButton>
+                }
+            >
+                <div className="flex-column gap-16">
+                    <FormGroup label="Points Difference (Positive or Negative)" required>
+                        <Input
+                            type="number"
+                            value={adjustPointsForm.points}
+                            onChange={e => setAdjustPointsForm({ ...adjustPointsForm, points: e.target.value })}
+                            placeholder="e.g. 100 to add, -50 to subtract"
+                        />
+                    </FormGroup>
+                    <FormGroup label="Adjustment Note" required>
+                        <Input
+                            value={adjustPointsForm.note}
+                            onChange={e => setAdjustPointsForm({ ...adjustPointsForm, note: e.target.value })}
+                            placeholder="e.g. Customer service correction"
+                        />
+                    </FormGroup>
                 </div>
             </Modal>
 
@@ -2188,6 +2683,105 @@ export default function CustomersPage() {
                             />
                         </FormGroup>
                     )}
+                </div>
+            </Modal>
+
+            {/* Create/Edit Pricelist Modal */}
+            <Modal
+                open={showPricelistModal}
+                onClose={() => setShowPricelistModal(false)}
+                heading={editingPricelist ? "Edit Price List" : "Create Price List"}
+                size="base"
+                primaryAction={
+                    <SButton variant="primary" onClick={handleSavePricelist} loading={savingPricelist} disabled={savingPricelist}>
+                        {editingPricelist ? "Save Changes" : "Create Price List"}
+                    </SButton>
+                }
+                secondaryActions={
+                    <SButton onClick={() => setShowPricelistModal(false)}>Cancel</SButton>
+                }
+            >
+                <div className="flex-column gap-16">
+                    <FormGroup label="Price List Name" required>
+                        <Input
+                            value={pricelistForm.name}
+                            onChange={e => setPricelistForm({ ...pricelistForm, name: e.target.value })}
+                            placeholder="e.g. Summer Special Discount"
+                        />
+                    </FormGroup>
+                    <div className="grid-2 gap-16">
+                        <FormGroup label="Coupon Code" required>
+                            <Input
+                                value={pricelistForm.coupon_code}
+                                onChange={e => setPricelistForm({ ...pricelistForm, coupon_code: e.target.value.toUpperCase().replace(/[^A-Z0-9_-]/g, '') })}
+                                placeholder="e.g. SUMMER20"
+                                disabled={!!editingPricelist}
+                            />
+                        </FormGroup>
+                        <FormGroup label="Discount Type" required>
+                            <CustomSelect
+                                value={pricelistForm.discount_type}
+                                onChange={value => setPricelistForm({ ...pricelistForm, discount_type: value })}
+                                options={[
+                                    { value: 'Percentage', label: 'Percentage (%)' },
+                                    { value: 'Fixed', label: 'Fixed Amount (₹)' }
+                                ]}
+                            />
+                        </FormGroup>
+                    </div>
+                    <div className="grid-2 gap-16">
+                        <FormGroup label={`Discount Value (${pricelistForm.discount_type === 'Percentage' ? '%' : '₹'})`} required>
+                            <Input
+                                type="number"
+                                min="0"
+                                step="any"
+                                value={pricelistForm.discount_value}
+                                onChange={e => setPricelistForm({ ...pricelistForm, discount_value: e.target.value })}
+                                placeholder="e.g. 15"
+                            />
+                        </FormGroup>
+                        <FormGroup label="Minimum Order Amount (₹)">
+                            <Input
+                                type="number"
+                                min="0"
+                                step="any"
+                                value={pricelistForm.min_order_amount}
+                                onChange={e => setPricelistForm({ ...pricelistForm, min_order_amount: e.target.value })}
+                                placeholder="e.g. 500 (0 for none)"
+                            />
+                        </FormGroup>
+                    </div>
+                    <div className="grid-2 gap-16">
+                        <FormGroup label="Max Uses (Across all sales)">
+                            <Input
+                                type="number"
+                                min="0"
+                                value={pricelistForm.max_uses}
+                                onChange={e => setPricelistForm({ ...pricelistForm, max_uses: e.target.value })}
+                                placeholder="e.g. 100 (0 for unlimited)"
+                            />
+                        </FormGroup>
+                        <FormGroup label="Status" required>
+                            <CustomSelect
+                                value={pricelistForm.active}
+                                onChange={value => setPricelistForm({ ...pricelistForm, active: Number(value) })}
+                                options={[
+                                    { value: 1, label: 'Active' },
+                                    { value: 0, label: 'Inactive' }
+                                ]}
+                            />
+                        </FormGroup>
+                    </div>
+                    <FormGroup label="Description (Optional)">
+                        <textarea
+                            rows={2}
+                            value={pricelistForm.description}
+                            onChange={e => setPricelistForm({ ...pricelistForm, description: e.target.value })}
+                            placeholder="Describe when this price list is applied..."
+                            className="form-control"
+                            style={{ resize: 'vertical' }}
+                        />
+                    </FormGroup>
                 </div>
             </Modal>
 

@@ -63,7 +63,12 @@ const SETTINGS_KEYS = {
   WHATSAPP_TOKEN: 'whatsapp_token',
   WHATSAPP_PHONE_NUMBER_ID: 'whatsapp_phone_number_id',
   WHATSAPP_BUSINESS_ACCOUNT_ID: 'whatsapp_business_account_id',
-  WHATSAPP_WEBHOOK_VERIFY_TOKEN: 'whatsapp_webhook_verify_token'
+  WHATSAPP_WEBHOOK_VERIFY_TOKEN: 'whatsapp_webhook_verify_token',
+  ENABLE_LOYALTY_POINTS: 'enable_loyalty_points',
+  LOYALTY_POINTS_PER_RUPEE: 'loyalty_points_per_rupee',
+  LOYALTY_POINTS_REDEEM_RATE: 'loyalty_points_redeem_rate',
+  LOYALTY_MIN_REDEEM_POINTS: 'loyalty_min_redeem_points',
+  LOYALTY_POINTS_EXPIRY: 'loyalty_points_expiry'
 };
 
 // In production, store database in %APPDATA%/Quantro/ (set by main.js).
@@ -231,6 +236,9 @@ ready = (async () => {
       if (!columns.includes('credit_limit')) {
         db.run('ALTER TABLE customers ADD COLUMN credit_limit REAL NOT NULL DEFAULT 0');
       }
+      if (!columns.includes('loyalty_points')) {
+        db.run('ALTER TABLE customers ADD COLUMN loyalty_points INTEGER DEFAULT 0');
+      }
     }
   } catch (err) {
     console.error('Migration failed', err);
@@ -251,6 +259,7 @@ ready = (async () => {
     CREATE TABLE IF NOT EXISTS invoices (
       id          INTEGER PRIMARY KEY AUTOINCREMENT,
       customer_id INTEGER,
+      pricelist_id INTEGER,
       total       REAL    NOT NULL DEFAULT 0,
       gst_rate    REAL    NOT NULL DEFAULT 0,
       discount_rate REAL  NOT NULL DEFAULT 0,
@@ -258,7 +267,8 @@ ready = (async () => {
       walk_in_name TEXT   NOT NULL DEFAULT '',
       walk_in_phone TEXT  NOT NULL DEFAULT '',
       created_at  TEXT    NOT NULL DEFAULT (datetime('now','localtime')),
-      FOREIGN KEY (customer_id) REFERENCES customers(id) ON DELETE SET NULL
+      FOREIGN KEY (customer_id) REFERENCES customers(id) ON DELETE SET NULL,
+      FOREIGN KEY (pricelist_id) REFERENCES pricelists(id) ON DELETE SET NULL
     )
   `);
 
@@ -311,6 +321,18 @@ ready = (async () => {
       }
       if (!columns.includes('coupon_discount_amount')) {
         db.run('ALTER TABLE invoices ADD COLUMN coupon_discount_amount REAL NOT NULL DEFAULT 0');
+      }
+      if (!columns.includes('redeemed_loyalty_points')) {
+        db.run('ALTER TABLE invoices ADD COLUMN redeemed_loyalty_points INTEGER DEFAULT 0');
+      }
+      if (!columns.includes('loyalty_discount_amount')) {
+        db.run('ALTER TABLE invoices ADD COLUMN loyalty_discount_amount REAL DEFAULT 0');
+      }
+      if (!columns.includes('earned_loyalty_points')) {
+        db.run('ALTER TABLE invoices ADD COLUMN earned_loyalty_points INTEGER DEFAULT 0');
+      }
+      if (!columns.includes('pricelist_id')) {
+        db.run('ALTER TABLE invoices ADD COLUMN pricelist_id INTEGER DEFAULT NULL');
       }
     }
   } catch (err) {
@@ -440,7 +462,12 @@ ready = (async () => {
         'billing_payment_method_added', 'billing_phone_number_purchased', 'billing_phone_number_details',
         'billing_whatsapp_non_csw_count', 'billing_voice_agent_seconds', 'billing_email_sent_count',
         'billing_email_package_active', 'billing_email_package_due', 'billing_simulated_day',
-        SETTINGS_KEYS.INCLUDE_PENDING_PRICE
+        SETTINGS_KEYS.INCLUDE_PENDING_PRICE,
+        SETTINGS_KEYS.ENABLE_LOYALTY_POINTS,
+        SETTINGS_KEYS.LOYALTY_POINTS_PER_RUPEE,
+        SETTINGS_KEYS.LOYALTY_POINTS_REDEEM_RATE,
+        SETTINGS_KEYS.LOYALTY_MIN_REDEEM_POINTS,
+        SETTINGS_KEYS.LOYALTY_POINTS_EXPIRY
       ];
       keys.forEach(k => {
         let defaultValue = '';
@@ -488,6 +515,10 @@ ready = (async () => {
         else if (k === 'billing_email_package_active') defaultValue = 'false';
         else if (k === 'billing_email_package_due') defaultValue = '0';
         else if (k === 'billing_simulated_day') defaultValue = '';
+        else if (k === SETTINGS_KEYS.LOYALTY_POINTS_PER_RUPEE) defaultValue = '1';
+        else if (k === SETTINGS_KEYS.LOYALTY_POINTS_REDEEM_RATE) defaultValue = '100';
+        else if (k === SETTINGS_KEYS.LOYALTY_MIN_REDEEM_POINTS) defaultValue = '100';
+        else if (k === SETTINGS_KEYS.LOYALTY_POINTS_EXPIRY) defaultValue = 'none';
         else if (k.startsWith('enable_') || k.startsWith('require_') || k.startsWith('allow_')) defaultValue = 'false';
         
         db.run('INSERT OR IGNORE INTO settings (key, value) VALUES (?, ?)', [k, defaultValue]);
@@ -721,6 +752,40 @@ ready = (async () => {
       details     TEXT,
       created_at  TEXT    NOT NULL DEFAULT (datetime('now','localtime')),
       FOREIGN KEY (invoice_id) REFERENCES invoices(id) ON DELETE CASCADE
+    )
+  `);
+
+  // Loyalty Transactions Table
+  db.run(`
+    CREATE TABLE IF NOT EXISTS loyalty_transactions (
+      id            INTEGER PRIMARY KEY AUTOINCREMENT,
+      customer_id   INTEGER NOT NULL,
+      invoice_id    INTEGER,
+      type          TEXT NOT NULL, -- 'EARN' | 'REDEEM' | 'REVERSAL' | 'ADJUST' | 'EXPIRE'
+      points        INTEGER NOT NULL,
+      balance_after INTEGER NOT NULL,
+      note          TEXT,
+      points_remaining INTEGER NOT NULL DEFAULT 0,
+      expiry_date   TEXT,
+      created_at    TEXT DEFAULT (datetime('now','localtime')),
+      FOREIGN KEY (customer_id) REFERENCES customers(id) ON DELETE CASCADE
+    )
+  `);
+
+  // Price Lists Table
+  db.run(`
+    CREATE TABLE IF NOT EXISTS pricelists (
+      id                  INTEGER PRIMARY KEY AUTOINCREMENT,
+      name                TEXT NOT NULL,
+      coupon_code         TEXT NOT NULL UNIQUE,
+      description         TEXT,
+      discount_type       TEXT NOT NULL, -- 'Percentage' or 'Fixed'
+      discount_value      REAL NOT NULL,
+      min_order_amount    REAL NOT NULL DEFAULT 0,
+      max_uses            INTEGER NOT NULL DEFAULT 0,
+      uses_count          INTEGER NOT NULL DEFAULT 0,
+      active              INTEGER NOT NULL DEFAULT 1, -- 1 = Active, 0 = Inactive
+      created_at          TEXT NOT NULL DEFAULT (datetime('now','localtime'))
     )
   `);
 

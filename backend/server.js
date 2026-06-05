@@ -40,6 +40,7 @@ app.use('/api/products', require('./routes/inventory'));
 app.use('/api/invoices', require('./routes/sales'));
 app.use('/api/customers', require('./routes/customers'));
 app.use('/api/coupons', require('./routes/coupons'));
+app.use('/api/pricelists', require('./routes/pricelists'));
 app.use('/api/suppliers', require('./routes/suppliers'));
 app.use('/api/purchases', require('./routes/purchases'));
 app.use('/api/expenses', require('./routes/expenses'));
@@ -48,6 +49,7 @@ app.use('/api/reports', require('./routes/reports'));
 app.use('/api/mazeway', require('./routes/mazeway'));
 app.use('/api/data', dataRoutes);
 app.use('/api/billing', require('./routes/billing'));
+app.use('/api/loyalty', require('./routes/loyalty'));
 app.use('/auth/google', require('./routes/googleAuth'));
 app.use('/auth/whatsapp', require('./routes/whatsappAuth'));
 

@@ -73,6 +73,8 @@ export default function QuickSaleView({
     const [couponCode, setCouponCode] = useState('');
     const [appliedCoupon, setAppliedCoupon] = useState(null);
     const [loadingCoupon, setLoadingCoupon] = useState(false);
+    const [pricelists, setPricelists] = useState([]);
+    const [selectedPricelistId, setSelectedPricelistId] = useState('');
     
     const searchInputRef = useRef(null);
     const gridRef = useRef(null);
@@ -85,6 +87,12 @@ export default function QuickSaleView({
     useEffect(() => {
         addToCartRef.current = addToCart;
     }, [addToCart]);
+
+    useEffect(() => {
+        api.getPricelists()
+            .then(data => setPricelists((data || []).filter(pl => pl.active === 1)))
+            .catch(() => {});
+    }, []);
 
 
 
@@ -193,6 +201,7 @@ export default function QuickSaleView({
             setWalkInPhone('');
             setCouponCode('');
             setAppliedCoupon(null);
+            setSelectedPricelistId('');
         }
     }, [cart.length]);
 
@@ -310,6 +319,13 @@ export default function QuickSaleView({
 
     const cartTotal = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
 
+    const pricelist = pricelists.find(pl => String(pl.id) === String(selectedPricelistId));
+    const pricelistDiscount = (pricelist && !appliedCoupon)
+        ? (pricelist.discount_type === 'percentage'
+            ? cartTotal * (Number(pricelist.discount_value) / 100)
+            : Number(pricelist.discount_value))
+        : 0;
+
     // Compute discount and final total
     const discountAmount = (() => {
         const val = parseFloat(discountValue) || 0;
@@ -321,7 +337,7 @@ export default function QuickSaleView({
     const couponDiscount = appliedCoupon
         ? (appliedCoupon.type === 'discount' ? cartTotal * (Number(appliedCoupon.value) / 100) : (appliedCoupon.type === 'currency' ? Number(appliedCoupon.value) : 0))
         : 0;
-    const finalTotal = Math.max(0, cartTotal - discountAmount - couponDiscount);
+    const finalTotal = Math.max(0, cartTotal - discountAmount - couponDiscount - pricelistDiscount);
 
     const updateCartQty = (index, delta) => {
         const newCart = [...cart];
@@ -348,8 +364,8 @@ export default function QuickSaleView({
             walkInName: walkInName.trim() || 'Walk-in',
             walkInPhone: walkInPhone.trim(),
             discount: discountAmount,
-            couponCode: appliedCoupon ? appliedCoupon.code : null,
-            couponDiscountAmount: couponDiscount,
+            couponCode: appliedCoupon ? appliedCoupon.code : (pricelist ? pricelist.coupon_code : null),
+            couponDiscountAmount: appliedCoupon ? couponDiscount : pricelistDiscount,
             paymentsOverride: paymentsList
         });
     };
@@ -359,6 +375,7 @@ export default function QuickSaleView({
         setLoadingCoupon(true);
         try {
             const res = await api.applyCoupon({ code: couponCode.trim() });
+            setSelectedPricelistId('');
             if (res.coupon.type === 'product') {
                 const productsList = res.productsList || [];
                 if (productsList.length === 0) {
@@ -800,9 +817,16 @@ export default function QuickSaleView({
             <div className="qs-checkout-card">
 
                 {/* Grand Total Row */}
-                <div className="qs-grand-total-row">
-                    <span className="qs-grand-label">Grand Total</span>
-                    <span className="qs-grand-amount">₹{finalTotal.toFixed(2)}</span>
+                <div className="qs-grand-total-row" style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '4px', padding: '12px 20px', borderBottom: '1px solid var(--border-light)' }}>
+                    <div style={{ display: 'flex', width: '100%', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <span className="qs-grand-label" style={{ margin: 0 }}>Grand Total</span>
+                        <span className="qs-grand-amount" style={{ margin: 0 }}>₹{finalTotal.toFixed(2)}</span>
+                    </div>
+                    {pricelist && pricelistDiscount > 0 && (
+                        <span style={{ fontSize: '11px', color: 'var(--success)', fontWeight: '600' }}>
+                            Price List "{pricelist.name}" applied: -₹{pricelistDiscount.toFixed(2)}
+                        </span>
+                    )}
                 </div>
 
                 <div className="qs-card-body" style={{ display: 'flex', flexDirection: 'column', alignItems: 'stretch', gap: '16px', padding: '16px 20px', background: 'var(--bg-secondary)' }}>
@@ -831,6 +855,30 @@ export default function QuickSaleView({
                                 value={walkInPhone}
                                 onChange={e => setWalkInPhone(e.target.value)}
                             />
+                        </div>
+                        {/* Price List */}
+                        <div className="qs-field-group" style={{ flex: '1 1 200px' }}>
+                            <span className="qs-field-label">Price List</span>
+                            <select
+                                className="qs-disc-input"
+                                style={{ width: '100%', textAlign: 'left', height: '34px', borderRadius: '8px', fontSize: '13px', padding: '0 8px', boxSizing: 'border-box' }}
+                                value={selectedPricelistId}
+                                onChange={e => {
+                                    const plId = e.target.value;
+                                    setSelectedPricelistId(plId);
+                                    if (plId) {
+                                        setAppliedCoupon(null);
+                                        setCouponCode('');
+                                    }
+                                }}
+                            >
+                                <option value="">-- Select Price List --</option>
+                                {pricelists.map(pl => (
+                                    <option key={pl.id} value={pl.id}>
+                                        {pl.name} ({pl.discount_type === 'percentage' ? `${pl.discount_value}%` : `₹${pl.discount_value}`} Off)
+                                    </option>
+                                ))}
+                            </select>
                         </div>
                         {/* Coupon Code */}
                         <div className="qs-field-group" style={{ flex: '1 1 250px' }}>
@@ -1000,8 +1048,8 @@ export default function QuickSaleView({
                                             walkInName: walkInName.trim() || 'Walk-in',
                                             walkInPhone: walkInPhone.trim(),
                                             discount: discountAmount,
-                                            couponCode: appliedCoupon ? appliedCoupon.code : null,
-                                            couponDiscountAmount: couponDiscount,
+                                            couponCode: appliedCoupon ? appliedCoupon.code : (pricelist ? pricelist.coupon_code : null),
+                                            couponDiscountAmount: appliedCoupon ? couponDiscount : pricelistDiscount,
                                             paymentsOverride: [{ method: selectedPaymentMethod, amount: finalTotal, transaction_id: '' }]
                                         });
                                     }}

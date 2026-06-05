@@ -496,6 +496,14 @@ const api = {
     removePaymentMethod: () => request('/billing/remove-payment-method', { method: 'POST' }),
     sendCancellationCode: () => request('/billing/send-cancellation-code', { method: 'POST' }),
     confirmCancellation: (code) => request('/billing/confirm-cancellation', { method: 'POST', body: { code } }),
+    getLoyaltyDetails: (customerId) => request(`/loyalty/${customerId}`),
+    adjustLoyaltyPoints: (data) => request('/loyalty/adjust', { method: 'POST', body: data }),
+
+    // Pricelists
+    getPricelists: () => request('/pricelists'),
+    createPricelist: (data) => request('/pricelists', { method: 'POST', body: data }),
+    updatePricelist: (id, data) => request(`/pricelists/${id}`, { method: 'PUT', body: data }),
+    deletePricelist: (id) => request(`/pricelists/${id}`, { method: 'DELETE' }),
 };
 
 export default api;

@@ -7,6 +7,7 @@ const gmailSender = require('../services/email/gmailSender');
 const whatsappSender = require('../services/whatsappSender');
 const { generateInvoicePDF } = require('../services/pdfGenerator');
 const hostedInvoiceService = require('../services/hostedInvoiceService');
+const loyaltyService = require('../services/loyaltyService');
 
 function resolveBundleStock(product) {
     if (!product || product.is_bundle !== 1) return product ? product.stock_quantity : 0;
@@ -161,7 +162,9 @@ const invoiceSchema = z.object({
     payment_method: z.string().optional(),
     coupon_code: z.string().optional().nullable(),
     coupon_discount_amount: z.number().min(0).optional(),
-    mazeway_order_id: z.union([z.number(), z.string()]).nullable().optional()
+    mazeway_order_id: z.union([z.number(), z.string()]).nullable().optional(),
+    redeem_loyalty_points: z.number().min(0).optional(),
+    pricelist_id: z.number().int().positive().nullable().optional()
 });
 
 // GET /api/invoices — sales history
@@ -327,6 +330,7 @@ router.post('/', async (req, res, next) => {
         db.transaction(() => {
             const {
                 customer_id,
+                pricelist_id = null,
                 items,
                 discount_rate = 0,
                 gst_rate = 0,
@@ -401,30 +405,43 @@ router.post('/', async (req, res, next) => {
 
             if (coupon_code) {
                 const coupon = db.get('SELECT * FROM coupons WHERE UPPER(code) = ?', [coupon_code.trim().toUpperCase()]);
-                if (!coupon) {
-                    res.status(400).json({ error: 'Applied coupon is invalid or does not exist.' });
-                    const err = new Error('Abort'); err.apiResponse = true; throw err;
-                }
-                // Check expiry
-                if (coupon.expiry_date) {
-                    const today = new Date().toISOString().slice(0, 10);
-                    if (coupon.expiry_date < today) {
-                        res.status(400).json({ error: 'Applied coupon has expired.' });
+                if (coupon) {
+                    // Check expiry
+                    if (coupon.expiry_date) {
+                        const today = new Date().toISOString().slice(0, 10);
+                        if (coupon.expiry_date < today) {
+                            res.status(400).json({ error: 'Applied coupon has expired.' });
+                            const err = new Error('Abort'); err.apiResponse = true; throw err;
+                        }
+                    }
+                    // Check usage limit
+                    if (coupon.usage_limit_type === 'custom' && coupon.times_used >= coupon.usage_limit) {
+                        res.status(400).json({ error: 'Applied coupon usage limit has been reached.' });
                         const err = new Error('Abort'); err.apiResponse = true; throw err;
                     }
+                    // Increment times_used
+                    db.run('UPDATE coupons SET times_used = times_used + 1 WHERE id = ?', [coupon.id]);
+                } else {
+                    const pricelist = db.get('SELECT * FROM pricelists WHERE UPPER(coupon_code) = ?', [coupon_code.trim().toUpperCase()]);
+                    if (!pricelist) {
+                        res.status(400).json({ error: 'Applied coupon or price list is invalid or does not exist.' });
+                        const err = new Error('Abort'); err.apiResponse = true; throw err;
+                    }
+                    if (pricelist.active === 0) {
+                        res.status(400).json({ error: 'Applied price list is inactive.' });
+                        const err = new Error('Abort'); err.apiResponse = true; throw err;
+                    }
+                    if (pricelist.max_uses > 0 && pricelist.uses_count >= pricelist.max_uses) {
+        res.status(400).json({ error: 'Applied price list usage limit has been reached.' });
+                        const err = new Error('Abort'); err.apiResponse = true; throw err;
+                    }
+                    db.run('UPDATE pricelists SET uses_count = uses_count + 1 WHERE id = ?', [pricelist.id]);
                 }
-                // Check usage limit
-                if (coupon.usage_limit_type === 'custom' && coupon.times_used >= coupon.usage_limit) {
-                    res.status(400).json({ error: 'Applied coupon usage limit has been reached.' });
-                    const err = new Error('Abort'); err.apiResponse = true; throw err;
-                }
-                // Increment times_used
-                db.run('UPDATE coupons SET times_used = times_used + 1 WHERE id = ?', [coupon.id]);
             }
 
             const invResult = db.run(
-                'INSERT INTO invoices (customer_id, total, gst_rate, discount_rate, paid_amount, payment_status, walk_in_name, walk_in_phone, financial_status, is_advance, advance_amount, is_stock_deducted, coupon_code, coupon_discount_amount) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-                [customer_id || null, 0, gst_rate, discount_rate, 0, is_advance ? 'ADVANCE' : 'UNPAID', walk_in_name, walk_in_phone, is_advance ? 'ADVANCE' : 'UNPAID', is_advance ? 1 : 0, Number(advance_amount), is_advance ? 0 : 1, coupon_code || null, coupon_discount_amount || 0]
+                'INSERT INTO invoices (customer_id, total, gst_rate, discount_rate, paid_amount, payment_status, walk_in_name, walk_in_phone, financial_status, is_advance, advance_amount, is_stock_deducted, coupon_code, coupon_discount_amount, pricelist_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+                [customer_id || null, 0, gst_rate, discount_rate, 0, is_advance ? 'ADVANCE' : 'UNPAID', walk_in_name, walk_in_phone, is_advance ? 'ADVANCE' : 'UNPAID', is_advance ? 1 : 0, Number(advance_amount), is_advance ? 0 : 1, coupon_code || null, coupon_discount_amount || 0, pricelist_id]
             );
         const invoiceId = invResult.lastInsertRowid;
 
@@ -622,9 +639,36 @@ router.post('/', async (req, res, next) => {
 
         // Calculate final total
         const discountAmount = subtotal * (discount_rate / 100);
-        const totalAfterDiscountAndCoupon = Math.max(0, subtotal - discountAmount - (coupon_discount_amount || 0));
+
+        // Calculate loyalty points discount
+        let loyaltyDiscountAmount = 0;
+        let pointsToRedeem = 0;
+        if (settings.enable_loyalty_points === 'true' && customer_id && validatedData.redeem_loyalty_points) {
+            const requestedPoints = parseInt(validatedData.redeem_loyalty_points, 10) || 0;
+            if (requestedPoints > 0) {
+                const redeemRate = parseFloat(settings.loyalty_points_redeem_rate || '100');
+                pointsToRedeem = requestedPoints;
+                loyaltyDiscountAmount = requestedPoints / redeemRate;
+            }
+        }
+
+        const totalAfterDiscountAndCoupon = Math.max(0, subtotal - discountAmount - (coupon_discount_amount || 0) - loyaltyDiscountAmount);
         const gstAmount = totalAfterDiscountAndCoupon * (gst_rate / 100);
         const finalTotal = totalAfterDiscountAndCoupon + gstAmount;
+
+        // Deduct/redeem customer points if they are actually used
+        let pointsRedeemedActual = 0;
+        if (pointsToRedeem > 0) {
+            pointsRedeemedActual = loyaltyService.redeemPoints(customer_id, invoiceId, pointsToRedeem, settings);
+            const redeemRate = parseFloat(settings.loyalty_points_redeem_rate || '100');
+            loyaltyDiscountAmount = pointsRedeemedActual / redeemRate;
+        }
+
+        // Earn loyalty points on net purchase total
+        let pointsEarned = 0;
+        if (settings.enable_loyalty_points === 'true' && customer_id && !is_advance) {
+            pointsEarned = loyaltyService.earnPoints(customer_id, invoiceId, finalTotal, settings);
+        }
 
         // M039: Handle P-Credit Usage AFTER final total is calculated, capped properly
         let appliedCredit = 0;
@@ -686,8 +730,8 @@ router.post('/', async (req, res, next) => {
         }
 
         // Update invoice total AND payment info
-        db.run('UPDATE invoices SET total = ?, paid_amount = ?, payment_status = ?, financial_status = ?, delivery_status = ?, fulfillment_status = ?, is_pending_product = ?, is_stock_deducted = ? WHERE id = ?',
-            [finalTotal, finalPaid, finalPaymentStatus, finalPaymentStatus, is_advance ? 'Pending' : invoiceDeliveryStatus, is_advance ? 'PENDING_PRODUCT' : fulfillmentStatus, is_advance ? 1 : isPendingProduct, is_advance ? 0 : 1, invoiceId]);
+        db.run('UPDATE invoices SET total = ?, paid_amount = ?, payment_status = ?, financial_status = ?, delivery_status = ?, fulfillment_status = ?, is_pending_product = ?, is_stock_deducted = ?, redeemed_loyalty_points = ?, loyalty_discount_amount = ?, earned_loyalty_points = ? WHERE id = ?',
+            [finalTotal, finalPaid, finalPaymentStatus, finalPaymentStatus, is_advance ? 'Pending' : invoiceDeliveryStatus, is_advance ? 'PENDING_PRODUCT' : fulfillmentStatus, is_advance ? 1 : isPendingProduct, is_advance ? 0 : 1, pointsRedeemedActual, loyaltyDiscountAmount, pointsEarned, invoiceId]);
 
         // Log initiation
         db.run('INSERT INTO audit_logs (invoice_id, action, details) VALUES (?, ?, ?)',
@@ -784,6 +828,20 @@ router.delete('/:id', async (req, res, next) => {
                     const err = new Error('Abort'); err.apiResponse = true; throw err;
                 }
 
+                // Reverse earned points and refund redeemed points on invoice deletion
+                if (invoice.customer_id) {
+                    if (invoice.earned_loyalty_points > 0) {
+                        loyaltyService.reverseEarnedPoints(invoice.customer_id, invoiceId, invoice.earned_loyalty_points, `Reversed points for deletion of Invoice #${invoiceId}`);
+                    }
+                    if (invoice.redeemed_loyalty_points > 0) {
+                        db.run('UPDATE customers SET loyalty_points = loyalty_points + ? WHERE id = ?', [invoice.redeemed_loyalty_points, invoice.customer_id]);
+                        db.run(`
+                            INSERT INTO loyalty_transactions (customer_id, invoice_id, type, points, balance_after, note, points_remaining, expiry_date)
+                            VALUES (?, ?, 'ADJUST', ?, (SELECT loyalty_points FROM customers WHERE id = ?), ?, ?, NULL)
+                        `, [invoice.customer_id, invoiceId, invoice.redeemed_loyalty_points, invoice.customer_id, `Refunded redeemed points on invoice deletion`, invoice.redeemed_loyalty_points]);
+                    }
+                }
+
                 // 1. Fetch all items on this invoice to restore stock
                 const items = db.all("SELECT * FROM invoice_items WHERE invoice_id = ?", [invoiceId]);
                 for (const item of items) {
@@ -851,12 +909,20 @@ router.delete('/:id', async (req, res, next) => {
                     }
                 }
 
-                // 3. Restore coupon usage count
+                // 3. Restore coupon or pricelist usage count
                 if (invoice.coupon_code) {
-                    db.run(
-                        'UPDATE coupons SET times_used = MAX(0, times_used - 1) WHERE UPPER(code) = ?',
-                        [invoice.coupon_code.trim().toUpperCase()]
-                    );
+                    const coupon = db.get('SELECT * FROM coupons WHERE UPPER(code) = ?', [invoice.coupon_code.trim().toUpperCase()]);
+                    if (coupon) {
+                        db.run(
+                            'UPDATE coupons SET times_used = MAX(0, times_used - 1) WHERE UPPER(code) = ?',
+                            [invoice.coupon_code.trim().toUpperCase()]
+                        );
+                    } else {
+                        db.run(
+                            'UPDATE pricelists SET uses_count = MAX(0, uses_count - 1) WHERE UPPER(coupon_code) = ?',
+                            [invoice.coupon_code.trim().toUpperCase()]
+                        );
+                    }
                 }
 
                 // 4. Remote hosted invoice sync cleanup
@@ -1134,6 +1200,19 @@ router.post('/:id/return', async (req, res, next) => {
                     }
                     financialStatus = 'Cash Refunded';
                 }
+            }
+        }
+
+        // Points reversal for returned invoice
+        if (invoice.customer_id && invoice.earned_loyalty_points > 0) {
+            const pointsToReverse = isFullReturn 
+                ? invoice.earned_loyalty_points 
+                : Math.min(invoice.earned_loyalty_points, Math.floor(invoice.earned_loyalty_points * (totalReturnAmount / invoice.total)));
+            if (pointsToReverse > 0) {
+                loyaltyService.reverseEarnedPoints(invoice.customer_id, invoiceId, pointsToReverse, `Reversed points for return on Invoice #${invoiceId}`);
+                // Also update the invoice's earned_loyalty_points to reflect the new net points earned!
+                const newEarnedPoints = Math.max(0, invoice.earned_loyalty_points - pointsToReverse);
+                db.run('UPDATE invoices SET earned_loyalty_points = ? WHERE id = ?', [newEarnedPoints, invoiceId]);
             }
         }
 

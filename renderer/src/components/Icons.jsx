@@ -1,7 +1,7 @@
 import React from 'react';
 import {
     Plus, Search, Edit2, Trash2, Save, Filter, Download, Upload,
-    ArrowLeft, ArrowRight, ChevronRight, Calendar, Settings, Package, Users,
+    ArrowLeft, ArrowRight, ChevronRight, ChevronDown, Calendar, Settings, Package, Users,
     ShoppingCart, CreditCard, FileText, History, AlertCircle,
     AlertTriangle, CheckCircle2, LayoutGrid, X, Printer, Activity,
     Eye, RotateCcw, Clock, TrendingUp, HelpCircle, User,
@@ -57,7 +57,7 @@ const ShareCustomIcon = ({ size = 24, stroke = 'currentColor', strokeWidth = 2, 
  */
 export const Icons = {
     Plus, Search, Edit: Edit2, Edit2, Delete: Trash2, Trash: Trash2, Trash2, Save, Filter, Download, Upload,
-    ArrowLeft, ArrowRight, ChevronRight, Calendar, Settings, Package, Users,
+    ArrowLeft, ArrowRight, ChevronRight, ChevronDown, Calendar, Settings, Package, Users,
     ShoppingCart, CreditCard, FileText, History, AlertCircle,
     AlertTriangle, CheckCircle: CheckCircle2, Layout: DashboardCustomIcon, X, Printer, Activity,
     Eye, RotateCcw, Clock, TrendingUp, HelpCircle, User,

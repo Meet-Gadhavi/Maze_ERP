@@ -64,6 +64,11 @@ export default function SalesPage() {
     const [couponCode, setCouponCode] = useState('');
     const [loadingCoupon, setLoadingCoupon] = useState(false);
 
+    // Pricelist States
+    const [pricelists, setPricelists] = useState([]);
+    const [selectedPricelistId, setSelectedPricelistId] = useState('');
+    const [showPricelistDropdown, setShowPricelistDropdown] = useState(false);
+
     // Payment Status State
     const [paymentStatus, setPaymentStatus] = useState('PAID'); // 'PAID', 'PARTIAL', 'UNPAID'
     const [paymentMethod, setPaymentMethod] = useState(DEFAULT_PAYMENT_METHOD); 
@@ -76,6 +81,8 @@ export default function SalesPage() {
     const [pCreditToUseInPayment, setPCreditToUseInPayment] = useState('');
     const [usePCredit, setUsePCredit] = useState(false);
     const [pCreditToApply, setPCreditToApply] = useState('');
+    const [useLoyaltyPoints, setUseLoyaltyPoints] = useState(false);
+    const [loyaltyPointsToRedeem, setLoyaltyPointsToRedeem] = useState('');
 
     const [showFreePerkModal, setShowFreePerkModal] = useState(false);
     const [promoExpenseEnabled, setPromoExpenseEnabled] = useState(false);
@@ -147,6 +154,7 @@ export default function SalesPage() {
         api.getSettings().then(setSettings).catch(console.error);
         api.getCustomers().then(setCustomers).catch(() => { });
         api.getProducts().then(setProducts).catch(() => { });
+        api.getPricelists().then(data => setPricelists((data || []).filter(pl => pl.active === 1))).catch(() => { });
         loadHistory();
         setSelectedInvoiceIds([]);
         if (tab === 'new') setStep('customer');
@@ -1068,12 +1076,22 @@ export default function SalesPage() {
     }, 0) || 0, [cart, settings.enable_discount_per_item, settings.enable_gst_per_item, settings.include_pending_price, isAdvance]);
 
     const subtotal = Number(subtotalNum) || 0;
-    const couponDiscount = appliedCoupon
+    const pricelist = pricelists.find(pl => String(pl.id) === String(selectedPricelistId));
+    const pricelistDiscount = (pricelist && !appliedCoupon)
+        ? (pricelist.discount_type === 'percentage'
+            ? subtotal * (Number(pricelist.discount_value) / 100)
+            : Number(pricelist.discount_value))
+        : 0;
+
+    const couponDiscount = (appliedCoupon && !selectedPricelistId)
         ? (appliedCoupon.type === 'discount' ? subtotal * (Number(appliedCoupon.value) / 100) : (appliedCoupon.type === 'currency' ? Number(appliedCoupon.value) : 0))
         : 0;
 
     const discountAmount = (settings.enable_discount_per_item !== 'true' && discountEnabled) ? subtotal * (Number(discountRate || 0) / 100) : 0;
-    const afterDiscountAndCoupon = Math.max(0, subtotal - (Number(discountAmount) || 0) - couponDiscount);
+    const loyaltyRedeemRate = parseFloat(settings.loyalty_points_redeem_rate || '100');
+    const loyaltyPointsDiscount = (settings.enable_loyalty_points === 'true' && useLoyaltyPoints) ? (Number(loyaltyPointsToRedeem || 0) / loyaltyRedeemRate) : 0;
+
+    const afterDiscountAndCoupon = Math.max(0, subtotal - (Number(discountAmount) || 0) - couponDiscount - pricelistDiscount - loyaltyPointsDiscount);
     const gstAmount = (settings.enable_gst_per_item !== 'true' && gstEnabled) ? afterDiscountAndCoupon * (Number(gstRate || 0) / 100) : 0;
     const finalTotal = (Number(afterDiscountAndCoupon) || 0) + (Number(gstAmount) || 0);
 
@@ -1094,6 +1112,7 @@ export default function SalesPage() {
         setLoadingCoupon(true);
         try {
             const res = await api.applyCoupon({ code: couponCode.trim() });
+            setSelectedPricelistId('');
             if (res.coupon.type === 'product') {
                 const productsList = res.productsList || [];
                 if (productsList.length === 0) {
@@ -1177,8 +1196,8 @@ export default function SalesPage() {
             walk_in_phone: isQuickSale ? (options.walkInPhone || '') : (!currentSelectedCustomer ? walkInPhone : ''),
             gst_rate: gstEnabled ? Number(gstRate || 0) : 0,
             discount_rate: discountEnabled ? Number(discountRate || 0) : 0,
-            coupon_code: isQuickSale ? (options.couponCode || null) : (appliedCoupon ? appliedCoupon.code : null),
-            coupon_discount_amount: isQuickSale ? (options.couponDiscountAmount || 0) : couponDiscount,
+            coupon_code: isQuickSale ? (options.couponCode || null) : (appliedCoupon ? appliedCoupon.code : (pricelist ? pricelist.coupon_code : null)),
+            coupon_discount_amount: isQuickSale ? (options.couponDiscountAmount || 0) : (appliedCoupon ? couponDiscount : (pricelist ? pricelistDiscount : 0)),
             items: cart.map(c => ({
                 product_id: Number(c.product_id),
                 variant_id: c.variant_id ? Number(c.variant_id) : null,
@@ -1198,9 +1217,11 @@ export default function SalesPage() {
             })))),
             use_p_credit: usePCredit,
             p_credit_amount: usePCredit ? Number(pCreditToApply || 0) : 0,
+            redeem_loyalty_points: Number(loyaltyPointsToRedeem || 0),
             is_advance: isAdvance,
             advance_amount: isAdvance ? Number(advanceAmount || 0) : 0,
-            mazeway_order_id: convertedOrderId
+            mazeway_order_id: convertedOrderId,
+            pricelist_id: isQuickSale ? null : (selectedPricelistId ? Number(selectedPricelistId) : null)
         };
 
         setSaving(true);
@@ -1221,11 +1242,14 @@ export default function SalesPage() {
             setStep('customer');
             setUsePCredit(false);
             setPCreditToApply('');
+            setUseLoyaltyPoints(false);
+            setLoyaltyPointsToRedeem('');
             setPromoExpenseEnabled(false);
             setIsAdvance(false);
             setAdvanceAmount('');
             setAppliedCoupon(null);
             setCouponCode('');
+            setSelectedPricelistId('');
             setConvertedOrderId(null);
 
             // Refresh products and history
@@ -1583,6 +1607,11 @@ export default function SalesPage() {
                                                         </span>
                                                     );
                                                 })()}
+                                                {settings.enable_loyalty_points === 'true' && Number(c.loyalty_points || 0) > 0 && (
+                                                    <span style={{ fontSize: 'var(--font-size-xs)', fontWeight: '600', color: 'var(--primary-color)', background: 'rgba(10, 110, 255, 0.1)', padding: '4px 10px', borderRadius: '20px', whiteSpace: 'nowrap' }}>
+                                                        {Number(c.loyalty_points).toLocaleString('en-IN')} pts
+                                                    </span>
+                                                )}
                                                 {Number(c.p_credit_balance || 0) > 0 && (
                                                     <span style={{ fontSize: 'var(--font-size-xs)', fontWeight: '600', color: 'var(--accent)', background: 'var(--accent-light)', padding: '4px 10px', borderRadius: '20px', whiteSpace: 'nowrap' }}>
                                                         Credit: ₹{Number(c.p_credit_balance).toLocaleString('en-IN')}
@@ -2054,6 +2083,115 @@ export default function SalesPage() {
                                         )}
                                     </div>
 
+                                    {/* Price List Selection Row */}
+                                    <div className="extra-row active" style={{ display: 'flex', flexDirection: 'column', gap: '8px', alignItems: 'stretch', position: 'relative' }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: 'var(--font-size-xs)', fontWeight: '600', color: 'var(--text-secondary)' }}>
+                                            <Icons.Award size={14} style={{ color: selectedPricelistId ? 'var(--primary)' : 'var(--text-tertiary)' }} />
+                                            <span>Price List (Discount)</span>
+                                        </div>
+                                        <div style={{ position: 'relative' }}>
+                                            <div
+                                                onClick={() => setShowPricelistDropdown(!showPricelistDropdown)}
+                                                style={{
+                                                    display: 'flex',
+                                                    alignItems: 'center',
+                                                    justifyContent: 'space-between',
+                                                    padding: '0 12px',
+                                                    height: '32px',
+                                                    background: 'var(--bg-card)',
+                                                    border: '1px solid var(--border)',
+                                                    borderRadius: 'var(--radius-sm)',
+                                                    cursor: 'pointer',
+                                                    fontSize: 'var(--font-size-sm)',
+                                                    color: selectedPricelistId ? 'var(--text-primary)' : 'var(--text-tertiary)',
+                                                    userSelect: 'none'
+                                                }}
+                                            >
+                                                <span>
+                                                    {selectedPricelistId 
+                                                        ? pricelists.find(p => String(p.id) === String(selectedPricelistId))?.name || 'Selected Price List'
+                                                        : 'SELECT PRICE LIST'
+                                                    }
+                                                </span>
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                                    {selectedPricelistId && (
+                                                        <Icons.X
+                                                            size={14}
+                                                            style={{ color: 'var(--text-tertiary)', cursor: 'pointer' }}
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                setSelectedPricelistId('');
+                                                            }}
+                                                        />
+                                                    )}
+                                                    <Icons.ChevronDown size={14} style={{ transform: showPricelistDropdown ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }} />
+                                                </div>
+                                            </div>
+
+                                            {showPricelistDropdown && (
+                                                <>
+                                                    <div 
+                                                        style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 99 }} 
+                                                        onClick={() => setShowPricelistDropdown(false)} 
+                                                    />
+                                                    <div
+                                                        style={{
+                                                            position: 'absolute',
+                                                            top: '36px',
+                                                            left: 0,
+                                                            right: 0,
+                                                            zIndex: 100,
+                                                            background: 'var(--bg-card, #fff)',
+                                                            border: '1px solid var(--border)',
+                                                            borderRadius: 'var(--radius-sm)',
+                                                            boxShadow: '0 8px 24px rgba(0, 0, 0, 0.18)',
+                                                            maxHeight: '180px',
+                                                            overflowY: 'auto',
+                                                            display: 'flex',
+                                                            flexDirection: 'column',
+                                                            gap: '2px',
+                                                            padding: '4px'
+                                                        }}
+                                                    >
+                                                        {(!pricelists || pricelists.length === 0) ? (
+                                                            <div style={{ padding: '8px 12px', fontSize: 'var(--font-size-xs)', color: 'var(--text-tertiary)', textAlign: 'center' }}>
+                                                                No active price lists. Create one in Customers > Price Lists.
+                                                            </div>
+                                                        ) : (
+                                                            pricelists.map(plist => (
+                                                                <div
+                                                                    key={plist.id}
+                                                                    onClick={() => {
+                                                                        setSelectedPricelistId(String(plist.id));
+                                                                        setShowPricelistDropdown(false);
+                                                                        setAppliedCoupon(null);
+                                                                        setCouponCode('');
+                                                                    }}
+                                                                    style={{
+                                                                        padding: '6px 8px',
+                                                                        borderRadius: 'var(--radius-xs)',
+                                                                        cursor: 'pointer',
+                                                                        fontSize: 'var(--font-size-xs)',
+                                                                        background: String(selectedPricelistId) === String(plist.id) ? 'var(--primary-subtle)' : 'transparent',
+                                                                        color: String(selectedPricelistId) === String(plist.id) ? 'var(--primary)' : 'var(--text-primary)',
+                                                                        display: 'flex',
+                                                                        justifyContent: 'space-between',
+                                                                        alignItems: 'center'
+                                                                    }}
+                                                                >
+                                                                    <span style={{ fontWeight: '500' }}>{plist.name}</span>
+                                                                    <span style={{ fontSize: '10px', color: 'var(--text-secondary)', background: 'var(--bg-card)', padding: '2px 6px', borderRadius: '4px' }}>
+                                                                        {plist.discount_type === 'percentage' ? `${plist.discount_value}% Off` : `₹${plist.discount_value} Off`}
+                                                                    </span>
+                                                                </div>
+                                                            ))
+                                                        )}
+                                                    </div>
+                                                </>
+                                            )}
+                                        </div>
+                                    </div>
+
                                     {/* Coupon Row */}
                                     <div className="extra-row active" style={{ display: 'flex', flexDirection: 'column', gap: '8px', alignItems: 'stretch' }}>
                                         <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: 'var(--font-size-xs)', fontWeight: '600', color: 'var(--text-secondary)' }}>
@@ -2178,6 +2316,12 @@ export default function SalesPage() {
                                             <span>-₹{discountAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
                                         </div>
                                     )}
+                                    {pricelist && pricelistDiscount > 0 && (
+                                        <div className="break-item discount">
+                                            <span>Pricelist ({pricelist.name})</span>
+                                            <span>-₹{pricelistDiscount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+                                        </div>
+                                    )}
                                     {appliedCoupon && (appliedCoupon.type === 'discount' || appliedCoupon.type === 'currency') && (
                                         <div className="break-item discount">
                                             <span>Coupon ({appliedCoupon.code})</span>
@@ -2227,6 +2371,73 @@ export default function SalesPage() {
                                             </div>
                                         )}
                                     </div>
+                                )}
+
+                                {settings.enable_loyalty_points === 'true' && selectedCustomer && (
+                                    (() => {
+                                        const customerObj = customers.find(c => String(c.id) === selectedCustomer);
+                                        const availablePoints = customerObj?.loyalty_points || 0;
+                                        if (availablePoints === 0) return null;
+
+                                        const minRedeemPoints = parseInt(settings.loyalty_min_redeem_points || '100', 10);
+                                        const isEligible = availablePoints >= minRedeemPoints;
+                                        const redeemRate = parseFloat(settings.loyalty_points_redeem_rate || '100');
+
+                                        const totalBeforeLoyalty = (Number(afterDiscountAndCoupon) || 0) + (Number(gstAmount) || 0) + loyaltyPointsDiscount;
+                                        const maxPointsNeeded = Math.ceil(totalBeforeLoyalty * redeemRate);
+                                        const maxRedeemablePoints = Math.min(availablePoints, maxPointsNeeded);
+
+                                        return (
+                                            <div className="loyalty-usage-box" style={{ marginTop: '10px', padding: '12px', background: 'rgba(10, 110, 255, 0.08)', borderRadius: 'var(--radius-sm)', border: '1px dashed var(--accent)' }}>
+                                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                                    <div>
+                                                        <div style={{ fontSize: 'var(--font-size-xs)', fontWeight: '600', color: 'var(--accent)' }}>
+                                                            Available Loyalty Points: {availablePoints.toLocaleString('en-IN')} pts
+                                                        </div>
+                                                        {!isEligible && (
+                                                            <div style={{ fontSize: '10px', color: 'var(--text-secondary)', marginTop: '2px' }}>
+                                                                Min. {minRedeemPoints} pts required to redeem
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                    {isEligible && (
+                                                        <div className="toggle-switch" onClick={() => {
+                                                            if (useLoyaltyPoints) {
+                                                                setLoyaltyPointsToRedeem('');
+                                                            } else {
+                                                                setLoyaltyPointsToRedeem(maxRedeemablePoints);
+                                                            }
+                                                            setUseLoyaltyPoints(!useLoyaltyPoints);
+                                                        }}>
+                                                            <div className={`toggle-track ${useLoyaltyPoints ? 'on' : ''}`}></div>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                                {useLoyaltyPoints && isEligible && (
+                                                    <div className="form-group" style={{ marginTop: '10px', marginBottom: 0 }}>
+                                                        <label style={{ fontSize: 'var(--font-size-xs)' }}>Points to redeem (Max: {maxRedeemablePoints})</label>
+                                                        <input
+                                                            type="number"
+                                                            value={loyaltyPointsToRedeem}
+                                                            onChange={e => {
+                                                                const val = e.target.value;
+                                                                if (val === '') setLoyaltyPointsToRedeem('');
+                                                                else if (Number(val) > maxRedeemablePoints) setLoyaltyPointsToRedeem(maxRedeemablePoints);
+                                                                else setLoyaltyPointsToRedeem(Math.max(0, parseInt(val, 10)));
+                                                            }}
+                                                            style={{ height: '32px', fontSize: 'var(--font-size-xs)' }}
+                                                            placeholder="Enter points..."
+                                                        />
+                                                        {Number(loyaltyPointsToRedeem) > 0 && (
+                                                            <div style={{ fontSize: '11px', color: 'var(--success)', fontWeight: '500', marginTop: '4px' }}>
+                                                                Discount Value: ₹{(Number(loyaltyPointsToRedeem) / redeemRate).toFixed(2)}
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                )}
+                                            </div>
+                                        );
+                                    })()
                                 )}
 
                                 <div className="payment-selection-box" style={{ marginTop: '10px', padding: '12px', background: 'var(--bg-primary)', borderRadius: 'var(--radius-sm)' }}>

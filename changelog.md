@@ -4,6 +4,21 @@ All notable changes to the Quantro ERP application will be documented here.
 
 ---
 
+## [2.10.0] - 2026-06-05
+### Added
+- **Price List Coupon Code Integration at Billing**: Connected custom supplier/manufacturer Price List coupon systems directly to standard billing and POS checkout systems. Users can now apply custom price lists from a select dropdown in POS/Quick Sale.
+- **Dynamic Price List Discounts**: Implemented automatic calculations that apply percentage or currency discounts from selected Price Lists to the invoice grand total dynamically.
+- **Coupon vs Price List Coexistence Safeguards**: Added coupon logic validation in POS and Quick Sale checkout views that automatically clears active coupon codes when a Price List is selected, and clears/resets selected Price Lists when a coupon code is successfully applied.
+
+## [2.9.9] - 2026-06-05
+### Added
+- **CRM Loyalty Points System**: Added a fully optional Loyalty Points program for customers. Customers earn points dynamically on purchases, which can be redeemed at checkout billing as a flat cash discount.
+- **Nested Loyalty Settings Configuration**: Implemented a nested configuration section under App Settings to toggle the Loyalty Points program, configure earning rules (e.g., points per rupee spent), redemption rate, minimum redemption threshold, and point expiry schedules (nested choices: toggle switch, predefined days of 30, 90, 180, or 365, and a custom number of days input).
+- **Loyalty CRM History and Tracking**: Integrated point balances inside the customer list/directory. Customer Details modal now includes a dedicated "Loyalty Points" tab showing total points balance, cash value, and chronological point transaction history (earns, redemptions, reversals, adjustments, and expirations).
+- **Manual Point Adjustments**: Cashiers/managers can manually adjust (add or subtract) a customer's loyalty points with custom notes for customer service corrections directly from the CRM profile.
+- **Dynamic Billing Redemption**: Integrated point redemption directly into POS/Standard checkout billing. The grand total is adjusted dynamically in real time when points are applied.
+- **Point Reversals on Return/Deletion**: Earned points are automatically reversed when invoices are deleted or returned to prevent program abuse.
+
 ## [2.9.8] - 2026-06-05
 ### Added
 - **Manual Batch & Expiry Management**: Added tab interface to manually register or delete batches, input stock levels, and set custom cost prices and expiration dates.

@@ -1413,6 +1413,127 @@ export default function SettingsPage() {
                                             </div>
                                         </div>
                                     )}
+
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 16px', background: 'var(--bg-primary)', borderRadius: '8px', border: '1px solid var(--border-light)', marginTop: '8px' }}>
+                                        <div>
+                                            <div style={{ fontWeight: 600, fontSize: '14px' }}>Enable Loyalty Points System</div>
+                                            <div style={{ fontSize: '12px', color: 'var(--text-tertiary)' }}>Allow customers to earn points on purchases, redeemable as discounts at checkout</div>
+                                        </div>
+                                        <div 
+                                            className="toggle-switch" 
+                                            onClick={() => setSettings({ ...settings, enable_loyalty_points: settings.enable_loyalty_points === 'true' ? 'false' : 'true' })}
+                                            style={{ cursor: 'pointer' }}
+                                        >
+                                            <div className={`toggle-track ${settings.enable_loyalty_points === 'true' ? 'on' : ''}`}></div>
+                                        </div>
+                                    </div>
+
+                                    {settings.enable_loyalty_points === 'true' && (
+                                        <div style={{ display: 'flex', gap: '12px', marginLeft: '16px', marginTop: '-4px' }}>
+                                            <div style={{ color: 'var(--primary-color)', opacity: 0.8, paddingTop: '10px' }}>
+                                                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                                    <path
+                                                        d="M4 4V5.4C4 8.76031 4 10.4405 4.65396 11.7239C5.2292 12.8529 6.14708 13.7708 7.27606 14.346C8.55953 15 10.2397 15 13.6 15H20M20 15L15 10M20 15L15 20"
+                                                        stroke="currentColor"
+                                                        strokeWidth="2"
+                                                        strokeLinecap="round"
+                                                        strokeLinejoin="round"
+                                                     />
+                                                </svg>
+                                            </div>
+                                            <div style={{ flex: 1, padding: '16px', background: 'var(--bg-secondary)', borderRadius: '8px', border: '1px solid var(--border-light)', display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '16px' }}>
+                                                <div className="form-group">
+                                                    <label style={{ fontSize: '12px', fontWeight: 600 }}>Points Earned per ₹1 Spent</label>
+                                                    <input 
+                                                        type="number" 
+                                                        step="0.01"
+                                                        value={settings.loyalty_points_per_rupee || '1'} 
+                                                        onChange={e => setSettings({ ...settings, loyalty_points_per_rupee: e.target.value })} 
+                                                        placeholder="e.g. 1" 
+                                                    />
+                                                </div>
+                                                <div className="form-group">
+                                                    <label style={{ fontSize: '12px', fontWeight: 600 }}>Points Needed for ₹1 Discount</label>
+                                                    <input 
+                                                        type="number" 
+                                                        value={settings.loyalty_points_redeem_rate || '100'} 
+                                                        onChange={e => setSettings({ ...settings, loyalty_points_redeem_rate: e.target.value })} 
+                                                        placeholder="e.g. 100" 
+                                                    />
+                                                </div>
+                                                <div className="form-group">
+                                                    <label style={{ fontSize: '12px', fontWeight: 600 }}>Min Points Required to Redeem</label>
+                                                    <input 
+                                                        type="number" 
+                                                        value={settings.loyalty_min_redeem_points || '100'} 
+                                                        onChange={e => setSettings({ ...settings, loyalty_min_redeem_points: e.target.value })} 
+                                                        placeholder="e.g. 100" 
+                                                    />
+                                                </div>
+                                                <div className="form-group" style={{ gridColumn: 'span 2' }}>
+                                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 16px', background: 'var(--bg-primary)', borderRadius: '8px', border: '1px solid var(--border-light)', marginBottom: '4px' }}>
+                                                        <div>
+                                                            <div style={{ fontWeight: 600, fontSize: '13px' }}>Points Expiry</div>
+                                                            <div style={{ fontSize: '11px', color: 'var(--text-tertiary)' }}>Automatically expire earned points after a specific duration</div>
+                                                        </div>
+                                                        <div 
+                                                            className="toggle-switch small" 
+                                                            onClick={() => {
+                                                                const isEnabled = (settings.loyalty_points_expiry || 'none') !== 'none';
+                                                                setSettings({
+                                                                    ...settings,
+                                                                    loyalty_points_expiry: isEnabled ? 'none' : '365'
+                                                                });
+                                                            }}
+                                                            style={{ cursor: 'pointer', transform: 'scale(0.85)' }}
+                                                        >
+                                                            <div className={`toggle-track ${(settings.loyalty_points_expiry || 'none') !== 'none' ? 'on' : ''}`}></div>
+                                                        </div>
+                                                    </div>
+
+                                                    {(settings.loyalty_points_expiry || 'none') !== 'none' && (
+                                                        <div className="nested-loyalty-expiry" style={{ display: 'flex', flexDirection: 'column', gap: '12px', padding: '16px', background: 'var(--bg-primary)', borderRadius: '8px', borderLeft: '3px solid var(--accent)', borderTop: '1px solid var(--border-light)', borderRight: '1px solid var(--border-light)', borderBottom: '1px solid var(--border-light)', marginTop: '8px' }}>
+                                                            <div className="form-group" style={{ marginBottom: 0 }}>
+                                                                <label style={{ fontSize: '12px', fontWeight: 600 }}>Expiration Period Type</label>
+                                                                <CustomSelect 
+                                                                    value={['30', '90', '180', '365'].includes(settings.loyalty_points_expiry) ? settings.loyalty_points_expiry : 'custom'} 
+                                                                    onChange={val => {
+                                                                        if (val === 'custom') {
+                                                                            setSettings({ ...settings, loyalty_points_expiry: '45' });
+                                                                        } else {
+                                                                            setSettings({ ...settings, loyalty_points_expiry: val });
+                                                                        }
+                                                                    }} 
+                                                                    options={[
+                                                                        { value: '30', label: '30 Days' },
+                                                                        { value: '90', label: '90 Days' },
+                                                                        { value: '180', label: '180 Days' },
+                                                                        { value: '365', label: '365 Days (1 Year)' },
+                                                                        { value: 'custom', label: 'Custom Days...' }
+                                                                    ]}
+                                                                />
+                                                            </div>
+                                                            {!['30', '90', '180', '365'].includes(settings.loyalty_points_expiry) && (
+                                                                <div className="form-group" style={{ marginBottom: 0 }}>
+                                                                    <label style={{ fontSize: '11px', fontWeight: 600 }}>Custom Days</label>
+                                                                    <input 
+                                                                        type="number" 
+                                                                        value={settings.loyalty_points_expiry || ''} 
+                                                                        onChange={e => {
+                                                                            const val = e.target.value;
+                                                                            setSettings({ ...settings, loyalty_points_expiry: val ? String(Math.max(1, parseInt(val, 10))) : '' });
+                                                                        }} 
+                                                                        placeholder="Enter custom days, e.g. 45" 
+                                                                        style={{ height: '36px', fontSize: '13px' }}
+                                                                    />
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    )}
                                 </div>
                                 <div className="settings-divider" style={{ margin: '30px 0 20px 0', borderTop: '1px solid var(--border-light)' }}></div>
                                 
