@@ -673,6 +673,19 @@ export default function InventoryPage() {
                             + New Adjustment
                         </s-button>
                     )}
+                    {activeTab === 'valuation' && (
+                        <div className="flex gap-8" style={{ marginRight: '8px' }}>
+                            {['fifo', 'lifo', 'wac'].map(method => (
+                                <s-button
+                                    key={method}
+                                    variant={valuationMethod === method ? 'primary' : 'secondary'}
+                                    onClick={() => setValuationMethod(method)}
+                                >
+                                    {method.toUpperCase()}
+                                </s-button>
+                            ))}
+                        </div>
+                    )}
                     <s-button onClick={() => setShowCatModal(true)} aria-label="Create category">
                         Create Category
                     </s-button>
@@ -1143,24 +1156,6 @@ export default function InventoryPage() {
 
             {activeTab === 'valuation' && (
                 <div className="valuation-view" style={{ padding: '0 20px 20px 20px' }}>
-                    <div className="section-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-                        <div>
-                            <h2 style={{ fontSize: '1.1em', fontWeight: 600, color: 'var(--text-primary)' }}>Inventory Valuation</h2>
-                            <p className="text-secondary size-12">Total value of currently held stock based on cost layers</p>
-                        </div>
-                        <div className="flex gap-8">
-                            {['fifo', 'lifo', 'wac'].map(method => (
-                                <s-button
-                                    key={method}
-                                    variant={valuationMethod === method ? 'primary' : 'secondary'}
-                                    onClick={() => setValuationMethod(method)}
-                                >
-                                    {method.toUpperCase()}
-                                </s-button>
-                            ))}
-                        </div>
-                    </div>
-
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '20px', marginBottom: '24px' }}>
                         <div className="dashboard-metric-card" style={{ borderLeft: '4px solid var(--accent)', padding: '16px', borderRadius: '8px', background: 'var(--bg-card)' }}>
                             <div className="metric-label" style={{ fontSize: '0.85em', color: 'var(--text-secondary)' }}>FIFO Value</div>
