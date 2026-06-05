@@ -1265,32 +1265,43 @@ export default function InventoryPage() {
                                     <thead>
                                         <tr>
                                             <th style={{ width: '40px', textAlign: 'center' }}>
-                                                <input
-                                                    type="checkbox"
-                                                    style={{ 
-                                                        cursor: 'pointer', 
-                                                        accentColor: 'var(--accent)',
-                                                        width: '16px',
-                                                        height: '16px',
-                                                        minWidth: '16px',
-                                                        minHeight: '16px',
-                                                        padding: 0,
-                                                        margin: 0,
-                                                        border: '1px solid var(--border)',
-                                                        background: '#fff',
-                                                        boxShadow: 'none',
-                                                        flexShrink: 0
-                                                    }}
-                                                    checked={reorderSuggestions.length > 0 && reorderSuggestions.every(item => selectedReorders[item.product_id])}
-                                                    onChange={e => {
-                                                        const checked = e.target.checked;
+                                                <div 
+                                                    onClick={() => {
+                                                        const allChecked = reorderSuggestions.length > 0 && reorderSuggestions.every(item => selectedReorders[item.product_id]);
                                                         const nextSelected = {};
                                                         reorderSuggestions.forEach(item => {
-                                                            nextSelected[item.product_id] = checked;
+                                                            nextSelected[item.product_id] = !allChecked;
                                                         });
                                                         setSelectedReorders(nextSelected);
                                                     }}
-                                                />
+                                                    style={{
+                                                        display: 'inline-flex',
+                                                        alignItems: 'center',
+                                                        justifyContent: 'center',
+                                                        width: '18px',
+                                                        height: '18px',
+                                                        borderRadius: '4px',
+                                                        border: '1.5px solid ' + (reorderSuggestions.length > 0 && reorderSuggestions.every(item => selectedReorders[item.product_id]) ? 'var(--accent)' : 'var(--text-tertiary)'),
+                                                        background: reorderSuggestions.length > 0 && reorderSuggestions.every(item => selectedReorders[item.product_id]) ? 'var(--accent)' : 'transparent',
+                                                        cursor: 'pointer',
+                                                        transition: 'all 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
+                                                        transform: reorderSuggestions.length > 0 && reorderSuggestions.every(item => selectedReorders[item.product_id]) ? 'scale(1.05)' : 'scale(1)',
+                                                        userSelect: 'none',
+                                                        margin: '0 auto',
+                                                        boxShadow: reorderSuggestions.length > 0 && reorderSuggestions.every(item => selectedReorders[item.product_id]) ? '0 2px 6px rgba(10, 110, 255, 0.2)' : 'none'
+                                                    }}
+                                                >
+                                                    <div style={{
+                                                        display: 'flex',
+                                                        alignItems: 'center',
+                                                        justifyContent: 'center',
+                                                        opacity: reorderSuggestions.length > 0 && reorderSuggestions.every(item => selectedReorders[item.product_id]) ? 1 : 0,
+                                                        transform: reorderSuggestions.length > 0 && reorderSuggestions.every(item => selectedReorders[item.product_id]) ? 'scale(1)' : 'scale(0.5)',
+                                                        transition: 'all 0.2s cubic-bezier(0.34, 1.56, 0.64, 1)'
+                                                    }}>
+                                                        <Icons.Check size={12} color="#fff" strokeWidth={3} />
+                                                    </div>
+                                                </div>
                                             </th>
                                             <th>Product</th>
                                             <th>SKU/Code</th>
@@ -1306,30 +1317,41 @@ export default function InventoryPage() {
                                         {reorderSuggestions.map((item, idx) => (
                                             <tr key={idx}>
                                                 <td style={{ textAlign: 'center' }}>
-                                                    <input
-                                                        type="checkbox"
-                                                        style={{ 
-                                                            cursor: 'pointer', 
-                                                            accentColor: 'var(--accent)',
-                                                            width: '16px',
-                                                            height: '16px',
-                                                            minWidth: '16px',
-                                                            minHeight: '16px',
-                                                            padding: 0,
-                                                            margin: 0,
-                                                            border: '1px solid var(--border)',
-                                                            background: '#fff',
-                                                            boxShadow: 'none',
-                                                            flexShrink: 0
-                                                        }}
-                                                        checked={!!selectedReorders[item.product_id]}
-                                                        onChange={e => {
+                                                    <div 
+                                                        onClick={() => {
                                                             setSelectedReorders({
                                                                 ...selectedReorders,
-                                                                [item.product_id]: e.target.checked
+                                                                [item.product_id]: !selectedReorders[item.product_id]
                                                             });
                                                         }}
-                                                    />
+                                                        style={{
+                                                            display: 'inline-flex',
+                                                            alignItems: 'center',
+                                                            justifyContent: 'center',
+                                                            width: '18px',
+                                                            height: '18px',
+                                                            borderRadius: '4px',
+                                                            border: '1.5px solid ' + (selectedReorders[item.product_id] ? 'var(--accent)' : 'var(--text-tertiary)'),
+                                                            background: selectedReorders[item.product_id] ? 'var(--accent)' : 'transparent',
+                                                            cursor: 'pointer',
+                                                            transition: 'all 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
+                                                            transform: selectedReorders[item.product_id] ? 'scale(1.05)' : 'scale(1)',
+                                                            userSelect: 'none',
+                                                            margin: '0 auto',
+                                                            boxShadow: selectedReorders[item.product_id] ? '0 2px 6px rgba(10, 110, 255, 0.2)' : 'none'
+                                                        }}
+                                                    >
+                                                        <div style={{
+                                                            display: 'flex',
+                                                            alignItems: 'center',
+                                                            justifyContent: 'center',
+                                                            opacity: selectedReorders[item.product_id] ? 1 : 0,
+                                                            transform: selectedReorders[item.product_id] ? 'scale(1)' : 'scale(0.5)',
+                                                            transition: 'all 0.2s cubic-bezier(0.34, 1.56, 0.64, 1)'
+                                                        }}>
+                                                            <Icons.Check size={12} color="#fff" strokeWidth={3} />
+                                                        </div>
+                                                    </div>
                                                 </td>
                                                 <td className="fw-600">{item.name}</td>
                                                 <td>{item.product_code || '—'}</td>
