@@ -1255,12 +1255,21 @@
             
             // Extract invoice ID from pathname: /invoice/{id}
             const pathParts = window.location.pathname.split('/');
-            const idPart = pathParts[pathParts.indexOf('invoice') + 1];
-            invoiceId = parseInt(idPart, 10);
+            const invoiceIdx = pathParts.indexOf('invoice');
+            if (invoiceIdx !== -1 && pathParts[invoiceIdx + 1]) {
+                invoiceId = parseInt(pathParts[invoiceIdx + 1], 10);
+            }
 
-            // Parse token from search query
+            // Fallback: parse from search query params (e.g. ?id=12, ?invoiceId=12, ?invoice=12)
             const urlParams = new URLSearchParams(window.location.search);
             secureToken = urlParams.get('token');
+
+            if (isNaN(invoiceId) || !invoiceId) {
+                const qId = urlParams.get('invoiceId') || urlParams.get('id') || urlParams.get('invoice');
+                if (qId) {
+                    invoiceId = parseInt(qId, 10);
+                }
+            }
 
             if (isNaN(invoiceId) || !secureToken) {
                 showError("Invalid Invoice Link", "The link you clicked does not contain the required security tokens or invoice identification. Please verify the URL.");
@@ -1399,9 +1408,9 @@
 
             // Handle UPI and Payment Box Visibility (Only show if there are dues and payment details are set)
             if (dueAmount > 0 && settings.upi_id) {
-                document.getElementById('pay-cta-box').style.display = 'flex';
+                document.getElementById('pay-cta-box').classList.remove('hidden');
             } else {
-                document.getElementById('pay-cta-box').style.display = 'none';
+                document.getElementById('pay-cta-box').classList.add('hidden');
             }
         }
 
@@ -2254,7 +2263,7 @@
             document.getElementById('loader').style.display = 'none';
             document.getElementById('error-title').textContent = title;
             document.getElementById('error-desc').textContent = desc;
-            document.getElementById('error-screen').style.display = 'flex';
+            document.getElementById('error-screen').classList.remove('hidden');
         }
     </script>
 </body>

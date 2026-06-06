@@ -4,6 +4,11 @@ All notable changes to the Quantro ERP application will be documented here.
 
 ---
 
+## [2.10.1] - 2026-06-06
+### Fixed
+- **Shared Hosted Invoice Blank Screen**: Resolved a rendering bug on client-facing hosted invoices where the error screen and pay CTA box remained completely invisible due to `.hidden { display: none !important; }` CSS rule overriding `.style.display = 'flex'`. Switched toggles to use standard `classList.remove('hidden')` and `classList.add('hidden')`.
+- **Robust Share URL ID Parsing**: Upgraded invoice ID extraction in `DOMContentLoaded` inside the public viewer page to robustly parse the invoice ID from query parameters (`?invoiceId=`, `?id=`, `?invoice=`) in addition to pathname routing, resolving failures when hosted invoices are loaded on local servers or static environments without clean URL path rewrites.
+
 ## [2.10.0] - 2026-06-05
 ### Added
 - **Price List Coupon Code Integration at Billing**: Connected custom supplier/manufacturer Price List coupon systems directly to standard billing and POS checkout systems. Users can now apply custom price lists from a select dropdown in POS/Quick Sale.
