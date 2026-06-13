@@ -928,7 +928,7 @@ router.delete('/:id', async (req, res, next) => {
                 // 4. Remote hosted invoice sync cleanup
                 const tokenRow = db.get("SELECT token FROM invoice_tokens WHERE invoice_id = ?", [invoiceId]);
                 if (tokenRow) {
-                    const DB_URL = "https://mazeway-db.onrender.com";
+                    const DB_URL = "https://mazeway-db.vercel.app";
                     const DB_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJncm91cCI6ImFub24iLCJpYXQiOjE3Nzk3MDA0Mzh9.mazeway_db_anon_5KUWRlLbhAarPceBoTlDGMTjNn8hvXtgSTCAGH7CSCOMxgwcZNojTpcYiqqUc3Ma";
                     
                     fetch(`${DB_URL}/api/v1/tables/hosted_invoices/rows`, {
@@ -2190,7 +2190,7 @@ router.post('/merge', async (req, res, next) => {
         for (const oldId of invoice_ids) {
             const tokenRow = db.get("SELECT token FROM invoice_tokens WHERE invoice_id = ?", [oldId]);
             if (tokenRow) {
-                const DB_URL = "https://mazeway-db.onrender.com";
+                const DB_URL = "https://mazeway-db.vercel.app";
                 const DB_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJncm91cCI6ImFub24iLCJpYXQiOjE3Nzk3MDA0Mzh9.mazeway_db_anon_5KUWRlLbhAarPceBoTlDGMTjNn8hvXtgSTCAGH7CSCOMxgwcZNojTpcYiqqUc3Ma";
                 
                 fetch(`${DB_URL}/api/v1/tables/hosted_invoices/rows`, {

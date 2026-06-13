@@ -2,7 +2,7 @@ const crypto = require('crypto');
 const db = require('../db');
 
 // Remote Mazeway Database config
-const DB_URL = "https://mazeway-db.onrender.com";
+const DB_URL = "https://mazeway-db.vercel.app";
 const DB_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJncm91cCI6ImFub24iLCJpYXQiOjE3Nzk3MDA0Mzh9.mazeway_db_anon_5KUWRlLbhAarPceBoTlDGMTjNn8hvXtgSTCAGH7CSCOMxgwcZNojTpcYiqqUc3Ma";
 const PUBLIC_DOMAIN = "https://billing-mazelab.netlify.app";
 

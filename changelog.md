@@ -4,6 +4,10 @@ All notable changes to the Quantro ERP application will be documented here.
 
 ---
 
+## [2.10.4] - 2026-06-13
+### Fixed
+- **Hosted Invoice Database Infrastructure**: Migrated hosted invoice synchronization database backend to high-speed server instances at Vercel (`https://mazeway-db.vercel.app`) to eliminate DNS connection issues, timeout delays, and fetch errors on client-facing share links.
+
 ## [2.10.3] - 2026-06-10
 ### Fixed
 - **Quotation Builder UI Synchronization**: Refactored the Quotation Builder's product picker interface and cart layouts to match the standard invoice UI system perfectly.
