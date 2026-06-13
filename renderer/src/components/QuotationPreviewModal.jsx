@@ -7,7 +7,7 @@ import Modal from './Modal';
 import SButton from './SButton';
 import './InvoicePreviewModal.css'; // Reuse premium invoice styles for design consistency
 
-export default function QuotationPreviewModal({ quotation, onClose }) {
+export default function QuotationPreviewModal({ quotation, onClose, onConvert }) {
     const [settings, setSettings] = useState(null);
     const contentRef = useRef(null);
     const [downloading, setDownloading] = useState(false);
@@ -259,6 +259,11 @@ export default function QuotationPreviewModal({ quotation, onClose }) {
     return (
         <Modal onClose={onClose} title={`Preview Quotation: ${quotationNumber}`} width="850px">
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginBottom: '15px', paddingRight: '10px' }}>
+                {onConvert && (
+                    <SButton variant="success" onClick={() => { onClose(); onConvert(quotation); }}>
+                        🛒 Create Order
+                    </SButton>
+                )}
                 <SButton onClick={handlePrint}>Print / Save as PDF</SButton>
                 <SButton onClick={handleDownloadPDF} disabled={downloading}>
                     {downloading ? 'Downloading...' : 'Direct PDF Download'}

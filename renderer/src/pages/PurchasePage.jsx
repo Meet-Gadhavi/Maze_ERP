@@ -318,7 +318,7 @@ export default function PurchasePage() {
     const syncId = settings?.online_sync_id;
     const isDev = typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') && import.meta.env.DEV;
     // Always use the production web URL so phone scanners can access the site online
-    const webBaseUrl = 'https://quantro-web.onrender.com';
+    const webBaseUrl = 'https://quantro-web-mazelabs.vercel.app';
     const scanUrl = syncId ? `${webBaseUrl}/?page=scanner&syncId=${syncId}` : '';
 
     const cartRef = useRef(cart);

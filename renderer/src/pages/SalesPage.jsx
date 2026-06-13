@@ -96,6 +96,7 @@ export default function SalesPage() {
     // Variant Selection Modal
     const [variantModalProduct, setVariantModalProduct] = useState(null);
     const [variantModalVariants, setVariantModalVariants] = useState([]);
+    const [variantModalSource, setVariantModalSource] = useState('cart'); // 'cart' or 'quotation'
 
     // Invoice logs states
     const [viewingLogsInvoiceId, setViewingLogsInvoiceId] = useState(null);
@@ -445,16 +446,22 @@ export default function SalesPage() {
         }
     }
 
-    function addToQuotationCart(product) {
-        api.getVariants(product.id).then(variants => {
+    async function addToQuotationCart(product) {
+        try {
+            setVariantModalLoading(true);
+            const variants = await api.getVariants(product.id);
+            setVariantModalLoading(false);
             if (variants && variants.length > 0) {
-                addFinalToQuotationCart(product, variants[0]);
-            } else {
-                addFinalToQuotationCart(product, null);
+                setVariantModalProduct(product);
+                setVariantModalVariants(variants);
+                setVariantModalSource('quotation');
+                return; // Wait for variant selection
             }
-        }).catch(() => {
-            addFinalToQuotationCart(product, null);
-        });
+        } catch (err) {
+            console.error('Failed to check variants', err);
+            setVariantModalLoading(false);
+        }
+        addFinalToQuotationCart(product, null);
     }
 
     function addFinalToQuotationCart(product, variant = null) {
@@ -504,15 +511,75 @@ export default function SalesPage() {
     }
 
     function handleQuotationConvert(q) {
+        // Always show the customer assignment modal so the user can confirm/change before converting
+        setShowCustomerSelectForConvert(q);
         if (q.customer_id) {
-            proceedWithQuotationConvert(q, q.customer_id, '', '');
+            setSelectedCustomerForConvert(String(q.customer_id));
+            setWalkInNameForConvert('');
+            setWalkInPhoneForConvert('');
         } else if (q.walk_in_name) {
-            proceedWithQuotationConvert(q, 'walk-in', q.walk_in_name, q.walk_in_phone);
+            setSelectedCustomerForConvert('walk-in');
+            setWalkInNameForConvert(q.walk_in_name || '');
+            setWalkInPhoneForConvert(q.walk_in_phone || '');
         } else {
-            setShowCustomerSelectForConvert(q);
             setSelectedCustomerForConvert(customers[0]?.id ? String(customers[0].id) : 'walk-in');
             setWalkInNameForConvert('Walk-in Customer');
             setWalkInPhoneForConvert('');
+        }
+    }
+
+    async function handleCreateQuotationAndConvert() {
+        if (!quotationName.trim()) {
+            toast.error('Quotation Name/Title is required');
+            return;
+        }
+        if (quotationCart.length === 0) {
+            toast.error('Quotation must contain at least one item');
+            return;
+        }
+
+        const subtotal = quotationCart.reduce((sum, item) => sum + (Number(item.price) * Number(item.quantity)), 0);
+        const discountAmount = quotationDiscountEnabled ? (subtotal * (Number(quotationDiscountRate) / 100)) : 0;
+        const gstAmount = quotationGstEnabled ? ((subtotal - discountAmount) * (Number(quotationGstRate) / 100)) : 0;
+        const total = subtotal - discountAmount + gstAmount;
+
+        const payload = {
+            name: quotationName.trim(),
+            customer_id: quotationCustomer ? Number(quotationCustomer.id) : null,
+            discount_rate: quotationDiscountEnabled ? Number(quotationDiscountRate) : 0,
+            gst_rate: quotationGstEnabled ? Number(quotationGstRate) : 0,
+            walk_in_name: (quotationWalkInName || '').trim(),
+            walk_in_phone: (quotationWalkInPhone || '').trim(),
+            total: total,
+            items: quotationCart.map(item => ({
+                product_id: Number(item.product_id),
+                product_name: item.name,
+                quantity: Number(item.quantity),
+                unit: item.unit || 'PCS',
+                price: Number(item.price),
+                total: Number(item.price) * Number(item.quantity)
+            }))
+        };
+
+        try {
+            const saved = await api.createQuotation(payload);
+            toast.success('Quotation saved. Select a customer to create the order.');
+            // Reset form
+            setQuotationName('');
+            setQuotationCart([]);
+            setQuotationCustomer(null);
+            setQuotationWalkInName('');
+            setQuotationWalkInPhone('');
+            setQuotationGstEnabled(false);
+            setQuotationDiscountEnabled(false);
+            setQuotationDiscountRate(0);
+            setQuotationMode('list');
+            loadQuotations();
+            // Now trigger the convert flow with the saved quotation
+            const savedQ = { ...payload, id: saved?.id, gst_rate: payload.gst_rate, discount_rate: payload.discount_rate, walk_in_name: payload.walk_in_name, walk_in_phone: payload.walk_in_phone, customer_id: payload.customer_id };
+            handleQuotationConvert(savedQ);
+        } catch (err) {
+            toast.error(err.message || 'Failed to save quotation');
         }
     }
 
@@ -3295,6 +3362,9 @@ export default function SalesPage() {
                                     <SButton variant="primary" style={{ flex: 1.5 }} onClick={handleCreateQuotation}>
                                         Save Quotation
                                     </SButton>
+                                    <SButton variant="success" style={{ flex: 1.5 }} onClick={handleCreateQuotationAndConvert}>
+                                        🛒 Create Order
+                                    </SButton>
                                 </div>
                             </div>
                         </div>
@@ -3881,6 +3951,7 @@ export default function SalesPage() {
                 <QuotationPreviewModal
                     quotation={selectedQuotation}
                     onClose={() => setSelectedQuotation(null)}
+                    onConvert={handleQuotationConvert}
                 />
             )}
 
@@ -4312,11 +4383,11 @@ export default function SalesPage() {
 
             <Modal
                 open={!!variantModalProduct}
-                onClose={() => setVariantModalProduct(null)}
+                onClose={() => { setVariantModalProduct(null); setVariantModalSource('cart'); }}
                 heading={`Select Variant: ${variantModalProduct?.name}`}
                 size="small"
                 secondaryAction={
-                    <SButton onClick={() => setVariantModalProduct(null)}>Cancel</SButton>
+                    <SButton onClick={() => { setVariantModalProduct(null); setVariantModalSource('cart'); }}>Cancel</SButton>
                 }
             >
                 <div className="variants-grid" style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '10px', maxHeight: '400px', overflowY: 'auto' }}>
@@ -4324,7 +4395,16 @@ export default function SalesPage() {
                         <div
                             key={v.id}
                             className={`variant-card ${v.stock_quantity <= 0 ? 'unavailable' : ''}`}
-                            onClick={() => v.stock_quantity > 0 && addFinalToCart(variantModalProduct, v)}
+                            onClick={() => {
+                                if (v.stock_quantity <= 0) return;
+                                if (variantModalSource === 'quotation') {
+                                    addFinalToQuotationCart(variantModalProduct, v);
+                                } else {
+                                    addFinalToCart(variantModalProduct, v);
+                                }
+                                setVariantModalProduct(null);
+                                setVariantModalSource('cart');
+                            }}
                             style={{
                                 padding: '12px 16px',
                                 border: '1px solid var(--border)',

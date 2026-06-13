@@ -1909,16 +1909,32 @@ export default function SettingsPage() {
                                         </div>
                                     )}
 
+                                    {/* Timeline Item: v2.10.5 */}
+                                    <div style={{ position: 'relative' }}>
+                                        <div style={{ position: 'absolute', left: '-22px', top: '4px', width: '12px', height: '12px', borderRadius: '50%', background: 'var(--accent)', border: '2px solid var(--bg-primary)' }}></div>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                            <strong style={{ fontSize: '15px' }}>Version 2.10.5 {updateState.status !== 'available' && '(Latest)'}</strong>
+                                            <span style={{ fontSize: '11px', color: 'var(--text-tertiary)', background: 'var(--bg-secondary)', padding: '2px 8px', borderRadius: '12px' }}>June 13, 2026</span>
+                                        </div>
+                                        <div style={{ fontSize: '13px', color: 'var(--text-secondary)', marginTop: '8px', lineHeight: 1.6 }}>
+                                            <ul style={{ margin: 0, paddingLeft: '16px' }}>
+                                                <li><strong>Quotation-to-Order Conversion:</strong> Added a "Create Order" button directly inside the Quotation Preview modal. Users can now instantly convert any saved quotation into a live sales invoice without navigating away — customer assignment modal appears for confirmation or override before checkout.</li>
+                                                <li><strong>Quotation Builder Save &amp; Convert:</strong> Added a "Save &amp; Create Order" action in the Quotation Builder tab that saves the draft quotation and immediately triggers the order conversion flow.</li>
+                                            </ul>
+                                        </div>
+                                    </div>
+
                                     {/* Timeline Item: v2.10.4 */}
                                     <div style={{ position: 'relative' }}>
                                         <div style={{ position: 'absolute', left: '-22px', top: '4px', width: '12px', height: '12px', borderRadius: '50%', background: 'var(--accent)', border: '2px solid var(--bg-primary)' }}></div>
                                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                            <strong style={{ fontSize: '15px' }}>Version 2.10.4 {updateState.status !== 'available' && '(Latest)'}</strong>
+                                            <strong style={{ fontSize: '15px' }}>Version 2.10.4</strong>
                                             <span style={{ fontSize: '11px', color: 'var(--text-tertiary)', background: 'var(--bg-secondary)', padding: '2px 8px', borderRadius: '12px' }}>June 13, 2026</span>
                                         </div>
                                         <div style={{ fontSize: '13px', color: 'var(--text-secondary)', marginTop: '8px', lineHeight: 1.6 }}>
                                             <ul style={{ margin: 0, paddingLeft: '16px' }}>
                                                 <li><strong>Hosted Invoice Database Infrastructure:</strong> Migrated hosted invoice synchronization database backend to a high-speed server instances at Vercel (`https://mazeway-db.vercel.app`) to eliminate DNS connection issues, timeout delays, and fetch errors on client-facing share links.</li>
+                                                <li><strong>Hosted Invoice QR Code Padding:</strong> Added white background, padding, and box-sizing to payment QR codes on hosted client invoices to prevent scanner clipping on dark elements.</li>
                                             </ul>
                                         </div>
                                     </div>

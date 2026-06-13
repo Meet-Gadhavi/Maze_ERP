@@ -9,7 +9,7 @@ import Skeleton from '../components/Skeleton';
 export default function BillingPage() {
     const isDev = typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') && import.meta.env.DEV;
     // Always use the production web URL
-    const webBaseUrl = 'https://quantro-web.onrender.com';
+    const webBaseUrl = 'https://quantro-web-mazelabs.vercel.app';
 
     const [status, setStatus] = useState(null);
     const [loading, setLoading] = useState(true);
@@ -163,7 +163,7 @@ export default function BillingPage() {
         setNewLicenseKey('');
         setUpgradeError('');
         setShowUpgradeModal(true);
-        openExternalLink('https://quantro-web.onrender.com/pricing');
+        openExternalLink('https://quantro-web-mazelabs.vercel.app/pricing');
     };
 
     const handleVerifyUpgrade = async () => {

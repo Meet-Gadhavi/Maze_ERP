@@ -862,7 +862,7 @@ export default function InvoicePreviewModal({ invoice, onClose, autoOpenShare = 
                     <div className="bank-details-box-formal" style={{ display: 'flex', gap: '15px', borderTop: '1px solid #334155', alignItems: 'center', padding: '10px' }}>
                         {settings?.payment_qr_url && (
                             <div className="bank-qr-formal" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                <img src={settings.payment_qr_url} alt="QR" style={{ maxWidth: '80px', maxHeight: '80px', objectFit: 'contain', border: '1px solid #e2e8f0', borderRadius: '4px', display: 'block' }} />
+                                <img src={settings.payment_qr_url} alt="QR" style={{ maxWidth: '80px', maxHeight: '80px', objectFit: 'contain', border: '1px solid #e2e8f0', borderRadius: '4px', display: 'block', padding: '6px', background: '#ffffff', boxSizing: 'border-box' }} />
                             </div>
                         )}
                         <div style={{ flex: 1 }}>
@@ -1343,7 +1343,7 @@ export default function InvoicePreviewModal({ invoice, onClose, autoOpenShare = 
                                         <img
                                             src={settings.payment_qr_url}
                                             alt="Payment QR"
-                                            style={{ width: '100px', height: '100px', borderRadius: '4px', border: '1px solid #dee2e6', objectFit: 'contain', background: '#fff' }}
+                                            style={{ width: '100px', height: '100px', borderRadius: '4px', border: '1px solid #dee2e6', objectFit: 'contain', background: '#fff', padding: '6px', boxSizing: 'border-box' }}
                                         />
                                     </div>
                                 )}

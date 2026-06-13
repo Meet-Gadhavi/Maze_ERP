@@ -517,17 +517,33 @@
             }
             
             /* Page break optimization rules for clean pagination */
-            .formal-items-table tr {
+            tr {
                 page-break-inside: avoid !important;
                 break-inside: avoid !important;
             }
-            .formal-bottom-section {
+            .classic-footer-layout,
+            .classic-totals-box,
+            .classic-payment-breakdown,
+            .formal-bottom-section,
+            .tax-summary-box,
+            .formal-terms-box,
+            .formal-footer-full,
+            .bank-details-box,
+            .bank-details-box-formal,
+            .totals,
+            .minimalist-invoice-card .totals,
+            .pos-footer-note,
+            .pos-qr-container {
                 page-break-inside: avoid !important;
                 break-inside: avoid !important;
             }
-            .formal-terms-box, .formal-footer-full {
-                page-break-inside: avoid !important;
-                break-inside: avoid !important;
+            .container,
+            .invoice-card,
+            .formal-invoice-container,
+            .minimalist-invoice-card {
+                overflow: visible !important;
+                height: auto !important;
+                max-height: none !important;
             }
         }
 
@@ -1727,7 +1743,7 @@
                             <div class="bank-details-box-formal" style="display: flex; gap: 15px; border-top: 1px solid #334155; align-items: center; padding: 10px;">
                                 ${settings.payment_qr_url ? `
                                     <div class="bank-qr-formal" style="display: flex; align-items: center; justify-content: center;">
-                                        <img src="${settings.payment_qr_url}" alt="QR" style="max-width: 80px; max-height: 80px; object-fit: contain; border: 1px solid #e2e8f0; border-radius: 4px; display: block;" />
+                                        <img src="${settings.payment_qr_url}" alt="QR" style="max-width: 80px; max-height: 80px; object-fit: contain; border: 1px solid #e2e8f0; border-radius: 4px; display: block; padding: 6px; background: #ffffff; box-sizing: border-box;" />
                                     </div>
                                 ` : ''}
                                 <div style="flex: 1;">
@@ -2061,7 +2077,7 @@
                                 </div>
                                 <div>
                                     ${settings.upi_id ? `<p><strong>UPI:</strong> ${settings.upi_id}</p>` : ''}
-                                    ${settings.payment_qr_url ? `<div style="margin-top:8px;"><img src="${settings.payment_qr_url}" alt="QR" style="width:64px;height:64px;object-fit:contain;border:1px solid #e2e8f0;border-radius:4px;" /></div>` : ''}
+                                    ${settings.payment_qr_url ? `<div style="margin-top:8px;"><img src="${settings.payment_qr_url}" alt="QR" style="width:64px;height:64px;object-fit:contain;border:1px solid #e2e8f0;border-radius:4px;padding:6px;background:#ffffff;box-sizing:border-box;" /></div>` : ''}
                                 </div>
                             </div>
                         </div>

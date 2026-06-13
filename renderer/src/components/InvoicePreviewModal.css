@@ -523,19 +523,34 @@
     }
 
     /* Page break optimization rules for clean pagination */
-    .formal-items-table tr {
+    tr {
         page-break-inside: avoid !important;
         break-inside: avoid !important;
     }
     
-    .formal-bottom-section {
+    .invoice-footer-layout,
+    .invoice-totals-box,
+    .invoice-payment-breakdown,
+    .formal-bottom-section,
+    .tax-summary-box,
+    .formal-terms-box,
+    .formal-footer-full,
+    .bank-details-box,
+    .bank-details-box-formal,
+    .totals,
+    .minimalist-invoice-card .totals,
+    .pos-footer-note,
+    .pos-qr-container {
         page-break-inside: avoid !important;
         break-inside: avoid !important;
     }
-    
-    .formal-terms-box, .formal-footer-full {
-        page-break-inside: avoid !important;
-        break-inside: avoid !important;
+
+    .invoice-preview-content,
+    .formal-invoice-container,
+    .minimalist-invoice-card {
+        overflow: visible !important;
+        height: auto !important;
+        max-height: none !important;
     }
 
     /* Override global th sticky styling inside invoice preview content to fix scroll shifting */

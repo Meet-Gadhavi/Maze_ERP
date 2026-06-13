@@ -4,9 +4,16 @@ All notable changes to the Quantro ERP application will be documented here.
 
 ---
 
+## [2.10.5] - 2026-06-13
+### Added
+- **Quotation-to-Order Conversion:** Added a "Create Order" button directly inside the Quotation Preview modal. Users can instantly convert any saved quotation into a live sales invoice — a customer assignment modal appears for confirmation or override before loading items to checkout.
+- **Quotation Builder Save & Convert:** Added a "Save & Create Order" action in the Quotation Builder tab that saves the draft quotation and immediately triggers the order conversion flow.
+
 ## [2.10.4] - 2026-06-13
 ### Fixed
 - **Hosted Invoice Database Infrastructure**: Migrated hosted invoice synchronization database backend to high-speed server instances at Vercel (`https://mazeway-db.vercel.app`) to eliminate DNS connection issues, timeout delays, and fetch errors on client-facing share links.
+- **Hosted Invoice QR Code Padding**: Added white background, padding, and box-sizing to payment QR codes on hosted client invoices (both classic and formal templates) to prevent QR scanner clipping when dark modes or dark elements are active.
+
 
 ## [2.10.3] - 2026-06-10
 ### Fixed

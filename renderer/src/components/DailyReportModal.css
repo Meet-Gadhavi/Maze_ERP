@@ -232,12 +232,14 @@
         display: block !important;
     }
 
-    body * {
-        visibility: hidden;
+    #root,
+    s-modal,
+    .maze-modal-overlay {
+        display: none !important;
     }
 
-    .printable-report, .printable-report * {
-        visibility: visible;
+    .maze-print-el, .maze-print-el * {
+        visibility: visible !important;
     }
 
     .printable-report {
