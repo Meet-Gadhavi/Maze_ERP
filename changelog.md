@@ -4,6 +4,16 @@ All notable changes to the Quantro ERP application will be documented here.
 
 ---
 
+## [2.10.3] - 2026-06-10
+### Fixed
+- **Quotation Builder UI Synchronization**: Refactored the Quotation Builder's product picker interface and cart layouts to match the standard invoice UI system perfectly.
+- **Unified Product Selection Grid**: Integrated structured categories, subcategory tags, SKUs, and stock availability grids alongside inline quantity increment/decrement controls inside the quotation picker.
+
+## [2.10.2] - 2026-06-10
+### Added
+- **Global Quotation Management System**: Cashiers can now create global quotation templates, search and filter quotations, view quotation details, print high-fidelity quotation sheets, and track quotation histories inside a dedicated "Quotations" tab on the Sales page.
+- **Convert Quotation to Invoice**: Integrated a "Create Order" process. Selecting a quotation loads its items directly into the billing checkout cart, prompting the user to choose an existing registered customer or process as a walk-in customer to finalize the sales invoice.
+
 ## [2.10.1] - 2026-06-06
 ### Fixed
 - **Shared Hosted Invoice Blank Screen**: Resolved a rendering bug on client-facing hosted invoices where the error screen and pay CTA box remained completely invisible due to `.hidden { display: none !important; }` CSS rule overriding `.style.display = 'flex'`. Switched toggles to use standard `classList.remove('hidden')` and `classList.add('hidden')`.

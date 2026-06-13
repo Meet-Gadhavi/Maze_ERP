@@ -1050,5 +1050,512 @@ router.post('/upload-invoice', async (req, res, next) => {
     }
 });
 
+// --- Purchase Quotations (RFQ System) ---
+
+// GET /api/purchases/quotations
+router.get('/quotations', async (req, res, next) => {
+    try {
+        await db.ready;
+        const quotations = db.all(`
+            SELECT pq.*, s.name as supplier_name
+            FROM purchase_quotations pq
+            JOIN suppliers s ON pq.supplier_id = s.id
+            ORDER BY pq.created_at DESC
+        `);
+        res.json(quotations);
+    } catch (err) {
+        next(err);
+    }
+});
+
+// GET /api/purchases/quotations/:id
+router.get('/quotations/:id', async (req, res, next) => {
+    try {
+        await db.ready;
+        const id = Number(req.params.id);
+        const quotation = db.get(`
+            SELECT pq.*, s.name as supplier_name
+            FROM purchase_quotations pq
+            JOIN suppliers s ON pq.supplier_id = s.id
+            WHERE pq.id = ?
+        `, [id]);
+
+        if (!quotation) return res.status(404).json({ error: 'Quotation not found' });
+
+        quotation.items = db.all('SELECT * FROM purchase_quotation_items WHERE quotation_id = ?', [id]);
+        res.json(quotation);
+    } catch (err) {
+        next(err);
+    }
+});
+
+// POST /api/purchases/quotations
+router.post('/quotations', async (req, res, next) => {
+    try {
+        await db.ready;
+        const { supplier_id, date, valid_until, items } = req.body;
+
+        if (!supplier_id) return res.status(400).json({ error: 'Supplier is required' });
+        if (!items || !items.length) return res.status(400).json({ error: 'At least one item is required' });
+
+        db.transaction(() => {
+            let subtotal = 0;
+            let grand_total = 0;
+
+            const rfqRes = db.run(
+                `INSERT INTO purchase_quotations (supplier_id, date, valid_until, subtotal, grand_total, status)
+                 VALUES (?, ?, ?, 0, 0, 'Draft')`,
+                [supplier_id, date || new Date().toISOString().split('T')[0], valid_until || null]
+            );
+            const rfqId = rfqRes.lastInsertRowid;
+
+            for (const item of items) {
+                const qty = Number(item.quantity || 1);
+                const price = Number(item.price || 0);
+                const lineTotal = qty * price;
+                subtotal += lineTotal;
+                grand_total += lineTotal;
+
+                db.run(
+                    `INSERT INTO purchase_quotation_items (quotation_id, product_id, product_name, quantity, unit, price, line_total)
+                     VALUES (?, ?, ?, ?, ?, ?, ?)`,
+                    [rfqId, item.product_id || null, item.product_name, qty, item.unit || 'PCS', price, lineTotal]
+                );
+            }
+
+            db.run(
+                'UPDATE purchase_quotations SET subtotal = ?, grand_total = ? WHERE id = ?',
+                [subtotal, grand_total, rfqId]
+            );
+        });
+
+        res.status(201).json({ success: true, message: 'Purchase Quotation (RFQ) created' });
+    } catch (err) {
+        next(err);
+    }
+});
+
+// PUT /api/purchases/quotations/:id
+router.put('/quotations/:id', async (req, res, next) => {
+    try {
+        await db.ready;
+        const id = Number(req.params.id);
+        const { supplier_id, date, valid_until, items, status } = req.body;
+
+        db.transaction(() => {
+            const existing = db.get('SELECT id FROM purchase_quotations WHERE id = ?', [id]);
+            if (!existing) {
+                const err = new Error('Quotation not found');
+                err.statusCode = 404;
+                throw err;
+            }
+
+            // Update header
+            db.run(
+                'UPDATE purchase_quotations SET supplier_id = ?, date = ?, valid_until = ?, status = ? WHERE id = ?',
+                [supplier_id, date, valid_until, status || 'Draft', id]
+            );
+
+            if (items && items.length) {
+                // Delete old items
+                db.run('DELETE FROM purchase_quotation_items WHERE quotation_id = ?', [id]);
+
+                let subtotal = 0;
+                let grand_total = 0;
+
+                for (const item of items) {
+                    const qty = Number(item.quantity || 1);
+                    const price = Number(item.price || 0);
+                    const lineTotal = qty * price;
+                    subtotal += lineTotal;
+                    grand_total += lineTotal;
+
+                    db.run(
+                        `INSERT INTO purchase_quotation_items (quotation_id, product_id, product_name, quantity, unit, price, line_total)
+                         VALUES (?, ?, ?, ?, ?, ?, ?)`,
+                        [id, item.product_id || null, item.product_name, qty, item.unit || 'PCS', price, lineTotal]
+                    );
+                }
+
+                db.run(
+                    'UPDATE purchase_quotations SET subtotal = ?, grand_total = ? WHERE id = ?',
+                    [subtotal, grand_total, id]
+                );
+            }
+        });
+
+        res.json({ success: true, message: 'Purchase Quotation updated' });
+    } catch (err) {
+        next(err);
+    }
+});
+
+// DELETE /api/purchases/quotations/:id
+router.delete('/quotations/:id', async (req, res, next) => {
+    try {
+        await db.ready;
+        const id = Number(req.params.id);
+        db.run('DELETE FROM purchase_quotations WHERE id = ?', [id]);
+        res.json({ success: true, message: 'Purchase Quotation deleted' });
+    } catch (err) {
+        next(err);
+    }
+});
+
+// POST /api/purchases/quotations/:id/convert
+router.post('/quotations/:id/convert', async (req, res, next) => {
+    try {
+        await db.ready;
+        const id = Number(req.params.id);
+        
+        const quotation = db.get('SELECT * FROM purchase_quotations WHERE id = ?', [id]);
+        if (!quotation) return res.status(404).json({ error: 'Quotation not found' });
+
+        const items = db.all('SELECT * FROM purchase_quotation_items WHERE quotation_id = ?', [id]);
+
+        db.run("UPDATE purchase_quotations SET status = 'Converted' WHERE id = ?", [id]);
+
+        res.json({
+            message: 'Quotation converted successfully',
+            supplier_id: quotation.supplier_id,
+            items: items.map(it => ({
+                product_id: it.product_id,
+                product_name: it.product_name,
+                quantity: it.quantity,
+                unit: it.unit,
+                purchase_price: it.price,
+                line_total: it.line_total
+            }))
+        });
+    } catch (err) {
+        next(err);
+    }
+});
+
+// --- Auto-Replenishment ---
+
+// GET /api/purchases/replenish/suggestions
+router.get('/replenish/suggestions', async (req, res, next) => {
+    try {
+        await db.ready;
+        const suggestions = db.all(`
+            SELECT p.id as product_id, p.name as product_name, p.cost_price, 
+                   p.stock_quantity, p.min_stock_level, p.unit, p.product_code,
+                   (
+                       SELECT s.id 
+                       FROM purchases pur 
+                       JOIN purchase_items pi ON pur.id = pi.purchase_id 
+                       JOIN suppliers s ON s.id = pur.supplier_id 
+                       WHERE pi.product_id = p.id 
+                       ORDER BY pur.created_at DESC 
+                       LIMIT 1
+                   ) as preferred_supplier_id,
+                   (
+                       SELECT s.name 
+                       FROM purchases pur 
+                       JOIN purchase_items pi ON pur.id = pi.purchase_id 
+                       JOIN suppliers s ON s.id = pur.supplier_id 
+                       WHERE pi.product_id = p.id 
+                       ORDER BY pur.created_at DESC 
+                       LIMIT 1
+                   ) as preferred_supplier_name
+            FROM products p
+            WHERE p.stock_quantity <= p.min_stock_level
+            ORDER BY (p.min_stock_level - p.stock_quantity) DESC
+        `);
+        res.json(suggestions);
+    } catch (err) {
+        next(err);
+    }
+});
+
+// --- Goods Receipt Notes (GRN) ---
+
+// GET /api/purchases/grns
+router.get('/grns', async (req, res, next) => {
+    try {
+        await db.ready;
+        const grns = db.all(`
+            SELECT g.*, s.name as supplier_name, p.bill_number as purchase_bill_number
+            FROM grns g
+            JOIN suppliers s ON g.supplier_id = s.id
+            LEFT JOIN purchases p ON g.purchase_id = p.id
+            ORDER BY g.created_at DESC
+        `);
+        res.json(grns);
+    } catch (err) {
+        next(err);
+    }
+});
+
+// GET /api/purchases/grns/:id
+router.get('/grns/:id', async (req, res, next) => {
+    try {
+        await db.ready;
+        const id = Number(req.params.id);
+        const grn = db.get(`
+            SELECT g.*, s.name as supplier_name, p.bill_number as purchase_bill_number
+            FROM grns g
+            JOIN suppliers s ON g.supplier_id = s.id
+            LEFT JOIN purchases p ON g.purchase_id = p.id
+            WHERE g.id = ?
+        `, [id]);
+
+        if (!grn) return res.status(404).json({ error: 'GRN not found' });
+
+        grn.items = db.all('SELECT * FROM grn_items WHERE grn_id = ?', [id]);
+        res.json(grn);
+    } catch (err) {
+        next(err);
+    }
+});
+
+// POST /api/purchases/grns
+router.post('/grns', async (req, res, next) => {
+    try {
+        await db.ready;
+        const { purchase_id, supplier_id, grn_number, received_date, notes, items } = req.body;
+
+        if (!supplier_id) return res.status(400).json({ error: 'Supplier is required' });
+        if (!grn_number) return res.status(400).json({ error: 'GRN Number is required' });
+        if (!items || !items.length) return res.status(400).json({ error: 'At least one item is required' });
+
+        // Check uniqueness of grn_number
+        const dupe = db.get('SELECT id FROM grns WHERE grn_number = ?', [grn_number]);
+        if (dupe) return res.status(400).json({ error: `GRN Number ${grn_number} already exists` });
+
+        db.transaction(() => {
+            const grnRes = db.run(
+                `INSERT INTO grns (purchase_id, supplier_id, grn_number, received_date, notes, status)
+                 VALUES (?, ?, ?, ?, ?, 'Draft')`,
+                [purchase_id || null, supplier_id, grn_number, received_date || new Date().toISOString().split('T')[0], notes || '']
+            );
+            const grnId = grnRes.lastInsertRowid;
+
+            for (const item of items) {
+                db.run(
+                    `INSERT INTO grn_items (grn_id, product_id, variant_id, product_name, quantity_ordered, quantity_received, quantity_accepted, quantity_rejected, rejection_reason)
+                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                    [
+                        grnId,
+                        item.product_id || null,
+                        item.variant_id || null,
+                        item.product_name,
+                        Number(item.quantity_ordered || 0),
+                        Number(item.quantity_received || 0),
+                        Number(item.quantity_accepted || 0),
+                        Number(item.quantity_rejected || 0),
+                        item.rejection_reason || ''
+                    ]
+                );
+            }
+        });
+
+        res.status(201).json({ success: true, message: 'GRN created successfully' });
+    } catch (err) {
+        next(err);
+    }
+});
+
+// PUT /api/purchases/grns/:id
+router.put('/grns/:id', async (req, res, next) => {
+    try {
+        await db.ready;
+        const id = Number(req.params.id);
+        const { received_date, notes, status, items } = req.body;
+
+        db.transaction(() => {
+            const existing = db.get('SELECT * FROM grns WHERE id = ?', [id]);
+            if (!existing) {
+                const err = new Error('GRN not found');
+                err.statusCode = 404;
+                throw err;
+            }
+
+            db.run(
+                'UPDATE grns SET received_date = ?, notes = ?, status = ? WHERE id = ?',
+                [received_date || existing.received_date, notes || existing.notes, status || existing.status, id]
+            );
+
+            if (items && items.length) {
+                db.run('DELETE FROM grn_items WHERE grn_id = ?', [id]);
+                for (const item of items) {
+                    db.run(
+                        `INSERT INTO grn_items (grn_id, product_id, variant_id, product_name, quantity_ordered, quantity_received, quantity_accepted, quantity_rejected, rejection_reason)
+                         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                        [
+                            id,
+                            item.product_id || null,
+                            item.variant_id || null,
+                            item.product_name,
+                            Number(item.quantity_ordered || 0),
+                            Number(item.quantity_received || 0),
+                            Number(item.quantity_accepted || 0),
+                            Number(item.quantity_rejected || 0),
+                            item.rejection_reason || ''
+                        ]
+                    );
+                }
+            }
+        });
+
+        res.json({ success: true, message: 'GRN updated successfully' });
+    } catch (err) {
+        next(err);
+    }
+});
+
+// POST /api/purchases/grns/:id/approve
+router.post('/grns/:id/approve', async (req, res, next) => {
+    try {
+        await db.ready;
+        const id = Number(req.params.id);
+
+        db.transaction(() => {
+            const grn = db.get('SELECT * FROM grns WHERE id = ?', [id]);
+            if (!grn) {
+                const err = new Error('GRN not found');
+                err.statusCode = 404;
+                throw err;
+            }
+            if (grn.status === 'Quality Checked') {
+                const err = new Error('GRN is already approved and checked');
+                err.statusCode = 400;
+                throw err;
+            }
+
+            const items = db.all('SELECT * FROM grn_items WHERE grn_id = ?', [id]);
+
+            // For each item, update stock quantity
+            for (const item of items) {
+                if (item.product_id) {
+                    const product = db.get('SELECT * FROM products WHERE id = ?', [item.product_id]);
+                    if (product) {
+                        const newStock = Number(product.stock_quantity || 0) + Number(item.quantity_accepted);
+                        db.run('UPDATE products SET stock_quantity = ? WHERE id = ?', [newStock, item.product_id]);
+                    }
+
+                    if (item.variant_id) {
+                        const variant = db.get('SELECT * FROM product_variants WHERE id = ?', [item.variant_id]);
+                        if (variant) {
+                            const newVarStock = Number(variant.stock_quantity || 0) + Number(item.quantity_accepted);
+                            db.run('UPDATE product_variants SET stock_quantity = ? WHERE id = ?', [newVarStock, item.variant_id]);
+                        }
+                    }
+                }
+            }
+
+            db.run("UPDATE grns SET status = 'Quality Checked' WHERE id = ?", [id]);
+
+            // If linked to a purchase, set status to Paid/Partial/Unpaid based on PO status or convert draft PO
+            if (grn.purchase_id) {
+                db.run("UPDATE purchases SET is_draft = 0 WHERE id = ?", [grn.purchase_id]);
+            }
+        });
+
+        res.json({ success: true, message: 'GRN approved and inventory levels updated' });
+    } catch (err) {
+        next(err);
+    }
+});
+
+// --- Landed Cost Allocation ---
+
+// POST /api/purchases/:id/landed-costs
+router.post('/:id/landed-costs', async (req, res, next) => {
+    try {
+        await db.ready;
+        const purchaseId = Number(req.params.id);
+        const { cost_name, amount, allocation_method } = req.body;
+
+        if (!cost_name) return res.status(400).json({ error: 'Cost Name is required' });
+        if (!amount || Number(amount) <= 0) return res.status(400).json({ error: 'Valid amount is required' });
+        if (!['Value', 'Quantity'].includes(allocation_method)) {
+            return res.status(400).json({ error: 'Allocation method must be Value or Quantity' });
+        }
+
+        db.transaction(() => {
+            const purchase = db.get('SELECT * FROM purchases WHERE id = ?', [purchaseId]);
+            if (!purchase) {
+                const err = new Error('Purchase not found');
+                err.statusCode = 404;
+                throw err;
+            }
+
+            const items = db.all('SELECT * FROM purchase_items WHERE purchase_id = ?', [purchaseId]);
+            if (!items.length) {
+                const err = new Error('No items in this purchase to allocate costs to');
+                err.statusCode = 400;
+                throw err;
+            }
+
+            // Insert landed cost log
+            db.run(
+                `INSERT INTO purchase_landed_costs (purchase_id, cost_name, amount, allocation_method)
+                 VALUES (?, ?, ?, ?)`,
+                [purchaseId, cost_name, Number(amount), allocation_method]
+            );
+
+            const totalAmount = Number(amount);
+            const totalValue = Number(purchase.subtotal || 1);
+            const totalQty = items.reduce((sum, item) => sum + Number(item.quantity), 0) || 1;
+
+            // Allocate and update cost_price of products
+            for (const item of items) {
+                let allocatedCost = 0;
+                if (allocation_method === 'Value') {
+                    allocatedCost = (item.line_total / totalValue) * totalAmount;
+                } else {
+                    allocatedCost = (item.quantity / totalQty) * totalAmount;
+                }
+
+                const qty = Number(item.quantity) || 1;
+                const costPerUnit = allocatedCost / qty;
+                const newCostIncludingLanded = item.purchase_price + costPerUnit;
+
+                if (item.product_id) {
+                    const product = db.get('SELECT * FROM products WHERE id = ?', [item.product_id]);
+                    if (product) {
+                        const oldStock = Number(product.stock_quantity) - qty; // stock before this PO
+                        const oldCost = Number(product.cost_price || 0);
+
+                        let newAvgCost = newCostIncludingLanded;
+                        if (product.stock_quantity > 0) {
+                            // recalculate weighted average with new allocated landed cost
+                            newAvgCost = ((Math.max(0, oldStock) * oldCost) + (qty * newCostIncludingLanded)) / product.stock_quantity;
+                        }
+
+                        db.run(
+                            'UPDATE products SET cost_price = ? WHERE id = ?',
+                            [newAvgCost, item.product_id]
+                        );
+
+                        // If item has a variant, update variant cost too
+                        if (item.variant_id) {
+                            const variant = db.get('SELECT * FROM product_variants WHERE id = ?', [item.variant_id]);
+                            if (variant) {
+                                const oldVarStock = Number(variant.stock_quantity) - qty;
+                                const oldVarCost = Number(variant.cost_price || 0);
+                                let newVarAvgCost = newCostIncludingLanded;
+                                if (variant.stock_quantity > 0) {
+                                    newVarAvgCost = ((Math.max(0, oldVarStock) * oldVarCost) + (qty * newCostIncludingLanded)) / variant.stock_quantity;
+                                }
+                                db.run(
+                                    'UPDATE product_variants SET cost_price = ? WHERE id = ?',
+                                    [newVarAvgCost, item.variant_id]
+                                );
+                            }
+                        }
+                    }
+                }
+            }
+        });
+
+        res.json({ success: true, message: 'Landed cost allocated successfully and product weighted average costs updated' });
+    } catch (err) {
+        next(err);
+    }
+});
+
 module.exports = router;
 

@@ -38,6 +38,7 @@ app.use(express.urlencoded({ limit: '10mb', extended: true }));
 app.use('/api/dashboard', require('./routes/dashboard'));
 app.use('/api/products', require('./routes/inventory'));
 app.use('/api/invoices', require('./routes/sales'));
+app.use('/api/quotations', require('./routes/quotations'));
 app.use('/api/customers', require('./routes/customers'));
 app.use('/api/coupons', require('./routes/coupons'));
 app.use('/api/pricelists', require('./routes/pricelists'));

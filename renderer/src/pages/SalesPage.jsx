@@ -6,6 +6,7 @@ import { jsPDF } from 'jspdf';
 import Modal from '../components/Modal';
 import SButton from '../components/SButton';
 import InvoicePreviewModal from '../components/InvoicePreviewModal';
+import QuotationPreviewModal from '../components/QuotationPreviewModal';
 import { Icons } from '../components/Icons';
 import { formatDate } from '../utils';
 import QuickSaleView from '../components/QuickSaleView';
@@ -125,6 +126,26 @@ export default function SalesPage() {
     const [mergeWalkInPhone, setMergeWalkInPhone] = useState('');
     const [merging, setMerging] = useState(false);
 
+    // Quotations State
+    const [quotations, setQuotations] = useState([]);
+    const [quotationMode, setQuotationMode] = useState('list'); // 'list' or 'create'
+    const [quotationName, setQuotationName] = useState('');
+    const [quotationCart, setQuotationCart] = useState([]);
+    const [quotationCustomer, setQuotationCustomer] = useState(null); // null, or customer object
+    const [quotationWalkInName, setQuotationWalkInName] = useState('');
+    const [quotationWalkInPhone, setQuotationWalkInPhone] = useState('');
+    const [quotationGstEnabled, setQuotationGstEnabled] = useState(false);
+    const [quotationGstRate, setQuotationGstRate] = useState(18);
+    const [quotationDiscountEnabled, setQuotationDiscountEnabled] = useState(false);
+    const [quotationDiscountRate, setQuotationDiscountRate] = useState(0);
+    const [quotationProductSearch, setQuotationProductSearch] = useState('');
+    const [selectedQuotation, setSelectedQuotation] = useState(null); // for preview modal
+    const [showCustomerSelectForConvert, setShowCustomerSelectForConvert] = useState(null); // quotation object being converted
+    const [selectedCustomerForConvert, setSelectedCustomerForConvert] = useState(''); // customer id
+    const [walkInNameForConvert, setWalkInNameForConvert] = useState('');
+    const [walkInPhoneForConvert, setWalkInPhoneForConvert] = useState('');
+    const [quotationSearch, setQuotationSearch] = useState('');
+
     const filteredInvoices = useMemo(() => {
         return invoices.filter(inv => {
             const searchLower = historySearch.toLowerCase();
@@ -159,6 +180,7 @@ export default function SalesPage() {
         setSelectedInvoiceIds([]);
         if (tab === 'new') setStep('customer');
         if (tab === 'ai-sales') loadMazewayOrders();
+        if (tab === 'quotation') loadQuotations();
     }, [tab]);
 
     useEffect(() => {
@@ -350,6 +372,221 @@ export default function SalesPage() {
         } catch (err) {
             console.error(err);
         }
+    }
+
+    async function loadQuotations() {
+        try {
+            const data = await api.getQuotations();
+            setQuotations(data || []);
+        } catch (err) {
+            console.error('Failed to load quotations', err);
+        }
+    }
+
+    async function handleDeleteQuotation(id) {
+        if (!window.confirm('Are you sure you want to delete this quotation?')) return;
+        try {
+            await api.deleteQuotation(id);
+            toast.success('Quotation deleted successfully');
+            loadQuotations();
+        } catch (err) {
+            toast.error(err.message || 'Failed to delete quotation');
+        }
+    }
+
+    async function handleCreateQuotation() {
+        if (!quotationName.trim()) {
+            toast.error('Quotation Name/Title is required');
+            return;
+        }
+        if (quotationCart.length === 0) {
+            toast.error('Quotation must contain at least one item');
+            return;
+        }
+
+        const subtotal = quotationCart.reduce((sum, item) => sum + (Number(item.price) * Number(item.quantity)), 0);
+        const discountAmount = quotationDiscountEnabled ? (subtotal * (Number(quotationDiscountRate) / 100)) : 0;
+        const gstAmount = quotationGstEnabled ? ((subtotal - discountAmount) * (Number(quotationGstRate) / 100)) : 0;
+        const total = subtotal - discountAmount + gstAmount;
+
+        const payload = {
+            name: quotationName.trim(),
+            customer_id: quotationCustomer ? Number(quotationCustomer.id) : null,
+            discount_rate: quotationDiscountEnabled ? Number(quotationDiscountRate) : 0,
+            gst_rate: quotationGstEnabled ? Number(quotationGstRate) : 0,
+            walk_in_name: (quotationWalkInName || '').trim(),
+            walk_in_phone: (quotationWalkInPhone || '').trim(),
+            total: total,
+            items: quotationCart.map(item => ({
+                product_id: Number(item.product_id),
+                product_name: item.name,
+                quantity: Number(item.quantity),
+                unit: item.unit || 'PCS',
+                price: Number(item.price),
+                total: Number(item.price) * Number(item.quantity)
+            }))
+        };
+
+        try {
+            await api.createQuotation(payload);
+            toast.success('Quotation saved successfully');
+            setQuotationName('');
+            setQuotationCart([]);
+            setQuotationCustomer(null);
+            setQuotationWalkInName('');
+            setQuotationWalkInPhone('');
+            setQuotationGstEnabled(false);
+            setQuotationDiscountEnabled(false);
+            setQuotationDiscountRate(0);
+            setQuotationMode('list');
+            loadQuotations();
+        } catch (err) {
+            toast.error(err.message || 'Failed to save quotation');
+        }
+    }
+
+    function addToQuotationCart(product) {
+        api.getVariants(product.id).then(variants => {
+            if (variants && variants.length > 0) {
+                addFinalToQuotationCart(product, variants[0]);
+            } else {
+                addFinalToQuotationCart(product, null);
+            }
+        }).catch(() => {
+            addFinalToQuotationCart(product, null);
+        });
+    }
+
+    function addFinalToQuotationCart(product, variant = null) {
+        const productId = product.id;
+        const variantId = variant ? variant.id : null;
+        const price = variant ? Number(variant.selling_price) : Number(product.selling_price);
+
+        const existingIdx = quotationCart.findIndex(c => c.product_id === productId && c.variant_id === variantId);
+        if (existingIdx > -1) {
+            setQuotationCart(quotationCart.map((c, idx) => 
+                idx === existingIdx 
+                    ? { ...c, quantity: c.quantity + 1, total: (c.quantity + 1) * c.price }
+                    : c
+            ));
+        } else {
+            setQuotationCart([...quotationCart, {
+                product_id: productId,
+                variant_id: variantId,
+                name: variant ? `${product.name} - ${variant.name}` : product.name,
+                price: price,
+                quantity: 1,
+                unit: product.unit || 'PCS',
+                total: price
+            }]);
+        }
+    }
+
+    function updateQuotationProductTotalQty(product, newTotalQty) {
+        if (newTotalQty <= 0) {
+            setQuotationCart(quotationCart.filter(c => c.product_id !== product.id || c.variant_id));
+            return;
+        }
+        const itemTemplate = quotationCart.find(c => c.product_id === product.id && !c.variant_id);
+        if (!itemTemplate) return;
+
+        let validQty = Math.max(0.001, newTotalQty);
+        if (!product.allow_decimal) {
+            validQty = Math.floor(validQty);
+            if (validQty < 1) validQty = 1;
+        }
+
+        setQuotationCart(quotationCart.map(c => 
+            (c.product_id === product.id && !c.variant_id)
+                ? { ...c, quantity: validQty, total: validQty * c.price }
+                : c
+        ));
+    }
+
+    function handleQuotationConvert(q) {
+        if (q.customer_id) {
+            proceedWithQuotationConvert(q, q.customer_id, '', '');
+        } else if (q.walk_in_name) {
+            proceedWithQuotationConvert(q, 'walk-in', q.walk_in_name, q.walk_in_phone);
+        } else {
+            setShowCustomerSelectForConvert(q);
+            setSelectedCustomerForConvert(customers[0]?.id ? String(customers[0].id) : 'walk-in');
+            setWalkInNameForConvert('Walk-in Customer');
+            setWalkInPhoneForConvert('');
+        }
+    }
+
+    async function proceedWithQuotationConvert(q, customerIdOrType, walkInNameVal, walkInPhoneVal) {
+        const quotationDetails = await api.getQuotation(q.id);
+        if (!quotationDetails || !quotationDetails.items) {
+            toast.error('Failed to retrieve quotation details');
+            return;
+        }
+
+        if (customerIdOrType === 'walk-in') {
+            setSelectedCustomer('');
+            setWalkInName(walkInNameVal);
+            setWalkInPhone(walkInPhoneVal);
+        } else {
+            setSelectedCustomer(String(customerIdOrType));
+            setWalkInName('');
+            setWalkInPhone('');
+        }
+
+        const newCartItems = [];
+        for (const item of quotationDetails.items) {
+            const product = products.find(p => p.id === item.product_id);
+            const price = Number(item.price);
+            const qty = Number(item.quantity);
+
+            newCartItems.push({
+                cartRowId: Date.now().toString() + Math.random().toString() + item.id,
+                product_id: item.product_id,
+                variant_id: item.variant_id || null,
+                name: item.product_name,
+                subcategory_name: product ? (product.subcategory_name || '') : '',
+                price: price,
+                original_price: product ? Number(product.selling_price) : price,
+                quantity: qty,
+                total: price * qty,
+                maxStock: product ? Number(product.stock_quantity) : qty,
+                unit: item.unit || (product ? product.unit : 'PCS'),
+                baseUnit: product ? (product.unit || 'PCS') : 'PCS',
+                secondaryUnit: product ? product.secondary_unit : null,
+                conversionFactor: product ? (product.conversion_factor || 1) : 1,
+                allowDecimal: product ? !!product.allow_decimal : false,
+                is_free: false,
+                gst_rate: q.gst_rate || 0,
+                discount_rate: q.discount_rate || 0,
+                track_batches: settings.enable_batch_system === 'true',
+                batch_id: '',
+                available_batches: [],
+                track_serials: product ? !!product.track_serials : false,
+                serials: []
+            });
+        }
+
+        setCart(newCartItems);
+        
+        if (q.gst_rate > 0) {
+            setGstEnabled(true);
+            setGstRate(q.gst_rate);
+        } else {
+            setGstEnabled(false);
+        }
+
+        if (q.discount_rate > 0) {
+            setDiscountEnabled(true);
+            setDiscountRate(q.discount_rate);
+        } else {
+            setDiscountEnabled(false);
+            setDiscountRate(0);
+        }
+
+        setTab('new');
+        setStep('products');
+        setShowCustomerSelectForConvert(null);
+        toast.success(`Quotation "${quotationDetails.name}" converted to order. Verify and finalize invoice below.`);
     }
 
     async function handleBulkDeleteInvoices() {
@@ -1047,6 +1284,30 @@ export default function SalesPage() {
     // Derive category list so it's available in JSX (was accidentally inside the closure)
     const categories = useMemo(() => Object.keys(categorizedProducts), [categorizedProducts]);
 
+    const quotationAllFiltered = useMemo(() => (products || []).filter(p =>
+        (quotationProductSearch === '' ||
+            (p.name && p.name.toLowerCase().includes(quotationProductSearch.toLowerCase())) ||
+            (p.product_code && p.product_code.toLowerCase().includes(quotationProductSearch.toLowerCase())))
+    ), [products, quotationProductSearch]);
+
+    const quotationCategorizedProducts = useMemo(() => {
+        const result = {};
+        for (const p of quotationAllFiltered) {
+            const cat = p.category || 'General';
+            const subcat = p.subcategory_name || 'Uncategorized';
+            if (!result[cat]) {
+                result[cat] = {};
+            }
+            if (!result[cat][subcat]) {
+                result[cat][subcat] = [];
+            }
+            result[cat][subcat].push(p);
+        }
+        return result;
+    }, [quotationAllFiltered]);
+
+    const quotationCategories = useMemo(() => Object.keys(quotationCategorizedProducts), [quotationCategorizedProducts]);
+
     const historyCategories = useMemo(() => {
         const cats = Array.from(new Set((products || []).map(p => p.category || 'General')));
         return ['All', ...cats.filter(Boolean).sort()];
@@ -1521,6 +1782,11 @@ export default function SalesPage() {
                     <h1>Sales</h1>
                     <p className="text-secondary">Create standard invoices, track customer purchase history, and manage AI sales</p>
                 </div>
+                {tab === 'quotation' && quotationMode === 'list' && (
+                    <SButton variant="primary" onClick={() => setQuotationMode('create')}>
+                        <Icons.Plus size={16} style={{ marginRight: '6px' }} /> Create Quotation
+                    </SButton>
+                )}
             </div>
 
             <div className="tabs">
@@ -1529,6 +1795,7 @@ export default function SalesPage() {
                 )}
                 <button className={`tab-item ${tab === 'new' ? 'active' : ''}`} onClick={() => { setTab('new'); setStep('customer'); }}>Standard Invoice</button>
                 <button className={`tab-item ${tab === 'history' ? 'active' : ''}`} onClick={() => setTab('history')}>Sales History</button>
+                <button className={`tab-item ${tab === 'quotation' ? 'active' : ''}`} onClick={() => setTab('quotation')}>Quotations</button>
                 <button className={`tab-item ${tab === 'ai-sales' ? 'active' : ''}`} onClick={() => setTab('ai-sales')}>
                     AI Sales
                     {mazewayOrders.filter(o => o.status === 'NEW').length > 0 && (
@@ -2155,7 +2422,7 @@ export default function SalesPage() {
                                                     >
                                                         {(!pricelists || pricelists.length === 0) ? (
                                                             <div style={{ padding: '8px 12px', fontSize: 'var(--font-size-xs)', color: 'var(--text-tertiary)', textAlign: 'center' }}>
-                                                                No active price lists. Create one in Customers > Price Lists.
+                                                                {"No active price lists. Create one in Customers > Price Lists."}
                                                             </div>
                                                         ) : (
                                                             pricelists.map(plist => (
@@ -2589,6 +2856,546 @@ export default function SalesPage() {
                             </div>
                         </div>
                     )}
+                </div>
+            )}
+
+            {tab === 'quotation' && (
+                <div className="quotation-tab-view" style={{ animation: 'fadeIn 0.3s ease' }}>
+                    {quotationMode === 'list' ? (
+                        <div className="quotation-list-view">
+                            <div style={{ marginBottom: '20px' }}>
+                                <div className="search-bar" style={{ maxWidth: '400px', marginBottom: 0 }}>
+                                    <Icons.Search />
+                                    <input
+                                        placeholder="Search quotations by template name or customer..."
+                                        value={quotationSearch}
+                                        onChange={e => setQuotationSearch(e.target.value)}
+                                    />
+                                </div>
+                            </div>
+
+                            <div className="history-table-wrap">
+                                {quotations.length === 0 ? (
+                                    <div className="empty-state-premium">
+                                        <div className="empty-icon-wrapper">
+                                            <Icons.FileText size={40} />
+                                        </div>
+                                        <h3>No Quotations Yet</h3>
+                                        <p>Create global quotation templates or drafts for your customers.</p>
+                                        <SButton variant="primary" onClick={() => setQuotationMode('create')}>
+                                            Create First Quotation
+                                        </SButton>
+                                    </div>
+                                ) : (
+                                    <table className="premium-table">
+                                        <thead>
+                                            <tr>
+                                                <th>QTN #</th>
+                                                <th>Quotation Name</th>
+                                                <th>Assigned Customer</th>
+                                                <th>Tax (GST %)</th>
+                                                <th>Discount %</th>
+                                                <th>Total Value</th>
+                                                <th style={{ textAlign: 'right' }}>Actions</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {quotations.filter(q => {
+                                                const searchLower = quotationSearch.toLowerCase();
+                                                const qtnNo = `QTN-${String(q.id).padStart(4, '0')}`.toLowerCase();
+                                                const name = (q.name || '').toLowerCase();
+                                                const custName = (q.customer_name || q.walk_in_name || 'Global Template').toLowerCase();
+                                                return qtnNo.includes(searchLower) || name.includes(searchLower) || custName.includes(searchLower);
+                                            }).map(q => (
+                                                <tr key={q.id}>
+                                                    <td>
+                                                        <span className="premium-badge badge-secondary" style={{ fontStyle: 'monospace' }}>
+                                                            QTN-{String(q.id).padStart(4, '0')}
+                                                        </span>
+                                                    </td>
+                                                    <td>
+                                                        <span style={{ fontWeight: '600', color: 'var(--text-primary)' }}>{q.name}</span>
+                                                    </td>
+                                                    <td>
+                                                        {q.customer_name ? (
+                                                            <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                                                <Icons.User size={14} style={{ color: 'var(--accent)' }} /> {q.customer_name}
+                                                            </span>
+                                                        ) : q.walk_in_name ? (
+                                                            <span style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--text-secondary)' }}>
+                                                                <Icons.User size={14} /> {q.walk_in_name} (Walk-in)
+                                                            </span>
+                                                        ) : (
+                                                            <span style={{ fontStyle: 'italic', color: 'var(--text-tertiary)' }}>
+                                                                Global Template
+                                                            </span>
+                                                        )}
+                                                    </td>
+                                                    <td>{q.gst_rate > 0 ? `${q.gst_rate}%` : 'Exempted'}</td>
+                                                    <td>{q.discount_rate > 0 ? `${q.discount_rate}%` : 'None'}</td>
+                                                    <td>
+                                                        <span style={{ fontWeight: '700', color: 'var(--accent)' }}>
+                                                            ₹{(q.total || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                                                        </span>
+                                                    </td>
+                                                    <td style={{ textAlign: 'right' }}>
+                                                        <div style={{ display: 'inline-flex', gap: '8px' }}>
+                                                            <SButton
+                                                                variant="secondary"
+                                                                size="sm"
+                                                                title="Convert to Sales Order"
+                                                                onClick={() => handleQuotationConvert(q)}
+                                                                style={{ display: 'flex', alignItems: 'center', gap: '4px' }}
+                                                            >
+                                                                <Icons.ShoppingCart size={14} /> Create Order
+                                                            </SButton>
+                                                            <SButton
+                                                                variant="secondary"
+                                                                size="sm"
+                                                                title="Print or View PDF"
+                                                                onClick={async () => {
+                                                                    try {
+                                                                        const res = await api.getQuotation(q.id);
+                                                                        setSelectedQuotation(res);
+                                                                    } catch (err) {
+                                                                        toast.error('Failed to load quotation details');
+                                                                    }
+                                                                }}
+                                                            >
+                                                                <Icons.Printer size={14} /> Print
+                                                            </SButton>
+                                                            <SButton
+                                                                variant="secondary"
+                                                                size="sm"
+                                                                tone="critical"
+                                                                title="Delete Quotation"
+                                                                onClick={() => handleDeleteQuotation(q.id)}
+                                                            >
+                                                                <Icons.Trash2 size={14} />
+                                                            </SButton>
+                                                        </div>
+                                                    </td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                )}
+                            </div>
+                        </div>
+                    ) : (
+                        <div className="invoice-layout">
+                            <div className="invoice-products-section">
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+                                    <h3 style={{ fontSize: '16px', fontWeight: '700', margin: 0 }}>Add Products</h3>
+                                    <SButton variant="secondary" onClick={() => setQuotationMode('list')}>
+                                        <Icons.ChevronLeft size={14} strokeWidth={2.5} /> Back to List
+                                    </SButton>
+                                </div>
+                                <div className="search-bar">
+                                    <Icons.Search size={20} />
+                                    <input
+                                        placeholder="Search products to add..."
+                                        value={quotationProductSearch}
+                                        onChange={e => setQuotationProductSearch(e.target.value)}
+                                        style={{ width: '100%' }}
+                                    />
+                                </div>
+                                <div className="categorized-product-picker">
+                                    {quotationCategories.map(cat => {
+                                        const subcatsMap = quotationCategorizedProducts[cat] || {};
+                                        const subcatNames = Object.keys(subcatsMap);
+
+                                        return (
+                                            <div key={cat} className="category-group" style={{ marginBottom: '24px' }}>
+                                                <h4 className="category-title">
+                                                    {cat}
+                                                </h4>
+                                                {subcatNames.map(subcat => {
+                                                    const productsInSub = subcatsMap[subcat] || [];
+                                                    return (
+                                                        <div key={subcat} className="subcategory-group" style={{ marginBottom: '16px' }}>
+                                                            <h5
+                                                                style={{
+                                                                    display: 'flex',
+                                                                    alignItems: 'center',
+                                                                    gap: '6px',
+                                                                    fontSize: '11px',
+                                                                    fontWeight: '700',
+                                                                    color: 'var(--accent)',
+                                                                    textTransform: 'uppercase',
+                                                                    letterSpacing: '0.03em',
+                                                                    padding: '8px 14px',
+                                                                    background: 'var(--bg-card)',
+                                                                    borderRadius: 'var(--radius-sm)',
+                                                                    border: '1px solid var(--border-light)',
+                                                                    marginBottom: '10px',
+                                                                    marginTop: '8px',
+                                                                    cursor: 'pointer',
+                                                                    userSelect: 'none',
+                                                                    transition: 'all 0.2s ease',
+                                                                    width: '100%',
+                                                                    boxSizing: 'border-box'
+                                                                }}
+                                                            >
+                                                                <Icons.ChevronRight size={12} strokeWidth={3} />
+                                                                {subcat}
+                                                            </h5>
+                                                            <div className="category-products">
+                                                                {productsInSub.map(p => {
+                                                                    const cartItemInfo = quotationCart.filter(c => c.product_id === p.id && !c.variant_id);
+                                                                    const totalQty = cartItemInfo.reduce((sum, c) => sum + c.quantity, 0);
+                                                                    const firstItem = cartItemInfo[0];
+                                                                    const hasVariants = p.variants_count > 0;
+                                                                    const stockQty = hasVariants ? (p.variants_stock || 0) : p.stock_quantity;
+                                                                    const isUnavailable = stockQty <= 0;
+                                                                    return (
+                                                                        <div key={p.id} className={`product-picker-item ${isUnavailable ? 'unavailable' : ''}`}>
+                                                                            <div className="p-main">
+                                                                                <span className="p-name">{p.name}</span>
+                                                                                <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                                                                                    <span className="p-stock">
+                                                                                        In Stock: {stockQty} {hasVariants && <span style={{ fontSize: '10px', color: 'var(--accent)', fontWeight: 'normal' }}>(Variants)</span>}
+                                                                                    </span>
+                                                                                    {settings.enable_sku === 'true' && p.product_code && (
+                                                                                        <span style={{ fontSize: '10px', color: 'var(--text-tertiary)', background: 'var(--bg-primary)', padding: '1px 4px', borderRadius: '3px', border: '1px solid var(--border-light)' }}>
+                                                                                            Code: {p.product_code}
+                                                                                        </span>
+                                                                                    )}
+                                                                                </div>
+                                                                            </div>
+                                                                            <div className="p-side">
+                                                                                <span className="p-price">₹{Number(p.selling_price).toLocaleString('en-IN')}</span>
+
+                                                                                {firstItem ? (
+                                                                                    <div className="p-qty-control">
+                                                                                        <button onClick={() => {
+                                                                                            if (totalQty > 1) {
+                                                                                                updateQuotationProductTotalQty(p, totalQty - 1);
+                                                                                            } else {
+                                                                                                updateQuotationProductTotalQty(p, 0);
+                                                                                            }
+                                                                                        }}>-</button>
+                                                                                        <input
+                                                                                            className="p-qty-num"
+                                                                                            type="number"
+                                                                                            step={p.allow_decimal ? "0.01" : "1"}
+                                                                                            value={totalQty}
+                                                                                            onChange={e => updateQuotationProductTotalQty(p, parseFloat(e.target.value) || 0)}
+                                                                                            style={{ width: '50px', border: 'none', background: 'transparent', textAlign: 'center', fontSize: 'inherit', color: 'inherit', fontWeight: 'inherit' }}
+                                                                                        />
+                                                                                        <button
+                                                                                            onClick={() => updateQuotationProductTotalQty(p, totalQty + 1)}
+                                                                                        >+</button>
+                                                                                    </div>
+                                                                                ) : (
+                                                                                    <button className="p-add-icon" onClick={() => addToQuotationCart(p)} title="Add to Cart">
+                                                                                        <Icons.Plus size={14} strokeWidth={3} />
+                                                                                    </button>
+                                                                                )}
+                                                                            </div>
+                                                                        </div>
+                                                                    );
+                                                                })}
+                                                            </div>
+                                                        </div>
+                                                    );
+                                                })}
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+
+                            <div className="invoice-summary">
+                                <h3>Quotation Template Details</h3>
+
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                                    <div>
+                                        <label style={{ fontSize: '12px', fontWeight: '600', color: 'var(--text-secondary)', display: 'block', marginBottom: '6px' }}>Quotation Name / Title *</label>
+                                        <input
+                                            placeholder="e.g. Summer Special Deal"
+                                            value={quotationName}
+                                            onChange={e => setQuotationName(e.target.value)}
+                                            style={{ width: '100%', boxSizing: 'border-box' }}
+                                        />
+                                    </div>
+
+                                    <div>
+                                        <label style={{ fontSize: '12px', fontWeight: '600', color: 'var(--text-secondary)', display: 'block', marginBottom: '6px' }}>Customer Assignment</label>
+                                        <div style={{ display: 'flex', gap: '12px', marginBottom: '8px' }}>
+                                            <label style={{ display: 'flex', alignItems: 'center', gap: '4px', cursor: 'pointer', fontSize: '13px' }}>
+                                                <input
+                                                    type="radio"
+                                                    name="customerType"
+                                                    checked={!quotationCustomer && !quotationWalkInName}
+                                                    onChange={() => { setQuotationCustomer(null); setQuotationWalkInName(''); setQuotationWalkInPhone(''); }}
+                                                />
+                                                Global Template
+                                            </label>
+                                            <label style={{ display: 'flex', alignItems: 'center', gap: '4px', cursor: 'pointer', fontSize: '13px' }}>
+                                                <input
+                                                    type="radio"
+                                                    name="customerType"
+                                                    checked={!!quotationCustomer}
+                                                    onChange={() => { setQuotationCustomer(customers[0] || null); setQuotationWalkInName(''); setQuotationWalkInPhone(''); }}
+                                                />
+                                                Existing Customer
+                                            </label>
+                                            <label style={{ display: 'flex', alignItems: 'center', gap: '4px', cursor: 'pointer', fontSize: '13px' }}>
+                                                <input
+                                                    type="radio"
+                                                    name="customerType"
+                                                    checked={!!quotationWalkInName}
+                                                    onChange={() => { setQuotationCustomer(null); setQuotationWalkInName('Walk-in Client'); }}
+                                                />
+                                                Walk-in Customer
+                                            </label>
+                                        </div>
+
+                                        {!!quotationCustomer && (
+                                            <CustomSelect
+                                                value={quotationCustomer ? String(quotationCustomer.id) : ''}
+                                                onChange={val => setQuotationCustomer(customers.find(c => String(c.id) === val) || null)}
+                                                options={customers.map(c => ({ value: String(c.id), label: `${c.name} (${c.phone || 'No Phone'})` }))}
+                                                style={{ width: '100%' }}
+                                            />
+                                        )}
+
+                                        {!quotationCustomer && !!quotationWalkInName && (
+                                            <div style={{ display: 'flex', gap: '8px', marginTop: '6px' }}>
+                                                <input
+                                                    placeholder="Client Name"
+                                                    value={quotationWalkInName}
+                                                    onChange={e => setQuotationWalkInName(e.target.value)}
+                                                    style={{ flex: 1 }}
+                                                />
+                                                <input
+                                                    placeholder="Client Phone"
+                                                    value={quotationWalkInPhone}
+                                                    onChange={e => setQuotationWalkInPhone(e.target.value)}
+                                                    style={{ flex: 1 }}
+                                                />
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+
+                                <div style={{ flex: 1, minHeight: '180px', display: 'flex', flexDirection: 'column' }}>
+                                    <label style={{ fontSize: '12px', fontWeight: '600', color: 'var(--text-secondary)', display: 'block', marginBottom: '8px' }}>Quotation Cart</label>
+                                    <div style={{ flex: 1, overflowY: 'auto', maxHeight: '250px', border: '1px solid var(--border-light)', borderRadius: '8px', padding: '8px', background: 'var(--bg-secondary)' }}>
+                                        {quotationCart.length === 0 ? (
+                                            <div style={{ padding: '24px', textAlign: 'center', color: 'var(--text-tertiary)', fontSize: '13px', fontStyle: 'italic' }}>Quotation cart is empty. Click products on the left to add.</div>
+                                        ) : (
+                                            quotationCart.map((item, idx) => (
+                                                <div key={`${item.product_id}-${item.variant_id || idx}`} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 0', borderBottom: '1px solid var(--border-light)' }}>
+                                                    <div style={{ display: 'flex', flexDirection: 'column', flex: 1 }}>
+                                                        <span style={{ fontSize: '13px', fontWeight: '600' }}>{item.name}</span>
+                                                        <span style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>₹{item.price.toLocaleString('en-IN')} / {item.unit}</span>
+                                                    </div>
+                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                        <button 
+                                                            style={{ border: 'none', background: 'transparent', padding: '2px', cursor: 'pointer' }}
+                                                            onClick={() => {
+                                                                if (item.quantity <= 1) {
+                                                                    setQuotationCart(quotationCart.filter((_, i) => i !== idx));
+                                                                } else {
+                                                                    setQuotationCart(quotationCart.map((c, i) => i === idx ? { ...c, quantity: c.quantity - 1 } : c));
+                                                                }
+                                                            }}
+                                                        >
+                                                            <Icons.MinusCircle size={16} style={{ color: 'var(--text-secondary)' }} />
+                                                        </button>
+                                                        <span style={{ fontSize: '13px', fontWeight: '700', minWidth: '20px', textAlign: 'center' }}>{item.quantity}</span>
+                                                        <button 
+                                                            style={{ border: 'none', background: 'transparent', padding: '2px', cursor: 'pointer' }}
+                                                            onClick={() => setQuotationCart(quotationCart.map((c, i) => i === idx ? { ...c, quantity: c.quantity + 1 } : c))}
+                                                        >
+                                                            <Icons.PlusCircle size={16} style={{ color: 'var(--accent)' }} />
+                                                        </button>
+                                                        <button 
+                                                            style={{ border: 'none', background: 'transparent', cursor: 'pointer', marginLeft: '6px' }}
+                                                            onClick={() => setQuotationCart(quotationCart.filter((_, i) => i !== idx))}
+                                                        >
+                                                            <Icons.X size={14} style={{ color: 'var(--danger)' }} />
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            ))
+                                        )}
+                                    </div>
+                                </div>
+
+                                <div style={{ background: 'var(--bg-secondary)', borderRadius: '8px', padding: '12px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px' }}>
+                                        <span>Subtotal</span>
+                                        <span style={{ fontWeight: '600' }}>₹{quotationCart.reduce((sum, item) => sum + (item.price * item.quantity), 0).toLocaleString('en-IN')}</span>
+                                    </div>
+
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                        <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', cursor: 'pointer' }}>
+                                            <input
+                                                type="checkbox"
+                                                checked={quotationDiscountEnabled}
+                                                onChange={e => {
+                                                    setQuotationDiscountEnabled(e.target.checked);
+                                                    if (!e.target.checked) setQuotationDiscountRate(0);
+                                                }}
+                                            />
+                                            Discount (%)
+                                        </label>
+                                        {quotationDiscountEnabled && (
+                                            <input
+                                                type="number"
+                                                value={quotationDiscountRate}
+                                                onChange={e => setQuotationDiscountRate(Math.max(0, Math.min(100, Number(e.target.value))))}
+                                                style={{ width: '60px', padding: '4px', textAlign: 'right' }}
+                                            />
+                                        )}
+                                    </div>
+
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                        <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', cursor: 'pointer' }}>
+                                            <input
+                                                type="checkbox"
+                                                checked={quotationGstEnabled}
+                                                onChange={e => {
+                                                    setQuotationGstEnabled(e.target.checked);
+                                                    if (!e.target.checked) setQuotationGstRate(18);
+                                                }}
+                                            />
+                                            Apply GST (%)
+                                        </label>
+                                        {quotationGstEnabled && (
+                                            <input
+                                                type="number"
+                                                value={quotationGstRate}
+                                                onChange={e => setQuotationGstRate(Math.max(0, Number(e.target.value)))}
+                                                style={{ width: '60px', padding: '4px', textAlign: 'right' }}
+                                            />
+                                        )}
+                                    </div>
+
+                                    <div style={{ borderTop: '1px solid var(--border-light)', paddingTop: '8px', marginTop: '4px', display: 'flex', justifyContent: 'space-between', fontSize: '15px', fontWeight: 'bold' }}>
+                                        <span>Quotation Estimate</span>
+                                        <span style={{ color: 'var(--accent)' }}>
+                                            {(() => {
+                                                const subtotal = quotationCart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+                                                const discount = quotationDiscountEnabled ? (subtotal * (quotationDiscountRate / 100)) : 0;
+                                                const gst = quotationGstEnabled ? ((subtotal - discount) * (quotationGstRate / 100)) : 0;
+                                                return `₹${(subtotal - discount + gst).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`;
+                                            })()}
+                                        </span>
+                                    </div>
+                                </div>
+
+                                <div style={{ display: 'flex', gap: '12px' }}>
+                                    <SButton variant="secondary" style={{ flex: 1 }} onClick={() => setQuotationMode('list')}>
+                                        Cancel
+                                    </SButton>
+                                    <SButton variant="primary" style={{ flex: 1.5 }} onClick={handleCreateQuotation}>
+                                        Save Quotation
+                                    </SButton>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+                </div>
+            )}
+
+            {/* Customer Selector Modal for Convert to Order */}
+            {showCustomerSelectForConvert && (
+                <div className="premium-modal-backdrop" style={{ display: 'flex', position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center', zIndex: 1000 }}>
+                    <div className="premium-modal" style={{ width: '400px', background: 'var(--bg-card)', padding: '24px', borderRadius: '12px', border: '1px solid var(--border-light)' }}>
+                        <h3 style={{ marginTop: 0, marginBottom: '8px' }}>Assign Customer to Order</h3>
+                        <p style={{ color: 'var(--text-secondary)', fontSize: '13px', marginBottom: '20px' }}>Choose a customer to populate the invoice data for this order.</p>
+
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                            <div>
+                                <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', marginBottom: '6px' }}>Selection Mode</label>
+                                <div style={{ display: 'flex', gap: '12px' }}>
+                                    <label style={{ display: 'flex', alignItems: 'center', gap: '4px', cursor: 'pointer', fontSize: '13px' }}>
+                                        <input
+                                            type="radio"
+                                            name="convertCustType"
+                                            checked={selectedCustomerForConvert !== 'walk-in'}
+                                            onChange={() => {
+                                                setSelectedCustomerForConvert(customers[0]?.id || '');
+                                            }}
+                                        />
+                                        Existing Customer
+                                    </label>
+                                    <label style={{ display: 'flex', alignItems: 'center', gap: '4px', cursor: 'pointer', fontSize: '13px' }}>
+                                        <input
+                                            type="radio"
+                                            name="convertCustType"
+                                            checked={selectedCustomerForConvert === 'walk-in'}
+                                            onChange={() => {
+                                                setSelectedCustomerForConvert('walk-in');
+                                                setWalkInNameForConvert('Walk-in Customer');
+                                            }}
+                                        />
+                                        Walk-in Customer
+                                    </label>
+                                </div>
+                            </div>
+
+                            {selectedCustomerForConvert !== 'walk-in' ? (
+                                <div>
+                                    <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', marginBottom: '6px' }}>Select Customer</label>
+                                    <CustomSelect
+                                        value={String(selectedCustomerForConvert)}
+                                        onChange={val => setSelectedCustomerForConvert(val)}
+                                        options={customers.map(c => ({ value: String(c.id), label: `${c.name} (${c.phone || 'No Phone'})` }))}
+                                        style={{ width: '100%' }}
+                                    />
+                                </div>
+                            ) : (
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                    <div>
+                                        <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', marginBottom: '6px' }}>Customer Name</label>
+                                        <input
+                                            placeholder="Client Name"
+                                            value={walkInNameForConvert}
+                                            onChange={e => setWalkInNameForConvert(e.target.value)}
+                                            style={{ width: '100%' }}
+                                        />
+                                    </div>
+                                    <div>
+                                        <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', marginBottom: '6px' }}>Customer Phone (Optional)</label>
+                                        <input
+                                            placeholder="Client Phone"
+                                            value={walkInPhoneForConvert}
+                                            onChange={e => setWalkInPhoneForConvert(e.target.value)}
+                                            style={{ width: '100%' }}
+                                        />
+                                    </div>
+                                </div>
+                            )}
+
+                            <div style={{ display: 'flex', gap: '10px', marginTop: '10px' }}>
+                                <SButton variant="secondary" style={{ flex: 1 }} onClick={() => setShowCustomerSelectForConvert(null)}>
+                                    Cancel
+                                </SButton>
+                                <SButton variant="primary" style={{ flex: 1.5 }} onClick={() => {
+                                    if (selectedCustomerForConvert === 'walk-in') {
+                                        if (!walkInNameForConvert.trim()) {
+                                            toast.error('Please enter a name for the walk-in customer');
+                                            return;
+                                        }
+                                        proceedWithQuotationConvert(showCustomerSelectForConvert, 'walk-in', walkInNameForConvert.trim(), walkInPhoneForConvert.trim());
+                                    } else {
+                                        if (!selectedCustomerForConvert) {
+                                            toast.error('Please select an existing customer');
+                                            return;
+                                        }
+                                        proceedWithQuotationConvert(showCustomerSelectForConvert, selectedCustomerForConvert, '', '');
+                                    }
+                                }}>
+                                    Proceed to Cart
+                                </SButton>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             )}
 
@@ -3070,6 +3877,13 @@ export default function SalesPage() {
                 )
             }
 
+            {selectedQuotation && (
+                <QuotationPreviewModal
+                    quotation={selectedQuotation}
+                    onClose={() => setSelectedQuotation(null)}
+                />
+            )}
+
             <Modal
                 open={!!returningInvoice}
                 onClose={() => setReturningInvoice(null)}
@@ -3444,7 +4258,7 @@ export default function SalesPage() {
                         Are you sure you want to delete this invoice? This action <strong style={{ color: 'var(--danger)' }}>cannot be undone</strong>.
                     </p>
                     <p style={{ color: 'var(--danger)', fontSize: 'var(--font-size-xs)', fontWeight: '500' }}>
-                        Warning: Products will not be returned to inventory, and unpaid amounts will no longer be tracked.
+                        Warning: Products will be returned to inventory, and unpaid amounts will no longer be tracked.
                     </p>
                 </div>
             </Modal>

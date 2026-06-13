@@ -1239,6 +1239,132 @@ ready = (async () => {
     )
   `);
 
+  // Quotation Management Tables
+  db.run(`
+    CREATE TABLE IF NOT EXISTS quotations (
+      id            INTEGER PRIMARY KEY AUTOINCREMENT,
+      name          TEXT NOT NULL,
+      customer_id   INTEGER,
+      pricelist_id  INTEGER,
+      total         REAL NOT NULL DEFAULT 0,
+      gst_rate      REAL NOT NULL DEFAULT 0,
+      discount_rate REAL NOT NULL DEFAULT 0,
+      date          TEXT NOT NULL DEFAULT (date('now','localtime')),
+      walk_in_name  TEXT NOT NULL DEFAULT '',
+      walk_in_phone TEXT NOT NULL DEFAULT '',
+      created_at    TEXT NOT NULL DEFAULT (datetime('now','localtime')),
+      FOREIGN KEY (customer_id) REFERENCES customers(id) ON DELETE SET NULL,
+      FOREIGN KEY (pricelist_id) REFERENCES pricelists(id) ON DELETE SET NULL
+    )
+  `);
+
+  db.run(`
+    CREATE TABLE IF NOT EXISTS quotation_items (
+      id            INTEGER PRIMARY KEY AUTOINCREMENT,
+      quotation_id  INTEGER NOT NULL,
+      product_id    INTEGER,
+      product_name  TEXT NOT NULL,
+      quantity      REAL NOT NULL DEFAULT 1,
+      unit          TEXT DEFAULT 'PCS',
+      price         REAL NOT NULL DEFAULT 0,
+      total         REAL NOT NULL DEFAULT 0,
+      batch_id      INTEGER DEFAULT NULL,
+      FOREIGN KEY (quotation_id) REFERENCES quotations(id) ON DELETE CASCADE,
+      FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE SET NULL
+    )
+  `);
+
+  // Supplier Price Lists Table
+  db.run(`
+    CREATE TABLE IF NOT EXISTS supplier_price_lists (
+      id          INTEGER PRIMARY KEY AUTOINCREMENT,
+      supplier_id INTEGER NOT NULL,
+      product_id  INTEGER NOT NULL,
+      variant_id  INTEGER,
+      price       REAL NOT NULL,
+      created_at  TEXT NOT NULL DEFAULT (datetime('now','localtime')),
+      FOREIGN KEY (supplier_id) REFERENCES suppliers(id) ON DELETE CASCADE,
+      FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE
+    )
+  `);
+
+  // Purchase Quotations (RFQs) Tables
+  db.run(`
+    CREATE TABLE IF NOT EXISTS purchase_quotations (
+      id          INTEGER PRIMARY KEY AUTOINCREMENT,
+      supplier_id INTEGER NOT NULL,
+      date        TEXT NOT NULL,
+      valid_until TEXT,
+      subtotal    REAL NOT NULL DEFAULT 0,
+      gst_total   REAL NOT NULL DEFAULT 0,
+      grand_total REAL NOT NULL DEFAULT 0,
+      status      TEXT NOT NULL DEFAULT 'Draft', -- 'Draft', 'Sent', 'Accepted', 'Converted', 'Cancelled'
+      created_at  TEXT NOT NULL DEFAULT (datetime('now','localtime')),
+      FOREIGN KEY (supplier_id) REFERENCES suppliers(id) ON DELETE CASCADE
+    )
+  `);
+
+  db.run(`
+    CREATE TABLE IF NOT EXISTS purchase_quotation_items (
+      id            INTEGER PRIMARY KEY AUTOINCREMENT,
+      quotation_id  INTEGER NOT NULL,
+      product_id    INTEGER,
+      product_name  TEXT NOT NULL,
+      quantity      REAL NOT NULL DEFAULT 1,
+      unit          TEXT DEFAULT 'PCS',
+      price         REAL NOT NULL DEFAULT 0,
+      line_total    REAL NOT NULL DEFAULT 0,
+      FOREIGN KEY (quotation_id) REFERENCES purchase_quotations(id) ON DELETE CASCADE,
+      FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE SET NULL
+    )
+  `);
+
+  // Goods Receipt Notes (GRN) Tables
+  db.run(`
+    CREATE TABLE IF NOT EXISTS grns (
+      id            INTEGER PRIMARY KEY AUTOINCREMENT,
+      purchase_id   INTEGER,
+      supplier_id   INTEGER NOT NULL,
+      grn_number    TEXT NOT NULL UNIQUE,
+      received_date TEXT NOT NULL,
+      status        TEXT NOT NULL DEFAULT 'Draft', -- 'Draft', 'Received', 'Quality Checked', 'Cancelled'
+      notes         TEXT,
+      created_at    TEXT NOT NULL DEFAULT (datetime('now','localtime')),
+      FOREIGN KEY (purchase_id) REFERENCES purchases(id) ON DELETE SET NULL,
+      FOREIGN KEY (supplier_id) REFERENCES suppliers(id) ON DELETE CASCADE
+    )
+  `);
+
+  db.run(`
+    CREATE TABLE IF NOT EXISTS grn_items (
+      id                INTEGER PRIMARY KEY AUTOINCREMENT,
+      grn_id            INTEGER NOT NULL,
+      product_id        INTEGER,
+      variant_id        INTEGER,
+      product_name      TEXT NOT NULL,
+      quantity_ordered  REAL NOT NULL DEFAULT 0,
+      quantity_received REAL NOT NULL DEFAULT 0,
+      quantity_accepted REAL NOT NULL DEFAULT 0,
+      quantity_rejected REAL NOT NULL DEFAULT 0,
+      rejection_reason  TEXT,
+      FOREIGN KEY (grn_id) REFERENCES grns(id) ON DELETE CASCADE,
+      FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE SET NULL
+    )
+  `);
+
+  // Purchase Landed Costs Table
+  db.run(`
+    CREATE TABLE IF NOT EXISTS purchase_landed_costs (
+      id                INTEGER PRIMARY KEY AUTOINCREMENT,
+      purchase_id       INTEGER NOT NULL,
+      cost_name         TEXT NOT NULL, -- 'Freight', 'Customs Duty', etc.
+      amount            REAL NOT NULL,
+      allocation_method TEXT NOT NULL, -- 'Value' or 'Quantity'
+      created_at        TEXT NOT NULL DEFAULT (datetime('now','localtime')),
+      FOREIGN KEY (purchase_id) REFERENCES purchases(id) ON DELETE CASCADE
+    )
+  `);
+
   persist();
   return db;
 })();

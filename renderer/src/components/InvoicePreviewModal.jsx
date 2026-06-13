@@ -762,7 +762,7 @@ export default function InvoicePreviewModal({ invoice, onClose, autoOpenShare = 
                                     {item.product_name} {item.variant_name ? `(${item.variant_name})` : ''}
                                     {item.pending_qty > 0 && <span style={{ marginLeft: 8, fontSize: '0.8em', color: '#b45309', fontWeight: 400 }}>(Pending: {item.pending_qty})</span>}
                                 </td>
-                                <td className="col-hsn">{item.hsn_sac || item.product_hsn || '—'}</td>
+                                <td className="col-hsn">{item.hsn_sac || item.product_hsn || item.product_code || '—'}</td>
                                 <td className="col-qty">
                                     {(() => {
                                         const retQty = getItemReturnedQty(item);
@@ -859,9 +859,14 @@ export default function InvoicePreviewModal({ invoice, onClose, autoOpenShare = 
                         </div>
                     </div>
 
-                    <div className="bank-details-box-formal" style={{ display: 'flex', gap: '15px', borderTop: '1px solid #334155' }}>
+                    <div className="bank-details-box-formal" style={{ display: 'flex', gap: '15px', borderTop: '1px solid #334155', alignItems: 'center', padding: '10px' }}>
+                        {settings?.payment_qr_url && (
+                            <div className="bank-qr-formal" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                <img src={settings.payment_qr_url} alt="QR" style={{ maxWidth: '80px', maxHeight: '80px', objectFit: 'contain', border: '1px solid #e2e8f0', borderRadius: '4px', display: 'block' }} />
+                            </div>
+                        )}
                         <div style={{ flex: 1 }}>
-                            <div className="box-label">{t.bankDetails}:</div>
+                            <div className="box-label" style={{ marginBottom: '4px' }}>{t.bankDetails}:</div>
                             <div className="box-content">
                                 <p>{t.bankName}: <strong>{settings?.bank_name}</strong></p>
                                 <p>{t.accountNo}: <strong>{settings?.account_number}</strong></p>
@@ -870,11 +875,6 @@ export default function InvoicePreviewModal({ invoice, onClose, autoOpenShare = 
                                 {settings?.upi_id && <p>{t.upiId}: <strong>{settings?.upi_id}</strong></p>}
                             </div>
                         </div>
-                        {settings?.payment_qr_url && (
-                            <div className="bank-qr-formal" style={{ padding: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                <img src={settings.payment_qr_url} alt="QR" style={{ width: '70px', height: '70px', objectFit: 'contain', border: '1px solid #e2e8f0' }} />
-                            </div>
-                        )}
                     </div>
                 </div>
 

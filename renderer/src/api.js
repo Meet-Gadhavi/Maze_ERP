@@ -197,6 +197,10 @@ const api = {
     createSupplier: (data) => request('/suppliers', { method: 'POST', body: data }),
     updateSupplier: (id, data) => request(`/suppliers/${id}`, { method: 'PUT', body: data }),
     deleteSupplier: (id) => request(`/suppliers/${id}`, { method: 'DELETE' }),
+    getSupplierPriceLists: (supplierId) => request(`/suppliers/${supplierId}/price-lists`),
+    updateSupplierPriceList: (supplierId, data) => request(`/suppliers/${supplierId}/price-lists`, { method: 'POST', body: data }),
+    deleteSupplierPriceList: (id) => request(`/suppliers/price-lists/${id}`, { method: 'DELETE' }),
+    getSupplierPerformanceReport: () => request('/suppliers/reports/performance'),
 
     // Purchases
     getPurchases: () => request('/purchases'),
@@ -205,6 +209,19 @@ const api = {
     paySupplier: (supplierId, data) => request(`/purchases/suppliers/${supplierId}/pay`, { method: 'POST', body: data }),
     returnPurchase: (id, data) => request(`/purchases/${id}/return`, { method: 'POST', body: data }),
     uploadPurchaseInvoice: (imageBase64) => request('/purchases/upload-invoice', { method: 'POST', body: { image: imageBase64 } }),
+    getPurchaseQuotations: () => request('/purchases/quotations'),
+    getPurchaseQuotation: (id) => request(`/purchases/quotations/${id}`),
+    createPurchaseQuotation: (data) => request('/purchases/quotations', { method: 'POST', body: data }),
+    updatePurchaseQuotation: (id, data) => request(`/purchases/quotations/${id}`, { method: 'PUT', body: data }),
+    deletePurchaseQuotation: (id) => request(`/purchases/quotations/${id}`, { method: 'DELETE' }),
+    convertPurchaseQuotation: (id) => request(`/purchases/quotations/${id}/convert`, { method: 'POST' }),
+    getReplenishSuggestions: () => request('/purchases/replenish/suggestions'),
+    getGRNs: () => request('/purchases/grns'),
+    getGRN: (id) => request(`/purchases/grns/${id}`),
+    createGRN: (data) => request('/purchases/grns', { method: 'POST', body: data }),
+    updateGRN: (id, data) => request(`/purchases/grns/${id}`, { method: 'PUT', body: data }),
+    approveGRN: (id) => request(`/purchases/grns/${id}/approve`, { method: 'POST' }),
+    allocateLandedCost: (purchaseId, data) => request(`/purchases/${purchaseId}/landed-costs`, { method: 'POST', body: data }),
 
     // Expenses
     getExpenses: (params = {}) => {
@@ -504,6 +521,12 @@ const api = {
     createPricelist: (data) => request('/pricelists', { method: 'POST', body: data }),
     updatePricelist: (id, data) => request(`/pricelists/${id}`, { method: 'PUT', body: data }),
     deletePricelist: (id) => request(`/pricelists/${id}`, { method: 'DELETE' }),
+
+    // Quotations
+    getQuotations: () => request('/quotations'),
+    getQuotation: (id) => request(`/quotations/${id}`),
+    createQuotation: (data) => request('/quotations', { method: 'POST', body: data }),
+    deleteQuotation: (id) => request(`/quotations/${id}`, { method: 'DELETE' }),
 };
 
 export default api;

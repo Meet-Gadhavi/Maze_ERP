@@ -1208,11 +1208,17 @@ export default function SettingsPage() {
                                                 )}
                                             </span>
                                         </div>
-                                        <div className="stat-card action" style={{ flexDirection: 'row', gap: '12px' }}>
-                                            <button className="btn-backup-now" onClick={handleBackupNow} disabled={saving} style={{ flex: 1 }}>
-                                                {saving ? 'Backing up...' : 'Backup Now'}
-                                            </button>
-                                        </div>
+                                    </div>
+
+                                    <div style={{ marginBottom: '32px' }}>
+                                        <SButton 
+                                            variant="primary" 
+                                            onClick={handleBackupNow} 
+                                            disabled={saving} 
+                                            style={{ width: '100%', padding: '14px 20px', borderRadius: '12px', fontSize: '14px', fontWeight: '700', justifyContent: 'center' }}
+                                        >
+                                            {saving ? 'Creating System Backup...' : 'Create Local & Cloud Backup Now'}
+                                        </SButton>
                                     </div>
 
                                     <div className="backup-history-section">
@@ -1903,11 +1909,41 @@ export default function SettingsPage() {
                                         </div>
                                     )}
 
+                                    {/* Timeline Item: v2.10.3 */}
+                                    <div style={{ position: 'relative' }}>
+                                        <div style={{ position: 'absolute', left: '-22px', top: '4px', width: '12px', height: '12px', borderRadius: '50%', background: 'var(--accent)', border: '2px solid var(--bg-primary)' }}></div>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                            <strong style={{ fontSize: '15px' }}>Version 2.10.3 {updateState.status !== 'available' && '(Latest)'}</strong>
+                                            <span style={{ fontSize: '11px', color: 'var(--text-tertiary)', background: 'var(--bg-secondary)', padding: '2px 8px', borderRadius: '12px' }}>June 10, 2026</span>
+                                        </div>
+                                        <div style={{ fontSize: '13px', color: 'var(--text-secondary)', marginTop: '8px', lineHeight: 1.6 }}>
+                                            <ul style={{ margin: 0, paddingLeft: '16px' }}>
+                                                <li><strong>Quotation Builder UI Synchronization:</strong> Refactored the Quotation Builder's product picker interface and cart layouts to match the standard invoice UI system perfectly.</li>
+                                                <li><strong>Unified Product Selection Grid:</strong> Integrated structured categories, subcategory tags, SKUs, and stock availability grids alongside inline quantity increment/decrement controls inside the quotation picker.</li>
+                                            </ul>
+                                        </div>
+                                    </div>
+
+                                    {/* Timeline Item: v2.10.2 */}
+                                    <div style={{ position: 'relative' }}>
+                                        <div style={{ position: 'absolute', left: '-22px', top: '4px', width: '12px', height: '12px', borderRadius: '50%', background: 'var(--accent)', border: '2px solid var(--bg-primary)' }}></div>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                            <strong style={{ fontSize: '15px' }}>Version 2.10.2</strong>
+                                            <span style={{ fontSize: '11px', color: 'var(--text-tertiary)', background: 'var(--bg-secondary)', padding: '2px 8px', borderRadius: '12px' }}>June 10, 2026</span>
+                                        </div>
+                                        <div style={{ fontSize: '13px', color: 'var(--text-secondary)', marginTop: '8px', lineHeight: 1.6 }}>
+                                            <ul style={{ margin: 0, paddingLeft: '16px' }}>
+                                                <li><strong>Global Quotation Management System:</strong> Added a premium "Quotations" tab inside the Sales page allowing cashiers to generate and manage global quotation templates, print quotation PDFs, and track customer quotation history.</li>
+                                                <li><strong>One-Click Quotation-to-Order Conversion:</strong> Created a "Create Order" workflow that automatically transfers quotation items to the billing cart and opens a walk-in or existing customer selection prompt to finalize checkouts.</li>
+                                            </ul>
+                                        </div>
+                                    </div>
+
                                     {/* Timeline Item: v2.10.1 */}
                                     <div style={{ position: 'relative' }}>
                                         <div style={{ position: 'absolute', left: '-22px', top: '4px', width: '12px', height: '12px', borderRadius: '50%', background: 'var(--accent)', border: '2px solid var(--bg-primary)' }}></div>
                                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                            <strong style={{ fontSize: '15px' }}>Version 2.10.1 {updateState.status !== 'available' && '(Latest)'}</strong>
+                                            <strong style={{ fontSize: '15px' }}>Version 2.10.1</strong>
                                             <span style={{ fontSize: '11px', color: 'var(--text-tertiary)', background: 'var(--bg-secondary)', padding: '2px 8px', borderRadius: '12px' }}>June 6, 2026</span>
                                         </div>
                                         <div style={{ fontSize: '13px', color: 'var(--text-secondary)', marginTop: '8px', lineHeight: 1.6 }}>

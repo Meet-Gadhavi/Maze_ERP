@@ -9,6 +9,7 @@ import Icons from '../components/Icons';
 import { formatDate, amountToWords, validateProduct } from '../utils';
 import { EMPTY_SUPPLIER, EMPTY_EXPENSE, EMPTY_PRODUCT, UNIT_CATEGORIES, DECIMAL_UNITS } from '../constants';
 import { supabase } from '../supabase';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LineChart, Line } from 'recharts';
 import './PurchasePage.css';
 import Skeleton from '../components/Skeleton';
 
@@ -84,6 +85,47 @@ export default function PurchasePage() {
     const [expenseForm, setExpenseForm] = useState(EMPTY_EXPENSE);
     const [expenseSearch, setExpenseSearch] = useState('');
 
+    // New Tab & Modal States for Purchasing Features
+    const [quotations, setQuotations] = useState([]);
+    const [rfqMode, setRfqMode] = useState('list'); // 'list', 'create', 'edit'
+    const [rfqForm, setRfqForm] = useState({ supplier_id: '', date: new Date().toISOString().split('T')[0], valid_until: '', items: [] });
+    const [editingRfqId, setEditingRfqId] = useState(null);
+    const [rfqProductSearch, setRfqProductSearch] = useState('');
+
+    const [grns, setGrns] = useState([]);
+    const [grnMode, setGrnMode] = useState('list'); // 'list', 'create'
+    const [grnForm, setGrnForm] = useState({ purchase_id: '', supplier_id: '', grn_number: '', received_date: new Date().toISOString().split('T')[0], notes: '', items: [] });
+
+    const [replenishSuggestions, setReplenishSuggestions] = useState([]);
+    const [performanceReport, setPerformanceReport] = useState([]);
+    const [selectedAnalyticsSupplier, setSelectedAnalyticsSupplier] = useState('');
+    const [supplierPriceLists, setSupplierPriceLists] = useState([]);
+    const [showPriceListAddForm, setShowPriceListAddForm] = useState(false);
+    const [newPriceListEntry, setNewPriceListEntry] = useState({ product_id: '', price: '' });
+    const [analyticsSubTab, setAnalyticsSubTab] = useState('pricelists'); // 'pricelists', 'analytics'
+
+    const [supplierContractPrices, setSupplierContractPrices] = useState([]);
+
+    // Landed Cost state
+    const [showLandedCostModal, setShowLandedCostModal] = useState(false);
+    const [landedCostPurchaseId, setLandedCostPurchaseId] = useState(null);
+    const [landedCostForm, setLandedCostForm] = useState({ cost_name: '', amount: '', allocation_method: 'Value' });
+
+    useEffect(() => {
+        if (selectedSupplier) {
+            (async () => {
+                try {
+                    const prices = await api.getSupplierPriceLists(Number(selectedSupplier));
+                    setSupplierContractPrices(prices || []);
+                } catch (err) {
+                    console.error('Failed to load supplier contract prices', err);
+                }
+            })();
+        } else {
+            setSupplierContractPrices([]);
+        }
+    }, [selectedSupplier]);
+
     useEffect(() => {
         loadData();
         setPurchaseHistoryPage(1);
@@ -91,6 +133,45 @@ export default function PurchasePage() {
         setExpensesPage(1);
         setReturnItemsPage(1);
     }, [activeTab]);
+
+    useEffect(() => {
+        if (activeTab === 'performance' && selectedAnalyticsSupplier) {
+            (async () => {
+                try {
+                    const priceLists = await api.getSupplierPriceLists(Number(selectedAnalyticsSupplier));
+                    setSupplierPriceLists(priceLists);
+                } catch (err) {
+                    console.error('Failed to load price lists', err);
+                }
+            })();
+        }
+    }, [selectedAnalyticsSupplier, activeTab]);
+
+    const handleAllocateLandedCostSubmit = async (e) => {
+        if (e) e.preventDefault();
+        if (!landedCostForm.cost_name.trim()) {
+            return toast.error('Please enter a Cost Name');
+        }
+        const amt = Number(landedCostForm.amount);
+        if (isNaN(amt) || amt <= 0) {
+            return toast.error('Please enter a valid positive cost amount');
+        }
+
+        try {
+            await api.allocateLandedCost(landedCostPurchaseId, {
+                cost_name: landedCostForm.cost_name.trim(),
+                amount: amt,
+                allocation_method: landedCostForm.allocation_method
+            });
+            toast.success('Landed cost allocated successfully and weighted average costs updated!');
+            setShowLandedCostModal(false);
+            setLandedCostForm({ cost_name: '', amount: '', allocation_method: 'Value' });
+            loadData();
+        } catch (err) {
+            console.error('Failed to allocate landed cost', err);
+            toast.error(err.message || 'Error allocating landed cost');
+        }
+    };
 
     const loadData = async () => {
         try {
@@ -114,6 +195,24 @@ export default function PurchasePage() {
             setSettings(setts);
             setSubcategories(subcatData);
             setBrands(brandData);
+
+            if (activeTab === 'quotations') {
+                const qts = await api.getPurchaseQuotations();
+                setQuotations(qts);
+            } else if (activeTab === 'grns') {
+                const gnList = await api.getGRNs();
+                setGrns(gnList);
+            } else if (activeTab === 'replenish') {
+                const suggestions = await api.getReplenishSuggestions();
+                setReplenishSuggestions(suggestions);
+            } else if (activeTab === 'performance') {
+                const report = await api.getSupplierPerformanceReport();
+                setPerformanceReport(report);
+                if (selectedAnalyticsSupplier) {
+                    const priceLists = await api.getSupplierPriceLists(Number(selectedAnalyticsSupplier));
+                    setSupplierPriceLists(priceLists);
+                }
+            }
         } catch (err) {
             console.error('Failed to load purchase system data', err);
         }
@@ -186,6 +285,13 @@ export default function PurchasePage() {
         const exists = cart.find(item => item.product_id === product.id && item.variant_id === variantId);
         if (exists) return;
 
+        // Check if there is a supplier contracted price
+        const contract = supplierContractPrices.find(cp => 
+            cp.product_id === product.id && 
+            (cp.variant_id === variantId || (!cp.variant_id && !variantId))
+        );
+        const resolvedPrice = contract ? contract.price : (variant ? (variant.cost_price || 0) : (product.cost_price || 0));
+
         setCart([...cart, {
             product_id: product.id,
             variant_id: variantId,
@@ -193,7 +299,7 @@ export default function PurchasePage() {
             product_name: variant ? `${product.name} (${variant.name})` : product.name,
             quantity: 1,
             unit: product.unit || 'PCS',
-            purchase_price: variant ? (variant.cost_price || 0) : (product.cost_price || 0),
+            purchase_price: resolvedPrice,
             discount_percent: 0,
             gst_percent: 18,
             is_new_product: false,
@@ -1159,9 +1265,18 @@ export default function PurchasePage() {
                                                     <Icons.Eye size={14} />
                                                 </SButton>
                                                 {p.status !== 'Draft' && (
-                                                    <SButton title="Process Return" variant="secondary" onClick={() => handleInitiateReturn(p.id)}>
-                                                        <Icons.RotateCcw size={14} />
-                                                    </SButton>
+                                                    <>
+                                                        <SButton title="Allocate Landed Cost" variant="secondary" onClick={() => {
+                                                            setLandedCostPurchaseId(p.id);
+                                                            setLandedCostForm({ cost_name: '', amount: '', allocation_method: 'Value' });
+                                                            setShowLandedCostModal(true);
+                                                        }}>
+                                                            <Icons.Banknote size={14} />
+                                                        </SButton>
+                                                        <SButton title="Process Return" variant="secondary" onClick={() => handleInitiateReturn(p.id)}>
+                                                            <Icons.RotateCcw size={14} />
+                                                        </SButton>
+                                                    </>
                                                 )}
                                             </div>
                                         </td>
@@ -2879,6 +2994,85 @@ export default function PurchasePage() {
                         ))}
                     </div>
                 )}
+            </Modal>
+
+            {/* Landed Cost Allocation Modal */}
+            <Modal
+                open={showLandedCostModal}
+                onClose={() => setShowLandedCostModal(false)}
+                heading="Allocate Landed Cost"
+                size="small"
+                secondaryAction={
+                    <SButton onClick={() => setShowLandedCostModal(false)}>Cancel</SButton>
+                }
+                primaryAction={
+                    <SButton variant="primary" onClick={handleAllocateLandedCostSubmit}>Allocate Cost</SButton>
+                }
+            >
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', padding: '8px 4px' }}>
+                    <div className="form-group">
+                        <label style={{ fontWeight: 600, marginBottom: '6px', display: 'block' }}>Cost Name / Type</label>
+                        <CustomSelect
+                            value={landedCostForm.cost_name}
+                            onChange={(val) => setLandedCostForm(prev => ({ ...prev, cost_name: val }))}
+                            options={[
+                                { value: 'Freight Charges', label: 'Freight Charges' },
+                                { value: 'Customs Duty', label: 'Customs Duty' },
+                                { value: 'Insurance', label: 'Insurance' },
+                                { value: 'Loading/Unloading', label: 'Loading/Unloading' },
+                                { value: 'Other Miscellaneous Cost', label: 'Other Miscellaneous Cost' }
+                            ]}
+                            placeholder="Select Cost Type"
+                        />
+                    </div>
+                    <div className="form-group">
+                        <label style={{ fontWeight: 600, marginBottom: '6px', display: 'block' }}>Or Enter Custom Name</label>
+                        <input
+                            type="text"
+                            placeholder="e.g. Courier charges"
+                            value={landedCostForm.cost_name}
+                            onChange={(e) => setLandedCostForm(prev => ({ ...prev, cost_name: e.target.value }))}
+                            style={{
+                                width: '100%',
+                                padding: '10px 12px',
+                                border: '1px solid var(--border)',
+                                borderRadius: '8px',
+                                background: 'var(--bg-card)',
+                                color: 'var(--text-main)',
+                                outline: 'none'
+                            }}
+                        />
+                    </div>
+                    <div className="form-group">
+                        <label style={{ fontWeight: 600, marginBottom: '6px', display: 'block' }}>Amount (₹)</label>
+                        <input
+                            type="number"
+                            placeholder="0.00"
+                            value={landedCostForm.amount}
+                            onChange={(e) => setLandedCostForm(prev => ({ ...prev, amount: e.target.value }))}
+                            style={{
+                                width: '100%',
+                                padding: '10px 12px',
+                                border: '1px solid var(--border)',
+                                borderRadius: '8px',
+                                background: 'var(--bg-card)',
+                                color: 'var(--text-main)',
+                                outline: 'none'
+                            }}
+                        />
+                    </div>
+                    <div className="form-group">
+                        <label style={{ fontWeight: 600, marginBottom: '6px', display: 'block' }}>Allocation Method</label>
+                        <CustomSelect
+                            value={landedCostForm.allocation_method}
+                            onChange={(val) => setLandedCostForm(prev => ({ ...prev, allocation_method: val }))}
+                            options={[
+                                { value: 'Value', label: 'By Value (Proportional to Line Totals)' },
+                                { value: 'Quantity', label: 'By Quantity (Proportional to Quantities)' }
+                            ]}
+                        />
+                    </div>
+                </div>
             </Modal>
         </div>
     );
