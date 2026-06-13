@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain } = require('electron');
+const { app, BrowserWindow, ipcMain, nativeImage } = require('electron');
 const path = require('path');
 const { autoUpdater } = require('electron-updater');
 
@@ -21,8 +21,8 @@ if (process.defaultApp) {
 // Set the application name for taskbar, window title, and app metadata.
 app.setName('Quantro');
 
-// Set App User Model ID for Windows taskbar icon grouping and visibility
-if (process.platform === 'win32') {
+// Set App User Model ID for Windows taskbar icon grouping and visibility (packaged production only)
+if (process.platform === 'win32' && app.isPackaged) {
     app.setAppUserModelId('com.mazelab.quantro');
 }
 
@@ -65,7 +65,7 @@ ipcMain.on('open-customer-window', () => {
         width: 1024,
         height: 768,
         title: 'Customer Display - Quantro',
-        icon: iconPath,
+        icon: appIcon,
         fullscreen: true,
         autoHideMenuBar: true,
         webPreferences: {
@@ -200,6 +200,8 @@ const iconPath = isDev
     ? path.join(__dirname, '..', 'renderer', 'public', 'icons', 'Appicon.ico')
     : path.join(__dirname, '..', 'renderer', 'dist', 'icons', 'Appicon.ico');
 
+const appIcon = nativeImage.createFromPath(iconPath);
+
 
 function startBackend() {
     if (isDev) {
@@ -239,7 +241,7 @@ function createWindow() {
         minWidth: 1024,
         minHeight: 680,
         title: 'Quantro',
-        icon: iconPath,
+        icon: appIcon,
         backgroundColor: '#F5F5F7',
         center: true,
         webPreferences: {

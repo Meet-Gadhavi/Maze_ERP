@@ -6,7 +6,7 @@ All notable changes to the Quantro ERP application will be documented here.
 
 ## [2.10.6] - 2026-06-13
 ### Fixed
-- **Taskbar Application Icon**: Fixed a runtime path resolution bug in packaged environments where the application taskbar and window icon would fail to load due to missing `renderer/public` files. Resolved by dynamically fallback-routing the icon file to `renderer/dist` in production, and registered the official App User Model ID on Windows for correct taskbar icon grouping.
+- **Taskbar Application Icon**: Fixed a runtime path resolution bug where the taskbar and window icon would fail to load due to path differences and ASAR packaging constraints. Resolved by dynamically loading the icon using `nativeImage.createFromPath` from `renderer/dist` in production, and restricted the App User Model ID registration to packaged environments to prevent icon grouping/hiding issues in dev mode.
 - **Hosted Invoice Domain**: Verified and standardized Netlify hosting routes (`billing-mazelab.netlify.app`) for public bill access.
 
 ## [2.10.5] - 2026-06-13

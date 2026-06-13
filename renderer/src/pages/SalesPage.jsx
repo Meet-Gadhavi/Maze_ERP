@@ -1874,18 +1874,20 @@ export default function SalesPage() {
             </div>
 
             {tab === 'quick' && settings.enable_quick_sale === 'true' && (
-                <QuickSaleView 
-                    products={products}
-                    cart={cart}
-                    setCart={setCart}
-                    addToCart={addToCart}
-                    handleCreateInvoice={handleCreateInvoice}
-                    settings={settings}
-                />
+                <div style={{ animation: 'fadeIn 0.3s ease' }}>
+                    <QuickSaleView 
+                        products={products}
+                        cart={cart}
+                        setCart={setCart}
+                        addToCart={addToCart}
+                        handleCreateInvoice={handleCreateInvoice}
+                        settings={settings}
+                    />
+                </div>
             )}
 
             {tab === 'new' && (
-                <div className="invoice-container">
+                <div className="invoice-container" key={step} style={{ animation: 'fadeIn 0.3s ease' }}>
                     {step === 'customer' ? (
                         <div className="customer-selection-view">
                             <div className="view-header">
@@ -1970,10 +1972,10 @@ export default function SalesPage() {
                     ) : (
                         <div className="invoice-layout">
                             <div className="invoice-products-section">
-                                <div className="section-header-inline" style={{ marginBottom: '24px' }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
+                                    <h3 style={{ fontSize: '16px', fontWeight: '700', margin: 0 }}>Add Products</h3>
                                     <SButton variant="secondary" onClick={() => setStep('customer')}>
-                                        <Icons.ChevronLeft size={14} strokeWidth={2.5} />
-                                        Back to Customers
+                                        <Icons.ChevronLeft size={14} strokeWidth={2.5} /> Back to Customers
                                     </SButton>
                                 </div>
 
@@ -2927,7 +2929,7 @@ export default function SalesPage() {
             )}
 
             {tab === 'quotation' && (
-                <div className="quotation-tab-view" style={{ animation: 'fadeIn 0.3s ease' }}>
+                <div className="quotation-tab-view" key={quotationMode} style={{ animation: 'fadeIn 0.3s ease' }}>
                     {quotationMode === 'list' ? (
                         <div className="quotation-list-view">
                             <div style={{ marginBottom: '20px' }}>
@@ -3470,7 +3472,7 @@ export default function SalesPage() {
             )}
 
             {tab === 'ai-sales' && (
-                <div className="ai-sales-dashboard">
+                <div className="ai-sales-dashboard" style={{ animation: 'fadeIn 0.3s ease' }}>
                     <div className="page-toolbar">
                         <div className="search-bar">
                             <Icons.Search size={20} />
@@ -3566,7 +3568,7 @@ export default function SalesPage() {
             )}
 
             {tab === 'history' && (
-                <div className="history-view">
+                <div className="history-view" style={{ animation: 'fadeIn 0.3s ease' }}>
                     <div className="page-toolbar">
                         <div className="search-bar">
                             <Icons.Search size={20} />
