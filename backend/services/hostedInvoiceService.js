@@ -114,15 +114,15 @@ async function generateHostedInvoice(invoiceId) {
     console.log(`[Sync Service] Checking if invoice #${invoiceId} already exists in cloud DB...`);
     let exists = false;
     try {
-        const checkResponse = await fetch(`${DB_URL}/api/v1/tables/hosted_invoices/rows`, {
+        const checkResponse = await fetch(`${DB_URL}/api/v1/tables/hosted_invoices/rows?where=(invoice_id,eq,${invoiceId})`, {
             headers: {
                 'apikey': DB_ANON_KEY,
                 'Authorization': `Bearer ${DB_ANON_KEY}`
             }
         });
         if (checkResponse.ok) {
-            const allRecords = await checkResponse.json();
-            exists = allRecords.some(r => Number(r.invoice_id) === Number(invoiceId));
+            const records = await checkResponse.json();
+            exists = Array.isArray(records) && records.length > 0;
         }
     } catch (e) {
         console.warn(`[Sync Service] Pre-check failed, assuming it doesn't exist:`, e.message);

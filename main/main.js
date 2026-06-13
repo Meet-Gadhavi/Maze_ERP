@@ -232,12 +232,13 @@ function createWindow() {
         title: 'Quantro',
         icon: iconPath,
         backgroundColor: '#F5F5F7',
+        center: true,
         webPreferences: {
             preload: path.join(__dirname, 'preload.js'),
             contextIsolation: true,
             nodeIntegration: false
         },
-        show: false,
+        show: true,
         autoHideMenuBar: true
     });
 
@@ -246,12 +247,7 @@ function createWindow() {
     });
 
     if (isDev) {
-        const { session } = require('electron');
-        session.defaultSession.clearStorageData()
-            .catch(err => console.error('[Maze ERP] Failed to clear storage:', err))
-            .finally(() => {
-                mainWindow.loadURL('http://localhost:5175');
-            });
+        mainWindow.loadURL('http://localhost:5175');
     } else {
         mainWindow.loadFile(path.join(__dirname, '..', 'renderer', 'dist', 'index.html'));
     }

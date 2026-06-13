@@ -2151,17 +2151,19 @@ router.post('/merge', async (req, res, next) => {
                 else if (finalPaid < finalTotal) finalPaymentStatus = 'PARTIAL';
                 else finalPaymentStatus = 'PAID';
 
-                let allDelivered = true;
-                let allPending = true;
+                let totalPendingQty = 0;
+                let totalRequestedQty = 0;
+                let totalDeliveredQty = 0;
                 for (const itemKey in groupedItems) {
                     const item = groupedItems[itemKey];
-                    if (item.qty_delivered < item.qty_requested) allDelivered = false;
-                    if (item.qty_delivered > 0) allPending = false;
+                    totalPendingQty += item.pending_qty || 0;
+                    totalRequestedQty += item.qty_requested || item.quantity;
+                    totalDeliveredQty += item.qty_delivered || item.quantity;
                 }
                 let invoiceDeliveryStatus = 'Delivered';
-                if (allDelivered) invoiceDeliveryStatus = 'Delivered';
-                else if (allPending) invoiceDeliveryStatus = 'Pending';
-                else invoiceDeliveryStatus = 'Partial';
+                if (totalPendingQty > 0 && totalDeliveredQty === 0) invoiceDeliveryStatus = 'Pending';
+                else if (totalPendingQty > 0) invoiceDeliveryStatus = 'Partial';
+                else invoiceDeliveryStatus = 'Delivered';
 
                 let fulfillmentStatus = 'CONFIRMED';
                 let isPendingProduct = 0;
@@ -2169,6 +2171,7 @@ router.post('/merge', async (req, res, next) => {
                     fulfillmentStatus = 'PENDING_PRODUCT';
                     isPendingProduct = 1;
                 }
+
 
                 // Update invoice total, statuses, and returned amount
                 db.run('UPDATE invoices SET total = ?, paid_amount = ?, payment_status = ?, financial_status = ?, delivery_status = ?, fulfillment_status = ?, is_pending_product = ?, total_returned_amount = ? WHERE id = ?',
