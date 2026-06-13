@@ -4,10 +4,16 @@ All notable changes to the Quantro ERP application will be documented here.
 
 ---
 
+## [2.10.6] - 2026-06-13
+### Fixed
+- **Taskbar Application Icon**: Fixed a runtime path resolution bug in packaged environments where the application taskbar and window icon would fail to load due to missing `renderer/public` files. Resolved by dynamically fallback-routing the icon file to `renderer/dist` in production, and registered the official App User Model ID on Windows for correct taskbar icon grouping.
+- **Hosted Invoice Domain**: Verified and standardized Netlify hosting routes (`billing-mazelab.netlify.app`) for public bill access.
+
 ## [2.10.5] - 2026-06-13
 ### Added
 - **Quotation-to-Order Conversion:** Added a "Create Order" button directly inside the Quotation Preview modal. Users can instantly convert any saved quotation into a live sales invoice — a customer assignment modal appears for confirmation or override before loading items to checkout.
 - **Quotation Builder Save & Convert:** Added a "Save & Create Order" action in the Quotation Builder tab that saves the draft quotation and immediately triggers the order conversion flow.
+
 
 ## [2.10.4] - 2026-06-13
 ### Fixed

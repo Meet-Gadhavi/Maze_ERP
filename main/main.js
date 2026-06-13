@@ -21,6 +21,12 @@ if (process.defaultApp) {
 // Set the application name for taskbar, window title, and app metadata.
 app.setName('Quantro');
 
+// Set App User Model ID for Windows taskbar icon grouping and visibility
+if (process.platform === 'win32') {
+    app.setAppUserModelId('com.mazelab.quantro');
+}
+
+
 const isDev = !app.isPackaged;
 
 if (!isDev) {
@@ -190,7 +196,10 @@ autoUpdater.on('error', (err) => {
     }
 });
 
-const iconPath = path.join(__dirname, '..', 'renderer', 'public', 'icons', 'Appicon.ico');
+const iconPath = isDev
+    ? path.join(__dirname, '..', 'renderer', 'public', 'icons', 'Appicon.ico')
+    : path.join(__dirname, '..', 'renderer', 'dist', 'icons', 'Appicon.ico');
+
 
 function startBackend() {
     if (isDev) {
