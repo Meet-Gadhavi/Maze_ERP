@@ -4,6 +4,10 @@ All notable changes to the Quantro ERP application will be documented here.
 
 ---
 
+## [2.10.7] - 2026-06-14
+### Fixed
+- **Hosted Invoice Sync Session Expiry**: Upgraded the cloud DB sync service error parsing to handle and display detailed Vercel/Mazeway DB session expiration responses. Intercepted expiration errors during link generation in the desktop app to guide cashiers on how to temporarily and permanently refresh their Google Drive-backed database session. Refactored the public hosted invoice template to display a professional, customer-friendly "Invoice Temporarily Unavailable" status page instead of a generic connection error when the Vercel token expires.
+
 ## [2.10.6] - 2026-06-13
 ### Fixed
 - **Taskbar Application Icon**: Fixed a runtime path resolution bug where the taskbar and window icon would fail to load due to path differences and ASAR packaging constraints. Resolved by dynamically loading the icon using `nativeImage.createFromPath` from `renderer/dist` in production, and restricted the App User Model ID registration to packaged environments to prevent icon grouping/hiding issues in dev mode.

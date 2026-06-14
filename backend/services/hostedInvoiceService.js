@@ -164,9 +164,15 @@ async function generateHostedInvoice(invoiceId) {
     }
 
     if (!response.ok) {
-        const errorText = await response.text();
+        let errorText = await response.text();
+        try {
+            const parsed = JSON.parse(errorText);
+            if (parsed && parsed.error) {
+                errorText = parsed.error;
+            }
+        } catch (e) {}
         console.error(`[Sync Service] Cloud DB sync failed with status ${response.status}:`, errorText);
-        throw new Error(`Cloud DB synchronization failed: ${response.statusText}`);
+        throw new Error(`Cloud DB synchronization failed: ${errorText}`);
     }
 
     console.log(`[Sync Service] Successfully synced invoice #${invoiceId}`);

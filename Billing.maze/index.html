@@ -1320,6 +1320,10 @@
                 });
 
                 if (!response.ok) {
+                    if (response.status === 403 || response.status === 401) {
+                        showError("Invoice Temporarily Unavailable", "This invoice is temporarily unavailable due to a database sync pause. Please contact the merchant or try again later.");
+                        return;
+                    }
                     throw new Error("HTTP error " + response.status);
                 }
 

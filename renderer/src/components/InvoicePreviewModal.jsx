@@ -188,6 +188,7 @@ export default function InvoicePreviewModal({ invoice, onClose, autoOpenShare = 
     const [sendingWhatsApp, setSendingWhatsApp] = useState(false);
     const [loadingConnections, setLoadingConnections] = useState(false);
     const [whatsAppConnections, setWhatsAppConnections] = useState([]);
+    const [showSyncErrorInstructions, setShowSyncErrorInstructions] = useState(false);
 
     useEffect(() => {
         setRecipientEmail(invoice?.customer_email || '');
@@ -231,7 +232,17 @@ export default function InvoicePreviewModal({ invoice, onClose, autoOpenShare = 
             }
         } catch (err) {
             console.error('Failed to copy hosted invoice link:', err);
-            toast.error(err.message || 'Failed to generate link.', { id: loadingId });
+            const isSessionExpiry = err.message && (
+                err.message.includes('Forbidden') || 
+                err.message.includes('session has expired') || 
+                err.message.includes('expired')
+            );
+            if (isSessionExpiry) {
+                toast.error('Cloud DB session has expired.', { id: loadingId });
+                setShowSyncErrorInstructions(true);
+            } else {
+                toast.error(err.message || 'Failed to generate link.', { id: loadingId });
+            }
         }
     };
 
@@ -1557,6 +1568,51 @@ export default function InvoicePreviewModal({ invoice, onClose, autoOpenShare = 
                 </div>
             )}
         </Modal>
+
+        {showSyncErrorInstructions && (
+            <Modal
+                open={showSyncErrorInstructions}
+                onClose={() => setShowSyncErrorInstructions(false)}
+                heading="Cloud DB Session Expired"
+                size="base"
+                primaryAction={
+                    <SButton variant="primary" onClick={() => {
+                        window.open('https://mazeway-db.vercel.app', '_blank');
+                        setShowSyncErrorInstructions(false);
+                    }}>
+                        Open Web Console
+                    </SButton>
+                }
+                secondaryAction={
+                    <SButton variant="secondary" onClick={() => setShowSyncErrorInstructions(false)}>
+                        Close
+                    </SButton>
+                }
+            >
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', fontSize: '13px', lineHeight: 1.6 }}>
+                    <p style={{ margin: 0, fontWeight: 'bold', color: 'var(--text-primary)' }}>
+                        The cloud synchronization session to your Google Drive-backed Mazeway DB has expired.
+                    </p>
+                    <div style={{ padding: '12px', borderRadius: '8px', background: 'var(--bg-secondary)', border: '1px solid var(--border)' }}>
+                        <strong style={{ display: 'block', marginBottom: '6px', color: 'var(--accent)' }}>Temporary Fix:</strong>
+                        <p style={{ margin: 0 }}>
+                            Click the button below to open the Mazeway DB Studio web console dashboard once in your browser. It will automatically re-authenticate and refresh the session for the next hour.
+                        </p>
+                    </div>
+                    <div style={{ padding: '12px', borderRadius: '8px', background: 'var(--bg-secondary)', border: '1px solid var(--border)' }}>
+                        <strong style={{ display: 'block', marginBottom: '6px', color: '#10a66f' }}>Permanent Fix:</strong>
+                        <p style={{ margin: 0 }}>
+                            To prevent sessions from expiring:
+                            <ol style={{ margin: '6px 0 0 0', paddingLeft: '20px' }}>
+                                <li>Open the Mazeway DB Studio web console dashboard in your browser.</li>
+                                <li>Connect Google Drive. Once connected, open your browser developer tools (F12) console and copy the logged <strong>Google Offline Refresh Token</strong>.</li>
+                                <li>Add it as an environment variable named <code>GOOGLE_REFRESH_TOKEN</code> in your Vercel project dashboard settings.</li>
+                            </ol>
+                        </p>
+                    </div>
+                </div>
+            </Modal>
+        )}
         </>
     );
 }
