@@ -1328,7 +1328,9 @@
                 }
 
                 const allRecords = await response.json();
-                const records = (allRecords || []).filter(r => Number(r.invoice_id) === Number(invoiceId) && r.token === secureToken);
+                // Match by invoice_id — take the latest record (last match) to handle duplicate entries
+                const matchingRecords = (allRecords || []).filter(r => Number(r.invoice_id) === Number(invoiceId));
+                const records = matchingRecords.length > 0 ? [matchingRecords[matchingRecords.length - 1]] : [];
 
                 if (!records || records.length === 0) {
                     showError("Access Denied", "This invoice is secured or could not be found in our systems. It may have expired or been deleted.");

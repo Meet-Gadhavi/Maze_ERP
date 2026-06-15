@@ -6,7 +6,8 @@ All notable changes to the Quantro ERP application will be documented here.
 
 ## [2.10.8] - 2026-06-15
 ### Fixed
-- **Hosted Invoice Cloud Sync Pre-Check**: Fixed a critical bug in the cloud sync pre-check condition where the existence check for an invoice evaluated to `true` if any invoice existed in the database (due to the serverless DB API returning all rows on GET and ignoring query parameters). Corrected this to verify the specific invoice ID locally, ensuring new invoices are correctly inserted (`POST` request) rather than updated (`PATCH` request) on non-existent records, resolving the "Access Denied" error on hosted client invoice pages.
+- **Hosted Invoice Cloud Sync Pre-Check**: Fixed a critical bug in the cloud sync pre-check condition where the existence check for an invoice evaluated to `true` if any invoice existed in the database (due to the serverless DB API returning all rows on GET and ignoring query parameters). Corrected this to verify the specific invoice ID locally, ensuring new invoices are correctly inserted (`POST` request) rather than updated (`PATCH` request) on non-existent records.
+- **Hosted Invoice Client Page Token Mismatch**: Fixed the client-facing hosted invoice viewer (`billing.maze`) which required an exact token match between the URL and cloud DB record. When tokens got desynchronized due to link regeneration or the previous sync bug, invoices showed "Access Denied" even though the data existed in the database. Updated the lookup to match by `invoice_id` only and always use the latest record, resolving the "Access Denied" error for all existing hosted invoice links.
 
 ## [2.10.7] - 2026-06-14
 ### Fixed
