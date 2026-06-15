@@ -4,6 +4,10 @@ All notable changes to the Quantro ERP application will be documented here.
 
 ---
 
+## [2.10.8] - 2026-06-15
+### Fixed
+- **Hosted Invoice Cloud Sync Pre-Check**: Fixed a critical bug in the cloud sync pre-check condition where the existence check for an invoice evaluated to `true` if any invoice existed in the database (due to the serverless DB API returning all rows on GET and ignoring query parameters). Corrected this to verify the specific invoice ID locally, ensuring new invoices are correctly inserted (`POST` request) rather than updated (`PATCH` request) on non-existent records, resolving the "Access Denied" error on hosted client invoice pages.
+
 ## [2.10.7] - 2026-06-14
 ### Fixed
 - **Hosted Invoice Sync Session Expiry**: Upgraded the cloud DB sync service error parsing to handle and display detailed Vercel/Mazeway DB session expiration responses. Intercepted expiration errors during link generation in the desktop app to guide cashiers on how to temporarily and permanently refresh their Google Drive-backed database session. Refactored the public hosted invoice template to display a professional, customer-friendly "Invoice Temporarily Unavailable" status page instead of a generic connection error when the Vercel token expires.

@@ -122,7 +122,7 @@ async function generateHostedInvoice(invoiceId) {
         });
         if (checkResponse.ok) {
             const records = await checkResponse.json();
-            exists = Array.isArray(records) && records.length > 0;
+            exists = Array.isArray(records) && records.some(r => Number(r.invoice_id) === Number(invoiceId));
         }
     } catch (e) {
         console.warn(`[Sync Service] Pre-check failed, assuming it doesn't exist:`, e.message);
