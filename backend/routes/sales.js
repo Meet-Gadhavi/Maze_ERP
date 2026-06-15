@@ -939,7 +939,10 @@ router.delete('/:id', async (req, res, next) => {
                             'Authorization': `Bearer ${DB_ANON_KEY}`
                         },
                         body: JSON.stringify({
-                            match: { invoice_id: invoiceId }
+                            match: { 
+                                invoice_id: invoiceId,
+                                token: tokenRow.token
+                            }
                         })
                     }).catch(e => console.error(`[Delete Sync] Failed to delete hosted invoice #${invoiceId} from cloud DB:`, e.message));
 
@@ -2204,7 +2207,10 @@ router.post('/merge', async (req, res, next) => {
                         'Authorization': `Bearer ${DB_ANON_KEY}`
                     },
                     body: JSON.stringify({
-                        match: { invoice_id: oldId }
+                        match: { 
+                            invoice_id: oldId,
+                            token: tokenRow.token
+                        }
                     })
                 }).catch(e => console.error(`[Delete Sync] Failed to delete hosted invoice #${oldId} from cloud DB:`, e.message));
 

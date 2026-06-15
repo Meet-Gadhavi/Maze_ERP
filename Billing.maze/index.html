@@ -1328,8 +1328,8 @@
                 }
 
                 const allRecords = await response.json();
-                // Match by invoice_id — take the latest record (last match) to handle duplicate entries
-                const matchingRecords = (allRecords || []).filter(r => Number(r.invoice_id) === Number(invoiceId));
+                // Match by BOTH invoice_id and token to isolate the correct unique invoice link
+                const matchingRecords = (allRecords || []).filter(r => Number(r.invoice_id) === Number(invoiceId) && r.token === secureToken);
                 const records = matchingRecords.length > 0 ? [matchingRecords[matchingRecords.length - 1]] : [];
 
                 if (!records || records.length === 0) {
@@ -2260,7 +2260,7 @@
                     });
                     if (response.ok) {
                         const allRecords = await response.json();
-                        dbRecord = allRecords.find(r => Number(r.invoice_id) === Number(invoiceId));
+                        dbRecord = allRecords.find(r => Number(r.invoice_id) === Number(invoiceId) && r.token === secureToken);
                     }
                 }
 
@@ -2284,7 +2284,10 @@
                         'Authorization': `Bearer ${DB_ANON_KEY}`
                     },
                     body: JSON.stringify({
-                        match: { invoice_id: Number(invoiceId) },
+                        match: { 
+                            invoice_id: Number(invoiceId),
+                            token: secureToken
+                        },
                         update: patchBody
                     })
                 });

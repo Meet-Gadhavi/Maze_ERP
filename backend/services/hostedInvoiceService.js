@@ -111,7 +111,7 @@ async function generateHostedInvoice(invoiceId) {
     };
 
     // 4. Synchronize to public dbmz endpoint
-    console.log(`[Sync Service] Checking if invoice #${invoiceId} already exists in cloud DB...`);
+    console.log(`[Sync Service] Checking if invoice #${invoiceId} (token: ${token}) already exists in cloud DB...`);
     let exists = false;
     try {
         const checkResponse = await fetch(`${DB_URL}/api/v1/tables/hosted_invoices/rows?where=(invoice_id,eq,${invoiceId})`, {
@@ -122,7 +122,7 @@ async function generateHostedInvoice(invoiceId) {
         });
         if (checkResponse.ok) {
             const records = await checkResponse.json();
-            exists = Array.isArray(records) && records.some(r => Number(r.invoice_id) === Number(invoiceId));
+            exists = Array.isArray(records) && records.some(r => Number(r.invoice_id) === Number(invoiceId) && r.token === token);
         }
     } catch (e) {
         console.warn(`[Sync Service] Pre-check failed, assuming it doesn't exist:`, e.message);
@@ -130,7 +130,7 @@ async function generateHostedInvoice(invoiceId) {
 
     let response;
     if (exists) {
-        console.log(`[Sync Service] Invoice #${invoiceId} already exists in cloud DB. Updating...`);
+        console.log(`[Sync Service] Invoice #${invoiceId} (token: ${token}) already exists in cloud DB. Updating...`);
         response = await fetch(`${DB_URL}/api/v1/tables/hosted_invoices/rows`, {
             method: 'PATCH',
             headers: {
@@ -139,10 +139,12 @@ async function generateHostedInvoice(invoiceId) {
                 'Authorization': `Bearer ${DB_ANON_KEY}`
             },
             body: JSON.stringify({
-                match: { invoice_id: invoiceId },
-                update: {
-                    invoice_data: invoicePayload,
+                match: { 
+                    invoice_id: invoiceId,
                     token: token
+                },
+                update: {
+                    invoice_data: invoicePayload
                 }
             })
         });

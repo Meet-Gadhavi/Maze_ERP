@@ -4,6 +4,10 @@ All notable changes to the Quantro ERP application will be documented here.
 
 ---
 
+## [2.10.9] - 2026-06-15
+### Fixed
+- **Hosted Invoice Overlapping & Collision Fix**: Fixed a critical issue where opening a hosted invoice link showed a different invoice (overlapping data) or overwrote existing cloud records. Enforced strict dual-matching (matching both `invoice_id` and `token` concurrently) across the client-side viewer page, the cloud sync pre-check, database update (`PATCH`), and deletion/merge cleanup operations. This isolates identical invoice IDs from different stores or database sessions, ensuring each unique link renders only its own correct invoice.
+
 ## [2.10.8] - 2026-06-15
 ### Fixed
 - **Hosted Invoice Cloud Sync Pre-Check**: Fixed a critical bug in the cloud sync pre-check condition where the existence check for an invoice evaluated to `true` if any invoice existed in the database (due to the serverless DB API returning all rows on GET and ignoring query parameters). Corrected this to verify the specific invoice ID locally, ensuring new invoices are correctly inserted (`POST` request) rather than updated (`PATCH` request) on non-existent records.
