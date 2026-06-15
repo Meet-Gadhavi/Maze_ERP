@@ -1292,7 +1292,8 @@
 
             // Fallback: parse from search query params (e.g. ?id=12, ?invoiceId=12, ?invoice=12)
             const urlParams = new URLSearchParams(window.location.search);
-            secureToken = urlParams.get('token');
+            const tokenParam = urlParams.get('token');
+            secureToken = tokenParam ? tokenParam.trim().toLowerCase() : null;
 
             if (isNaN(invoiceId) || !invoiceId) {
                 const qId = urlParams.get('invoiceId') || urlParams.get('id') || urlParams.get('invoice');
@@ -1328,8 +1329,8 @@
                 }
 
                 const allRecords = await response.json();
-                // Match by BOTH invoice_id and token to isolate the correct unique invoice link
-                const matchingRecords = (allRecords || []).filter(r => Number(r.invoice_id) === Number(invoiceId) && r.token === secureToken);
+                // Match by BOTH invoice_id and token to isolate the correct unique invoice link (case-insensitive & trimmed)
+                const matchingRecords = (allRecords || []).filter(r => Number(r.invoice_id) === Number(invoiceId) && r.token && r.token.trim().toLowerCase() === secureToken);
                 const records = matchingRecords.length > 0 ? [matchingRecords[matchingRecords.length - 1]] : [];
 
                 if (!records || records.length === 0) {
@@ -2260,7 +2261,7 @@
                     });
                     if (response.ok) {
                         const allRecords = await response.json();
-                        dbRecord = allRecords.find(r => Number(r.invoice_id) === Number(invoiceId) && r.token === secureToken);
+                        dbRecord = allRecords.find(r => Number(r.invoice_id) === Number(invoiceId) && r.token && r.token.trim().toLowerCase() === secureToken);
                     }
                 }
 
