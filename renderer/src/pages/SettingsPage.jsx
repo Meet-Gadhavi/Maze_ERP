@@ -1909,11 +1909,42 @@ export default function SettingsPage() {
                                         </div>
                                     )}
 
+                                    {/* Timeline Item: v2.10.9 */}
+                                    <div style={{ position: 'relative' }}>
+                                        <div style={{ position: 'absolute', left: '-22px', top: '4px', width: '12px', height: '12px', borderRadius: '50%', background: 'var(--accent)', border: '2px solid var(--bg-primary)' }}></div>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                            <strong style={{ fontSize: '15px' }}>Version 2.10.9 {updateState.status !== 'available' && '(Latest)'}</strong>
+                                            <span style={{ fontSize: '11px', color: 'var(--text-tertiary)', background: 'var(--bg-secondary)', padding: '2px 8px', borderRadius: '12px' }}>June 15, 2026</span>
+                                        </div>
+                                        <div style={{ fontSize: '13px', color: 'var(--text-secondary)', marginTop: '8px', lineHeight: 1.6 }}>
+                                            <ul style={{ margin: 0, paddingLeft: '16px' }}>
+                                                <li><strong>Hosted Invoice Overlapping &amp; Collision Fix:</strong> Enforced strict dual-matching (matching both invoice ID and token) across the client-side viewer page, the cloud sync pre-check, DB updates, and deletion actions to isolate duplicate invoice IDs.</li>
+                                                <li><strong>Client-Side Token Matching:</strong> Switched client token matching to case-insensitive and trimmed. Disabled client-side browser caching in Netlify config.</li>
+                                                <li><strong>Custom High-Res Logo:</strong> Replaced legacy assets across the application with the new custom high-res logo.</li>
+                                            </ul>
+                                        </div>
+                                    </div>
+
+                                    {/* Timeline Item: v2.10.8 */}
+                                    <div style={{ position: 'relative' }}>
+                                        <div style={{ position: 'absolute', left: '-22px', top: '4px', width: '12px', height: '12px', borderRadius: '50%', background: 'var(--accent)', border: '2px solid var(--bg-primary)' }}></div>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                            <strong style={{ fontSize: '15px' }}>Version 2.10.8</strong>
+                                            <span style={{ fontSize: '11px', color: 'var(--text-tertiary)', background: 'var(--bg-secondary)', padding: '2px 8px', borderRadius: '12px' }}>June 15, 2026</span>
+                                        </div>
+                                        <div style={{ fontSize: '13px', color: 'var(--text-secondary)', marginTop: '8px', lineHeight: 1.6 }}>
+                                            <ul style={{ margin: 0, paddingLeft: '16px' }}>
+                                                <li><strong>Hosted Invoice Cloud Sync Pre-Check:</strong> Fixed a critical bug in the cloud sync pre-check condition where the existence check for an invoice evaluated to true if any invoice existed in the database, ensuring new invoices are correctly created with POST instead of PATCH.</li>
+                                                <li><strong>Hosted Invoice Client Page Token Mismatch:</strong> Fixed the client-facing hosted invoice viewer requiring exact token match. Updated the lookup to match by invoice_id only and always use the latest record, resolving the "Access Denied" error for existing links.</li>
+                                            </ul>
+                                        </div>
+                                    </div>
+
                                     {/* Timeline Item: v2.10.7 */}
                                     <div style={{ position: 'relative' }}>
                                         <div style={{ position: 'absolute', left: '-22px', top: '4px', width: '12px', height: '12px', borderRadius: '50%', background: 'var(--accent)', border: '2px solid var(--bg-primary)' }}></div>
                                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                            <strong style={{ fontSize: '15px' }}>Version 2.10.7 {updateState.status !== 'available' && '(Latest)'}</strong>
+                                            <strong style={{ fontSize: '15px' }}>Version 2.10.7</strong>
                                             <span style={{ fontSize: '11px', color: 'var(--text-tertiary)', background: 'var(--bg-secondary)', padding: '2px 8px', borderRadius: '12px' }}>June 14, 2026</span>
                                         </div>
                                         <div style={{ fontSize: '13px', color: 'var(--text-secondary)', marginTop: '8px', lineHeight: 1.6 }}>
