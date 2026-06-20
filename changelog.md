@@ -4,6 +4,10 @@ All notable changes to the Quantro ERP application will be documented here.
 
 ---
 
+## [2.10.10] - 2026-06-20
+### Fixed
+- **Taskbar & App Frame Icons Rebranding**: Regenerated the multi-size `Appicon.ico` from the new custom high-res logo. This replaces the old legacy icon across the Windows taskbar, application window frame, installer executable, and uninstaller panel.
+
 ## [2.10.9] - 2026-06-15
 ### Fixed
 - **Hosted Invoice Overlapping & Collision Fix**: Fixed a critical issue where opening a hosted invoice link showed a different invoice (overlapping data) or overwrote existing cloud records. Enforced strict dual-matching (matching both `invoice_id` and `token` concurrently) across the client-side viewer page, the cloud sync pre-check, database update (`PATCH`), and deletion/merge cleanup operations. This isolates identical invoice IDs from different stores or database sessions, ensuring each unique link renders only its own correct invoice.
