@@ -133,7 +133,7 @@ export default function AuthPage() {
         try {
             const isElectron = !!(window.maze || navigator.userAgent.toLowerCase().includes('electron'));
             const redirectTo = 'maze-erp://auth-callback';
-            const webAuthUrl = `https://quantro-web-mazelabs.vercel.app/?action=google-login&redirect=${encodeURIComponent(redirectTo)}`;
+            const webAuthUrl = `https://quantro-web.onrender.com/?action=google-login&redirect=${encodeURIComponent(redirectTo)}`;
 
             if (isElectron && window.maze?.openExternal) {
                 window.maze.openExternal(webAuthUrl);

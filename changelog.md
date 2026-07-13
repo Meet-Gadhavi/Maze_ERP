@@ -4,6 +4,11 @@ All notable changes to the Quantro ERP application will be documented here.
 
 ---
 
+## [2.10.11] - 2026-07-13
+### Changed
+- **Hosted Invoice DB Migration**: Migrated the shared cloud database backend for hosted invoices from Mazeway DB on Vercel to Supabase. Updated sync services, merge/deletion route cleanup, and the public index template to read and write directly to Supabase using PostgREST syntax.
+- **Authentication Domain Reversion**: Reverted the desktop-to-web OAuth login helper, billing links, and campaign checkout endpoints back to the production Render host (`https://quantro-web.onrender.com`).
+
 ## [2.10.10] - 2026-06-20
 ### Fixed
 - **Taskbar & App Frame Icons Rebranding**: Regenerated the multi-size `Appicon.ico` from the new custom high-res logo. This replaces the old legacy icon across the Windows taskbar, application window frame, installer executable, and uninstaller panel.

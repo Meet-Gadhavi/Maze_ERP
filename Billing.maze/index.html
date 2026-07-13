@@ -1271,9 +1271,9 @@
     </footer>
 
     <script>
-        // Database credentials
-        const DB_URL = "https://mazeway-db.vercel.app";
-        const DB_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJncm91cCI6ImFub24iLCJpYXQiOjE3Nzk3MDA0Mzh9.mazeway_db_anon_5KUWRlLbhAarPceBoTlDGMTjNn8hvXtgSTCAGH7CSCOMxgwcZNojTpcYiqqUc3Ma";
+        // Database credentials (Supabase for hosted invoices)
+        const DB_URL = "https://waywrispbgbtnppusikg.supabase.co";
+        const DB_ANON_KEY = "sb_publishable_J4ZoFCETv9sy_gh6m9hZlg_qrTElZDV";
 
         let invoiceId = null;
         let secureToken = null;
@@ -1310,10 +1310,10 @@
             loadInvoiceDetails();
         });
 
-        // Fetch invoice details from Mazeway DB
+        // Fetch invoice details from Supabase DB
         async function loadInvoiceDetails() {
             try {
-                const response = await fetch(`${DB_URL}/api/v1/tables/hosted_invoices/rows`, {
+                const response = await fetch(`${DB_URL}/rest/v1/hosted_invoices?invoice_id=eq.${invoiceId}&token=eq.${secureToken}`, {
                     headers: {
                         'apikey': DB_ANON_KEY,
                         'Authorization': `Bearer ${DB_ANON_KEY}`
@@ -1328,17 +1328,14 @@
                     throw new Error("HTTP error " + response.status);
                 }
 
-                const allRecords = await response.json();
-                // Match by BOTH invoice_id and token to isolate the correct unique invoice link (case-insensitive & trimmed)
-                const matchingRecords = (allRecords || []).filter(r => Number(r.invoice_id) === Number(invoiceId) && r.token && r.token.trim().toLowerCase() === secureToken);
-                const records = matchingRecords.length > 0 ? [matchingRecords[matchingRecords.length - 1]] : [];
+                const records = await response.json();
 
                 if (!records || records.length === 0) {
                     showError("Access Denied", "This invoice is secured or could not be found in our systems. It may have expired or been deleted.");
                     return;
                 }
 
-                const record = records[0];
+                const record = records[records.length - 1]; // Use latest record if multiple matching
                 currentInvoice = record.invoice_data;
 
                 // Render the invoice to the page
@@ -2253,15 +2250,17 @@
                     dbRecord = record;
                 } else {
                     // Fetch current metrics
-                    const response = await fetch(`${DB_URL}/api/v1/tables/hosted_invoices/rows`, {
+                    const response = await fetch(`${DB_URL}/rest/v1/hosted_invoices?invoice_id=eq.${invoiceId}&token=eq.${secureToken}`, {
                         headers: {
                             'apikey': DB_ANON_KEY,
                             'Authorization': `Bearer ${DB_ANON_KEY}`
                         }
                     });
                     if (response.ok) {
-                        const allRecords = await response.json();
-                        dbRecord = allRecords.find(r => Number(r.invoice_id) === Number(invoiceId) && r.token && r.token.trim().toLowerCase() === secureToken);
+                        const records = await response.json();
+                        if (records && records.length > 0) {
+                            dbRecord = records[records.length - 1];
+                        }
                     }
                 }
 
@@ -2277,20 +2276,14 @@
                 if (type === 'payment') patchBody.payments_clicked = payments + 1;
 
                 // Send PATCH increment
-                await fetch(`${DB_URL}/api/v1/tables/hosted_invoices/rows`, {
+                await fetch(`${DB_URL}/rest/v1/hosted_invoices?invoice_id=eq.${invoiceId}&token=eq.${secureToken}`, {
                     method: 'PATCH',
                     headers: {
                         'Content-Type': 'application/json',
                         'apikey': DB_ANON_KEY,
                         'Authorization': `Bearer ${DB_ANON_KEY}`
                     },
-                    body: JSON.stringify({
-                        match: { 
-                            invoice_id: Number(invoiceId),
-                            token: secureToken
-                        },
-                        update: patchBody
-                    })
+                    body: JSON.stringify(patchBody)
                 });
                 console.log(`[Analytics] Tracked ${type} successfully.`);
             } catch (e) {

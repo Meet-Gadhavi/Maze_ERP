@@ -435,7 +435,7 @@ export default function AutomationPage() {
             setIsWaitingForPayment(true);
             const isElectron = !!(window.maze || navigator.userAgent.toLowerCase().includes('electron'));
             const redirectTo = 'maze-erp://provision-agent';
-            const webPayUrl = `https://quantro-web-mazelabs.vercel.app/?action=buy-agent&plan=${formData.plan}&redirect=${encodeURIComponent(redirectTo)}`;
+            const webPayUrl = `https://quantro-web.onrender.com/?action=buy-agent&plan=${formData.plan}&redirect=${encodeURIComponent(redirectTo)}`;
 
             if (isElectron && window.maze?.openExternal) {
                 window.maze.openExternal(webPayUrl);

@@ -1,9 +1,9 @@
 const crypto = require('crypto');
 const db = require('../db');
 
-// Remote Mazeway Database config
-const DB_URL = "https://mazeway-db.vercel.app";
-const DB_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJncm91cCI6ImFub24iLCJpYXQiOjE3Nzk3MDA0Mzh9.mazeway_db_anon_5KUWRlLbhAarPceBoTlDGMTjNn8hvXtgSTCAGH7CSCOMxgwcZNojTpcYiqqUc3Ma";
+// Remote Supabase Database config for hosted invoices
+const DB_URL = "https://waywrispbgbtnppusikg.supabase.co";
+const DB_ANON_KEY = "sb_publishable_J4ZoFCETv9sy_gh6m9hZlg_qrTElZDV";
 const PUBLIC_DOMAIN = "https://billing-mazelab.netlify.app";
 
 /**
@@ -110,11 +110,11 @@ async function generateHostedInvoice(invoiceId) {
         returns
     };
 
-    // 4. Synchronize to public dbmz endpoint
+    // 4. Synchronize to public Supabase endpoint
     console.log(`[Sync Service] Checking if invoice #${invoiceId} (token: ${token}) already exists in cloud DB...`);
     let exists = false;
     try {
-        const checkResponse = await fetch(`${DB_URL}/api/v1/tables/hosted_invoices/rows?where=(invoice_id,eq,${invoiceId})`, {
+        const checkResponse = await fetch(`${DB_URL}/rest/v1/hosted_invoices?invoice_id=eq.${invoiceId}&token=eq.${token}&select=*`, {
             headers: {
                 'apikey': DB_ANON_KEY,
                 'Authorization': `Bearer ${DB_ANON_KEY}`
@@ -122,7 +122,7 @@ async function generateHostedInvoice(invoiceId) {
         });
         if (checkResponse.ok) {
             const records = await checkResponse.json();
-            exists = Array.isArray(records) && records.some(r => Number(r.invoice_id) === Number(invoiceId) && r.token === token);
+            exists = Array.isArray(records) && records.length > 0;
         }
     } catch (e) {
         console.warn(`[Sync Service] Pre-check failed, assuming it doesn't exist:`, e.message);
@@ -131,7 +131,7 @@ async function generateHostedInvoice(invoiceId) {
     let response;
     if (exists) {
         console.log(`[Sync Service] Invoice #${invoiceId} (token: ${token}) already exists in cloud DB. Updating...`);
-        response = await fetch(`${DB_URL}/api/v1/tables/hosted_invoices/rows`, {
+        response = await fetch(`${DB_URL}/rest/v1/hosted_invoices?invoice_id=eq.${invoiceId}&token=eq.${token}`, {
             method: 'PATCH',
             headers: {
                 'Content-Type': 'application/json',
@@ -139,18 +139,12 @@ async function generateHostedInvoice(invoiceId) {
                 'Authorization': `Bearer ${DB_ANON_KEY}`
             },
             body: JSON.stringify({
-                match: { 
-                    invoice_id: invoiceId,
-                    token: token
-                },
-                update: {
-                    invoice_data: invoicePayload
-                }
+                invoice_data: invoicePayload
             })
         });
     } else {
         console.log(`[Sync Service] Invoice #${invoiceId} does not exist in cloud DB. Inserting...`);
-        response = await fetch(`${DB_URL}/api/v1/tables/hosted_invoices/rows`, {
+        response = await fetch(`${DB_URL}/rest/v1/hosted_invoices`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -169,8 +163,8 @@ async function generateHostedInvoice(invoiceId) {
         let errorText = await response.text();
         try {
             const parsed = JSON.parse(errorText);
-            if (parsed && parsed.error) {
-                errorText = parsed.error;
+            if (parsed) {
+                errorText = parsed.message || parsed.error || errorText;
             }
         } catch (e) {}
         console.error(`[Sync Service] Cloud DB sync failed with status ${response.status}:`, errorText);
