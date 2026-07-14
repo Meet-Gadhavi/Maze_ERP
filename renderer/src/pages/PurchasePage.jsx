@@ -319,7 +319,7 @@ export default function PurchasePage() {
     const isDev = typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') && import.meta.env.DEV;
     // Always use the production web URL so phone scanners can access the site online
     const webBaseUrl = 'https://quantro-web.onrender.com';
-    const scanUrl = syncId ? `${webBaseUrl}/?page=scanner&syncId=${syncId}` : '';
+    const scanUrl = syncId ? `${webBaseUrl}/?page=scanner&syncId=${syncId}&sync_id=${syncId}` : '';
 
     const cartRef = useRef(cart);
     const productsRef = useRef(products);

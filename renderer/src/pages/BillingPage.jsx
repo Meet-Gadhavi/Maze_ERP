@@ -107,7 +107,7 @@ export default function BillingPage() {
         setShowPaymentSetupModal(false);
         setTermsAccepted(false);
 
-        const url = `${webBaseUrl}/?page=add-card&syncId=${status?.syncId || ''}&email=${encodeURIComponent(status?.email || '')}&autopay=${enableAutopay ? 'true' : 'false'}`;
+        const url = `${webBaseUrl}/?page=add-card&syncId=${status?.syncId || ''}&sync_id=${status?.syncId || ''}&email=${encodeURIComponent(status?.email || '')}&autopay=${enableAutopay ? 'true' : 'false'}`;
         openExternalLink(url);
         toast.info('Opening Quantro Web Portal to complete 1 Rupee verification checkout.');
     };

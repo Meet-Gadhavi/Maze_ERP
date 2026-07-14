@@ -4,6 +4,10 @@ All notable changes to the Quantro ERP application will be documented here.
 
 ---
 
+## [2.10.12] - 2026-07-14
+### Fixed
+- **Companion Scanner Sync ID Mismatch**: Fixed a parameter casing discrepancy between the desktop ERP QR code URL and the hosted website companion parser. The QR code links now supply both `syncId` (camelCase) and `sync_id` (snake_case) query parameters concurrently to guarantee successful companion scanner pairing on all devices.
+
 ## [2.10.11] - 2026-07-13
 ### Changed
 - **Hosted Invoice DB Migration**: Migrated the shared cloud database backend for hosted invoices from Mazeway DB on Vercel to Supabase. Updated sync services, merge/deletion route cleanup, and the public index template to read and write directly to Supabase using PostgREST syntax.
