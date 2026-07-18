@@ -79,6 +79,118 @@ export default function Sidebar({ isCollapsed, setIsCollapsed }) {
     const userAvatar = user?.user_metadata?.avatar_url || user?.user_metadata?.picture;
     const userName = user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'User';
 
+    const renderSubscriptionBadge = () => {
+        const plan = settings?.license_plan || 'Free';
+        
+        let label = 'Free Starter';
+        let shieldColor = '#cd7f32'; // Bronze
+        let badgeBg = 'rgba(205, 127, 50, 0.1)';
+        let badgeBorder = 'rgba(205, 127, 50, 0.2)';
+        let hasUpgrade = true;
+        let ShieldIcon = <Icons.Shield size={13} style={{ color: shieldColor }} />;
+
+        if (plan === 'Pro') {
+            label = 'Business PRO';
+            shieldColor = '#ffd700'; // Gold
+            badgeBg = 'rgba(255, 215, 0, 0.1)';
+            badgeBorder = 'rgba(255, 215, 0, 0.2)';
+            hasUpgrade = true;
+            ShieldIcon = <Icons.ShieldCheck size={13} style={{ color: shieldColor }} />;
+        } else if (plan === 'Professional') {
+            label = 'AI Professional';
+            shieldColor = '#00d4ff'; // Diamond Cyan
+            badgeBg = 'rgba(0, 212, 255, 0.1)';
+            badgeBorder = 'rgba(0, 212, 255, 0.2)';
+            hasUpgrade = false;
+            ShieldIcon = (
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke={shieldColor} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
+                    <path d="M6 3h12l4 6-10 13L2 9z" />
+                </svg>
+            );
+        }
+
+        const handleUpgradeClick = (e) => {
+            e.stopPropagation();
+            if (window.maze && typeof window.maze.openExternal === 'function') {
+                window.maze.openExternal('https://quantro-web.onrender.com/pricing');
+            } else {
+                window.open('https://quantro-web.onrender.com/pricing', '_blank');
+            }
+        };
+
+        if (isCollapsed) {
+            return (
+                <div 
+                    onClick={hasUpgrade ? handleUpgradeClick : undefined}
+                    title={`${label} (Click to Upgrade)`}
+                    style={{ 
+                        display: 'flex', 
+                        alignItems: 'center', 
+                        justifyContent: 'center', 
+                        width: '28px', 
+                        height: '28px', 
+                        borderRadius: '8px', 
+                        background: badgeBg, 
+                        border: `1px solid ${badgeBorder}`,
+                        margin: '0 auto 12px auto',
+                        cursor: hasUpgrade ? 'pointer' : 'default',
+                        position: 'relative'
+                    }}
+                >
+                    {ShieldIcon}
+                    {hasUpgrade && (
+                        <div style={{ position: 'absolute', top: '-4px', right: '-4px', background: 'var(--accent)', borderRadius: '50%', width: '10px', height: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                            <Icons.ArrowUpRight size={7} style={{ color: '#fff' }} />
+                        </div>
+                    )}
+                </div>
+            );
+        }
+
+        return (
+            <div 
+                style={{ 
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    justifyContent: 'space-between', 
+                    padding: '6px 10px', 
+                    borderRadius: '8px', 
+                    background: badgeBg, 
+                    border: `1px solid ${badgeBorder}`,
+                    marginBottom: '12px',
+                    width: '100%'
+                }}
+            >
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    {ShieldIcon}
+                    <span style={{ fontSize: '11px', fontWeight: 700, color: shieldColor, letterSpacing: '0.02em', textTransform: 'uppercase' }}>
+                        {label}
+                    </span>
+                </div>
+                {hasUpgrade && (
+                    <button 
+                        onClick={handleUpgradeClick}
+                        style={{ 
+                            background: 'none', 
+                            border: 'none', 
+                            padding: 0, 
+                            cursor: 'pointer', 
+                            display: 'flex', 
+                            alignItems: 'center', 
+                            color: 'var(--text-secondary)',
+                            transition: 'color 0.2s'
+                        }}
+                        onMouseEnter={(e) => e.currentTarget.style.color = shieldColor}
+                        onMouseLeave={(e) => e.currentTarget.style.color = 'var(--text-secondary)'}
+                        title="Upgrade Subscription Plan"
+                    >
+                        <Icons.ArrowUpRight size={14} />
+                    </button>
+                )}
+            </div>
+        );
+    };
+
     return (
         <aside className={`sidebar ${isCollapsed ? 'collapsed' : ''}`}>
             <div className="sidebar-brand" onClick={() => setIsCollapsed(!isCollapsed)} title={isCollapsed ? "Expand Sidebar" : "Collapse Sidebar"}>
@@ -111,6 +223,7 @@ export default function Sidebar({ isCollapsed, setIsCollapsed }) {
 
             <div className="sidebar-footer">
                 <div className="sidebar-footer-content">
+                    {renderSubscriptionBadge()}
                     <div className="sidebar-footer-info" style={{ justifyContent: 'space-between', width: '100%', display: 'flex', alignItems: 'center' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                             <div className="user-avatar-wrapper circular" title={userName}>

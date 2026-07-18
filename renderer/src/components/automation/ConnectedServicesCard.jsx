@@ -472,7 +472,7 @@ export default function ConnectedServicesCard({
             </div>
 
             {/* VOICE AGENT SERVICE SECTION */}
-            <div className="agents-section">
+            <div className="agents-section" style={{ opacity: settings.license_plan !== 'Professional' ? 0.75 : 1 }}>
                 <div className="agents-section-header" style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
                     <div style={{
                         width: '48px',
@@ -490,8 +490,11 @@ export default function ConnectedServicesCard({
                     </div>
                     <div className="section-title-wrap" style={{ flex: 1 }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                            <h3 style={{ margin: 0, fontSize: '18px', fontWeight: 600 }}>
+                            <h3 style={{ margin: 0, fontSize: '18px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px' }}>
                                 Voice Agent Service
+                                {settings.license_plan !== 'Professional' && (
+                                    <Icons.Lock size={14} style={{ color: '#00d4ff' }} title="Requires AI Professional" />
+                                )}
                             </h3>
                         </div>
                         <p style={{ margin: '4px 0 0 0', fontSize: '13px', color: 'var(--text-secondary)' }}>
@@ -499,9 +502,27 @@ export default function ConnectedServicesCard({
                         </p>
                     </div>
                     {voiceAgents.length === 0 && (
-                        <SButton variant="primary" onClick={onCreateVoiceAgent} style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
+                        <SButton 
+                            variant="primary" 
+                            onClick={(e) => {
+                                if (settings.license_plan !== 'Professional') {
+                                    toast.info("Managed AI Voice Agents require the AI Professional plan. Click the upgrade link in the sidebar to unlock.");
+                                    return;
+                                }
+                                onCreateVoiceAgent(e);
+                            }} 
+                            style={{ 
+                                display: 'inline-flex', 
+                                alignItems: 'center', 
+                                gap: '8px',
+                                opacity: settings.license_plan !== 'Professional' ? 0.7 : 1,
+                                cursor: settings.license_plan !== 'Professional' ? 'not-allowed' : 'pointer'
+                            }}
+                            title={settings.license_plan !== 'Professional' ? "Managed AI Voice Agents require the AI Professional plan." : undefined}
+                        >
                             <Icons.Phone size={16} />
                             Get Voice Agent
+                            {settings.license_plan !== 'Professional' && <Icons.Lock size={12} />}
                         </SButton>
                     )}
                 </div>
@@ -578,14 +599,47 @@ export default function ConnectedServicesCard({
                                         </div>
                                     </div>
                                     <div style={{ display: 'flex', gap: '8px' }}>
-                                        <SButton variant="secondary" size="small" onClick={() => onEditAgent(conn)}>
-                                            Edit
+                                        <SButton 
+                                            variant="secondary" 
+                                            size="small" 
+                                            onClick={() => {
+                                                if (settings.license_plan !== 'Professional') {
+                                                    toast.info("AI Voice Agents require the AI Professional plan. Click the upgrade link in the sidebar to unlock.");
+                                                    return;
+                                                }
+                                                onEditAgent(conn);
+                                            }}
+                                            style={{ opacity: settings.license_plan !== 'Professional' ? 0.6 : 1 }}
+                                        >
+                                            Edit {settings.license_plan !== 'Professional' && <Icons.Lock size={10} />}
                                         </SButton>
-                                        <SButton variant="secondary" size="small" onClick={() => onOpenConfig(conn)}>
-                                            Manage Logs
+                                        <SButton 
+                                            variant="secondary" 
+                                            size="small" 
+                                            onClick={() => {
+                                                if (settings.license_plan !== 'Professional') {
+                                                    toast.info("AI Voice Agents require the AI Professional plan. Click the upgrade link in the sidebar to unlock.");
+                                                    return;
+                                                }
+                                                onOpenConfig(conn);
+                                            }}
+                                            style={{ opacity: settings.license_plan !== 'Professional' ? 0.6 : 1 }}
+                                        >
+                                            Manage Logs {settings.license_plan !== 'Professional' && <Icons.Lock size={10} />}
                                         </SButton>
-                                        <SButton variant="secondary" size="small" onClick={() => onToggleActive(conn)}>
-                                            {conn.is_active ? 'Deactivate' : 'Activate'}
+                                        <SButton 
+                                            variant="secondary" 
+                                            size="small" 
+                                            onClick={() => {
+                                                if (settings.license_plan !== 'Professional') {
+                                                    toast.info("AI Voice Agents require the AI Professional plan. Click the upgrade link in the sidebar to unlock.");
+                                                    return;
+                                                }
+                                                onToggleActive(conn);
+                                            }}
+                                            style={{ opacity: settings.license_plan !== 'Professional' ? 0.6 : 1 }}
+                                        >
+                                            {conn.is_active ? 'Deactivate' : 'Activate'} {settings.license_plan !== 'Professional' && <Icons.Lock size={10} />}
                                         </SButton>
                                         <SButton variant="secondary" tone="critical" size="small" onClick={() => onDeleteAgent(conn)}>
                                             Delete
@@ -773,22 +827,32 @@ export default function ConnectedServicesCard({
                                 </div>
                             </div>
 
-                            {/* Toggle 5 - Due Payment Reminder */}
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', paddingBottom: '16px', borderBottom: '1px solid var(--border-light, #f0f0f0)' }}>
+                             {/* Toggle 5 - Due Payment Reminder */}
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', paddingBottom: '16px', borderBottom: '1px solid var(--border-light, #f0f0f0)', opacity: settings.license_plan === 'Free' ? 0.6 : 1 }}>
                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                     <div style={{ flex: 1, paddingRight: '16px' }}>
-                                        <div style={{ fontWeight: 600, fontSize: '14px', color: 'var(--text-primary)' }}>Due Payment Reminder</div>
+                                        <div style={{ fontWeight: 600, fontSize: '14px', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                            Due Payment Reminder
+                                            {settings.license_plan === 'Free' && <Icons.Lock size={12} style={{ color: '#cd7f32' }} />}
+                                        </div>
                                         <div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginTop: '4px' }}>Automatically email outstanding due balance alerts to customers with unpaid bills.</div>
                                     </div>
                                     <div 
-                                        className={`toggle-switch ${settings.auto_email_due_reminder === 'true' ? 'active' : ''}`}
-                                        onClick={() => handleToggleSetting('auto_email_due_reminder', settings.auto_email_due_reminder !== 'true')}
-                                        style={{ flexShrink: 0 }}
+                                        className={`toggle-switch ${settings.auto_email_due_reminder === 'true' && settings.license_plan !== 'Free' ? 'active' : ''}`}
+                                        onClick={() => {
+                                            if (settings.license_plan === 'Free') {
+                                                toast.info("Due Payment Reminders require the Business PRO plan. Click the upgrade link in the sidebar to unlock.");
+                                                return;
+                                            }
+                                            handleToggleSetting('auto_email_due_reminder', settings.auto_email_due_reminder !== 'true');
+                                        }}
+                                        style={{ flexShrink: 0, cursor: settings.license_plan === 'Free' ? 'not-allowed' : 'pointer' }}
+                                        title={settings.license_plan === 'Free' ? "Due Payment Reminders require the Business PRO plan." : undefined}
                                     >
-                                        <div className={`toggle-track ${settings.auto_email_due_reminder === 'true' ? 'on' : ''}`} />
+                                        <div className={`toggle-track ${settings.auto_email_due_reminder === 'true' && settings.license_plan !== 'Free' ? 'on' : ''}`} />
                                     </div>
                                 </div>
-                                {settings.auto_email_due_reminder === 'true' && (
+                                {settings.auto_email_due_reminder === 'true' && settings.license_plan !== 'Free' && (
                                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px', paddingLeft: '8px' }}>
                                         <span style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>Send reminder after:</span>
                                         <input 
@@ -804,17 +868,27 @@ export default function ConnectedServicesCard({
                             </div>
 
                             {/* Toggle 6 - Voice Integration */}
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', opacity: settings.license_plan !== 'Professional' ? 0.6 : 1 }}>
                                 <div style={{ flex: 1, paddingRight: '16px' }}>
-                                    <div style={{ fontWeight: 600, fontSize: '14px', color: 'var(--text-primary)' }}>Voice Agent Integration</div>
+                                    <div style={{ fontWeight: 600, fontSize: '14px', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                        Voice Agent Integration
+                                        {settings.license_plan !== 'Professional' && <Icons.Lock size={12} style={{ color: '#00d4ff' }} />}
+                                    </div>
                                     <div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginTop: '4px' }}>Scan call logs for requests like "send me that invoice" and auto-email details to registered customers.</div>
                                 </div>
                                 <div 
-                                    className={`toggle-switch ${settings.auto_email_voice_request === 'true' ? 'active' : ''}`}
-                                    onClick={() => handleToggleSetting('auto_email_voice_request', settings.auto_email_voice_request !== 'true')}
-                                    style={{ flexShrink: 0 }}
+                                    className={`toggle-switch ${settings.auto_email_voice_request === 'true' && settings.license_plan === 'Professional' ? 'active' : ''}`}
+                                    onClick={() => {
+                                        if (settings.license_plan !== 'Professional') {
+                                            toast.info("Voice Agent Integration requires the AI Professional plan. Click the upgrade link in the sidebar to unlock.");
+                                            return;
+                                        }
+                                        handleToggleSetting('auto_email_voice_request', settings.auto_email_voice_request !== 'true');
+                                    }}
+                                    style={{ flexShrink: 0, cursor: settings.license_plan !== 'Professional' ? 'not-allowed' : 'pointer' }}
+                                    title={settings.license_plan !== 'Professional' ? "Voice Agent Integration requires the AI Professional plan." : undefined}
                                 >
-                                    <div className={`toggle-track ${settings.auto_email_voice_request === 'true' ? 'on' : ''}`} />
+                                    <div className={`toggle-track ${settings.auto_email_voice_request === 'true' && settings.license_plan === 'Professional' ? 'on' : ''}`} />
                                 </div>
                             </div>
                         </div>
@@ -901,21 +975,31 @@ export default function ConnectedServicesCard({
                             </div>
 
                             {/* Toggle 5 - Due Payment Reminder */}
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', paddingBottom: '16px', borderBottom: '1px solid var(--border-light, #f0f0f0)' }}>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', paddingBottom: '16px', borderBottom: '1px solid var(--border-light, #f0f0f0)', opacity: settings.license_plan === 'Free' ? 0.6 : 1 }}>
                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                     <div style={{ flex: 1, paddingRight: '16px' }}>
-                                        <div style={{ fontWeight: 600, fontSize: '14px', color: 'var(--text-primary)' }}>Due Payment Reminder</div>
+                                        <div style={{ fontWeight: 600, fontSize: '14px', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                            Due Payment Reminder
+                                            {settings.license_plan === 'Free' && <Icons.Lock size={12} style={{ color: '#cd7f32' }} />}
+                                        </div>
                                         <div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginTop: '4px' }}>Automatically WhatsApp outstanding due alerts with invoice PDFs to customers with unpaid bills.</div>
                                     </div>
                                     <div 
-                                        className={`toggle-switch ${settings.auto_whatsapp_due_reminder === 'true' ? 'active' : ''}`}
-                                        onClick={() => handleToggleSetting('auto_whatsapp_due_reminder', settings.auto_whatsapp_due_reminder !== 'true')}
-                                        style={{ flexShrink: 0 }}
+                                        className={`toggle-switch ${settings.auto_whatsapp_due_reminder === 'true' && settings.license_plan !== 'Free' ? 'active' : ''}`}
+                                        onClick={() => {
+                                            if (settings.license_plan === 'Free') {
+                                                toast.info("Due Payment Reminders require the Business PRO plan. Click the upgrade link in the sidebar to unlock.");
+                                                return;
+                                            }
+                                            handleToggleSetting('auto_whatsapp_due_reminder', settings.auto_whatsapp_due_reminder !== 'true');
+                                        }}
+                                        style={{ flexShrink: 0, cursor: settings.license_plan === 'Free' ? 'not-allowed' : 'pointer' }}
+                                        title={settings.license_plan === 'Free' ? "Due Payment Reminders require the Business PRO plan." : undefined}
                                     >
-                                        <div className={`toggle-track ${settings.auto_whatsapp_due_reminder === 'true' ? 'on' : ''}`} />
+                                        <div className={`toggle-track ${settings.auto_whatsapp_due_reminder === 'true' && settings.license_plan !== 'Free' ? 'on' : ''}`} />
                                     </div>
                                 </div>
-                                {settings.auto_whatsapp_due_reminder === 'true' && (
+                                {settings.auto_whatsapp_due_reminder === 'true' && settings.license_plan !== 'Free' && (
                                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px', paddingLeft: '8px' }}>
                                         <span style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>Send reminder after:</span>
                                         <input 
@@ -931,17 +1015,27 @@ export default function ConnectedServicesCard({
                             </div>
 
                             {/* Toggle 6 - Voice Integration */}
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', opacity: settings.license_plan !== 'Professional' ? 0.6 : 1 }}>
                                 <div style={{ flex: 1, paddingRight: '16px' }}>
-                                    <div style={{ fontWeight: 600, fontSize: '14px', color: 'var(--text-primary)' }}>Voice Agent Integration</div>
+                                    <div style={{ fontWeight: 600, fontSize: '14px', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                        Voice Agent Integration
+                                        {settings.license_plan !== 'Professional' && <Icons.Lock size={12} style={{ color: '#00d4ff' }} />}
+                                    </div>
                                     <div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginTop: '4px' }}>Scan call logs for requests like "send me that invoice" and auto-WhatsApp PDF details to registered customers.</div>
                                 </div>
                                 <div 
-                                    className={`toggle-switch ${settings.auto_whatsapp_voice_request === 'true' ? 'active' : ''}`}
-                                    onClick={() => handleToggleSetting('auto_whatsapp_voice_request', settings.auto_whatsapp_voice_request !== 'true')}
-                                    style={{ flexShrink: 0 }}
+                                    className={`toggle-switch ${settings.auto_whatsapp_voice_request === 'true' && settings.license_plan === 'Professional' ? 'active' : ''}`}
+                                    onClick={() => {
+                                        if (settings.license_plan !== 'Professional') {
+                                            toast.info("Voice Agent Integration requires the AI Professional plan. Click the upgrade link in the sidebar to unlock.");
+                                            return;
+                                        }
+                                        handleToggleSetting('auto_whatsapp_voice_request', settings.auto_whatsapp_voice_request !== 'true');
+                                    }}
+                                    style={{ flexShrink: 0, cursor: settings.license_plan !== 'Professional' ? 'not-allowed' : 'pointer' }}
+                                    title={settings.license_plan !== 'Professional' ? "Voice Agent Integration requires the AI Professional plan." : undefined}
                                 >
-                                    <div className={`toggle-track ${settings.auto_whatsapp_voice_request === 'true' ? 'on' : ''}`} />
+                                    <div className={`toggle-track ${settings.auto_whatsapp_voice_request === 'true' && settings.license_plan === 'Professional' ? 'on' : ''}`} />
                                 </div>
                             </div>
                         </div>

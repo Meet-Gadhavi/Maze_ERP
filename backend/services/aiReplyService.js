@@ -151,6 +151,14 @@ const aiReplyService = {
         try {
             await db.ready;
             
+            // Check plan status
+            const licensePlanRow = db.get("SELECT value FROM settings WHERE key = 'license_plan'");
+            const licensePlan = licensePlanRow ? licensePlanRow.value : 'Free';
+            if (licensePlan !== 'Professional') {
+                console.log(`[AI Reply] Bypassing AI Auto-Reply. Current Plan: ${licensePlan} (Requires Professional)`);
+                return "Thank you for reaching out. We have received your query and our team will get back to you shortly.";
+            }
+            
             // Build Context
             const customerContext = getCustomerContext(customerId);
             const productsContext = getProductsContext();

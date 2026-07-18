@@ -1277,15 +1277,30 @@ export default function SettingsPage() {
                                                 <img src="./icons/mazeway.png" style={{ width: '32px', height: '32px', objectFit: 'contain' }} alt="Mazeway" />
                                             </div>
                                             <div>
-                                                <h4 style={{ fontSize: '1.1rem', fontWeight: 700 }}>Cloud Storage Backups</h4>
+                                                <h4 style={{ fontSize: '1.1rem', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                                    Cloud Storage Backups
+                                                    {settings?.license_plan === 'Free' && (
+                                                        <Icons.Lock size={14} style={{ color: '#cd7f32' }} title="Requires Business PRO" />
+                                                    )}
+                                                </h4>
                                                 <p className="helper-text" style={{ fontSize: '12px' }}>Securely save your business backups to Mazeway Cloud Storage</p>
                                             </div>
                                         </div>
                                         <div className="toggle-switch" 
-                                            onClick={() => setSettings({ ...settings, cloud_backups_enabled: settings.cloud_backups_enabled === 'true' ? 'false' : 'true' })}
-                                            style={{ cursor: 'pointer' }}
+                                            onClick={() => {
+                                                if (settings?.license_plan === 'Free') {
+                                                    toast.info("Cloud Storage Backups require the Business PRO plan. Click the upgrade link in the sidebar to unlock.");
+                                                    return;
+                                                }
+                                                setSettings({ ...settings, cloud_backups_enabled: settings.cloud_backups_enabled === 'true' ? 'false' : 'true' });
+                                            }}
+                                            style={{ 
+                                                cursor: settings?.license_plan === 'Free' ? 'not-allowed' : 'pointer',
+                                                opacity: settings?.license_plan === 'Free' ? 0.5 : 1
+                                            }}
+                                            title={settings?.license_plan === 'Free' ? "Cloud Storage Backups require the Business PRO plan." : undefined}
                                         >
-                                            <div className={`toggle-track ${settings.cloud_backups_enabled === 'true' ? 'on' : ''}`}></div>
+                                            <div className={`toggle-track ${settings.cloud_backups_enabled === 'true' && settings?.license_plan !== 'Free' ? 'on' : ''}`}></div>
                                         </div>
                                     </div>
                                 </div>

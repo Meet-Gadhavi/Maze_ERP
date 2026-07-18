@@ -1531,7 +1531,14 @@ export default function CustomersPage() {
                         </button>
                         <button 
                             className={`crm-tab-btn ${marketingSubTab === 'whatsapp' ? 'active' : ''}`}
-                            onClick={() => setMarketingSubTab('whatsapp')}
+                            onClick={() => {
+                                if (settings?.license_plan === 'Free') {
+                                    toast.info("WhatsApp Campaigns require the Business PRO plan. Click the upgrade link in the sidebar to unlock.");
+                                    return;
+                                }
+                                setMarketingSubTab('whatsapp');
+                            }}
+                            title={settings?.license_plan === 'Free' ? "WhatsApp Campaigns require the Business PRO plan." : undefined}
                             style={{ 
                                 background: marketingSubTab === 'whatsapp' ? '#fff' : 'none', 
                                 border: 'none', 
@@ -1540,16 +1547,27 @@ export default function CustomersPage() {
                                 cursor: 'pointer', 
                                 borderRadius: '8px',
                                 boxShadow: marketingSubTab === 'whatsapp' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
-                                color: marketingSubTab === 'whatsapp' ? 'var(--accent)' : 'var(--text-secondary)',
+                                color: settings?.license_plan === 'Free' ? '#94a3b8' : (marketingSubTab === 'whatsapp' ? 'var(--accent)' : 'var(--text-secondary)'),
                                 transition: 'all 0.2s ease',
-                                borderBottom: 'none'
+                                borderBottom: 'none',
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '6px'
                             }}
                         >
                             WhatsApp Campaigns
+                            {settings?.license_plan === 'Free' && <Icons.Lock size={12} style={{ color: '#cd7f32' }} />}
                         </button>
                         <button 
                             className={`crm-tab-btn ${marketingSubTab === 'voice' ? 'active' : ''}`}
-                            onClick={() => setMarketingSubTab('voice')}
+                            onClick={() => {
+                                if (settings?.license_plan !== 'Professional') {
+                                    toast.info("Voice Campaigns require the AI Professional plan. Click the upgrade link in the sidebar to unlock.");
+                                    return;
+                                }
+                                setMarketingSubTab('voice');
+                            }}
+                            title={settings?.license_plan !== 'Professional' ? "Voice Campaigns require the AI Professional plan." : undefined}
                             style={{ 
                                 background: marketingSubTab === 'voice' ? '#fff' : 'none', 
                                 border: 'none', 
@@ -1558,12 +1576,16 @@ export default function CustomersPage() {
                                 cursor: 'pointer', 
                                 borderRadius: '8px',
                                 boxShadow: marketingSubTab === 'voice' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
-                                color: marketingSubTab === 'voice' ? 'var(--accent)' : 'var(--text-secondary)',
+                                color: settings?.license_plan !== 'Professional' ? '#94a3b8' : (marketingSubTab === 'voice' ? 'var(--accent)' : 'var(--text-secondary)'),
                                 transition: 'all 0.2s ease',
-                                borderBottom: 'none'
+                                borderBottom: 'none',
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '6px'
                             }}
                         >
                             Voice Campaigns (Outbound)
+                            {settings?.license_plan !== 'Professional' && <Icons.Lock size={12} style={{ color: '#00d4ff' }} />}
                         </button>
                     </div>
 
@@ -2007,26 +2029,56 @@ export default function CustomersPage() {
                         </FormGroup>
                     </div>
                     <div className="grid-2 gap-16">
-                        <FormGroup label="Customer Tier">
-                            <CustomSelect 
-                                value={form.tier} 
-                                onChange={value => setForm({ ...form, tier: value })} 
-                                options={[
-                                    { value: 'A', label: 'Tier A' },
-                                    { value: 'B', label: 'Tier B' },
-                                    { value: 'C', label: 'Tier C' }
-                                ]}
-                            />
+                        <FormGroup 
+                            label={
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                    Customer Tier
+                                    {settings?.license_plan === 'Free' && (
+                                        <Icons.Lock size={12} style={{ color: '#cd7f32' }} title="Requires Business PRO" />
+                                    )}
+                                </div>
+                            }
+                        >
+                            <div title={settings?.license_plan === 'Free' ? "Customer Tier categorizations require the Business PRO plan." : undefined}>
+                                <CustomSelect 
+                                    value={settings?.license_plan === 'Free' ? 'C' : form.tier} 
+                                    onChange={value => {
+                                        if (settings?.license_plan === 'Free') return;
+                                        setForm({ ...form, tier: value });
+                                    }} 
+                                    disabled={settings?.license_plan === 'Free'}
+                                    options={[
+                                        { value: 'A', label: 'Tier A' },
+                                        { value: 'B', label: 'Tier B' },
+                                        { value: 'C', label: 'Tier C' }
+                                    ]}
+                                />
+                            </div>
                         </FormGroup>
-                        <FormGroup label="Credit Limit (₹)">
-                            <Input 
-                                type="number"
-                                min="0"
-                                step="any"
-                                value={form.credit_limit} 
-                                onChange={e => setForm({ ...form, credit_limit: e.target.value === '' ? '' : Number(e.target.value) })} 
-                                placeholder="e.g. 5000" 
-                            />
+                        <FormGroup 
+                            label={
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                    Credit Limit (₹)
+                                    {settings?.license_plan === 'Free' && (
+                                        <Icons.Lock size={12} style={{ color: '#cd7f32' }} title="Requires Business PRO" />
+                                    )}
+                                </div>
+                            }
+                        >
+                            <div title={settings?.license_plan === 'Free' ? "Credit limit controls require the Business PRO plan." : undefined}>
+                                <Input 
+                                    type="number"
+                                    min="0"
+                                    step="any"
+                                    value={settings?.license_plan === 'Free' ? 0 : form.credit_limit} 
+                                    onChange={e => {
+                                        if (settings?.license_plan === 'Free') return;
+                                        setForm({ ...form, credit_limit: e.target.value === '' ? '' : Number(e.target.value) });
+                                    }} 
+                                    disabled={settings?.license_plan === 'Free'}
+                                    placeholder="e.g. 5000" 
+                                />
+                            </div>
                         </FormGroup>
                     </div>
                     <FormGroup label="GST Number (Optional)">
