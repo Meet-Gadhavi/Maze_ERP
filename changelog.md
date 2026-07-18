@@ -4,6 +4,10 @@ All notable changes to the Quantro ERP application will be documented here.
 
 ---
 
+## [2.10.18] - 2026-07-18
+### Added
+- **CRM Tab Locks & Disabling**: Locked the **Price Lists** tab and **Tier Configuration & Default Auto-Discounts** strip on the Free Starter plan (making them usable only on Business PRO and AI Professional plans). Custom-styled the UI blocks with reduced opacity, standard gray lock indicators (`#94a3b8`), and custom click handlers to toast upgrade instructions.
+
 ## [2.10.17] - 2026-07-18
 ### Added
 - **UI & Feature Lock Standardizations**: Stacked subscription shields and text badges directly above the cashier name/avatar in the sidebar. Standardized all lock icons to a uniform premium gray color (`#94a3b8`) across settings, automation settings, and CRM fields. Wrapped disabled controls to trigger helpful upgrade toast notifications upon click, and locked the **Upload Invoice** scanner tab in Purchases for Free Starter users.

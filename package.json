@@ -1,7 +1,7 @@
 {
   "name": "quantro",
   "productName": "Quantro",
-  "version": "2.10.17",
+  "version": "2.10.18",
   "description": "Quantro — Professional Desktop ERP by Maze Lab",
   "main": "main/main.js",
   "author": "Maze Lab",
@@ -21,7 +21,7 @@
     "productName": "Quantro",
     "artifactName": "${productName}-Setup-${version}.${ext}",
     "directories": {
-      "output": "Deployment/v2.10.17"
+      "output": "Deployment/v2.10.18"
     },
     "publish": [
       {

@@ -839,6 +839,9 @@ export default function CustomersPage() {
                     tier_b_discount: s.tier_b_discount ?? '5',
                     tier_c_discount: s.tier_c_discount ?? '0'
                 });
+                if (s.license_plan === 'Free' && activePageTab === 'pricelists') {
+                    setActivePageTab('directory');
+                }
             }
         } catch (err) {
             console.error('Failed to load settings', err);
@@ -1136,25 +1139,54 @@ export default function CustomersPage() {
                 </button>
                 <button 
                     className={`crm-tab-btn ${activePageTab === 'pricelists' ? 'active' : ''}`}
-                    onClick={() => setActivePageTab('pricelists')}
+                    onClick={() => {
+                        if (settings?.license_plan === 'Free') {
+                            toast.info("Price Lists require the Business PRO plan. Click the upgrade link in the sidebar to unlock.");
+                            return;
+                        }
+                        setActivePageTab('pricelists');
+                    }}
+                    style={{
+                        opacity: settings?.license_plan === 'Free' ? 0.6 : 1,
+                        cursor: settings?.license_plan === 'Free' ? 'not-allowed' : 'pointer',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '6px'
+                    }}
+                    title={settings?.license_plan === 'Free' ? "Price Lists require the Business PRO plan." : undefined}
                 >
                     <Icons.Settings size={16} />
                     Price Lists
+                    {settings?.license_plan === 'Free' && <Icons.Lock size={12} style={{ color: '#94a3b8' }} />}
                 </button>
             </div>
 
             {activePageTab === 'directory' ? (
                 <>
                     {/* Tier Configuration Strip */}
-                    <div className="tier-strip">
+                    <div className="tier-strip" style={{ opacity: settings?.license_plan === 'Free' ? 0.6 : 1, cursor: settings?.license_plan === 'Free' ? 'pointer' : 'default' }} onClick={() => {
+                        if (settings?.license_plan === 'Free') {
+                            toast.info("Tier Configuration & Auto-Discounts require the Business PRO plan. Click the upgrade link in the sidebar to unlock.");
+                        }
+                    }}>
                         <div className="tier-strip-header">
-                            <span className="tier-strip-title">Tier Configuration & Default Auto-Discounts</span>
+                            <span className="tier-strip-title" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                Tier Configuration & Default Auto-Discounts
+                                {settings?.license_plan === 'Free' && <Icons.Lock size={14} style={{ color: '#94a3b8' }} />}
+                            </span>
                         </div>
                         <div className="tier-strip-grid">
                             <div className="tier-strip-card">
                                 <div className="tier-strip-card-top">
                                     <span className="tier-badge tier-a">Tier A</span>
-                                    <button className="tier-card-settings-btn" onClick={() => openEditTier('A')} title="Edit Tier A Discount">
+                                    <button className="tier-card-settings-btn" onClick={(e) => {
+                                        e.stopPropagation();
+                                        if (settings?.license_plan === 'Free') {
+                                            toast.info("Tier Configuration & Auto-Discounts require the Business PRO plan. Click the upgrade link in the sidebar to unlock.");
+                                            return;
+                                        }
+                                        openEditTier('A');
+                                    }} title="Edit Tier A Discount" style={{ cursor: settings?.license_plan === 'Free' ? 'not-allowed' : 'pointer' }}>
                                         <Icons.Settings size={14} />
                                     </button>
                                 </div>
@@ -1164,7 +1196,14 @@ export default function CustomersPage() {
                             <div className="tier-strip-card">
                                 <div className="tier-strip-card-top">
                                     <span className="tier-badge tier-b">Tier B</span>
-                                    <button className="tier-card-settings-btn" onClick={() => openEditTier('B')} title="Edit Tier B Discount">
+                                    <button className="tier-card-settings-btn" onClick={(e) => {
+                                        e.stopPropagation();
+                                        if (settings?.license_plan === 'Free') {
+                                            toast.info("Tier Configuration & Auto-Discounts require the Business PRO plan. Click the upgrade link in the sidebar to unlock.");
+                                            return;
+                                        }
+                                        openEditTier('B');
+                                    }} title="Edit Tier B Discount" style={{ cursor: settings?.license_plan === 'Free' ? 'not-allowed' : 'pointer' }}>
                                         <Icons.Settings size={14} />
                                     </button>
                                 </div>
@@ -1174,7 +1213,14 @@ export default function CustomersPage() {
                             <div className="tier-strip-card">
                                 <div className="tier-strip-card-top">
                                     <span className="tier-badge tier-c">Tier C</span>
-                                    <button className="tier-card-settings-btn" onClick={() => openEditTier('C')} title="Edit Tier C Discount">
+                                    <button className="tier-card-settings-btn" onClick={(e) => {
+                                        e.stopPropagation();
+                                        if (settings?.license_plan === 'Free') {
+                                            toast.info("Tier Configuration & Auto-Discounts require the Business PRO plan. Click the upgrade link in the sidebar to unlock.");
+                                            return;
+                                        }
+                                        openEditTier('C');
+                                    }} title="Edit Tier C Discount" style={{ cursor: settings?.license_plan === 'Free' ? 'not-allowed' : 'pointer' }}>
                                         <Icons.Settings size={14} />
                                     </button>
                                 </div>
