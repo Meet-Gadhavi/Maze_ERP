@@ -253,6 +253,95 @@ function ActivationGate({ session, onActivated }) {
     );
 }
 
+function SessionRecoveryTracker() {
+    const location = useLocation();
+
+    useEffect(() => {
+        if (location.pathname && location.pathname !== '/customer-display') {
+            localStorage.setItem('quantro_last_path', location.pathname);
+        }
+    }, [location]);
+
+    return null;
+}
+
+function RestoreNavigationHelper({ triggerPath, onNavigated }) {
+    const navigate = useNavigate();
+
+    useEffect(() => {
+        if (triggerPath) {
+            console.log('[Recovery] Navigating to restored path:', triggerPath);
+            navigate(triggerPath);
+            onNavigated();
+        }
+    }, [triggerPath, navigate, onNavigated]);
+
+    return null;
+}
+
+function SessionRestoreModal({ onResolve }) {
+    return (
+        <div style={{
+            position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+            background: 'rgba(15, 23, 42, 0.65)', backdropFilter: 'blur(8px)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            zIndex: 100000, padding: '20px'
+        }}>
+            <div className="card" style={{
+                width: '100%', maxWidth: '440px', padding: '28px',
+                borderRadius: '16px', border: '1px solid var(--border)',
+                background: '#fff', boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)',
+                display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '20px',
+                animation: 'slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1)'
+            }}>
+                <div style={{ 
+                    width: '56px', height: '56px', borderRadius: '12px', 
+                    background: 'rgba(247, 144, 9, 0.1)', color: '#f79009',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center'
+                }}>
+                    <Icons.History size={28} />
+                </div>
+                
+                <div style={{ textAlign: 'center' }}>
+                    <h3 style={{ margin: 0, fontWeight: 700, fontSize: '18px', color: 'var(--text-primary)' }}>
+                        Session Recovery
+                    </h3>
+                    <p style={{ margin: '8px 0 0 0', color: 'var(--text-secondary)', fontSize: '14px', lineHeight: 1.5 }}>
+                        Due to some sudden reasons, the system did not close properly. Do you want to restore your previous session?
+                    </p>
+                </div>
+                
+                <div style={{ display: 'flex', width: '100%', gap: '12px', marginTop: '4px' }}>
+                    <button 
+                        onClick={() => onResolve('clear')}
+                        style={{
+                            flex: 1, padding: '10px 16px', borderRadius: '8px',
+                            border: '1px solid var(--border)', background: 'var(--bg-secondary, #f8fafc)',
+                            color: 'var(--text-secondary)', fontWeight: 600, fontSize: '14px',
+                            cursor: 'pointer', transition: 'all 0.2s'
+                        }}
+                    >
+                        No thanks
+                    </button>
+                    <button 
+                        onClick={() => onResolve('restore')}
+                        style={{
+                            flex: 1, padding: '10px 16px', borderRadius: '8px',
+                            border: 'none', background: 'var(--accent)',
+                            color: '#fff', fontWeight: 600, fontSize: '14px',
+                            cursor: 'pointer', transition: 'all 0.2s'
+                        }}
+                    >
+                        Restore
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+}
+
+import { useLocation, useNavigate } from 'react-router-dom';
+
 export default function App() {
     const [session, setSession] = useState(null);
     const [loading, setLoading] = useState(true);
@@ -262,6 +351,32 @@ export default function App() {
     const [shutdownLoading, setShutdownLoading] = useState(false);
     const [shutdownProgress, setShutdownProgress] = useState(0);
     const [shutdownMessage, setShutdownMessage] = useState('');
+
+    const [showRestoreModal, setShowRestoreModal] = useState(false);
+    const [restorePath, setRestorePath] = useState(null);
+
+    useEffect(() => {
+        // Check if previous session was open (crashed/sudden shutdown)
+        const sessionStatus = localStorage.getItem('quantro_session_status');
+        const lastPath = localStorage.getItem('quantro_last_path');
+        
+        if (sessionStatus === 'open' && lastPath && lastPath !== '/') {
+            setShowRestoreModal(true);
+        }
+        
+        // Mark current session as active/open
+        localStorage.setItem('quantro_session_status', 'open');
+    }, []);
+
+    const handleRestoreAction = (action) => {
+        if (action === 'restore') {
+            const lastPath = localStorage.getItem('quantro_last_path');
+            if (lastPath) {
+                setRestorePath(lastPath);
+            }
+        }
+        setShowRestoreModal(false);
+    };
 
     const checkActivation = async (currSession) => {
         setCheckingActivation(true);
@@ -580,6 +695,7 @@ export default function App() {
                     } catch (e) {
                         console.error('[Quantro] Session backup failed:', e);
                     } finally {
+                        localStorage.setItem('quantro_session_status', 'closed');
                         if (window.maze.confirmAppQuit) {
                             window.maze.confirmAppQuit();
                         }
@@ -670,6 +786,14 @@ export default function App() {
                         },
                     }}
                 />
+                <SessionRecoveryTracker />
+                <RestoreNavigationHelper 
+                    triggerPath={restorePath} 
+                    onNavigated={() => setRestorePath(null)} 
+                />
+                {showRestoreModal && (
+                    <SessionRestoreModal onResolve={handleRestoreAction} />
+                )}
                 {!session ? (
                     <Routes>
                         <Route path="/customer-display" element={<CustomerDisplayPage />} />

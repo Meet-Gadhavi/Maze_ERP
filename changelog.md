@@ -4,6 +4,10 @@ All notable changes to the Quantro ERP application will be documented here.
 
 ---
 
+## [2.10.16] - 2026-07-18
+### Added
+- **Session Crash Recovery System**: Implemented a stateful session recovery tracker. When the app is opened, it checks if the previous session closed cleanly (e.g., from power outages, sudden lights off, force quits, or crashes). If it didn't, a premium "Session Recovery" modal is shown, allowing the cashier to restore the previous session state and automatically return to their active page/tab.
+
 ## [2.10.15] - 2026-07-18
 ### Fixed
 - **OS Shutdown Interceptor for Backups**: Added a listener for the Windows `query-session-end` OS shutdown event. This prevents Windows from forcefully closing the application and corrupting database files during a session-end database backup. Instead, it triggers the standard visual backup progress screen, blocking Windows shutdown until files are secured, or offering "Shut down anyway" / "Cancel" options.
