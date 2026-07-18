@@ -10,6 +10,7 @@ import QuotationPreviewModal from '../components/QuotationPreviewModal';
 import { Icons } from '../components/Icons';
 import { formatDate } from '../utils';
 import QuickSaleView from '../components/QuickSaleView';
+import { LineChart } from '@mui/x-charts/LineChart';
 import './SalesPage.css';
 
 const DEFAULT_PAYMENT_METHOD = 'Cash';
@@ -3569,6 +3570,48 @@ export default function SalesPage() {
 
             {tab === 'history' && (
                 <div className="history-view" style={{ animation: 'fadeIn 0.3s ease' }}>
+                    {/* Sales Trend Sparkline */}
+                    {invoices.length > 0 && (() => {
+                        const last30 = Array.from({ length: 30 }, (_, i) => {
+                            const d = new Date();
+                            d.setDate(d.getDate() - (29 - i));
+                            return d.toISOString().split('T')[0];
+                        });
+                        const salesByDay = last30.map(dateStr => {
+                            const total = invoices
+                                .filter(inv => inv.created_at && inv.created_at.split('T')[0] === dateStr)
+                                .reduce((sum, inv) => sum + (parseFloat(inv.total_amount) || 0), 0);
+                            return total;
+                        });
+                        const labels = last30.map(d => {
+                            const [, m, day] = d.split('-');
+                            return `${parseInt(day)}/${parseInt(m)}`;
+                        });
+                        return (
+                            <div style={{
+                                background: 'var(--bg-card, #ffffff)',
+                                border: '1px solid var(--border-light)',
+                                borderRadius: '16px',
+                                padding: '14px 24px 4px 24px',
+                                marginBottom: '18px',
+                                boxShadow: '0 2px 12px rgba(0,0,0,0.04)'
+                            }}>
+                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '2px' }}>
+                                    <span style={{ fontWeight: 600, fontSize: '13px', color: 'var(--text-secondary)' }}>Daily Sales Trend — Last 30 Days</span>
+                                    <span style={{ fontSize: '12px', color: 'var(--text-tertiary)' }}>₹{salesByDay.reduce((a, b) => a + b, 0).toLocaleString('en-IN', { maximumFractionDigits: 0 })} total</span>
+                                </div>
+                                <LineChart
+                                    height={100}
+                                    margin={{ left: 0, right: 0, top: 8, bottom: 24 }}
+                                    xAxis={[{ data: labels, scaleType: 'point', tickInterval: (_, i) => i % 5 === 0 }]}
+                                    yAxis={[{ width: 0, tickNumber: 0 }]}
+                                    series={[{ data: salesByDay, area: true, color: 'var(--accent, #6366f1)', showMark: false, valueFormatter: v => `₹${v.toLocaleString('en-IN', { maximumFractionDigits: 0 })}` }]}
+                                    slotProps={{ legend: { hidden: true } }}
+                                    sx={{ '& .MuiChartsAxis-tickLabel': { fontSize: '10px', fill: 'var(--text-tertiary)' }, '& .MuiChartsAxis-line, & .MuiChartsAxis-tick': { stroke: 'transparent' }, '& .MuiAreaElement-root': { fillOpacity: 0.15 } }}
+                                />
+                            </div>
+                        );
+                    })()}
                     <div className="page-toolbar">
                         <div className="search-bar">
                             <Icons.Search size={20} />

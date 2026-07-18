@@ -10,6 +10,7 @@ import { formatDate, validateCustomer } from '../utils';
 import { EMPTY_CUSTOMER } from '../constants';
 import './CustomersPage.css';
 import Skeleton from '../components/Skeleton';
+import { BarChart } from '@mui/x-charts/BarChart';
 
 const getInvoiceMockTemplateHtml = (customerName, settings) => {
     const companyName = (settings.company_name && settings.company_name.trim() !== '' && settings.company_name !== 'Quantro')
@@ -1229,6 +1230,38 @@ export default function CustomersPage() {
                             </div>
                         </div>
                     </div>
+
+                    {/* Tier Distribution Chart */}
+                    {customers.length > 0 && (() => {
+                        const tierACount = customers.filter(c => (c.tier || 'C') === 'A').length;
+                        const tierBCount = customers.filter(c => (c.tier || 'C') === 'B').length;
+                        const tierCCount = customers.filter(c => (c.tier || 'C') === 'C').length;
+                        return (
+                            <div style={{
+                                background: 'var(--bg-card, #ffffff)',
+                                border: '1px solid var(--border-light)',
+                                borderRadius: '16px',
+                                padding: '16px 24px 8px 24px',
+                                marginBottom: '18px',
+                                boxShadow: '0 2px 12px rgba(0,0,0,0.04)'
+                            }}>
+                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '4px' }}>
+                                    <span style={{ fontWeight: 600, fontSize: '13px', color: 'var(--text-secondary)' }}>Customer Distribution by Tier</span>
+                                    <span style={{ fontSize: '12px', color: 'var(--text-tertiary)' }}>{customers.length} total customers</span>
+                                </div>
+                                <BarChart
+                                    layout="horizontal"
+                                    height={110}
+                                    margin={{ left: 60, right: 20, top: 8, bottom: 20 }}
+                                    yAxis={[{ data: ['Tier A', 'Tier B', 'Tier C'], scaleType: 'band' }]}
+                                    xAxis={[{ scaleType: 'linear', tickNumber: 4 }]}
+                                    series={[{ data: [tierACount, tierBCount, tierCCount], label: 'Customers', color: 'var(--accent, #6366f1)', valueFormatter: v => `${v} customers` }]}
+                                    slotProps={{ legend: { hidden: true } }}
+                                    sx={{ '& .MuiChartsAxis-tickLabel': { fontSize: '11px', fill: 'var(--text-secondary)' }, '& .MuiChartsAxis-line, & .MuiChartsAxis-tick': { stroke: 'var(--border-light)' } }}
+                                />
+                            </div>
+                        );
+                    })()}
 
                     <div className="page-toolbar">
                         <div className="search-bar">

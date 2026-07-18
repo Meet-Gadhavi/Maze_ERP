@@ -9,6 +9,7 @@ import { isOnline } from '../utils/network';
 import { mazewaySupabase } from '../mazewaySupabase';
 import './AutomationPage.css';
 import ConnectedServicesCard from '../components/automation/ConnectedServicesCard';
+import { LineChart } from '@mui/x-charts/LineChart';
 
 const AGENT_PLANS = [
     { id: 'starter', name: 'Starter', price: 600, features: ['1000 mins/mo', 'WhatsApp Only', 'Basic Personality'] },
@@ -569,6 +570,47 @@ export default function AutomationPage() {
                     );
                 })}
             </div>
+
+            {/* AI Usage Sparkline */}
+            {agents.length > 0 && (() => {
+                const last14 = Array.from({ length: 14 }, (_, i) => {
+                    const d = new Date();
+                    d.setDate(d.getDate() - (13 - i));
+                    return d.toISOString().split('T')[0];
+                });
+                const interactionsByDay = last14.map(dateStr =>
+                    (logs || []).filter(l => l.created_at && l.created_at.split('T')[0] === dateStr).length
+                );
+                const labels = last14.map(d => {
+                    const [, m, day] = d.split('-');
+                    return `${parseInt(day)}/${parseInt(m)}`;
+                });
+                const totalInteractions = interactionsByDay.reduce((a, b) => a + b, 0);
+                return (
+                    <div style={{
+                        background: 'var(--bg-card, #ffffff)',
+                        border: '1px solid var(--border-light)',
+                        borderRadius: '16px',
+                        padding: '14px 24px 4px 24px',
+                        marginBottom: '18px',
+                        boxShadow: '0 2px 12px rgba(0,0,0,0.04)'
+                    }}>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '2px' }}>
+                            <span style={{ fontWeight: 600, fontSize: '13px', color: 'var(--text-secondary)' }}>AI Interactions — Last 14 Days</span>
+                            <span style={{ fontSize: '12px', color: 'var(--text-tertiary)' }}>{totalInteractions} total interactions</span>
+                        </div>
+                        <LineChart
+                            height={100}
+                            margin={{ left: 0, right: 0, top: 8, bottom: 24 }}
+                            xAxis={[{ data: labels, scaleType: 'point' }]}
+                            yAxis={[{ width: 0, tickNumber: 0 }]}
+                            series={[{ data: interactionsByDay, area: true, color: '#10b981', showMark: false, valueFormatter: v => `${v} interactions` }]}
+                            slotProps={{ legend: { hidden: true } }}
+                            sx={{ '& .MuiChartsAxis-tickLabel': { fontSize: '10px', fill: 'var(--text-tertiary)' }, '& .MuiChartsAxis-line, & .MuiChartsAxis-tick': { stroke: 'transparent' }, '& .MuiAreaElement-root': { fillOpacity: 0.15 } }}
+                        />
+                    </div>
+                );
+            })()}
 
             <ConnectedServicesCard 
                 agents={agents}

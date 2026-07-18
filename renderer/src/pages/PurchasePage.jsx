@@ -6,10 +6,10 @@ import { FormGroup, Input } from '../components/FormComponents';
 import Modal from '../components/Modal';
 import SButton from '../components/SButton';
 import Icons from '../components/Icons';
-import { formatDate, amountToWords, validateProduct } from '../utils';
+import { formatDate, formatDateShort, amountToWords, validateProduct } from '../utils';
 import { EMPTY_SUPPLIER, EMPTY_EXPENSE, EMPTY_PRODUCT, UNIT_CATEGORIES, DECIMAL_UNITS } from '../constants';
 import { supabase } from '../supabase';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LineChart, Line } from 'recharts';
+import { LineChart } from '@mui/x-charts/LineChart';
 import './PurchasePage.css';
 import Skeleton from '../components/Skeleton';
 
@@ -1227,6 +1227,49 @@ export default function PurchasePage() {
                         </SButton>
                     </div>
                 )}
+
+                {/* Purchase Spend Trend Sparkline */}
+                {purchases.length > 0 && (() => {
+                    const last30 = Array.from({ length: 30 }, (_, i) => {
+                        const d = new Date();
+                        d.setDate(d.getDate() - (29 - i));
+                        return d.toISOString().split('T')[0];
+                    });
+                    const spendByDay = last30.map(dateStr =>
+                        purchases
+                            .filter(p => p.date && p.date.split('T')[0] === dateStr)
+                            .reduce((sum, p) => sum + (parseFloat(p.total_amount) || 0), 0)
+                    );
+                    const labels = last30.map(d => {
+                        const [, m, day] = d.split('-');
+                        return `${parseInt(day)}/${parseInt(m)}`;
+                    });
+                    const totalSpend = spendByDay.reduce((a, b) => a + b, 0);
+                    return (
+                        <div style={{
+                            background: 'var(--bg-card, #ffffff)',
+                            border: '1px solid var(--border-light)',
+                            borderRadius: '16px',
+                            padding: '14px 24px 4px 24px',
+                            marginBottom: '18px',
+                            boxShadow: '0 2px 12px rgba(0,0,0,0.04)'
+                        }}>
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '2px' }}>
+                                <span style={{ fontWeight: 600, fontSize: '13px', color: 'var(--text-secondary)' }}>Purchase Spend — Last 30 Days</span>
+                                <span style={{ fontSize: '12px', color: 'var(--text-tertiary)' }}>₹{totalSpend.toLocaleString('en-IN', { maximumFractionDigits: 0 })} spent</span>
+                            </div>
+                            <LineChart
+                                height={100}
+                                margin={{ left: 0, right: 0, top: 8, bottom: 24 }}
+                                xAxis={[{ data: labels, scaleType: 'point', tickInterval: (_, i) => i % 5 === 0 }]}
+                                yAxis={[{ width: 0, tickNumber: 0 }]}
+                                series={[{ data: spendByDay, area: true, color: '#f59e0b', showMark: false, valueFormatter: v => `₹${v.toLocaleString('en-IN', { maximumFractionDigits: 0 })}` }]}
+                                slotProps={{ legend: { hidden: true } }}
+                                sx={{ '& .MuiChartsAxis-tickLabel': { fontSize: '10px', fill: 'var(--text-tertiary)' }, '& .MuiChartsAxis-line, & .MuiChartsAxis-tick': { stroke: 'transparent' }, '& .MuiAreaElement-root': { fillOpacity: 0.15 } }}
+                            />
+                        </div>
+                    );
+                })()}
                 {purchases.length === 0 ? (
                     <div className="empty-state-premium">
                         <div className="empty-icon-wrapper">

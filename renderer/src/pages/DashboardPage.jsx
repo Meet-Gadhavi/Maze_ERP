@@ -4,12 +4,9 @@ import './DashboardPage.css';
 import { formatDateShort, formatDate } from '../utils';
 import { Icons } from '../components/Icons';
 import { useNavigate } from 'react-router-dom';
-import {
-    AreaChart, Area, BarChart, Bar, LineChart, Line, ComposedChart,
-    XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
-    PieChart, Pie, Cell, Legend,
-    RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar
-} from 'recharts';
+import { BarChart } from '@mui/x-charts/BarChart';
+import { LineChart } from '@mui/x-charts/LineChart';
+import { PieChart } from '@mui/x-charts/PieChart';
 import DailyReportModal from '../components/DailyReportModal';
 import SButton from '../components/SButton';
 import CustomSelect from '../components/CustomSelect';
@@ -371,38 +368,59 @@ export default function DashboardPage() {
                         <ChartCard title="Sales Trend" subtitle={`Revenue over ${TIMEFRAME_LABELS[timeframe].toLowerCase()}`}>
                             {loading ? <EmptyChart message="Loading..." /> :
                             !data.salesOverTime?.length ? <EmptyChart icon="TrendingUp" message="No sales for this period" /> : (
-                                <ResponsiveContainer width="100%" height={240}>
-                                    <AreaChart data={data.salesOverTime}>
-                                        <defs>
-                                            <linearGradient id="gradSales" x1="0" y1="0" x2="0" y2="1">
-                                                <stop offset="5%" stopColor="#0071E3" stopOpacity={0.15} />
-                                                <stop offset="95%" stopColor="#0071E3" stopOpacity={0} />
-                                            </linearGradient>
-                                        </defs>
-                                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
-                                        <XAxis dataKey="date" axisLine={false} tickLine={false} tick={chartStyle.axisTickStyle} tickFormatter={formatDateShort} />
-                                        <YAxis axisLine={false} tickLine={false} tick={chartStyle.axisTickStyle} tickFormatter={v => `₹${v}`} width={60} />
-                                        <Tooltip contentStyle={chartStyle.contentStyle} formatter={v => [fmt(v), 'Sales']} labelFormatter={l => formatDate(l)} />
-                                        <Area type="monotone" dataKey="total" stroke="#0071E3" strokeWidth={2.5} fillOpacity={1} fill="url(#gradSales)" />
-                                    </AreaChart>
-                                </ResponsiveContainer>
+                                <LineChart
+                                    xAxis={[{
+                                        data: data.salesOverTime.map(d => new Date(d.date)),
+                                        scaleType: 'time',
+                                        valueFormatter: (value) => formatDateShort(value)
+                                    }]}
+                                    series={[{
+                                        data: data.salesOverTime.map(d => d.total),
+                                        area: true,
+                                        color: '#0071E3',
+                                        showMark: false,
+                                        valueFormatter: (v) => `₹${fmt(v)}`
+                                    }]}
+                                    height={240}
+                                    slotProps={{ legend: { hidden: true } }}
+                                />
                             )}
                         </ChartCard>
 
                         <ChartCard title="Orders vs Revenue" subtitle="Invoice count and revenue per day">
                             {loading ? <EmptyChart message="Loading..." /> :
                             !data.ordersVsRevenue?.some(d => d.orders > 0) ? <EmptyChart icon="BarChart2" message="No orders for this period" /> : (
-                                <ResponsiveContainer width="100%" height={240}>
-                                    <LineChart data={data.ordersVsRevenue}>
-                                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
-                                        <XAxis dataKey="date" axisLine={false} tickLine={false} tick={chartStyle.axisTickStyle} tickFormatter={formatDateShort} />
-                                        <YAxis yAxisId="left" axisLine={false} tickLine={false} tick={chartStyle.axisTickStyle} tickFormatter={v => `₹${v}`} width={60} />
-                                        <YAxis yAxisId="right" orientation="right" axisLine={false} tickLine={false} tick={chartStyle.axisTickStyle} />
-                                        <Tooltip contentStyle={chartStyle.contentStyle} formatter={(v, name) => name === 'revenue' ? [fmt(v), 'Revenue'] : [v, 'Orders']} labelFormatter={formatDate} />
-                                        <Line yAxisId="right" type="monotone" dataKey="orders" stroke="#FF9F0A" strokeWidth={2} dot={true} name="orders" />
-                                        <Line yAxisId="left" type="monotone" dataKey="revenue" stroke="#0071E3" strokeWidth={2.5} dot={false} name="revenue" />
-                                    </LineChart>
-                                </ResponsiveContainer>
+                                <LineChart
+                                    xAxis={[{
+                                        data: data.ordersVsRevenue.map(d => new Date(d.date)),
+                                        scaleType: 'time',
+                                        valueFormatter: (value) => formatDateShort(value)
+                                    }]}
+                                    yAxis={[
+                                        { id: 'leftAxis', valueFormatter: (v) => `₹${fmt(v)}` },
+                                        { id: 'rightAxis', position: 'right' }
+                                    ]}
+                                    series={[
+                                        {
+                                            yAxisKey: 'leftAxis',
+                                            data: data.ordersVsRevenue.map(d => d.revenue),
+                                            label: 'Revenue',
+                                            color: '#0071E3',
+                                            showMark: false,
+                                            valueFormatter: (v) => `₹${fmt(v)}`
+                                        },
+                                        {
+                                            yAxisKey: 'rightAxis',
+                                            data: data.ordersVsRevenue.map(d => d.orders),
+                                            label: 'Orders',
+                                            color: '#FF9F0A',
+                                            showMark: true,
+                                            valueFormatter: (v) => `${v} orders`
+                                        }
+                                    ]}
+                                    rightAxis="rightAxis"
+                                    height={240}
+                                />
                             )}
                         </ChartCard>
                     </div>
@@ -428,16 +446,29 @@ export default function DashboardPage() {
                             )}
                         </ChartCard>
 
-                        <ChartCard title="Category Sales" subtitle="Revenue by product category">
-                            <ResponsiveContainer width="100%" height={240}>
-                                <BarChart data={(!data.categorySales?.length ? (data.categoryDistribution || []) : data.categorySales).map(c => ({ name: c.name || 'Uncategorized', value: Number(c.value || 0) }))} layout="vertical">
-                                    <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#f0f0f0" />
-                                    <XAxis type="number" axisLine={false} tickLine={false} tick={chartStyle.axisTickStyle} tickFormatter={v => `₹${v}`} />
-                                    <YAxis type="category" dataKey="name" axisLine={false} tickLine={false} tick={chartStyle.axisTickStyle} width={100} />
-                                    <Tooltip contentStyle={chartStyle.contentStyle} formatter={v => [fmt(v), 'Revenue']} />
-                                    <Bar dataKey="value" fill="#AF52DE" radius={[0, 6, 6, 0]} name="Revenue" />
-                                </BarChart>
-                            </ResponsiveContainer>
+                        <ChartCard title="Category Sales" subtitle="Revenue breakdown by product category">
+                            {(!data.categorySales?.length && !data.categoryDistribution?.length) ? <EmptyChart icon="Tag" message="No category data" /> : (
+                            <BarChart
+                                dataset={(!data.categorySales?.length ? (data.categoryDistribution || []) : data.categorySales).map(c => ({ name: c.name || 'Uncategorized', value: Number(c.value || 0) }))}
+                                yAxis={[{
+                                    scaleType: 'band',
+                                    dataKey: 'name'
+                                }]}
+                                xAxis={[{
+                                    valueFormatter: (v) => `₹${fmt(v)}`
+                                }]}
+                                series={[{
+                                    dataKey: 'value',
+                                    label: 'Revenue',
+                                    color: '#AF52DE',
+                                    valueFormatter: (v) => `₹${fmt(v)}`
+                                }]}
+                                layout="horizontal"
+                                height={240}
+                                margin={{ left: 100 }}
+                                slotProps={{ legend: { hidden: true } }}
+                            />
+                            )}
                         </ChartCard>
                     </div>
 
@@ -527,15 +558,22 @@ export default function DashboardPage() {
 
                         <ChartCard title="Return / Refund Analytics" subtitle="Returns count and amount over period">
                             {!data.returnAnalytics?.some(r => r.count > 0) ? <EmptyChart icon="RotateCcw" message="No returns in this period" /> : (
-                                <ResponsiveContainer width="100%" height={220}>
-                                    <LineChart data={data.returnAnalytics}>
-                                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
-                                        <XAxis dataKey="date" axisLine={false} tickLine={false} tick={chartStyle.axisTickStyle} tickFormatter={formatDateShort} />
-                                        <YAxis axisLine={false} tickLine={false} tick={chartStyle.axisTickStyle} tickFormatter={v => `₹${v}`} width={60} />
-                                        <Tooltip contentStyle={chartStyle.contentStyle} formatter={(v, name) => name === 'amount' ? [fmt(v), 'Amount'] : [v, 'Returns']} labelFormatter={formatDate} />
-                                        <Line type="monotone" dataKey="amount" stroke="#FF3B30" strokeWidth={2} dot={true} name="amount" />
-                                    </LineChart>
-                                </ResponsiveContainer>
+                                <LineChart
+                                    xAxis={[{
+                                        data: data.returnAnalytics.map(d => new Date(d.date)),
+                                        scaleType: 'time',
+                                        valueFormatter: (value) => formatDateShort(value)
+                                    }]}
+                                    series={[{
+                                        data: data.returnAnalytics.map(d => d.amount),
+                                        label: 'Refund Amount',
+                                        color: '#FF3B30',
+                                        showMark: true,
+                                        valueFormatter: (v) => `₹${fmt(v)}`
+                                    }]}
+                                    height={220}
+                                    slotProps={{ legend: { hidden: true } }}
+                                />
                             )}
                         </ChartCard>
                     </div>
@@ -811,19 +849,26 @@ export default function DashboardPage() {
                             {!filteredSubcategories.length ? (
                                 <EmptyChart icon="PieChart" message="No subcategory sales in this category" />
                             ) : (
-                                <ResponsiveContainer width="100%" height={240}>
-                                    <BarChart data={filteredSubcategories} layout="vertical">
-                                        <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#f0f0f0" />
-                                        <XAxis type="number" axisLine={false} tickLine={false} tick={chartStyle.axisTickStyle} />
-                                        <YAxis type="category" dataKey="name" axisLine={false} tickLine={false} tick={chartStyle.axisTickStyle} width={80} />
-                                        <Tooltip contentStyle={chartStyle.contentStyle} formatter={(value) => [value, 'Sales']} />
-                                        <Bar dataKey="value" radius={[0, 6, 6, 0]}>
-                                            {filteredSubcategories.map((_, i) => (
-                                                <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />
-                                            ))}
-                                        </Bar>
-                                    </BarChart>
-                                </ResponsiveContainer>
+                                <BarChart
+                                    dataset={filteredSubcategories}
+                                    yAxis={[{
+                                        scaleType: 'band',
+                                        dataKey: 'name'
+                                    }]}
+                                    xAxis={[{
+                                        valueFormatter: (v) => `${v}`
+                                    }]}
+                                    series={[{
+                                        dataKey: 'value',
+                                        label: 'Sales',
+                                        color: '#0071E3',
+                                        valueFormatter: (v) => `${v}`
+                                    }]}
+                                    layout="horizontal"
+                                    height={240}
+                                    margin={{ left: 80 }}
+                                    slotProps={{ legend: { hidden: true } }}
+                                />
                             )}
                         </ChartCard>
                     </div>
@@ -857,22 +902,21 @@ export default function DashboardPage() {
                         {/* Repeat vs New */}
                         <ChartCard title="Customer Loyalty" subtitle="Repeat vs first-time customers">
                             {(!data.repeatVsNew?.repeat && !data.repeatVsNew?.new) ? <EmptyChart icon="Users" message="No customer data" /> : (
-                                <ResponsiveContainer width="100%" height={240}>
-                                    <PieChart>
-                                        <Pie
-                                            data={[
-                                                { name: 'Repeat Customers', value: data.repeatVsNew?.repeat || 0 },
-                                                { name: 'New Customers', value: data.repeatVsNew?.new || 0 }
-                                            ]}
-                                            cx="50%" cy="50%" innerRadius={60} outerRadius={85} paddingAngle={4} dataKey="value"
-                                        >
-                                            <Cell fill="#0071E3" />
-                                            <Cell fill="#30D158" />
-                                        </Pie>
-                                        <Tooltip contentStyle={chartStyle.contentStyle} />
-                                        <Legend verticalAlign="bottom" height={36} iconType="circle" iconSize={8} />
-                                    </PieChart>
-                                </ResponsiveContainer>
+                                <PieChart
+                                    series={[{
+                                        data: [
+                                            { id: 0, value: data.repeatVsNew?.repeat || 0, label: 'Repeat Customers', color: '#0071E3' },
+                                            { id: 1, value: data.repeatVsNew?.new || 0, label: 'New Customers', color: '#30D158' }
+                                        ],
+                                        innerRadius: 60,
+                                        outerRadius: 85,
+                                        paddingAngle: 4,
+                                        cx: '50%',
+                                        cy: '50%'
+                                    }]}
+                                    height={240}
+                                    slotProps={{ legend: { position: { vertical: 'bottom', horizontal: 'center' } } }}
+                                />
                             )}
                         </ChartCard>
                     </div>
@@ -881,15 +925,22 @@ export default function DashboardPage() {
                         {/* Customer Growth */}
                         <ChartCard title="Customer Growth" subtitle="New customers over time">
                             {!data.customerGrowth?.some(d => d.new_customers > 0) ? <EmptyChart icon="UserPlus" message="No new customers in this period" /> : (
-                                <ResponsiveContainer width="100%" height={220}>
-                                    <BarChart data={data.customerGrowth}>
-                                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
-                                        <XAxis dataKey="date" axisLine={false} tickLine={false} tick={chartStyle.axisTickStyle} tickFormatter={formatDateShort} />
-                                        <YAxis axisLine={false} tickLine={false} tick={chartStyle.axisTickStyle} allowDecimals={false} />
-                                        <Tooltip contentStyle={chartStyle.contentStyle} formatter={v => [v, 'New Customers']} labelFormatter={formatDate} />
-                                        <Bar dataKey="new_customers" fill="#30D158" radius={[4, 4, 0, 0]} name="New Customers" />
-                                    </BarChart>
-                                </ResponsiveContainer>
+                                <BarChart
+                                    dataset={data.customerGrowth}
+                                    xAxis={[{
+                                        scaleType: 'band',
+                                        dataKey: 'date',
+                                        valueFormatter: (value) => formatDateShort(value)
+                                    }]}
+                                    series={[{
+                                        dataKey: 'new_customers',
+                                        label: 'New Customers',
+                                        color: '#30D158',
+                                        valueFormatter: (v) => `${v} customers`
+                                    }]}
+                                    height={220}
+                                    slotProps={{ legend: { hidden: true } }}
+                                />
                             )}
                         </ChartCard>
 
@@ -1076,22 +1127,21 @@ export default function DashboardPage() {
                         {/* Voice vs WhatsApp */}
                         <ChartCard title="Channel Distribution" subtitle="Voice vs WhatsApp agent orders">
                             {(!data.aiStats?.voiceCount && !data.aiStats?.whatsappCount) ? <EmptyChart icon="Activity" message="No AI orders yet" /> : (
-                                <ResponsiveContainer width="100%" height={260}>
-                                    <PieChart>
-                                        <Pie
-                                            data={[
-                                                { name: 'Voice', value: data.aiStats?.voiceCount || 0 },
-                                                { name: 'WhatsApp', value: data.aiStats?.whatsappCount || 0 }
-                                            ]}
-                                            cx="50%" cy="50%" innerRadius={65} outerRadius={90} paddingAngle={4} dataKey="value"
-                                        >
-                                            <Cell fill="#5856D6" />
-                                            <Cell fill="#30D158" />
-                                        </Pie>
-                                        <Tooltip contentStyle={chartStyle.contentStyle} />
-                                        <Legend verticalAlign="bottom" height={36} iconType="circle" iconSize={8} />
-                                    </PieChart>
-                                </ResponsiveContainer>
+                                <PieChart
+                                    series={[{
+                                        data: [
+                                            { id: 0, value: data.aiStats?.voiceCount || 0, label: 'Voice', color: '#5856D6' },
+                                            { id: 1, value: data.aiStats?.whatsappCount || 0, label: 'WhatsApp', color: '#30D158' }
+                                        ],
+                                        innerRadius: 65,
+                                        outerRadius: 90,
+                                        paddingAngle: 4,
+                                        cx: '50%',
+                                        cy: '50%'
+                                    }]}
+                                    height={260}
+                                    slotProps={{ legend: { position: { vertical: 'bottom', horizontal: 'center' } } }}
+                                />
                             )}
                         </ChartCard>
                     </div>
@@ -1108,15 +1158,22 @@ export default function DashboardPage() {
                                 <SButton variant="primary" onClick={() => navigate('/automation')}>Set Up AI Agents</SButton>
                             </div>
                         ) : (
-                            <ResponsiveContainer width="100%" height={220}>
-                                <LineChart data={data.aiOrdersByDay}>
-                                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
-                                    <XAxis dataKey="date" axisLine={false} tickLine={false} tick={chartStyle.axisTickStyle} tickFormatter={formatDateShort} />
-                                    <YAxis axisLine={false} tickLine={false} tick={chartStyle.axisTickStyle} allowDecimals={false} />
-                                    <Tooltip contentStyle={chartStyle.contentStyle} formatter={v => [v, 'AI Orders']} labelFormatter={formatDate} />
-                                    <Line type="monotone" dataKey="count" stroke="#5856D6" strokeWidth={2.5} dot={{ r: 4 }} activeDot={{ r: 6 }} name="AI Orders" />
-                                </LineChart>
-                            </ResponsiveContainer>
+                            <LineChart
+                                xAxis={[{
+                                    data: data.aiOrdersByDay.map(d => new Date(d.date)),
+                                    scaleType: 'time',
+                                    valueFormatter: (value) => formatDateShort(value)
+                                }]}
+                                series={[{
+                                    data: data.aiOrdersByDay.map(d => d.count),
+                                    label: 'AI Orders',
+                                    color: '#5856D6',
+                                    showMark: true,
+                                    valueFormatter: (v) => `${v} orders`
+                                }]}
+                                height={220}
+                                slotProps={{ legend: { hidden: true } }}
+                            />
                         )}
                     </ChartCard>
 
@@ -1175,26 +1232,26 @@ export default function DashboardPage() {
                                 )}
                             </ChartCard>
 
-                            {/* Email Dispatches Trend */}
                             <ChartCard title="Email Dispatches" subtitle="Daily email delivery volume">
                                 {!data.emailStats?.dailyTrends?.some(t => t.count > 0) ? (
                                     <EmptyChart icon="Send" message="No emails sent in this period" />
                                 ) : (
-                                    <ResponsiveContainer width="100%" height={260}>
-                                        <AreaChart data={data.emailStats.dailyTrends}>
-                                            <defs>
-                                                <linearGradient id="gradEmail" x1="0" y1="0" x2="0" y2="1">
-                                                    <stop offset="5%" stopColor="#0071E3" stopOpacity={0.2} />
-                                                    <stop offset="95%" stopColor="#0071E3" stopOpacity={0} />
-                                                </linearGradient>
-                                            </defs>
-                                            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
-                                            <XAxis dataKey="date" axisLine={false} tickLine={false} tick={chartStyle.axisTickStyle} tickFormatter={formatDateShort} />
-                                            <YAxis axisLine={false} tickLine={false} tick={chartStyle.axisTickStyle} allowDecimals={false} />
-                                            <Tooltip contentStyle={chartStyle.contentStyle} formatter={v => [v, 'Emails Sent']} labelFormatter={formatDate} />
-                                            <Area type="monotone" dataKey="count" stroke="#0071E3" strokeWidth={2.5} fillOpacity={1} fill="url(#gradEmail)" name="Emails Sent" />
-                                        </AreaChart>
-                                    </ResponsiveContainer>
+                                    <LineChart
+                                        xAxis={[{
+                                            data: data.emailStats.dailyTrends.map(d => new Date(d.date)),
+                                            scaleType: 'time',
+                                            valueFormatter: (value) => formatDateShort(value)
+                                        }]}
+                                        series={[{
+                                            data: data.emailStats.dailyTrends.map(d => d.count),
+                                            area: true,
+                                            color: '#0071E3',
+                                            showMark: false,
+                                            valueFormatter: (v) => `${v} emails`
+                                        }]}
+                                        height={260}
+                                        slotProps={{ legend: { hidden: true } }}
+                                    />
                                 )}
                             </ChartCard>
                         </div>
@@ -1255,26 +1312,26 @@ export default function DashboardPage() {
                                 )}
                             </ChartCard>
 
-                            {/* WhatsApp Dispatches Trend */}
                             <ChartCard title="WhatsApp Dispatches" subtitle="Daily WhatsApp message volume">
                                 {!data.whatsappStats?.dailyTrends?.some(t => t.count > 0) ? (
                                     <EmptyChart icon="MessageSquare" message="No WhatsApp messages sent in this period" />
                                 ) : (
-                                    <ResponsiveContainer width="100%" height={260}>
-                                        <AreaChart data={data.whatsappStats.dailyTrends}>
-                                            <defs>
-                                                <linearGradient id="gradWA" x1="0" y1="0" x2="0" y2="1">
-                                                    <stop offset="5%" stopColor="#25D366" stopOpacity={0.2} />
-                                                    <stop offset="95%" stopColor="#25D366" stopOpacity={0} />
-                                                </linearGradient>
-                                            </defs>
-                                            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
-                                            <XAxis dataKey="date" axisLine={false} tickLine={false} tick={chartStyle.axisTickStyle} tickFormatter={formatDateShort} />
-                                            <YAxis axisLine={false} tickLine={false} tick={chartStyle.axisTickStyle} allowDecimals={false} />
-                                            <Tooltip contentStyle={chartStyle.contentStyle} formatter={v => [v, 'Messages Sent']} labelFormatter={formatDate} />
-                                            <Area type="monotone" dataKey="count" stroke="#25D366" strokeWidth={2.5} fillOpacity={1} fill="url(#gradWA)" name="Messages Sent" />
-                                        </AreaChart>
-                                    </ResponsiveContainer>
+                                    <LineChart
+                                        xAxis={[{
+                                            data: data.whatsappStats.dailyTrends.map(d => new Date(d.date)),
+                                            scaleType: 'time',
+                                            valueFormatter: (value) => formatDateShort(value)
+                                        }]}
+                                        series={[{
+                                            data: data.whatsappStats.dailyTrends.map(d => d.count),
+                                            area: true,
+                                            color: '#25D366',
+                                            showMark: false,
+                                            valueFormatter: (v) => `${v} messages`
+                                        }]}
+                                        height={260}
+                                        slotProps={{ legend: { hidden: true } }}
+                                    />
                                 )}
                             </ChartCard>
                         </div>
@@ -1317,17 +1374,30 @@ export default function DashboardPage() {
                     {/* Revenue vs Expenses */}
                     <ChartCard title="Revenue vs Expenses" subtitle="Overlay comparison over the period">
                         {!data.revenueVsExpenses?.some(d => d.revenue > 0 || d.expenses > 0) ? <EmptyChart icon="BarChart2" message="No financial data for this period" /> : (
-                            <ResponsiveContainer width="100%" height={260}>
-                                <LineChart data={data.revenueVsExpenses}>
-                                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
-                                    <XAxis dataKey="date" axisLine={false} tickLine={false} tick={chartStyle.axisTickStyle} tickFormatter={formatDateShort} />
-                                    <YAxis axisLine={false} tickLine={false} tick={chartStyle.axisTickStyle} tickFormatter={v => `₹${v}`} width={60} />
-                                    <Tooltip contentStyle={chartStyle.contentStyle} formatter={(v, n) => [fmt(v), n === 'revenue' ? 'Revenue' : 'Expenses']} labelFormatter={formatDate} />
-                                    <Line type="monotone" dataKey="revenue" stroke="#0071E3" strokeWidth={2.5} dot={{ r: 3 }} name="revenue" />
-                                    <Line type="monotone" dataKey="expenses" stroke="#FF3B30" strokeWidth={2.5} dot={{ r: 3 }} name="expenses" />
-                                    <Legend />
-                                </LineChart>
-                            </ResponsiveContainer>
+                            <LineChart
+                                xAxis={[{
+                                    data: data.revenueVsExpenses.map(d => new Date(d.date)),
+                                    scaleType: 'time',
+                                    valueFormatter: (value) => formatDateShort(value)
+                                }]}
+                                series={[
+                                    {
+                                        data: data.revenueVsExpenses.map(d => d.revenue),
+                                        label: 'Revenue',
+                                        color: '#0071E3',
+                                        showMark: true,
+                                        valueFormatter: (v) => `₹${fmt(v)}`
+                                    },
+                                    {
+                                        data: data.revenueVsExpenses.map(d => d.expenses),
+                                        label: 'Expenses',
+                                        color: '#FF3B30',
+                                        showMark: true,
+                                        valueFormatter: (v) => `₹${fmt(v)}`
+                                    }
+                                ]}
+                                height={260}
+                            />
                         )}
                     </ChartCard>
 
@@ -1335,39 +1405,52 @@ export default function DashboardPage() {
                         {/* Expenses by Category */}
                         <ChartCard title="Expenses by Category" subtitle="Spending breakdown">
                             {!data.expensesByCategory?.length ? <EmptyChart icon="Tag" message="No expense data for this period" /> : (
-                                <ResponsiveContainer width="100%" height={260}>
-                                    <BarChart data={data.expensesByCategory.map(e => ({ name: e.name || 'Uncategorized', value: Number(e.amount) }))} layout="vertical">
-                                        <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#f0f0f0" />
-                                        <XAxis type="number" axisLine={false} tickLine={false} tick={chartStyle.axisTickStyle} tickFormatter={v => `₹${v}`} />
-                                        <YAxis type="category" dataKey="name" axisLine={false} tickLine={false} tick={chartStyle.axisTickStyle} width={100} />
-                                        <Tooltip contentStyle={chartStyle.contentStyle} formatter={v => [fmt(v), 'Expense']} />
-                                        <Bar dataKey="value" radius={[0, 6, 6, 0]}>
-                                            {data.expensesByCategory.map((_, i) => <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />)}
-                                        </Bar>
-                                    </BarChart>
-                                </ResponsiveContainer>
+                                <BarChart
+                                    dataset={data.expensesByCategory.map(e => ({ name: e.name || 'Uncategorized', value: Number(e.amount) }))}
+                                    yAxis={[{
+                                        scaleType: 'band',
+                                        dataKey: 'name'
+                                    }]}
+                                    xAxis={[{
+                                        valueFormatter: (v) => `₹${fmt(v)}`
+                                    }]}
+                                    series={[{
+                                        dataKey: 'value',
+                                        label: 'Expense',
+                                        color: '#FF3B30',
+                                        valueFormatter: (v) => `₹${fmt(v)}`
+                                    }]}
+                                    layout="horizontal"
+                                    height={260}
+                                    margin={{ left: 100 }}
+                                    slotProps={{ legend: { hidden: true } }}
+                                />
                             )}
                         </ChartCard>
 
                         {/* Purchase vs Sales Revenue */}
                         <ChartCard title="Purchase vs Sales" subtitle="Spend vs earned comparison">
-                            <ResponsiveContainer width="100%" height={260}>
-                                <BarChart data={[
-                                    { name: 'Revenue', value: data.monthlyRevenue || 0, fill: '#30D158' },
-                                    { name: 'Purchases', value: data.purchaseTotal || 0, fill: '#FF9F0A' },
-                                    { name: 'Expenses', value: data.totalExpenses || 0, fill: '#FF3B30' },
-                                ]}>
-                                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
-                                    <XAxis dataKey="name" axisLine={false} tickLine={false} tick={chartStyle.axisTickStyle} />
-                                    <YAxis axisLine={false} tickLine={false} tick={chartStyle.axisTickStyle} tickFormatter={v => `₹${v}`} width={70} />
-                                    <Tooltip contentStyle={chartStyle.contentStyle} formatter={v => [fmt(v)]} />
-                                    <Bar dataKey="value" radius={[8, 8, 0, 0]}>
-                                        {[{ fill: '#30D158' }, { fill: '#FF9F0A' }, { fill: '#FF3B30' }].map((entry, i) => (
-                                            <Cell key={i} fill={entry.fill} />
-                                        ))}
-                                    </Bar>
-                                </BarChart>
-                            </ResponsiveContainer>
+                            <BarChart
+                                dataset={[
+                                    { label: 'Revenue', value: data.monthlyRevenue || 0 },
+                                    { label: 'Purchases', value: data.purchaseTotal || 0 },
+                                    { label: 'Expenses', value: data.totalExpenses || 0 }
+                                ]}
+                                xAxis={[{
+                                    scaleType: 'band',
+                                    dataKey: 'label'
+                                }]}
+                                yAxis={[{
+                                    valueFormatter: (v) => `₹${fmt(v)}`
+                                }]}
+                                series={[{
+                                    dataKey: 'value',
+                                    valueFormatter: (v) => `₹${fmt(v)}`,
+                                    color: '#0071E3'
+                                }]}
+                                height={260}
+                                slotProps={{ legend: { hidden: true } }}
+                            />
                         </ChartCard>
                     </div>
                 </div>

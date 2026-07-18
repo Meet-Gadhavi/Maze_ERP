@@ -1924,11 +1924,29 @@ export default function SettingsPage() {
                                         </div>
                                     )}
 
+                                    {/* Timeline Item: v2.10.20 — MUI Charts + Sparklines */}
+                                    <div style={{ position: 'relative' }}>
+                                        <div style={{ position: 'absolute', left: '-22px', top: '4px', width: '12px', height: '12px', borderRadius: '50%', background: 'var(--accent)', border: '2px solid var(--bg-primary)' }}></div>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                            <strong style={{ fontSize: '15px' }}>Version 2.10.20 {updateState.status !== 'available' && '(Latest)'}</strong>
+                                            <span style={{ fontSize: '11px', color: 'var(--text-tertiary)', background: 'var(--bg-secondary)', padding: '2px 8px', borderRadius: '12px' }}>July 18, 2026</span>
+                                        </div>
+                                        <div style={{ fontSize: '13px', color: 'var(--text-secondary)', marginTop: '8px', lineHeight: 1.6 }}>
+                                            <ul style={{ margin: 0, paddingLeft: '16px' }}>
+                                                <li><strong>MUI X Charts Engine:</strong> Fully migrated all charts across the application from Recharts to the new MUI X Charts library for improved performance, accessibility, and a more consistent visual design language.</li>
+                                                <li><strong>Sales History Sparkline:</strong> Added a full-width daily sales trend area chart (last 30 days) at the top of the Sales History tab, showing revenue movement at a glance.</li>
+                                                <li><strong>Customer Tier Distribution Chart:</strong> Added a horizontal bar chart in the Customers Directory showing the count of customers across Tier A, B, and C for quick portfolio insight.</li>
+                                                <li><strong>Purchase Spend Trend:</strong> Added a 30-day purchase spend area sparkline in Purchase History between the export button and the bill table.</li>
+                                                <li><strong>AI Automation Usage Chart:</strong> Added a 14-day AI interactions trend chart in the Automation page between KPI stats cards and the Connected Services list.</li>
+                                            </ul>
+                                        </div>
+                                    </div>
+
                                     {/* Timeline Item: v2.10.19 */}
                                     <div style={{ position: 'relative' }}>
                                         <div style={{ position: 'absolute', left: '-22px', top: '4px', width: '12px', height: '12px', borderRadius: '50%', background: 'var(--accent)', border: '2px solid var(--bg-primary)' }}></div>
                                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                            <strong style={{ fontSize: '15px' }}>Version 2.10.19 {updateState.status !== 'available' && '(Latest)'}</strong>
+                                            <strong style={{ fontSize: '15px' }}>Version 2.10.19</strong>
                                             <span style={{ fontSize: '11px', color: 'var(--text-tertiary)', background: 'var(--bg-secondary)', padding: '2px 8px', borderRadius: '12px' }}>July 18, 2026</span>
                                         </div>
                                         <div style={{ fontSize: '13px', color: 'var(--text-secondary)', marginTop: '8px', lineHeight: 1.6 }}>
