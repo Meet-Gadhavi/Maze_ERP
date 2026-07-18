@@ -196,6 +196,10 @@ export default function PurchasePage() {
             setSubcategories(subcatData);
             setBrands(brandData);
 
+            if (setts.license_plan === 'Free') {
+                setActiveTab('bill');
+            }
+
             if (activeTab === 'quotations') {
                 const qts = await api.getPurchaseQuotations();
                 setQuotations(qts);
@@ -1968,7 +1972,27 @@ export default function PurchasePage() {
             </div>
 
             <div className="tabs">
-                <button className={`tab-item ${activeTab === 'upload_invoice' ? 'active' : ''}`} onClick={() => setActiveTab('upload_invoice')}>Upload Invoice</button>
+                <button 
+                    className={`tab-item ${activeTab === 'upload_invoice' ? 'active' : ''}`} 
+                    onClick={() => {
+                        if (settings?.license_plan === 'Free') {
+                            toast.info("Upload Invoice scanning requires the Business PRO plan. Click the upgrade link in the sidebar to unlock.");
+                            return;
+                        }
+                        setActiveTab('upload_invoice');
+                    }}
+                    style={{
+                        opacity: settings?.license_plan === 'Free' ? 0.6 : 1,
+                        cursor: settings?.license_plan === 'Free' ? 'not-allowed' : 'pointer',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '6px'
+                    }}
+                    title={settings?.license_plan === 'Free' ? "Upload Invoice scanning requires the Business PRO plan." : undefined}
+                >
+                    Upload Invoice
+                    {settings?.license_plan === 'Free' && <Icons.Lock size={12} style={{ color: '#94a3b8' }} />}
+                </button>
                 <button className={`tab-item ${activeTab === 'bill' ? 'active' : ''}`} onClick={() => setActiveTab('bill')}>Bill Center</button>
                 <button className={`tab-item ${activeTab === 'history' ? 'active' : ''}`} onClick={() => setActiveTab('history')}>Purchase History</button>
                 <button className={`tab-item ${activeTab === 'suppliers' ? 'active' : ''}`} onClick={() => setActiveTab('suppliers')}>Suppliers</button>

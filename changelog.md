@@ -4,6 +4,10 @@ All notable changes to the Quantro ERP application will be documented here.
 
 ---
 
+## [2.10.17] - 2026-07-18
+### Added
+- **UI & Feature Lock Standardizations**: Stacked subscription shields and text badges directly above the cashier name/avatar in the sidebar. Standardized all lock icons to a uniform premium gray color (`#94a3b8`) across settings, automation settings, and CRM fields. Wrapped disabled controls to trigger helpful upgrade toast notifications upon click, and locked the **Upload Invoice** scanner tab in Purchases for Free Starter users.
+
 ## [2.10.16] - 2026-07-18
 ### Added
 - **Session Crash Recovery System**: Implemented a stateful session recovery tracker. When the app is opened, it checks if the previous session closed cleanly (e.g., from power outages, sudden lights off, force quits, or crashes). If it didn't, a premium "Session Recovery" modal is shown, allowing the cashier to restore the previous session state and automatically return to their active page/tab.

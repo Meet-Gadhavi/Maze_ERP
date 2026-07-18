@@ -1556,7 +1556,7 @@ export default function CustomersPage() {
                             }}
                         >
                             WhatsApp Campaigns
-                            {settings?.license_plan === 'Free' && <Icons.Lock size={12} style={{ color: '#cd7f32' }} />}
+                            {settings?.license_plan === 'Free' && <Icons.Lock size={12} style={{ color: '#94a3b8' }} />}
                         </button>
                         <button 
                             className={`crm-tab-btn ${marketingSubTab === 'voice' ? 'active' : ''}`}
@@ -1585,7 +1585,7 @@ export default function CustomersPage() {
                             }}
                         >
                             Voice Campaigns (Outbound)
-                            {settings?.license_plan !== 'Professional' && <Icons.Lock size={12} style={{ color: '#00d4ff' }} />}
+                            {settings?.license_plan !== 'Professional' && <Icons.Lock size={12} style={{ color: '#94a3b8' }} />}
                         </button>
                     </div>
 
@@ -2034,12 +2034,20 @@ export default function CustomersPage() {
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
                                     Customer Tier
                                     {settings?.license_plan === 'Free' && (
-                                        <Icons.Lock size={12} style={{ color: '#cd7f32' }} title="Requires Business PRO" />
+                                        <Icons.Lock size={12} style={{ color: '#94a3b8' }} title="Requires Business PRO" />
                                     )}
                                 </div>
                             }
                         >
-                            <div title={settings?.license_plan === 'Free' ? "Customer Tier categorizations require the Business PRO plan." : undefined}>
+                            <div 
+                                onClick={() => {
+                                    if (settings?.license_plan === 'Free') {
+                                        toast.info("Customer Tier categorizations require the Business PRO plan. Click the upgrade link in the sidebar to unlock.");
+                                    }
+                                }}
+                                style={{ cursor: settings?.license_plan === 'Free' ? 'pointer' : 'default' }}
+                                title={settings?.license_plan === 'Free' ? "Customer Tier categorizations require the Business PRO plan." : undefined}
+                            >
                                 <CustomSelect 
                                     value={settings?.license_plan === 'Free' ? 'C' : form.tier} 
                                     onChange={value => {
@@ -2060,12 +2068,20 @@ export default function CustomersPage() {
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
                                     Credit Limit (₹)
                                     {settings?.license_plan === 'Free' && (
-                                        <Icons.Lock size={12} style={{ color: '#cd7f32' }} title="Requires Business PRO" />
+                                        <Icons.Lock size={12} style={{ color: '#94a3b8' }} title="Requires Business PRO" />
                                     )}
                                 </div>
                             }
                         >
-                            <div title={settings?.license_plan === 'Free' ? "Credit limit controls require the Business PRO plan." : undefined}>
+                            <div 
+                                onClick={() => {
+                                    if (settings?.license_plan === 'Free') {
+                                        toast.info("Credit limit controls require the Business PRO plan. Click the upgrade link in the sidebar to unlock.");
+                                    }
+                                }}
+                                style={{ cursor: settings?.license_plan === 'Free' ? 'pointer' : 'default' }}
+                                title={settings?.license_plan === 'Free' ? "Credit limit controls require the Business PRO plan." : undefined}
+                            >
                                 <Input 
                                     type="number"
                                     min="0"

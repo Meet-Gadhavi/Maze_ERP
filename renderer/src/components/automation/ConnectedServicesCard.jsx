@@ -493,7 +493,7 @@ export default function ConnectedServicesCard({
                             <h3 style={{ margin: 0, fontSize: '18px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px' }}>
                                 Voice Agent Service
                                 {settings.license_plan !== 'Professional' && (
-                                    <Icons.Lock size={14} style={{ color: '#00d4ff' }} title="Requires AI Professional" />
+                                    <Icons.Lock size={14} style={{ color: '#94a3b8' }} title="Requires AI Professional" />
                                 )}
                             </h3>
                         </div>
@@ -833,7 +833,7 @@ export default function ConnectedServicesCard({
                                     <div style={{ flex: 1, paddingRight: '16px' }}>
                                         <div style={{ fontWeight: 600, fontSize: '14px', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '6px' }}>
                                             Due Payment Reminder
-                                            {settings.license_plan === 'Free' && <Icons.Lock size={12} style={{ color: '#cd7f32' }} />}
+                                            {settings.license_plan === 'Free' && <Icons.Lock size={12} style={{ color: '#94a3b8' }} />}
                                         </div>
                                         <div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginTop: '4px' }}>Automatically email outstanding due balance alerts to customers with unpaid bills.</div>
                                     </div>
@@ -872,7 +872,7 @@ export default function ConnectedServicesCard({
                                 <div style={{ flex: 1, paddingRight: '16px' }}>
                                     <div style={{ fontWeight: 600, fontSize: '14px', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '6px' }}>
                                         Voice Agent Integration
-                                        {settings.license_plan !== 'Professional' && <Icons.Lock size={12} style={{ color: '#00d4ff' }} />}
+                                        {settings.license_plan !== 'Professional' && <Icons.Lock size={12} style={{ color: '#94a3b8' }} />}
                                     </div>
                                     <div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginTop: '4px' }}>Scan call logs for requests like "send me that invoice" and auto-email details to registered customers.</div>
                                 </div>
@@ -980,7 +980,7 @@ export default function ConnectedServicesCard({
                                     <div style={{ flex: 1, paddingRight: '16px' }}>
                                         <div style={{ fontWeight: 600, fontSize: '14px', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '6px' }}>
                                             Due Payment Reminder
-                                            {settings.license_plan === 'Free' && <Icons.Lock size={12} style={{ color: '#cd7f32' }} />}
+                                            {settings.license_plan === 'Free' && <Icons.Lock size={12} style={{ color: '#94a3b8' }} />}
                                         </div>
                                         <div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginTop: '4px' }}>Automatically WhatsApp outstanding due alerts with invoice PDFs to customers with unpaid bills.</div>
                                     </div>
@@ -1019,7 +1019,7 @@ export default function ConnectedServicesCard({
                                 <div style={{ flex: 1, paddingRight: '16px' }}>
                                     <div style={{ fontWeight: 600, fontSize: '14px', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '6px' }}>
                                         Voice Agent Integration
-                                        {settings.license_plan !== 'Professional' && <Icons.Lock size={12} style={{ color: '#00d4ff' }} />}
+                                        {settings.license_plan !== 'Professional' && <Icons.Lock size={12} style={{ color: '#94a3b8' }} />}
                                     </div>
                                     <div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginTop: '4px' }}>Scan call logs for requests like "send me that invoice" and auto-WhatsApp PDF details to registered customers.</div>
                                 </div>
