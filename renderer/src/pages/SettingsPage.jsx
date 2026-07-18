@@ -1924,11 +1924,25 @@ export default function SettingsPage() {
                                         </div>
                                     )}
 
+                                    {/* Timeline Item: v2.10.21 — Animated Icons */}
+                                    <div style={{ position: 'relative' }}>
+                                        <div style={{ position: 'absolute', left: '-22px', top: '4px', width: '12px', height: '12px', borderRadius: '50%', background: 'var(--accent)', border: '2px solid var(--bg-primary)' }}></div>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                            <strong style={{ fontSize: '15px' }}>Version 2.10.21 {updateState.status !== 'available' && '(Latest)'}</strong>
+                                            <span style={{ fontSize: '11px', color: 'var(--text-tertiary)', background: 'var(--bg-secondary)', padding: '2px 8px', borderRadius: '12px' }}>July 18, 2026</span>
+                                        </div>
+                                        <div style={{ fontSize: '13px', color: 'var(--text-secondary)', marginTop: '8px', lineHeight: 1.6 }}>
+                                            <ul style={{ margin: 0, paddingLeft: '16px' }}>
+                                                <li><strong>Animated Icons (Framer Motion):</strong> Every icon across the entire application now features polished spring-physics animations — a smooth fade-in &amp; scale on mount, a hover scale+tilt effect, and satisfying press feedback on tap. Powered by Framer Motion with zero breaking changes to existing layouts.</li>
+                                            </ul>
+                                        </div>
+                                    </div>
+
                                     {/* Timeline Item: v2.10.20 — MUI Charts + Sparklines */}
                                     <div style={{ position: 'relative' }}>
                                         <div style={{ position: 'absolute', left: '-22px', top: '4px', width: '12px', height: '12px', borderRadius: '50%', background: 'var(--accent)', border: '2px solid var(--bg-primary)' }}></div>
                                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                            <strong style={{ fontSize: '15px' }}>Version 2.10.20 {updateState.status !== 'available' && '(Latest)'}</strong>
+                                            <strong style={{ fontSize: '15px' }}>Version 2.10.20</strong>
                                             <span style={{ fontSize: '11px', color: 'var(--text-tertiary)', background: 'var(--bg-secondary)', padding: '2px 8px', borderRadius: '12px' }}>July 18, 2026</span>
                                         </div>
                                         <div style={{ fontSize: '13px', color: 'var(--text-secondary)', marginTop: '8px', lineHeight: 1.6 }}>

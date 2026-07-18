@@ -1,7 +1,7 @@
 {
   "name": "quantro",
   "productName": "Quantro",
-  "version": "2.10.20",
+  "version": "2.10.21",
   "description": "Quantro — Professional Desktop ERP by Maze Lab",
   "main": "main/main.js",
   "author": "Maze Lab",
