@@ -4,7 +4,7 @@ const db = require('../db');
 // Remote Supabase Database config for hosted invoices
 const DB_URL = "https://waywrispbgbtnppusikg.supabase.co";
 const DB_ANON_KEY = "sb_publishable_J4ZoFCETv9sy_gh6m9hZlg_qrTElZDV";
-const PUBLIC_DOMAIN = "https://billing-mazelab.netlify.app";
+const PUBLIC_DOMAIN = "https://quantro-web.onrender.com";
 
 /**
  * Generates a secure hosted invoice link and synchronizes details to the cloud DB.
@@ -69,7 +69,9 @@ async function generateHostedInvoice(invoiceId) {
         'invoice_style',
         'company_logo',
         'logo_url',
-        'show_category_in_invoice'
+        'show_category_in_invoice',
+        'license_key',
+        'license_email'
     ];
     settingsRows.forEach(r => {
         if (allowedSettingsKeys.includes(r.key)) {
@@ -175,7 +177,7 @@ async function generateHostedInvoice(invoiceId) {
 
     return {
         token,
-        url: `${PUBLIC_DOMAIN}/invoice/${invoiceId}?token=${token}`
+        url: `${PUBLIC_DOMAIN}/invoice/${token}`
     };
 }
 
@@ -188,7 +190,7 @@ async function getHostedInvoiceUrl(invoiceId) {
     await db.ready;
     let tokenRow = db.get("SELECT token FROM invoice_tokens WHERE invoice_id = ?", [invoiceId]);
     if (tokenRow) {
-        return `${PUBLIC_DOMAIN}/invoice/${invoiceId}?token=${tokenRow.token}`;
+        return `${PUBLIC_DOMAIN}/invoice/${tokenRow.token}`;
     }
     // Generate and sync if not present
     const result = await generateHostedInvoice(invoiceId);

@@ -4,6 +4,13 @@ All notable changes to the Quantro ERP application will be documented here.
 
 ---
 
+## [2.10.13] - 2026-07-18
+### Changed
+- **Admin Console Drawer Portal Refactor**: Refactored the slide-over resource diagnostics details drawer on the website Admin Console to render using a React Portal. This completely resolves parent container border clipping and top-edge alignment mismatches.
+- **Header Line & Breadcrumb Cleanup**: Cleaned up top-level vertical dividers, replaced the sidebar toggle icon with a hamburger `Menu`, and aligned drawer bottom borders with the workspace header for a premium, clean aesthetic.
+- **Hosted Invoices Sync Search Query Fix**: Fixed hosted invoice lookup queries on the Admin Panel's analytics page to match by license key, license email, or invoice settings email, resolving discrepancies when displaying client ownership.
+- **Routing & Navigation Upgrades**: Implemented clean nested routes support on the hosted website client-side router for direct access to `/invoice/:id` endpoints without losing query variables.
+
 ## [2.10.12] - 2026-07-14
 ### Fixed
 - **Companion Scanner Sync ID Mismatch**: Fixed a parameter casing discrepancy between the desktop ERP QR code URL and the hosted website companion parser. The QR code links now supply both `syncId` (camelCase) and `sync_id` (snake_case) query parameters concurrently to guarantee successful companion scanner pairing on all devices.
