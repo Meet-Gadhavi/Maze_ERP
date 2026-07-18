@@ -4,6 +4,10 @@ All notable changes to the Quantro ERP application will be documented here.
 
 ---
 
+## [2.10.19] - 2026-07-18
+### Fixed
+- **Purchase Tab Navigation**: Corrected asynchronous fallback redirects in the Purchase Center. Free plan cashiers can now fully browse other tabs (such as Bill Center, History, Suppliers, Payments, Returns, and Expenses), while only the **Upload Invoice** scanner tab remains restricted.
+
 ## [2.10.18] - 2026-07-18
 ### Added
 - **CRM Tab Locks & Disabling**: Locked the **Price Lists** tab and **Tier Configuration & Default Auto-Discounts** strip on the Free Starter plan (making them usable only on Business PRO and AI Professional plans). Custom-styled the UI blocks with reduced opacity, standard gray lock indicators (`#94a3b8`), and custom click handlers to toast upgrade instructions.

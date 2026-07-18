@@ -196,7 +196,7 @@ export default function PurchasePage() {
             setSubcategories(subcatData);
             setBrands(brandData);
 
-            if (setts.license_plan === 'Free') {
+            if (setts.license_plan === 'Free' && activeTab === 'upload_invoice') {
                 setActiveTab('bill');
             }
 
