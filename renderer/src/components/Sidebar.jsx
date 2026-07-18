@@ -122,6 +122,7 @@ export default function Sidebar({ isCollapsed, setIsCollapsed }) {
             return (
                 <div 
                     onClick={hasUpgrade ? handleUpgradeClick : undefined}
+                    className="shiny-badge-anim"
                     title={`${label} (Click to Upgrade)`}
                     style={{ 
                         display: 'flex', 
@@ -149,6 +150,7 @@ export default function Sidebar({ isCollapsed, setIsCollapsed }) {
 
         return (
             <div 
+                className="shiny-badge-anim"
                 style={{ 
                     display: 'flex', 
                     alignItems: 'center', 

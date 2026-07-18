@@ -4,6 +4,11 @@ All notable changes to the Quantro ERP application will be documented here.
 
 ---
 
+## [2.10.14] - 2026-07-18
+### Added
+- **Subscription Tier locks & Tier Badging**: Implemented subscription locks for Free Starter, Business PRO, and AI Professional plans. Features like Customer Tiers (locked to Tier C on Free), Credit Limit controls (locked to 0 on Free), Cloud backups, WhatsApp Campaign scheduling, and Outbound Voice Agents are now locked with status badges, tooltips, and toast warnings.
+- **Shiny Tier Badge Shimmer**: Added an elegant, moving shiny shimmer/sheen gradient animation to the subscription tier badges in the sidebar footer (for all three plans) to make them stand out.
+
 ## [2.10.13] - 2026-07-18
 ### Changed
 - **Admin Console Drawer Portal Refactor**: Refactored the slide-over resource diagnostics details drawer on the website Admin Console to render using a React Portal. This completely resolves parent container border clipping and top-edge alignment mismatches.
