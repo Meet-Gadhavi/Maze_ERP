@@ -286,6 +286,23 @@ function createWindow() {
         }
     });
 
+    mainWindow.on('query-session-end', (e) => {
+        if (!app.isQuitting && mainWindow) {
+            e.preventDefault();
+            console.log('[Maze ERP] Windows session end query received. Intercepting to secure backup...');
+            mainWindow.webContents.send('app-close-requested');
+            
+            // Safety timeout: if renderer doesn't respond in 30s, quit anyway
+            setTimeout(() => {
+                if (!app.isQuitting) {
+                    console.warn('[Maze ERP] Shutdown timeout reached during query-session-end. Quitting forcefully.');
+                    app.isQuitting = true;
+                    app.quit();
+                }
+            }, 30000);
+        }
+    });
+
     mainWindow.on('closed', () => {
         mainWindow = null;
     });

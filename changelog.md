@@ -4,6 +4,10 @@ All notable changes to the Quantro ERP application will be documented here.
 
 ---
 
+## [2.10.15] - 2026-07-18
+### Fixed
+- **OS Shutdown Interceptor for Backups**: Added a listener for the Windows `query-session-end` OS shutdown event. This prevents Windows from forcefully closing the application and corrupting database files during a session-end database backup. Instead, it triggers the standard visual backup progress screen, blocking Windows shutdown until files are secured, or offering "Shut down anyway" / "Cancel" options.
+
 ## [2.10.14] - 2026-07-18
 ### Added
 - **Subscription Tier locks & Tier Badging**: Implemented subscription locks for Free Starter, Business PRO, and AI Professional plans. Features like Customer Tiers (locked to Tier C on Free), Credit Limit controls (locked to 0 on Free), Cloud backups, WhatsApp Campaign scheduling, and Outbound Voice Agents are now locked with status badges, tooltips, and toast warnings.
