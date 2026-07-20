@@ -1182,17 +1182,20 @@ ready = (async () => {
     )
   `);
 
-  db.all("PRAGMA table_info(whatsapp_connections)", (err, cols) => {
-    if (!err && cols) {
+  try {
+    const cols = all("PRAGMA table_info(whatsapp_connections)");
+    if (cols && Array.isArray(cols)) {
       const colNames = cols.map(c => c.name);
       if (!colNames.includes('service_type')) {
-        db.run("ALTER TABLE whatsapp_connections ADD COLUMN service_type TEXT DEFAULT 'OBIWA'");
+        run("ALTER TABLE whatsapp_connections ADD COLUMN service_type TEXT DEFAULT 'OBIWA'");
       }
       if (!colNames.includes('phone_number')) {
-        db.run("ALTER TABLE whatsapp_connections ADD COLUMN phone_number TEXT");
+        run("ALTER TABLE whatsapp_connections ADD COLUMN phone_number TEXT");
       }
     }
-  });
+  } catch (err) {
+    console.error('[Maze DB] Column migration error:', err.message);
+  }
 
   // WhatsApp Daily Usage Table
   db.run(`
