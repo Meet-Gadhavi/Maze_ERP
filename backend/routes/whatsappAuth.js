@@ -4,6 +4,41 @@ const db = require('../db');
 const whatsappSender = require('../services/whatsappSender');
 const campaignSyncService = require('../services/email/campaignSyncService');
 
+// Connect QEIWA (Quantro ERP Identity WhatsApp Automation)
+router.post('/connect-qeiwa', async (req, res, next) => {
+    try {
+        await db.ready;
+        const qeiwaPhoneId = '1232217746642571';
+        const qeiwaWabaId = '1522938979283733';
+        const qeiwaToken = 'EAATPnZC7jFeIBSLfZALKc7Dpkw4woJ5N2BCuq50uRWOZC8xnus3N7NoKZCnTQIqdTFUpCiCCkI9QtC8SM74pQdrtCxD5HW7ZCko9goqege6lN9jWLqsdpk7XwywquRZBg5kPVeEHS7VA9bKs8Ij4vY07WPTjQPZBRGp2MtVnyFuXhU2d52wsb1OZAgiraVnvn2oEI6dxW2hqoyAOhUosmrMMCVtU1xomTZBSSbCawPdDJJQxxEOKLbnYrEgZDZD';
+        const qeiwaPhone = '+91 9033281960';
+        const appId = '1354185989887458';
+        const appSecret = '678f644e1e7eafce62c29e5ba2dd17ff';
+        const verifyToken = 'maze_secure_verify_2026';
+
+        db.run(
+            `INSERT OR REPLACE INTO whatsapp_connections (phone_number_id, waba_id, token, status, service_type, phone_number)
+             VALUES (?, ?, ?, 'Active', 'QEIWA', ?)`,
+            [qeiwaPhoneId, qeiwaWabaId, qeiwaToken, qeiwaPhone]
+        );
+
+        // Update settings keys for consistency
+        db.run("UPDATE settings SET value = ? WHERE key = 'whatsapp_token'", [qeiwaToken]);
+        db.run("UPDATE settings SET value = ? WHERE key = 'whatsapp_phone_number_id'", [qeiwaPhoneId]);
+        db.run("UPDATE settings SET value = ? WHERE key = 'whatsapp_business_account_id'", [qeiwaWabaId]);
+        db.run("UPDATE settings SET value = ? WHERE key = 'whatsapp_app_id'", [appId]);
+        db.run("UPDATE settings SET value = ? WHERE key = 'whatsapp_app_secret'", [appSecret]);
+        db.run("UPDATE settings SET value = ? WHERE key = 'whatsapp_webhook_verify_token'", [verifyToken]);
+
+        // Sync WhatsApp connection metadata
+        campaignSyncService.pushMetadata().catch(err => console.error('[Sync] Failed to push metadata on QEIWA connect:', err.message));
+
+        res.json({ success: true, message: 'Connected to Quantro ERP Identity WhatsApp Automation (QEIWA) successfully.' });
+    } catch (err) {
+        next(err);
+    }
+});
+
 // Simulated Meta Embedded Signup page matching Facebook Login for Business UX
 router.get('/connect', async (req, res, next) => {
     try {
@@ -30,7 +65,7 @@ router.get('/callback', async (req, res, next) => {
 
         // Fetch the permanent token from settings
         const permanentToken = db.get("SELECT value FROM settings WHERE key = 'whatsapp_token'")?.value || 
-            'EAATPnZC7jFeIBRqggccKGFX3E8Q3UNUmNf4bS59ZCV8MpbzIvfaIHmFrMRvDIHRkiS91DlU110DKgvY5EHWqKzzKL3mgPO9iuv8iFnR5ZAr6GC3CKZC4jmBkZBzSNoFB1v7ArepgYwCUoAeM2UFca2wudIVnPZCJRVgc9W3n0k2S5BG9EmA95Q6g8x1ZAuMjvdkCgZDZD';
+            'EAATPnZC7jFeIBSLfZALKc7Dpkw4woJ5N2BCuq50uRWOZC8xnus3N7NoKZCnTQIqdTFUpCiCCkI9QtC8SM74pQdrtCxD5HW7ZCko9goqege6lN9jWLqsdpk7XwywquRZBg5kPVeEHS7VA9bKs8Ij4vY07WPTjQPZBRGp2MtVnyFuXhU2d52wsb1OZAgiraVnvn2oEI6dxW2hqoyAOhUosmrMMCVtU1xomTZBSSbCawPdDJJQxxEOKLbnYrEgZDZD';
 
         // 1. Direct Bypass: If Meta passed target_waba_id, use permanent system user token to query phone numbers
         if (target_waba_id) {
@@ -41,12 +76,13 @@ router.get('/callback', async (req, res, next) => {
 
                 if (phoneResponse.ok && phoneData.data && phoneData.data.length > 0) {
                     const phoneNumberId = phoneData.data[0].id;
+                    const displayPhone = phoneData.data[0].display_phone_number || ('+' + phoneNumberId);
                     console.log(`[WhatsApp Auth] Resolved Phone Number ID: ${phoneNumberId} from WABA ${target_waba_id}. Saving connection...`);
                     
                     db.run(
-                        `INSERT OR REPLACE INTO whatsapp_connections (phone_number_id, waba_id, token, status)
-                         VALUES (?, ?, ?, 'Active')`,
-                        [phoneNumberId, target_waba_id, permanentToken]
+                        `INSERT OR REPLACE INTO whatsapp_connections (phone_number_id, waba_id, token, status, service_type, phone_number)
+                         VALUES (?, ?, ?, 'Active', 'OBIWA', ?)`,
+                        [phoneNumberId, target_waba_id, permanentToken, displayPhone]
                     );
 
                     // Sync WhatsApp connection metadata
@@ -91,12 +127,13 @@ router.get('/callback', async (req, res, next) => {
 
                         if (phoneResponse.ok && phoneData.data && phoneData.data.length > 0) {
                             const phoneNumberId = phoneData.data[0].id;
+                            const displayPhone = phoneData.data[0].display_phone_number || ('+' + phoneNumberId);
                             console.log(`[WhatsApp Auth] Resolved Phone Number ID: ${phoneNumberId}. Saving connection...`);
 
                             db.run(
-                                `INSERT OR REPLACE INTO whatsapp_connections (phone_number_id, waba_id, token, status)
-                                 VALUES (?, ?, ?, 'Active')`,
-                                [phoneNumberId, wabaId, permanentToken]
+                                `INSERT OR REPLACE INTO whatsapp_connections (phone_number_id, waba_id, token, status, service_type, phone_number)
+                                 VALUES (?, ?, ?, 'Active', 'OBIWA', ?)`,
+                                [phoneNumberId, wabaId, userAccessToken || permanentToken, displayPhone]
                             );
 
                             // Sync WhatsApp connection metadata
@@ -127,14 +164,14 @@ router.get('/callback', async (req, res, next) => {
 
         // 3. Fallback: If no code or target_waba_id, but the user settings have the pre-configured credentials,
         // we can try using the pre-configured ones as a fallback.
-        const defaultWabaId = db.get("SELECT value FROM settings WHERE key = 'whatsapp_business_account_id'")?.value || '3150419608479658';
-        const defaultPhoneId = db.get("SELECT value FROM settings WHERE key = 'whatsapp_phone_number_id'")?.value || '1117813404753239';
+        const defaultWabaId = db.get("SELECT value FROM settings WHERE key = 'whatsapp_business_account_id'")?.value || '1522938979283733';
+        const defaultPhoneId = db.get("SELECT value FROM settings WHERE key = 'whatsapp_phone_number_id'")?.value || '1232217746642571';
         
         if (defaultWabaId && defaultPhoneId && permanentToken) {
             console.log('[WhatsApp Auth] No callback params found. Attempting fallback with pre-configured settings credentials...');
             db.run(
-                `INSERT OR REPLACE INTO whatsapp_connections (phone_number_id, waba_id, token, status)
-                 VALUES (?, ?, ?, 'Active')`,
+                `INSERT OR REPLACE INTO whatsapp_connections (phone_number_id, waba_id, token, status, service_type, phone_number)
+                 VALUES (?, ?, ?, 'Active', 'QEIWA', '+91 9033281960')`,
                 [defaultPhoneId, defaultWabaId, permanentToken]
             );
 
@@ -155,7 +192,7 @@ router.get('/callback', async (req, res, next) => {
 router.get('/connections', async (req, res, next) => {
     try {
         await db.ready;
-        const rows = db.all("SELECT id, phone_number_id, waba_id, status, connected_at FROM whatsapp_connections");
+        const rows = db.all("SELECT id, phone_number_id, waba_id, status, service_type, phone_number, connected_at FROM whatsapp_connections");
         const today = new Date().toISOString().split('T')[0];
         
         const connectionsWithUsage = rows.map(r => {

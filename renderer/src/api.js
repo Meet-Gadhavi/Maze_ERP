@@ -496,6 +496,7 @@ const api = {
 
     // --- WhatsApp Integration ---
     getWhatsAppConnections: () => request('/auth/whatsapp/connections'),
+    connectQEIWA: () => request('/auth/whatsapp/connect-qeiwa', { method: 'POST' }),
     disconnectWhatsApp: (phone_number_id) => request('/auth/whatsapp/disconnect', { method: 'POST', body: { phone_number_id } }),
     sendWhatsAppTest: (data) => request('/auth/whatsapp/test-message', { method: 'POST', body: data }),
     sendWhatsAppInvoice: (data) => request('/auth/whatsapp/send-invoice', { method: 'POST', body: data }),

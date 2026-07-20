@@ -432,9 +432,9 @@ ready = (async () => {
         [SETTINGS_KEYS.AUTO_WHATSAPP_DUE_REMINDER_DAYS, '7'],
         [SETTINGS_KEYS.WHATSAPP_APP_ID, '1354185989887458'],
         [SETTINGS_KEYS.WHATSAPP_APP_SECRET, '678f644e1e7eafce62c29e5ba2dd17ff'],
-        [SETTINGS_KEYS.WHATSAPP_TOKEN, 'EAATPnZC7jFeIBRqggccKGFX3E8Q3UNUmNf4bS59ZCV8MpbzIvfaIHmFrMRvDIHRkiS91DlU110DKgvY5EHWqKzzKL3mgPO9iuv8iFnR5ZAr6GC3CKZC4jmBkZBzSNoFB1v7ArepgYwCUoAeM2UFca2wudIVnPZCJRVgc9W3n0k2S5BG9EmA95Q6g8x1ZAuMjvdkCgZDZD'],
-        [SETTINGS_KEYS.WHATSAPP_PHONE_NUMBER_ID, '1117813404753239'],
-        [SETTINGS_KEYS.WHATSAPP_BUSINESS_ACCOUNT_ID, '3150419608479658'],
+        [SETTINGS_KEYS.WHATSAPP_TOKEN, 'EAATPnZC7jFeIBSLfZALKc7Dpkw4woJ5N2BCuq50uRWOZC8xnus3N7NoKZCnTQIqdTFUpCiCCkI9QtC8SM74pQdrtCxD5HW7ZCko9goqege6lN9jWLqsdpk7XwywquRZBg5kPVeEHS7VA9bKs8Ij4vY07WPTjQPZBRGp2MtVnyFuXhU2d52wsb1OZAgiraVnvn2oEI6dxW2hqoyAOhUosmrMMCVtU1xomTZBSSbCawPdDJJQxxEOKLbnYrEgZDZD'],
+        [SETTINGS_KEYS.WHATSAPP_PHONE_NUMBER_ID, '1232217746642571'],
+        [SETTINGS_KEYS.WHATSAPP_BUSINESS_ACCOUNT_ID, '1522938979283733'],
         [SETTINGS_KEYS.WHATSAPP_WEBHOOK_VERIFY_TOKEN, 'maze_secure_verify_2026'],
         [SETTINGS_KEYS.INCLUDE_PENDING_PRICE, 'true']
       ];
@@ -502,9 +502,9 @@ ready = (async () => {
         else if (k === SETTINGS_KEYS.AUTO_WHATSAPP_DUE_REMINDER_DAYS) defaultValue = '7';
         else if (k === SETTINGS_KEYS.WHATSAPP_APP_ID) defaultValue = '1354185989887458';
         else if (k === SETTINGS_KEYS.WHATSAPP_APP_SECRET) defaultValue = '678f644e1e7eafce62c29e5ba2dd17ff';
-        else if (k === SETTINGS_KEYS.WHATSAPP_TOKEN) defaultValue = 'EAATPnZC7jFeIBRqggccKGFX3E8Q3UNUmNf4bS59ZCV8MpbzIvfaIHmFrMRvDIHRkiS91DlU110DKgvY5EHWqKzzKL3mgPO9iuv8iFnR5ZAr6GC3CKZC4jmBkZBzSNoFB1v7ArepgYwCUoAeM2UFca2wudIVnPZCJRVgc9W3n0k2S5BG9EmA95Q6g8x1ZAuMjvdkCgZDZD';
-        else if (k === SETTINGS_KEYS.WHATSAPP_PHONE_NUMBER_ID) defaultValue = '1117813404753239';
-        else if (k === SETTINGS_KEYS.WHATSAPP_BUSINESS_ACCOUNT_ID) defaultValue = '3150419608479658';
+        else if (k === SETTINGS_KEYS.WHATSAPP_TOKEN) defaultValue = 'EAATPnZC7jFeIBSLfZALKc7Dpkw4woJ5N2BCuq50uRWOZC8xnus3N7NoKZCnTQIqdTFUpCiCCkI9QtC8SM74pQdrtCxD5HW7ZCko9goqege6lN9jWLqsdpk7XwywquRZBg5kPVeEHS7VA9bKs8Ij4vY07WPTjQPZBRGp2MtVnyFuXhU2d52wsb1OZAgiraVnvn2oEI6dxW2hqoyAOhUosmrMMCVtU1xomTZBSSbCawPdDJJQxxEOKLbnYrEgZDZD';
+        else if (k === SETTINGS_KEYS.WHATSAPP_PHONE_NUMBER_ID) defaultValue = '1232217746642571';
+        else if (k === SETTINGS_KEYS.WHATSAPP_BUSINESS_ACCOUNT_ID) defaultValue = '1522938979283733';
         else if (k === SETTINGS_KEYS.WHATSAPP_WEBHOOK_VERIFY_TOKEN) defaultValue = 'maze_secure_verify_2026';
         else if (k === 'billing_payment_method_added') defaultValue = 'false';
         else if (k === 'billing_phone_number_purchased') defaultValue = 'false';
@@ -1176,9 +1176,23 @@ ready = (async () => {
       waba_id       TEXT,
       token         TEXT,
       status        TEXT DEFAULT 'Active',
+      service_type  TEXT DEFAULT 'OBIWA',
+      phone_number  TEXT,
       connected_at  TEXT DEFAULT (datetime('now','localtime'))
     )
   `);
+
+  db.all("PRAGMA table_info(whatsapp_connections)", (err, cols) => {
+    if (!err && cols) {
+      const colNames = cols.map(c => c.name);
+      if (!colNames.includes('service_type')) {
+        db.run("ALTER TABLE whatsapp_connections ADD COLUMN service_type TEXT DEFAULT 'OBIWA'");
+      }
+      if (!colNames.includes('phone_number')) {
+        db.run("ALTER TABLE whatsapp_connections ADD COLUMN phone_number TEXT");
+      }
+    }
+  });
 
   // WhatsApp Daily Usage Table
   db.run(`
