@@ -397,17 +397,30 @@ export default function ConnectedServicesCard({
                             <h3 style={{ margin: 0, fontSize: '18px', fontWeight: 600 }}>
                                 WhatsApp Service
                             </h3>
+                            {waConnections.length > 0 && (
+                                <span style={{ 
+                                    fontSize: '13px', 
+                                    fontWeight: 600, 
+                                    color: (waConnections[0].messagesSentToday || 0) >= (waConnections[0].messagesLimit || 1800) ? '#e53e3e' : 'var(--text-secondary)',
+                                    background: '#f8fafc',
+                                    padding: '4px 10px',
+                                    borderRadius: '6px',
+                                    border: '1px solid var(--border)'
+                                }}>
+                                    Daily Limit: {waConnections[0].messagesSentToday || 0} / {waConnections[0].messagesLimit || 1800} Sent
+                                </span>
+                            )}
                         </div>
                         <p style={{ margin: '4px 0 0 0', fontSize: '13px', color: 'var(--text-secondary)' }}>
                             Send styled invoice PDFs directly to customer numbers, automate notifications, and schedule text marketing campaigns.
                         </p>
                     </div>
-                    {!loadingWa && (
+                    {waConnections.length === 0 && !loadingWa && (
                         <SButton variant="primary" onClick={() => setShowWaChoiceModal(true)} style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
                             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" className="bi bi-whatsapp" viewBox="0 0 16 16">
                                 <path d="M13.601 2.326A7.85 7.85 0 0 0 7.994 0C3.627 0 .068 3.558.064 7.926c0 1.399.366 2.76 1.057 3.965L0 16l4.204-1.102a7.9 7.9 0 0 0 3.79.965h.004c4.368 0 7.926-3.558 7.93-7.93A7.9 7.9 0 0 0 13.6 2.326zM7.994 14.521a6.6 6.6 0 0 1-3.356-.92l-.24-.144-2.494.654.666-2.433-.156-.251a6.56 6.56 0 0 1-1.007-3.505c0-3.626 2.957-6.584 6.591-6.584a6.56 6.56 0 0 1 4.66 1.931 6.56 6.56 0 0 1 1.928 4.66c-.004 3.639-2.961 6.592-6.592 6.592m3.615-4.934c-.197-.099-1.17-.578-1.353-.646-.182-.065-.315-.099-.445.099-.133.197-.513.646-.627.775-.114.133-.232.148-.43.05-.197-.1-.836-.308-1.592-.985-.59-.525-.985-1.175-1.103-1.372-.114-.198-.011-.304.088-.403.087-.088.197-.232.296-.346.1-.114.133-.198.198-.33.065-.134.034-.248-.015-.347-.05-.099-.445-1.076-.612-1.47-.16-.389-.323-.335-.445-.34-.114-.007-.247-.007-.38-.007a.73.73 0 0 0-.529.247c-.182.198-.691.677-.691 1.654s.71 1.916.81 2.049c.098.133 1.394 2.132 3.383 2.992.47.205.84.326 1.129.418.475.152.904.129 1.246.08.38-.058 1.171-.48 1.338-.943.164-.464.164-.86.114-.943-.049-.084-.182-.133-.38-.232"/>
                             </svg>
-                            {waConnections.length > 0 ? '+ Connect WhatsApp Service' : 'Get WhatsApp Service'}
+                            Get WhatsApp Service
                         </SButton>
                     )}
                 </div>
@@ -453,45 +466,30 @@ export default function ConnectedServicesCard({
                                                         {conn.status || 'Active'}
                                                     </span>
                                                 </div>
-                                            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginTop: '6px', fontSize: '12px', color: 'var(--text-tertiary)' }}>
-                                                <span>WABA ID: {conn.waba_id}</span>
-                                                <span>•</span>
-                                                <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                                                    <Icons.Calendar size={12} />
-                                                    Connected on {new Date(conn.connected_at).toLocaleDateString()}
-                                                </span>
-                                            </div>
-                                            <div style={{ display: 'flex', flexDirection: 'column', marginTop: '8px', minWidth: '220px' }}>
-                                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px', fontSize: '11px', fontWeight: 600, color: 'var(--text-secondary)' }}>
-                                                    <span>Daily Message Usage</span>
-                                                    <span>{conn.messagesSentToday || 0} / {conn.messagesLimit || 1800} Sent</span>
-                                                </div>
-                                                <div style={{ width: '100%', height: '5px', background: 'rgba(0,0,0,0.06)', borderRadius: '999px', overflow: 'hidden' }}>
-                                                    <div style={{
-                                                        width: `${Math.min(100, ((conn.messagesSentToday || 0) / (conn.messagesLimit || 1800)) * 100)}%`,
-                                                        height: '100%',
-                                                        background: '#25D366',
-                                                        borderRadius: '999px',
-                                                        transition: 'width 0.3s ease'
-                                                    }} />
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginTop: '6px', fontSize: '12px', color: 'var(--text-tertiary)' }}>
+                                                    <span>WABA ID: {conn.waba_id}</span>
+                                                    <span>•</span>
+                                                    <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                                        <Icons.Calendar size={12} />
+                                                        Connected on {new Date(conn.connected_at).toLocaleDateString()}
+                                                    </span>
                                                 </div>
                                             </div>
                                         </div>
+                                        <div style={{ display: 'flex', gap: '8px' }}>
+                                            <SButton variant="secondary" size="small" onClick={() => setShowWaManageModal(true)}>
+                                                Manage
+                                            </SButton>
+                                            <SButton variant="secondary" size="small" onClick={() => setShowWaTestModal(true)}>
+                                                Send Test
+                                            </SButton>
+                                            <SButton variant="secondary" tone="critical" size="small" onClick={() => handleDisconnectWhatsApp(conn.phone_number_id)}>
+                                                Disconnect
+                                            </SButton>
+                                        </div>
                                     </div>
-                                    <div style={{ display: 'flex', gap: '8px' }}>
-                                        <SButton variant="secondary" size="small" onClick={() => setShowWaManageModal(true)}>
-                                            Manage
-                                        </SButton>
-                                        <SButton variant="secondary" size="small" onClick={() => setShowWaTestModal(true)}>
-                                            Send Test
-                                        </SButton>
-                                        <SButton variant="secondary" tone="critical" size="small" onClick={() => handleDisconnectWhatsApp(conn.phone_number_id)}>
-                                            Disconnect
-                                        </SButton>
-                                    </div>
-                                </div>
-                            );
-                        })}
+                                );
+                            })}
                         </div>
                     ) : (
                         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '32px', border: '1px dashed var(--border)', borderRadius: '12px', background: 'var(--bg-soft)' }}>
