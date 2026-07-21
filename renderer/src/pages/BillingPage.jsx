@@ -1466,6 +1466,8 @@ export default function BillingPage() {
                         </div>
                     </div>
                 </div>
+            )}
+
             {/* Pay-As-You-Go Credit Topup Modal */}
             {showTopupModal && (
                 <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px' }}>
