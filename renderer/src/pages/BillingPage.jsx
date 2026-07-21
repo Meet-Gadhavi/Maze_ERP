@@ -43,6 +43,30 @@ export default function BillingPage() {
     const [cancelVerifying, setCancelVerifying] = useState(false);
     const [cancelError, setCancelError] = useState('');
 
+    // Credit Topup States
+    const [showTopupModal, setShowTopupModal] = useState(false);
+    const [topupAmount, setTopupAmount] = useState('500');
+    const [topupLoading, setTopupLoading] = useState(false);
+
+    const handleTopupCredit = async (amountVal) => {
+        const amt = Number(amountVal || topupAmount);
+        if (!amt || amt <= 0) {
+            toast.error('Please enter a valid top-up amount');
+            return;
+        }
+        setTopupLoading(true);
+        try {
+            await api.topupCredit(amt, `Razorpay Top-up via quantro-web (₹${amt})`);
+            toast.success(`Successfully added ₹${amt.toFixed(2)} wallet credit!`);
+            setShowTopupModal(false);
+            loadBillingStatus();
+        } catch (err) {
+            toast.error(err.message || 'Failed to process top-up');
+        } finally {
+            setTopupLoading(false);
+        }
+    };
+
     useEffect(() => {
         async function fetchLicense() {
             if (status && status.licenseKey && status.licensePlan !== 'Free') {
@@ -492,6 +516,146 @@ export default function BillingPage() {
                                 </SButton>
                             )}
                         </div>
+                    </div>
+
+                    {/* Pay-As-You-Go Wallet Credit Card */}
+                    <div className="card" style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '20px', background: 'linear-gradient(135deg, rgba(2, 132, 199, 0.05) 0%, rgba(37, 211, 102, 0.05) 100%)', border: '1px solid rgba(2, 132, 199, 0.2)' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                <div style={{
+                                    width: '44px', height: '44px', borderRadius: '12px', background: 'var(--accent)',
+                                    display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', boxShadow: '0 4px 12px rgba(2, 132, 199, 0.25)'
+                                }}>
+                                    <Icons.Wallet size={22} />
+                                </div>
+                                <div>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                        <h3 style={{ margin: 0, fontSize: '18px', fontWeight: 700 }}>Quantro Pay-As-You-Go Wallet</h3>
+                                        <span style={{ fontSize: '10px', fontWeight: 700, padding: '2px 8px', borderRadius: '999px', background: 'rgba(52, 199, 89, 0.15)', color: '#128C7E', border: '1px solid currentColor' }}>
+                                            Live Credit Balance
+                                        </span>
+                                    </div>
+                                    <p style={{ margin: '4px 0 0 0', fontSize: '13px', color: 'var(--text-secondary)' }}>
+                                        Real-time usage balance for WhatsApp API, Gmail Delivery, and AI Voice Calling services.
+                                    </p>
+                                </div>
+                            </div>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                <div style={{ textAlign: 'right' }}>
+                                    <span style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-tertiary)', textTransform: 'uppercase' }}>Available Balance</span>
+                                    <div style={{ fontSize: '24px', fontWeight: 800, color: 'var(--text-primary)', letterSpacing: '-0.5px' }}>
+                                        ₹{(status.creditBalance || 0).toFixed(2)}
+                                    </div>
+                                </div>
+                                <SButton variant="primary" onClick={() => setShowTopupModal(true)} style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '10px 18px' }}>
+                                    <Icons.PlusCircle size={16} />
+                                    Top-Up Credit
+                                </SButton>
+                            </div>
+                        </div>
+
+                        {/* Service Rates Grid */}
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '12px', background: '#ffffff', padding: '14px', borderRadius: '12px', border: '1px solid var(--border)' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                <div style={{ width: '32px', height: '32px', borderRadius: '8px', background: 'rgba(37, 211, 102, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                    <img src="./whatsapp-icon.png" alt="WA" style={{ width: '18px', height: '18px', objectFit: 'contain' }} />
+                                </div>
+                                <div>
+                                    <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-primary)' }}>WhatsApp API</div>
+                                    <div style={{ fontSize: '13px', fontWeight: 700, color: '#128C7E' }}>₹0.30 / message</div>
+                                </div>
+                            </div>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                <div style={{ width: '32px', height: '32px', borderRadius: '8px', background: 'rgba(234, 67, 53, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                    <img src="./gmail-icon.png" alt="Gmail" style={{ width: '18px', height: '18px', objectFit: 'contain' }} />
+                                </div>
+                                <div>
+                                    <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-primary)' }}>Gmail Delivery</div>
+                                    <div style={{ fontSize: '13px', fontWeight: 700, color: '#ea4335' }}>₹0.05 / email</div>
+                                </div>
+                            </div>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                <div style={{ width: '32px', height: '32px', borderRadius: '8px', background: 'rgba(147, 51, 234, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                    <img src="./mazeway.png" alt="Voice" style={{ width: '18px', height: '18px', objectFit: 'contain' }} />
+                                </div>
+                                <div>
+                                    <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-primary)' }}>AI Voice Agent</div>
+                                    <div style={{ fontSize: '13px', fontWeight: 700, color: '#9333ea' }}>₹10.00 / minute</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Credit Deduction Log & Transaction Ledger Table */}
+                    <div className="card" style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <div>
+                                <h3 style={{ margin: 0, fontSize: '17px', fontWeight: 700 }}>Credit Deduction Log &amp; Transaction History</h3>
+                                <p style={{ margin: '4px 0 0 0', fontSize: '13px', color: 'var(--text-secondary)' }}>
+                                    Itemized ledger of all service deductions and Razorpay credit top-ups synchronized with Quantro Web.
+                                </p>
+                            </div>
+                            <SButton variant="secondary" size="small" onClick={loadBillingStatus} style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                                <Icons.RefreshCw size={14} />
+                                Refresh Log
+                            </SButton>
+                        </div>
+
+                        {(!status.creditLedger || status.creditLedger.length === 0) ? (
+                            <div style={{ padding: '32px', textAlign: 'center', border: '1px dashed var(--border)', borderRadius: '12px', background: 'var(--bg-soft)', color: 'var(--text-tertiary)', fontSize: '13px' }}>
+                                No credit transactions logged yet. Deductions will appear here automatically when messages or calls are triggered.
+                            </div>
+                        ) : (
+                            <div style={{ overflowX: 'auto', borderRadius: '10px', border: '1px solid var(--border)' }}>
+                                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px', textAlign: 'left' }}>
+                                    <thead>
+                                        <tr style={{ background: '#f8fafc', borderBottom: '1px solid var(--border)', color: 'var(--text-secondary)', fontWeight: 600 }}>
+                                            <th style={{ padding: '12px 16px' }}>Date &amp; Time</th>
+                                            <th style={{ padding: '12px 16px' }}>Service</th>
+                                            <th style={{ padding: '12px 16px' }}>Description</th>
+                                            <th style={{ padding: '12px 16px', textAlign: 'center' }}>Units</th>
+                                            <th style={{ padding: '12px 16px', textAlign: 'right' }}>Amount</th>
+                                            <th style={{ padding: '12px 16px', textAlign: 'right' }}>Wallet Balance</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {status.creditLedger.map((row, idx) => {
+                                            const isTopup = row.service_type === 'Credit Top-up' || row.amount > 0;
+                                            const badgeBg = row.service_type === 'WhatsApp' ? 'rgba(37, 211, 102, 0.12)' :
+                                                            row.service_type === 'Email' ? 'rgba(234, 67, 53, 0.12)' :
+                                                            row.service_type === 'Voice Agent' ? 'rgba(147, 51, 234, 0.12)' : 'rgba(2, 132, 199, 0.12)';
+                                            const badgeColor = row.service_type === 'WhatsApp' ? '#128C7E' :
+                                                               row.service_type === 'Email' ? '#ea4335' :
+                                                               row.service_type === 'Voice Agent' ? '#9333ea' : '#0284c7';
+                                            return (
+                                                <tr key={row.id || idx} style={{ borderBottom: idx < status.creditLedger.length - 1 ? '1px solid #f1f5f9' : 'none' }}>
+                                                    <td style={{ padding: '12px 16px', color: 'var(--text-tertiary)', fontSize: '12px', whiteSpace: 'nowrap' }}>
+                                                        {new Date(row.created_at).toLocaleString('en-IN', { dateStyle: 'short', timeStyle: 'short' })}
+                                                    </td>
+                                                    <td style={{ padding: '12px 16px' }}>
+                                                        <span style={{ fontSize: '11px', fontWeight: 700, padding: '3px 8px', borderRadius: '999px', background: badgeBg, color: badgeColor }}>
+                                                            {row.service_type}
+                                                        </span>
+                                                    </td>
+                                                    <td style={{ padding: '12px 16px', fontWeight: 500, color: 'var(--text-primary)' }}>
+                                                        {row.description || 'Service usage deduction'}
+                                                    </td>
+                                                    <td style={{ padding: '12px 16px', textAlign: 'center', color: 'var(--text-secondary)' }}>
+                                                        {row.units_used || 1}
+                                                    </td>
+                                                    <td style={{ padding: '12px 16px', textAlign: 'right', fontWeight: 700, color: isTopup ? '#16a34a' : '#dc2626' }}>
+                                                        {isTopup ? `+₹${Math.abs(row.amount).toFixed(2)}` : `-₹${Math.abs(row.amount).toFixed(2)}`}
+                                                    </td>
+                                                    <td style={{ padding: '12px 16px', textAlign: 'right', fontWeight: 600, color: 'var(--text-primary)' }}>
+                                                        ₹{(row.balance_after || 0).toFixed(2)}
+                                                    </td>
+                                                </tr>
+                                            );
+                                        })}
+                                    </tbody>
+                                </table>
+                            </div>
+                        )}
                     </div>
 
                     {/* Gmail Email Overages */}
@@ -1298,6 +1462,79 @@ export default function BillingPage() {
                             </SButton>
                             <SButton variant="primary" style={{ background: 'var(--accent)', borderColor: 'var(--accent)' }} disabled={upgradeVerifying} onClick={handleVerifyUpgrade}>
                                 {upgradeVerifying ? 'Activating Plan...' : 'Verify & Activate'}
+                            </SButton>
+                        </div>
+                    </div>
+                </div>
+            {/* Pay-As-You-Go Credit Topup Modal */}
+            {showTopupModal && (
+                <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px' }}>
+                    <div style={{ background: '#fff', borderRadius: '16px', maxWidth: '440px', width: '100%', padding: '24px', boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1), 0 10px 10px -5px rgba(0,0,0,0.04)', display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                <div style={{ width: '36px', height: '36px', borderRadius: '10px', background: 'rgba(2, 132, 199, 0.1)', color: 'var(--accent)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                    <Icons.Wallet size={20} />
+                                </div>
+                                <h3 style={{ margin: 0, fontSize: '17px', fontWeight: 700 }}>Top-Up Wallet Credits</h3>
+                            </div>
+                            <button onClick={() => setShowTopupModal(false)} style={{ border: 'none', background: 'none', cursor: 'pointer', color: 'var(--text-tertiary)' }}>
+                                <Icons.X size={18} />
+                            </button>
+                        </div>
+
+                        <p style={{ margin: 0, fontSize: '13px', color: 'var(--text-secondary)', lineHeight: '1.5' }}>
+                            Recharge your Quantro ERP wallet to send WhatsApp API messages, Gmail invoice notifications, and run AI Voice agent calls.
+                        </p>
+
+                        {/* Quick Presets */}
+                        <div>
+                            <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '8px' }}>Select Preset Amount</label>
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px' }}>
+                                {['250', '500', '1000'].map(amt => (
+                                    <button
+                                        key={amt}
+                                        type="button"
+                                        onClick={() => setTopupAmount(amt)}
+                                        style={{
+                                            padding: '10px',
+                                            borderRadius: '8px',
+                                            border: topupAmount === amt ? '2px solid var(--accent)' : '1px solid var(--border)',
+                                            background: topupAmount === amt ? 'rgba(2, 132, 199, 0.08)' : '#fff',
+                                            color: topupAmount === amt ? 'var(--accent)' : 'var(--text-primary)',
+                                            fontWeight: 700,
+                                            fontSize: '14px',
+                                            cursor: 'pointer'
+                                        }}
+                                    >
+                                        ₹{amt}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+
+                        {/* Custom Input */}
+                        <div>
+                            <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '6px' }}>Or Enter Custom Amount (₹)</label>
+                            <input
+                                type="number"
+                                className="input-text"
+                                value={topupAmount}
+                                onChange={(e) => setTopupAmount(e.target.value)}
+                                placeholder="e.g. 500"
+                                style={{ height: '40px', fontSize: '15px', fontWeight: 700 }}
+                            />
+                        </div>
+
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', paddingTop: '8px' }}>
+                            <SButton variant="primary" disabled={topupLoading} onClick={() => handleTopupCredit()} style={{ width: '100%', justifyContent: 'center' }}>
+                                {topupLoading ? 'Adding Wallet Credit...' : `Add ₹${Number(topupAmount || 0).toFixed(2)} Wallet Credit`}
+                            </SButton>
+                            <SButton variant="secondary" onClick={() => {
+                                const url = `${webBaseUrl}/?action=topup-credit&amount=${topupAmount}&syncId=${status?.syncId || ''}`;
+                                openExternalLink(url);
+                                toast.info('Opening Quantro Web Razorpay Checkout...');
+                            }} style={{ width: '100%', justifyContent: 'center', fontSize: '12px' }}>
+                                Pay via Razorpay on Quantro Web Website
                             </SButton>
                         </div>
                     </div>

@@ -504,6 +504,8 @@ const api = {
     
     // --- Billing ---
     getBillingStatus: () => request('/billing/status'),
+    getBillingLedger: () => request('/billing/ledger'),
+    topupCredit: (amount, description) => request('/billing/topup', { method: 'POST', body: { amount, description } }),
     addPaymentMethod: (data) => request('/billing/add-payment-method', { method: 'POST', body: data }),
     buyPhoneNumber: () => request('/billing/buy-number', { method: 'POST' }),
     buyEmailPackage: () => request('/billing/buy-email-package', { method: 'POST' }),

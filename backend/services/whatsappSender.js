@@ -105,10 +105,13 @@ const whatsappSender = {
             }
 
             await incrementDailyUsage(phoneNumberId);
-            
-            if (!sessionActive) {
-                // Increment billing_whatsapp_non_csw_count
-                db.run("UPDATE settings SET value = CAST(CAST(COALESCE((SELECT value FROM settings WHERE key = 'billing_whatsapp_non_csw_count'), '0') AS INTEGER) + 1 AS TEXT) WHERE key = 'billing_whatsapp_non_csw_count'");
+            db.run("UPDATE settings SET value = CAST(CAST(COALESCE((SELECT value FROM settings WHERE key = 'billing_whatsapp_non_csw_count'), '0') AS INTEGER) + 1 AS TEXT) WHERE key = 'billing_whatsapp_non_csw_count'");
+
+            try {
+                const { deductCredit } = require('./billingHelper');
+                await deductCredit('WhatsApp', 1, 0.30, `WhatsApp API message sent to +${formattedTo}`);
+            } catch (deductErr) {
+                console.error('[WhatsApp Sender] Ledger deduction error:', deductErr);
             }
 
             console.log(`[WhatsApp Sender] Text message successfully sent to ${formattedTo}. Message ID: ${data.messages?.[0]?.id}`);
@@ -202,10 +205,13 @@ const whatsappSender = {
             }
 
             await incrementDailyUsage(phoneNumberId);
+            db.run("UPDATE settings SET value = CAST(CAST(COALESCE((SELECT value FROM settings WHERE key = 'billing_whatsapp_non_csw_count'), '0') AS INTEGER) + 1 AS TEXT) WHERE key = 'billing_whatsapp_non_csw_count'");
 
-            if (!sessionActive) {
-                // Increment billing_whatsapp_non_csw_count
-                db.run("UPDATE settings SET value = CAST(CAST(COALESCE((SELECT value FROM settings WHERE key = 'billing_whatsapp_non_csw_count'), '0') AS INTEGER) + 1 AS TEXT) WHERE key = 'billing_whatsapp_non_csw_count'");
+            try {
+                const { deductCredit } = require('./billingHelper');
+                await deductCredit('WhatsApp', 1, 0.30, `WhatsApp template "${templateName}" sent to +${formattedTo}`);
+            } catch (deductErr) {
+                console.error('[WhatsApp Sender] Ledger deduction error:', deductErr);
             }
 
             console.log(`[WhatsApp Sender] Template "${templateName}" successfully sent to ${formattedTo}. Message ID: ${data.messages?.[0]?.id}`);

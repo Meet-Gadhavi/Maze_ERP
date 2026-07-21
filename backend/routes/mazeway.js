@@ -70,6 +70,14 @@ router.post('/webhook', async (req, res) => {
         if (type === 'Voice') {
             // Increment billing_voice_agent_seconds
             db.run("UPDATE settings SET value = CAST(CAST(COALESCE((SELECT value FROM settings WHERE key = 'billing_voice_agent_seconds'), '0') AS INTEGER) + ? AS TEXT) WHERE key = 'billing_voice_agent_seconds'", [durationSec]);
+
+            try {
+                const { deductCredit } = require('../services/billingHelper');
+                const callMins = Math.max(1, Math.ceil(durationSec / 60));
+                await deductCredit('Voice Agent', callMins, 10.00, `AI Voice Call (${durationSec} seconds, ${callMins} min billed)`);
+            } catch (deductErr) {
+                console.error('[Voice Agent Webhook] Ledger deduction error:', deductErr);
+            }
         }
 
         // Trigger voice agent requested auto-email check asynchronously

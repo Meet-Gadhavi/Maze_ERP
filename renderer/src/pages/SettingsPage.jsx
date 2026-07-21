@@ -1924,7 +1924,7 @@ export default function SettingsPage() {
                                         </div>
                                     )}
 
-                                    {/* Timeline Item: v2.10.29 — Quantro Web Real-time Billing Sync */}
+                                    {/* Timeline Item: v2.10.29 — Quantro Pay-As-You-Go Credit System & Deduction Log */}
                                     <div style={{ position: 'relative' }}>
                                         <div style={{ position: 'absolute', left: '-22px', top: '4px', width: '12px', height: '12px', borderRadius: '50%', background: 'var(--accent)', border: '2px solid var(--bg-primary)' }}></div>
                                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -1933,7 +1933,8 @@ export default function SettingsPage() {
                                         </div>
                                         <div style={{ fontSize: '13px', color: 'var(--text-secondary)', marginTop: '8px', lineHeight: 1.6 }}>
                                             <ul style={{ margin: 0, paddingLeft: '16px' }}>
-                                                <li><strong>Quantro Web Real-Time Usage Sync:</strong> Expanded cloud metadata sync service to push desktop ERP billing counts (WhatsApp, Email, Voice seconds, and payment status) to Supabase and Quantro Web for unified pay-as-you-go invoicing.</li>
+                                                <li><strong>Pay-As-You-Go Prepaid Wallet System:</strong> Integrated live credit wallet balance for WhatsApp API (₹0.30/msg), Gmail Delivery (₹0.05/email), and AI Voice Agent Calling (₹10.00/min).</li>
+                                                <li><strong>Real-time Deduction Log &amp; Ledger:</strong> Added an itemized ledger table in the Billing page tracking every service deduction and Razorpay credit top-up synchronized with Quantro Web.</li>
                                             </ul>
                                         </div>
                                     </div>

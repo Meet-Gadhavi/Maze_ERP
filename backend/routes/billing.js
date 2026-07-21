@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const db = require('../db');
-const { getDayOfMonth, calculateCurrentDue, isBillingBlocked, checkAndRunAutopay } = require('../services/billingHelper');
+const { getDayOfMonth, calculateCurrentDue, isBillingBlocked, checkAndRunAutopay, getCreditBalance, getCreditLedger, addCredit } = require('../services/billingHelper');
 
 // GET /api/billing/status
 router.get('/status', async (req, res, next) => {
@@ -14,6 +14,8 @@ router.get('/status', async (req, res, next) => {
         const blocked = await isBillingBlocked();
         const dues = await calculateCurrentDue(settings);
         const currentDay = getDayOfMonth(settings);
+        const creditBalance = await getCreditBalance();
+        const creditLedger = await getCreditLedger();
 
         // Check if Gmail is connected
         const gmailRows = db.all("SELECT id FROM email_connections");
@@ -62,11 +64,38 @@ router.get('/status', async (req, res, next) => {
             gmailConnected,
             whatsappConnected,
             dues,
+            creditBalance,
+            creditLedger,
             licensePlan: settings.license_plan || 'Free',
             licenseStatus: settings.license_status || 'Active',
             licenseKey: settings.license_key || '',
             syncId: settings.online_sync_id || ''
         });
+    } catch (err) {
+        next(err);
+    }
+});
+
+// GET /api/billing/ledger
+router.get('/ledger', async (req, res, next) => {
+    try {
+        const ledger = await getCreditLedger();
+        const balance = await getCreditBalance();
+        res.json({ balance, ledger });
+    } catch (err) {
+        next(err);
+    }
+});
+
+// POST /api/billing/topup
+router.post('/topup', async (req, res, next) => {
+    try {
+        const { amount, description } = req.body;
+        if (!amount || isNaN(amount) || Number(amount) <= 0) {
+            return res.status(400).json({ success: false, message: 'Invalid topup amount.' });
+        }
+        const newBal = await addCredit(Number(amount), description || 'Credit Top-up via Razorpay / quantro-web');
+        res.json({ success: true, newBalance: newBal, message: `Successfully topped up ₹${Number(amount).toFixed(2)} wallet credits.` });
     } catch (err) {
         next(err);
     }

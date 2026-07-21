@@ -461,7 +461,7 @@ ready = (async () => {
         SETTINGS_KEYS.WHATSAPP_PHONE_NUMBER_ID, SETTINGS_KEYS.WHATSAPP_BUSINESS_ACCOUNT_ID, SETTINGS_KEYS.WHATSAPP_WEBHOOK_VERIFY_TOKEN,
         'billing_payment_method_added', 'billing_phone_number_purchased', 'billing_phone_number_details',
         'billing_whatsapp_non_csw_count', 'billing_voice_agent_seconds', 'billing_email_sent_count',
-        'billing_email_package_active', 'billing_email_package_due', 'billing_simulated_day',
+        'billing_email_package_active', 'billing_email_package_due', 'billing_simulated_day', 'billing_credit_balance',
         SETTINGS_KEYS.INCLUDE_PENDING_PRICE,
         SETTINGS_KEYS.ENABLE_LOYALTY_POINTS,
         SETTINGS_KEYS.LOYALTY_POINTS_PER_RUPEE,
@@ -514,6 +514,7 @@ ready = (async () => {
         else if (k === 'billing_email_sent_count') defaultValue = '0';
         else if (k === 'billing_email_package_active') defaultValue = 'false';
         else if (k === 'billing_email_package_due') defaultValue = '0';
+        else if (k === 'billing_credit_balance') defaultValue = '500.00';
         else if (k === 'billing_simulated_day') defaultValue = '';
         else if (k === SETTINGS_KEYS.LOYALTY_POINTS_PER_RUPEE) defaultValue = '1';
         else if (k === SETTINGS_KEYS.LOYALTY_POINTS_REDEEM_RATE) defaultValue = '100';
@@ -1253,6 +1254,19 @@ ready = (async () => {
       completed_at  TEXT,
       FOREIGN KEY(campaign_id) REFERENCES email_campaigns(id) ON DELETE CASCADE,
       FOREIGN KEY(customer_id) REFERENCES customers(id) ON DELETE CASCADE
+    )
+  `);
+
+  // Billing Credit Ledger Table
+  db.run(`
+    CREATE TABLE IF NOT EXISTS billing_credit_ledger (
+      id            INTEGER PRIMARY KEY AUTOINCREMENT,
+      service_type  TEXT NOT NULL,
+      description   TEXT,
+      units_used    INTEGER DEFAULT 1,
+      amount        REAL NOT NULL,
+      balance_after REAL NOT NULL,
+      created_at    TEXT DEFAULT (datetime('now','localtime'))
     )
   `);
 

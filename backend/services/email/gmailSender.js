@@ -210,6 +210,13 @@ const gmailSender = {
             // Increment billing email sent count
             db.run("UPDATE settings SET value = CAST(CAST(COALESCE((SELECT value FROM settings WHERE key = 'billing_email_sent_count'), '0') AS INTEGER) + 1 AS TEXT) WHERE key = 'billing_email_sent_count'");
 
+            try {
+                const { deductCredit } = require('../billingHelper');
+                await deductCredit('Email', 1, 0.05, `Gmail delivery to ${to}`);
+            } catch (deductErr) {
+                console.error('[Gmail Sender] Ledger deduction error:', deductErr);
+            }
+
             console.log(`[Gmail Sender] Email successfully sent to ${to} via ${senderEmail}. Message ID: ${response.data.id}`);
             return response.data;
         } catch (err) {
