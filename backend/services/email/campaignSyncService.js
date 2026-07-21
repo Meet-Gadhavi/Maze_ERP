@@ -118,7 +118,13 @@ async function pushMetadata() {
         const syncId = getSyncId();
 
         // 1. Fetch relevant settings
-        const settingsKeys = ['company_name', 'email', 'phone', 'address', 'logo_url', 'whatsapp_token', 'whatsapp_phone_number_id', 'whatsapp_business_account_id'];
+        const settingsKeys = [
+            'company_name', 'email', 'phone', 'address', 'logo_url', 
+            'whatsapp_token', 'whatsapp_phone_number_id', 'whatsapp_business_account_id',
+            'billing_whatsapp_non_csw_count', 'billing_email_sent_count', 'billing_voice_agent_seconds',
+            'billing_payment_method_added', 'billing_payment_method_autopay', 'billing_last_payment_date',
+            'billing_wallet_balance'
+        ];
         const settingsRows = db.all("SELECT key, value FROM settings");
         const settings = {};
         settingsRows.forEach(r => {
