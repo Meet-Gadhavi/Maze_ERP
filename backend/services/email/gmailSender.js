@@ -59,7 +59,12 @@ async function getAuthorizedClient(email) {
         throw new Error(`No Gmail connection found for sender email: ${email}`);
     }
 
-    const creds = require('../../../Public/Email Service.json').web;
+    const fs = require('fs');
+    const path = require('path');
+    const primaryPath = path.join(__dirname, '../../../Public/Quantro O_Auth Secrets.json');
+    const fallbackPath = path.join(__dirname, '../../../Public/Email Service.json');
+    const credsPath = fs.existsSync(primaryPath) ? primaryPath : fallbackPath;
+    const creds = JSON.parse(fs.readFileSync(credsPath, 'utf8')).web;
     const oauth2Client = new google.auth.OAuth2(
         creds.client_id,
         creds.client_secret,

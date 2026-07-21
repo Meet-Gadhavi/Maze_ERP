@@ -2,14 +2,20 @@ const { google } = require('googleapis');
 const path = require('path');
 const fs = require('fs');
 
-const CREDENTIALS_PATH = path.join(__dirname, '../../Public/Email Service.json');
+const CREDENTIALS_PATH = path.join(__dirname, '../../Public/Quantro O_Auth Secrets.json');
+const FALLBACK_CREDENTIALS_PATH = path.join(__dirname, '../../Public/Email Service.json');
 const REDIRECT_URI = 'http://localhost:3001/auth/google/callback';
 
 function getCredentials() {
-    if (!fs.existsSync(CREDENTIALS_PATH)) {
-        throw new Error(`Google OAuth credentials file not found at ${CREDENTIALS_PATH}. Please ensure "Email Service.json" is in the Public folder.`);
+    let targetPath = CREDENTIALS_PATH;
+    if (!fs.existsSync(targetPath)) {
+        if (fs.existsSync(FALLBACK_CREDENTIALS_PATH)) {
+            targetPath = FALLBACK_CREDENTIALS_PATH;
+        } else {
+            throw new Error(`Google OAuth credentials file not found at ${CREDENTIALS_PATH}. Please ensure "Quantro O_Auth Secrets.json" is in the Public folder.`);
+        }
     }
-    const content = fs.readFileSync(CREDENTIALS_PATH, 'utf8');
+    const content = fs.readFileSync(targetPath, 'utf8');
     const config = JSON.parse(content);
     if (!config.web) {
         throw new Error('Invalid format in Google OAuth credentials file. Expected "web" configuration block.');

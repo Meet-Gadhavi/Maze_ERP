@@ -24,6 +24,7 @@ node_modules
 Public/client_secret_*.json
 credentials.json
 Public/Email Service.json
+Public/Quantro O_Auth Secrets.json
 
 # Scratch files
 scratch/
