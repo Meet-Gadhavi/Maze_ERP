@@ -13,7 +13,7 @@ function getDayOfMonth(settings) {
 
 async function calculateCurrentDue(settings) {
     const whatsappCount = Number(settings.billing_whatsapp_non_csw_count || 0);
-    const whatsappCost = whatsappCount * 0.20;
+    const whatsappCost = whatsappCount * 0.30;
 
     const voiceSeconds = Number(settings.billing_voice_agent_seconds || 0);
     const voiceMinutes = voiceSeconds / 60;

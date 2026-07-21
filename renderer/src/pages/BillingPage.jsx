@@ -592,19 +592,19 @@ export default function BillingPage() {
                                         <img src="./whatsapp-icon.png" alt="WhatsApp" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
                                     </div>
                                     <div>
-                                        <h3 style={{ margin: 0, fontSize: '15px', fontWeight: 700 }}>WhatsApp Out-of-CSW Templates</h3>
+                                        <h3 style={{ margin: 0, fontSize: '15px', fontWeight: 700 }}>WhatsApp API Service</h3>
                                         <span style={{ fontSize: '11px', color: 'var(--text-tertiary)' }}>
                                             {!status.paymentMethodAdded ? 'Action Required: Add Payment Method' : 'Authorized'}
                                         </span>
                                     </div>
                                 </div>
                                 <span style={{ fontSize: '12px', fontWeight: 600, background: 'var(--bg-secondary)', padding: '4px 8px', borderRadius: '12px' }}>
-                                    ₹0.20 / template message
+                                    ₹0.30 / message (Flat Rate)
                                 </span>
                             </div>
                             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', background: 'var(--bg-secondary)', padding: '12px', borderRadius: '8px' }}>
                                 <div>
-                                    <span style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>Out-of-Session Messages</span>
+                                    <span style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>Total Billed Messages</span>
                                     <div style={{ fontSize: '16px', fontWeight: 700, color: 'var(--text-primary)', marginTop: '4px' }}>
                                         {status.whatsappNonCswCount}
                                     </div>
@@ -770,7 +770,7 @@ export default function BillingPage() {
                                 <strong style={{ color: 'var(--text-primary)' }}>₹{dues.emailCost.toFixed(2)}</strong>
                             </div>
                             <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px' }}>
-                                <span style={{ color: 'var(--text-secondary)' }}>WhatsApp non-CSW:</span>
+                                <span style={{ color: 'var(--text-secondary)' }}>WhatsApp API Messages:</span>
                                 <strong style={{ color: 'var(--text-primary)' }}>₹{dues.whatsappCost.toFixed(2)}</strong>
                             </div>
                             <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px' }}>
