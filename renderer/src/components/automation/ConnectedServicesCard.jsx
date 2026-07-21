@@ -397,19 +397,6 @@ export default function ConnectedServicesCard({
                             <h3 style={{ margin: 0, fontSize: '18px', fontWeight: 600 }}>
                                 WhatsApp Service
                             </h3>
-                            {waConnections.length > 0 && (
-                                <span style={{ 
-                                    fontSize: '13px', 
-                                    fontWeight: 600, 
-                                    color: (waConnections[0].messagesSentToday || 0) >= (waConnections[0].messagesLimit || 1800) ? '#e53e3e' : 'var(--text-secondary)',
-                                    background: '#f8fafc',
-                                    padding: '4px 10px',
-                                    borderRadius: '6px',
-                                    border: '1px solid var(--border)'
-                                }}>
-                                    Daily Limit: {waConnections[0].messagesSentToday || 0} / {waConnections[0].messagesLimit || 1800} Sent
-                                </span>
-                            )}
                         </div>
                         <p style={{ margin: '4px 0 0 0', fontSize: '13px', color: 'var(--text-secondary)' }}>
                             Send styled invoice PDFs directly to customer numbers, automate notifications, and schedule text marketing campaigns.
