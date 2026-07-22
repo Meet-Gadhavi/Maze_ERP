@@ -25,7 +25,7 @@ import SButton from './components/SButton';
 class AppErrorBoundary extends Component {
     constructor(props) {
         super(props);
-        this.state = { hasError: false, error: null };
+        this.state = { hasError: false, error: null, showDetails: false };
     }
 
     static getDerivedStateFromError(error) {
@@ -41,31 +41,65 @@ class AppErrorBoundary extends Component {
             return (
                 <div style={{
                     display: 'flex', flexDirection: 'column', alignItems: 'center',
-                    justifyContent: 'center', height: '100vh', gap: '20px',
-                    background: 'var(--bg-primary)', color: 'var(--text-primary)',
-                    padding: '20px', textAlign: 'center'
+                    justifyContent: 'center', height: '100vh', gap: '16px',
+                    background: 'var(--bg-primary, #f8fafc)', color: 'var(--text-primary, #0f172a)',
+                    padding: '24px', textAlign: 'center', fontFamily: 'system-ui, sans-serif'
                 }}>
                     <div style={{ 
-                        width: '64px', height: '64px', borderRadius: '16px', 
-                        background: 'rgba(255, 59, 48, 0.1)', color: 'var(--danger)',
-                        display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        marginBottom: '8px'
+                        width: '60px', height: '60px', borderRadius: '16px', 
+                        background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center'
                     }}>
-                        <Icons.AlertTriangle size={32} />
+                        <Icons.AlertTriangle size={30} />
                     </div>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', alignItems: 'center' }}>
-                        <h2 style={{ margin: 0, fontWeight: 700, letterSpacing: '-0.02em' }}>Something went wrong</h2>
-                        <p style={{ color: 'var(--text-secondary)', margin: 0, maxWidth: 320, lineHeight: 1.5, fontSize: '14px' }}>
-                            An unexpected error occurred in the system. Please reload the application to continue.
+
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', alignItems: 'center', maxWidth: '420px' }}>
+                        <h2 style={{ margin: 0, fontWeight: 800, fontSize: '20px', letterSpacing: '-0.02em' }}>Something went wrong</h2>
+                        <p style={{ color: 'var(--text-secondary, #64748b)', margin: 0, lineHeight: 1.5, fontSize: '13px' }}>
+                            An unexpected interface error occurred. You can click Try Again to recover or reload the application.
                         </p>
                     </div>
-                    <SButton
-                        variant="primary"
-                        style={{ marginTop: '12px', padding: '12px 32px' }}
-                        onClick={() => window.location.reload()}
-                    >
-                        Reload Application
-                    </SButton>
+
+                    {this.state.error && (
+                        <div style={{ width: '100%', maxWidth: '500px', margin: '8px 0' }}>
+                            <button
+                                onClick={() => this.setState(prev => ({ showDetails: !prev.showDetails }))}
+                                style={{
+                                    background: 'none', border: 'none', color: '#0284c7', fontSize: '12px',
+                                    fontWeight: 600, cursor: 'pointer', textDecoration: 'underline'
+                                }}
+                            >
+                                {this.state.showDetails ? 'Hide Technical Details' : 'View Error Details'}
+                            </button>
+                            {this.state.showDetails && (
+                                <pre style={{
+                                    marginTop: '8px', padding: '12px', borderRadius: '8px',
+                                    background: '#0f172a', color: '#f8fafc', fontSize: '11px',
+                                    textAlign: 'left', overflowX: 'auto', maxHeight: '160px',
+                                    whiteSpace: 'pre-wrap', wordBreak: 'break-word'
+                                }}>
+                                    {this.state.error?.toString()}
+                                </pre>
+                            )}
+                        </div>
+                    )}
+
+                    <div style={{ display: 'flex', gap: '12px', marginTop: '8px' }}>
+                        <SButton
+                            variant="secondary"
+                            style={{ padding: '10px 24px' }}
+                            onClick={() => this.setState({ hasError: false, error: null })}
+                        >
+                            Try Again
+                        </SButton>
+                        <SButton
+                            variant="primary"
+                            style={{ padding: '10px 24px' }}
+                            onClick={() => window.location.reload()}
+                        >
+                            Reload Application
+                        </SButton>
+                    </div>
                 </div>
             );
         }
