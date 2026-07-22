@@ -396,7 +396,17 @@ export default function BillingPage() {
         );
     }
 
-    const { dues } = status;
+    const dues = status?.dues || {
+        whatsappCost: 0,
+        voiceCost: 0,
+        emailCost: 0,
+        numberCost: 0,
+        emailPackageDue: 0,
+        subscriptionCost: 0,
+        totalDue: 0
+    };
+    const creditLedger = Array.isArray(status?.creditLedger) ? status.creditLedger : [];
+    const creditBalance = Number(status?.creditBalance || 0);
 
     return (
         <div className="page-content">
@@ -433,7 +443,7 @@ export default function BillingPage() {
                     <div style={{ flex: 1 }}>
                         <strong style={{ fontSize: '15px' }}>Automations Blocked</strong>
                         <p style={{ margin: '4px 0 0 0', fontSize: '13px', color: 'var(--danger)' }}>
-                            Services are suspended because you have outstanding dues of <strong>₹{dues.totalDue.toFixed(2)}</strong> past the 5-day grace period (due by the 5th). Please clear dues to reactivate services.
+                            Services are suspended because you have outstanding dues of <strong>₹{(dues.totalDue || 0).toFixed(2)}</strong> past the 5-day grace period (due by the 5th). Please clear dues to reactivate services.
                         </p>
                     </div>
                     <SButton variant="primary" style={{ background: 'var(--danger)', borderColor: 'var(--danger)' }} onClick={() => setShowRazorpay(true)}>
@@ -544,7 +554,7 @@ export default function BillingPage() {
                                 <div style={{ textAlign: 'right' }}>
                                     <span style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-tertiary)', textTransform: 'uppercase' }}>Available Balance</span>
                                     <div style={{ fontSize: '24px', fontWeight: 800, color: 'var(--text-primary)', letterSpacing: '-0.5px' }}>
-                                        ₹{(status.creditBalance || 0).toFixed(2)}
+                                        ₹{creditBalance.toFixed(2)}
                                     </div>
                                 </div>
                                 <SButton variant="primary" onClick={() => setShowTopupModal(true)} style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '10px 18px' }}>
@@ -601,7 +611,7 @@ export default function BillingPage() {
                             </SButton>
                         </div>
 
-                        {(!status.creditLedger || status.creditLedger.length === 0) ? (
+                        {(!creditLedger || creditLedger.length === 0) ? (
                             <div style={{ padding: '32px', textAlign: 'center', border: '1px dashed var(--border)', borderRadius: '12px', background: 'var(--bg-soft)', color: 'var(--text-tertiary)', fontSize: '13px' }}>
                                 No credit transactions logged yet. Deductions will appear here automatically when messages or calls are triggered.
                             </div>
@@ -619,7 +629,7 @@ export default function BillingPage() {
                                         </tr>
                                     </thead>
                                     <tbody>
-                                        {status.creditLedger.map((row, idx) => {
+                                        {creditLedger.map((row, idx) => {
                                             const isTopup = row.service_type === 'Credit Top-up' || row.amount > 0;
                                             const badgeBg = row.service_type === 'WhatsApp' ? 'rgba(37, 211, 102, 0.12)' :
                                                             row.service_type === 'Email' ? 'rgba(234, 67, 53, 0.12)' :
