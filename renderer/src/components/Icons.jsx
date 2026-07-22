@@ -11,7 +11,8 @@ import {
     Banknote, Smartphone, Command, Monitor, Cpu, MessageSquare,
     Zap, Pause, Play, Database, Archive, ShieldCheck, Lock, ArrowUp,
     PieChart, CloudLightning, BarChart2, ShoppingBag, UserPlus, ArrowUpDown, Tag,
-    Phone, Mail, List, KeyRound, Award, CornerDownRight, ArrowUpRight, PlusCircle, MinusCircle
+    Phone, Mail, List, KeyRound, Award, CornerDownRight, ArrowUpRight, PlusCircle, MinusCircle,
+    Wallet, RefreshCw, UserX
 } from 'lucide-react';
 
 // ─────────────────────────────────────────────────────────────
@@ -204,6 +205,9 @@ export const Icons = {
     CornerDownRight: withMotion(CornerDownRight),
     PlusCircle:     withMotion(PlusCircle),
     MinusCircle:    withMotion(MinusCircle),
+    Wallet:         withMotion(Wallet),
+    RefreshCw:      withMotion(RefreshCw),
+    UserX:          withMotion(UserX),
 };
 
 export default Icons;
