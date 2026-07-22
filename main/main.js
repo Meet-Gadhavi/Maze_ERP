@@ -6,6 +6,13 @@ const { autoUpdater } = require('electron-updater');
 autoUpdater.autoDownload = false;
 autoUpdater.autoInstallOnAppQuit = true;
 
+if (process.env.GH_TOKEN || process.env.GITHUB_TOKEN) {
+    autoUpdater.requestHeaders = {
+        'Authorization': `token ${process.env.GH_TOKEN || process.env.GITHUB_TOKEN}`,
+        'User-Agent': 'Quantro-ERP-AutoUpdater'
+    };
+}
+
 // Enable Chromium's print preview component to allow print previews in print dialog
 // app.commandLine.appendSwitch('disable-print-preview');
 

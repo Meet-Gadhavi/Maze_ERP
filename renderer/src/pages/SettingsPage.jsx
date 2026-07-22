@@ -1883,13 +1883,22 @@ export default function SettingsPage() {
                                             <div style={{ display: 'flex', alignItems: 'center', gap: '12px', color: 'var(--danger)' }}>
                                                 <Icons.AlertCircle size={20} />
                                                 <div>
-                                                    <div style={{ fontWeight: 600, fontSize: '14px' }}>Update Failed</div>
+                                                    <div style={{ fontWeight: 600, fontSize: '14px' }}>Update Download Warning</div>
                                                     <div style={{ fontSize: '12px', color: 'var(--text-tertiary)', marginTop: '2px' }}>{updateState.error}</div>
                                                 </div>
                                             </div>
-                                            <SButton type="button" variant="secondary" onClick={handleCheckForUpdates} style={{ alignSelf: 'flex-start' }}>
-                                                Try Again
-                                            </SButton>
+                                            <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+                                                <SButton type="button" variant="secondary" onClick={handleCheckForUpdates}>
+                                                    Try Again
+                                                </SButton>
+                                                <SButton 
+                                                    type="button" 
+                                                    variant="primary" 
+                                                    onClick={() => window.electronAPI ? window.electronAPI.openExternal('https://github.com/Meet-Gadhavi/Maze_ERP/releases/tag/v2.10.30') : window.open('https://github.com/Meet-Gadhavi/Maze_ERP/releases/tag/v2.10.30', '_blank')}
+                                                >
+                                                    Download Installer Directly (GitHub)
+                                                </SButton>
+                                            </div>
                                         </div>
                                     )}
 
