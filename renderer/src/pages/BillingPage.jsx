@@ -5,6 +5,7 @@ import { Icons } from '../components/Icons';
 import { toast } from 'sonner';
 import { supabase } from '../supabase';
 import Skeleton from '../components/Skeleton';
+import { ChartBrushLayout, ChartBrush, AreaChart } from '../components/BklitCharts';
 
 export default function BillingPage() {
     const isDev = typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') && import.meta.env.DEV;
@@ -609,6 +610,57 @@ export default function BillingPage() {
                                 Refresh Log
                             </SButton>
                         </div>
+
+                        {/* Bklit Time-Series Wallet Balance Brush Chart */}
+                        {creditLedger.length > 0 && (
+                            <div style={{ marginBottom: '16px', background: 'var(--bg-secondary)', padding: '16px', borderRadius: '12px', border: '1px solid var(--border)' }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+                                    <span style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-secondary)' }}>
+                                        📈 Bklit Time-Series Wallet Balance &amp; Credit Usage Trend
+                                    </span>
+                                    <span style={{ fontSize: '11px', color: 'var(--text-tertiary)' }}>
+                                        Drag brush handles to zoom timeline
+                                    </span>
+                                </div>
+                                <ChartBrushLayout
+                                    data={creditLedger.slice().reverse().map(item => ({
+                                        date: new Date(item.created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' }),
+                                        balance: Number(item.balance_after || 0),
+                                        amount: Math.abs(Number(item.amount || 0))
+                                    }))}
+                                    xDataKey="date"
+                                    enabled={true}
+                                    height={50}
+                                    brushStrip={(layout) => (
+                                        <AreaChart
+                                          animationDuration={0}
+                                          data={creditLedger.slice().reverse().map(item => ({
+                                              date: new Date(item.created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' }),
+                                              balance: Number(item.balance_after || 0)
+                                          }))}
+                                          dataKey="balance"
+                                          color="#0284c7"
+                                          height={50}
+                                        />
+                                    )}
+                                >
+                                    {(layout) => (
+                                        <AreaChart
+                                          data={creditLedger.slice().reverse().map(item => ({
+                                              date: new Date(item.created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' }),
+                                              balance: Number(item.balance_after || 0)
+                                          }))}
+                                          dataKey="balance"
+                                          color="#0284c7"
+                                          height={160}
+                                          xDomain={layout.xDomain}
+                                          xDomainSlotCount={layout.xDomainSlotCount}
+                                          tweenYDomainOnXDomainChange={true}
+                                        />
+                                    )}
+                                </ChartBrushLayout>
+                            </div>
+                        )}
 
                         {(!creditLedger || creditLedger.length === 0) ? (
                             <div style={{ padding: '32px', textAlign: 'center', border: '1px dashed var(--border)', borderRadius: '12px', background: 'var(--bg-soft)', color: 'var(--text-tertiary)', fontSize: '13px' }}>
@@ -1513,77 +1565,90 @@ export default function BillingPage() {
                 </div>
             )}
 
-            {/* Pay-As-You-Go Credit Topup Modal */}
+            {/* Pay-As-You-Go Credit Topup Modal (Shopify Polaris Design System) */}
             {showTopupModal && (
-                <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px' }}>
-                    <div style={{ background: '#fff', borderRadius: '16px', maxWidth: '440px', width: '100%', padding: '24px', boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1), 0 10px 10px -5px rgba(0,0,0,0.04)', display: 'flex', flexDirection: 'column', gap: '20px' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                                <div style={{ width: '36px', height: '36px', borderRadius: '10px', background: 'rgba(2, 132, 199, 0.1)', color: 'var(--accent)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <div style={{ position: 'fixed', inset: 0, background: 'rgba(32, 34, 35, 0.6)', backdropFilter: 'blur(4px)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px' }}>
+                    <div style={{ background: '#ffffff', borderRadius: '12px', maxWidth: '460px', width: '100%', border: '1px solid #e1e3e5', boxShadow: '0 8px 30px rgba(0,0,0,0.12)', overflow: 'hidden' }}>
+                        
+                        {/* Polaris Modal Header */}
+                        <div style={{ padding: '20px 24px', borderBottom: '1px solid #e1e3e5', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#f7f8f9' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                <div style={{ width: '36px', height: '36px', borderRadius: '8px', background: '#e0f2fe', color: '#0284c7', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                                     <Icons.Wallet size={20} />
                                 </div>
-                                <h3 style={{ margin: 0, fontSize: '17px', fontWeight: 700 }}>Top-Up Wallet Credits</h3>
+                                <div>
+                                    <h3 style={{ margin: 0, fontSize: '16px', fontWeight: 700, color: '#202223' }}>Top-Up Wallet Credits</h3>
+                                    <span style={{ fontSize: '11px', color: '#6d7175', fontWeight: 500 }}>Shopify Polaris Wallet Manager</span>
+                                </div>
                             </div>
-                            <button onClick={() => setShowTopupModal(false)} style={{ border: 'none', background: 'none', cursor: 'pointer', color: 'var(--text-tertiary)' }}>
+                            <button onClick={() => setShowTopupModal(false)} style={{ border: 'none', background: 'none', cursor: 'pointer', color: '#6d7175', padding: '4px', borderRadius: '4px' }}>
                                 <Icons.X size={18} />
                             </button>
                         </div>
 
-                        <p style={{ margin: 0, fontSize: '13px', color: 'var(--text-secondary)', lineHeight: '1.5' }}>
-                            Recharge your Quantro ERP wallet to send WhatsApp API messages, Gmail invoice notifications, and run AI Voice agent calls.
-                        </p>
+                        {/* Polaris Modal Body */}
+                        <div style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                            <p style={{ margin: 0, fontSize: '13px', color: '#6d7175', lineHeight: 1.5 }}>
+                                Recharge your wallet balance online via Razorpay to dispatch WhatsApp marketing dispatches, Gmail notifications, and AI Voice Calling calls.
+                            </p>
 
-                        {/* Quick Presets */}
-                        <div>
-                            <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '8px' }}>Select Preset Amount</label>
-                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px' }}>
-                                {['250', '500', '1000'].map(amt => (
-                                    <button
-                                        key={amt}
-                                        type="button"
-                                        onClick={() => setTopupAmount(amt)}
-                                        style={{
-                                            padding: '10px',
-                                            borderRadius: '8px',
-                                            border: topupAmount === amt ? '2px solid var(--accent)' : '1px solid var(--border)',
-                                            background: topupAmount === amt ? 'rgba(2, 132, 199, 0.08)' : '#fff',
-                                            color: topupAmount === amt ? 'var(--accent)' : 'var(--text-primary)',
-                                            fontWeight: 700,
-                                            fontSize: '14px',
-                                            cursor: 'pointer'
-                                        }}
-                                    >
-                                        ₹{amt}
-                                    </button>
-                                ))}
+                            {/* Preset Buttons Group (Polaris ButtonGroup) */}
+                            <div>
+                                <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: '#202223', marginBottom: '8px' }}>Select Preset Amount</label>
+                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '10px' }}>
+                                    {['250', '500', '1000'].map(amt => (
+                                        <button
+                                            key={amt}
+                                            type="button"
+                                            onClick={() => setTopupAmount(amt)}
+                                            style={{
+                                                padding: '12px',
+                                                borderRadius: '8px',
+                                                border: topupAmount === amt ? '2px solid #008060' : '1px solid #c9cccf',
+                                                background: topupAmount === amt ? '#f0fdf4' : '#ffffff',
+                                                color: topupAmount === amt ? '#008060' : '#202223',
+                                                fontWeight: 700,
+                                                fontSize: '14px',
+                                                cursor: 'pointer',
+                                                transition: 'all 0.15s ease'
+                                            }}
+                                        >
+                                            ₹{amt}
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+
+                            {/* Custom Input (Polaris TextField) */}
+                            <div>
+                                <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: '#202223', marginBottom: '6px' }}>Or Enter Custom Amount (₹)</label>
+                                <div style={{ position: 'relative' }}>
+                                    <input
+                                        type="number"
+                                        className="input-text"
+                                        value={topupAmount}
+                                        onChange={(e) => setTopupAmount(e.target.value)}
+                                        placeholder="e.g. 500"
+                                        style={{ height: '42px', fontSize: '15px', fontWeight: 700, paddingLeft: '12px', borderRadius: '8px', border: '1px solid #c9cccf', width: '100%' }}
+                                    />
+                                </div>
                             </div>
                         </div>
 
-                        {/* Custom Input */}
-                        <div>
-                            <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '6px' }}>Or Enter Custom Amount (₹)</label>
-                            <input
-                                type="number"
-                                className="input-text"
-                                value={topupAmount}
-                                onChange={(e) => setTopupAmount(e.target.value)}
-                                placeholder="e.g. 500"
-                                style={{ height: '40px', fontSize: '15px', fontWeight: 700 }}
-                            />
+                        {/* Polaris Footer Action Bar */}
+                        <div style={{ padding: '16px 24px', background: '#f7f8f9', borderTop: '1px solid #e1e3e5', display: 'flex', justifyContent: 'flex-end', gap: '12px' }}>
+                            <SButton variant="secondary" onClick={() => setShowTopupModal(false)}>
+                                Cancel
+                            </SButton>
+                            <SButton
+                                variant="primary"
+                                style={{ background: '#008060', borderColor: '#008060' }}
+                                onClick={() => handleTopupCredit(topupAmount)}
+                            >
+                                Pay ₹{Number(topupAmount || 0).toFixed(2)} via Razorpay
+                            </SButton>
                         </div>
 
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', paddingTop: '8px' }}>
-                            <SButton variant="primary" disabled={topupLoading} onClick={() => handleTopupCredit()} style={{ width: '100%', justifyContent: 'center' }}>
-                                {topupLoading ? 'Adding Wallet Credit...' : `Add ₹${Number(topupAmount || 0).toFixed(2)} Wallet Credit`}
-                            </SButton>
-                            <SButton variant="secondary" onClick={() => {
-                                const url = `${webBaseUrl}/?action=topup-credit&amount=${topupAmount}&syncId=${status?.syncId || ''}`;
-                                openExternalLink(url);
-                                toast.info('Opening Quantro Web Razorpay Checkout...');
-                            }} style={{ width: '100%', justifyContent: 'center', fontSize: '12px' }}>
-                                Pay via Razorpay on Quantro Web Website
-                            </SButton>
-                        </div>
                     </div>
                 </div>
             )}
