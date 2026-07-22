@@ -1924,11 +1924,27 @@ export default function SettingsPage() {
                                         </div>
                                     )}
 
+                                    {/* Timeline Item: v2.10.30 — Automations Hub, Google Secrets & Workspace Analytics */}
+                                    <div style={{ position: 'relative' }}>
+                                        <div style={{ position: 'absolute', left: '-22px', top: '4px', width: '12px', height: '12px', borderRadius: '50%', background: 'var(--accent)', border: '2px solid var(--bg-primary)' }}></div>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                            <strong style={{ fontSize: '15px' }}>Version 2.10.30 {updateState.status !== 'available' && '(Latest)'}</strong>
+                                            <span style={{ fontSize: '11px', color: 'var(--text-tertiary)', background: 'var(--bg-secondary)', padding: '2px 8px', borderRadius: '12px' }}>July 22, 2026</span>
+                                        </div>
+                                        <div style={{ fontSize: '13px', color: 'var(--text-secondary)', marginTop: '8px', lineHeight: 1.6 }}>
+                                             <ul style={{ margin: 0, paddingLeft: '16px' }}>
+                                                 <li><strong>Automations &amp; Google Secrets Console:</strong> Dedicated Automations Hub in Quantro Web with real-time metrics for Voice Calling, WhatsApp Cloud API (QEIWA/OBIWA), and Gmail Delivery via Google OAuth Credentials.</li>
+                                                 <li><strong>Per-Workspace Consumption Analytics:</strong> Added Gmail email delivery tracking column and accurate DB &amp; Backup data size measurement in MB/GB.</li>
+                                                 <li><strong>System Error Recovery &amp; Diagnostics:</strong> Upgraded global error boundary with instant diagnostic details and single-click recovery.</li>
+                                             </ul>
+                                        </div>
+                                    </div>
+
                                     {/* Timeline Item: v2.10.29 — Quantro Pay-As-You-Go Credit System & Deduction Log */}
                                     <div style={{ position: 'relative' }}>
                                         <div style={{ position: 'absolute', left: '-22px', top: '4px', width: '12px', height: '12px', borderRadius: '50%', background: 'var(--accent)', border: '2px solid var(--bg-primary)' }}></div>
                                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                            <strong style={{ fontSize: '15px' }}>Version 2.10.29 {updateState.status !== 'available' && '(Latest)'}</strong>
+                                            <strong style={{ fontSize: '15px' }}>Version 2.10.29</strong>
                                             <span style={{ fontSize: '11px', color: 'var(--text-tertiary)', background: 'var(--bg-secondary)', padding: '2px 8px', borderRadius: '12px' }}>July 21, 2026</span>
                                         </div>
                                         <div style={{ fontSize: '13px', color: 'var(--text-secondary)', marginTop: '8px', lineHeight: 1.6 }}>
