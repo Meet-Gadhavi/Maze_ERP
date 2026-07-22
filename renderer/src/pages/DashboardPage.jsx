@@ -3,10 +3,10 @@ import api from '../api';
 import './DashboardPage.css';
 import { formatDateShort, formatDate } from '../utils';
 import { Icons } from '../components/Icons';
-import { useNavigate } from 'react-router-dom';
-import { BarChart } from '@mui/x-charts/BarChart';
-import { LineChart } from '@mui/x-charts/LineChart';
-import { PieChart } from '@mui/x-charts/PieChart';
+import { 
+  AreaChart, BarChart, LineChart, PieChart, HeatmapChart, GaugeChart, 
+  FunnelChart, RadarChart, RingChart, SunburstChart, ChartBrushLayout 
+} from '../components/BklitCharts';
 import DailyReportModal from '../components/DailyReportModal';
 import SButton from '../components/SButton';
 import CustomSelect from '../components/CustomSelect';
@@ -368,57 +368,51 @@ export default function DashboardPage() {
                         <ChartCard title="Sales Trend" subtitle={`Revenue over ${TIMEFRAME_LABELS[timeframe].toLowerCase()}`}>
                             {loading ? <EmptyChart message="Loading..." /> :
                             !data.salesOverTime?.length ? <EmptyChart icon="TrendingUp" message="No sales for this period" /> : (
-                                <LineChart
-                                    xAxis={[{
-                                        data: data.salesOverTime.map(d => new Date(d.date)),
-                                        scaleType: 'time',
-                                        valueFormatter: (value) => formatDateShort(value)
-                                    }]}
-                                    series={[{
-                                        data: data.salesOverTime.map(d => d.total),
-                                        area: true,
-                                        color: '#0071E3',
-                                        showMark: false,
-                                        valueFormatter: (v) => `₹${fmt(v)}`
-                                    }]}
-                                    height={240}
-                                    slotProps={{ legend: { hidden: true } }}
-                                />
+                                <ChartBrushLayout
+                                    data={data.salesOverTime.map(d => ({
+                                        date: formatDateShort(d.date),
+                                        total: Number(d.total || 0)
+                                    }))}
+                                    xDataKey="date"
+                                    enabled={true}
+                                    height={45}
+                                    brushStrip={(layout) => (
+                                        <AreaChart
+                                            animationDuration={0}
+                                            data={layout.data}
+                                            dataKey="total"
+                                            color="#0071E3"
+                                            height={45}
+                                        />
+                                    )}
+                                >
+                                    {(layout) => (
+                                        <AreaChart
+                                            data={data.salesOverTime.map(d => ({
+                                                date: formatDateShort(d.date),
+                                                total: Number(d.total || 0)
+                                            }))}
+                                            dataKey="total"
+                                            color="#0071E3"
+                                            height={200}
+                                            xDomain={layout.xDomain}
+                                            xDomainSlotCount={layout.xDomainSlotCount}
+                                        />
+                                    )}
+                                </ChartBrushLayout>
                             )}
                         </ChartCard>
 
                         <ChartCard title="Orders vs Revenue" subtitle="Invoice count and revenue per day">
                             {loading ? <EmptyChart message="Loading..." /> :
                             !data.ordersVsRevenue?.some(d => d.orders > 0) ? <EmptyChart icon="BarChart2" message="No orders for this period" /> : (
-                                <LineChart
-                                    xAxis={[{
-                                        data: data.ordersVsRevenue.map(d => new Date(d.date)),
-                                        scaleType: 'time',
-                                        valueFormatter: (value) => formatDateShort(value)
-                                    }]}
-                                    yAxis={[
-                                        { id: 'leftAxis', valueFormatter: (v) => `₹${fmt(v)}` },
-                                        { id: 'rightAxis', position: 'right' }
-                                    ]}
-                                    series={[
-                                        {
-                                            yAxisKey: 'leftAxis',
-                                            data: data.ordersVsRevenue.map(d => d.revenue),
-                                            label: 'Revenue',
-                                            color: '#0071E3',
-                                            showMark: false,
-                                            valueFormatter: (v) => `₹${fmt(v)}`
-                                        },
-                                        {
-                                            yAxisKey: 'rightAxis',
-                                            data: data.ordersVsRevenue.map(d => d.orders),
-                                            label: 'Orders',
-                                            color: '#FF9F0A',
-                                            showMark: true,
-                                            valueFormatter: (v) => `${v} orders`
-                                        }
-                                    ]}
-                                    rightAxis="rightAxis"
+                                <AreaChart
+                                    data={data.ordersVsRevenue.map(d => ({
+                                        date: formatDateShort(d.date),
+                                        revenue: Number(d.revenue || 0)
+                                    }))}
+                                    dataKey="revenue"
+                                    color="#30D158"
                                     height={240}
                                 />
                             )}
@@ -448,26 +442,13 @@ export default function DashboardPage() {
 
                         <ChartCard title="Category Sales" subtitle="Revenue breakdown by product category">
                             {(!data.categorySales?.length && !data.categoryDistribution?.length) ? <EmptyChart icon="Tag" message="No category data" /> : (
-                            <BarChart
-                                dataset={(!data.categorySales?.length ? (data.categoryDistribution || []) : data.categorySales).map(c => ({ name: c.name || 'Uncategorized', value: Number(c.value || 0) }))}
-                                yAxis={[{
-                                    scaleType: 'band',
-                                    dataKey: 'name'
-                                }]}
-                                xAxis={[{
-                                    valueFormatter: (v) => `₹${fmt(v)}`
-                                }]}
-                                series={[{
-                                    dataKey: 'value',
-                                    label: 'Revenue',
-                                    color: '#AF52DE',
-                                    valueFormatter: (v) => `₹${fmt(v)}`
-                                }]}
-                                layout="horizontal"
-                                height={240}
-                                margin={{ left: 100 }}
-                                slotProps={{ legend: { hidden: true } }}
-                            />
+                                <BarChart
+                                    data={(!data.categorySales?.length ? (data.categoryDistribution || []) : data.categorySales).map(c => ({ name: c.name || 'Uncategorized', value: Number(c.value || 0) }))}
+                                    xDataKey="name"
+                                    dataKey="value"
+                                    color="#FF9F0A"
+                                    height={240}
+                                />
                             )}
                         </ChartCard>
                     </div>
@@ -559,20 +540,13 @@ export default function DashboardPage() {
                         <ChartCard title="Return / Refund Analytics" subtitle="Returns count and amount over period">
                             {!data.returnAnalytics?.some(r => r.count > 0) ? <EmptyChart icon="RotateCcw" message="No returns in this period" /> : (
                                 <LineChart
-                                    xAxis={[{
-                                        data: data.returnAnalytics.map(d => new Date(d.date)),
-                                        scaleType: 'time',
-                                        valueFormatter: (value) => formatDateShort(value)
-                                    }]}
-                                    series={[{
-                                        data: data.returnAnalytics.map(d => d.amount),
-                                        label: 'Refund Amount',
-                                        color: '#FF3B30',
-                                        showMark: true,
-                                        valueFormatter: (v) => `₹${fmt(v)}`
-                                    }]}
+                                    data={data.returnAnalytics.map(d => ({
+                                        date: formatDateShort(d.date),
+                                        amount: Number(d.amount || 0)
+                                    }))}
+                                    dataKey="amount"
+                                    color="#FF3B30"
                                     height={220}
-                                    slotProps={{ legend: { hidden: true } }}
                                 />
                             )}
                         </ChartCard>
@@ -700,17 +674,15 @@ export default function DashboardPage() {
                         <div style={{ gridColumn: 'span 2' }}>
                             <ChartCard title="Stock Movement Trend" subtitle="Inventory in vs out over period">
                                 {!data.stockMovementTrend?.some(d => d.stock_in > 0 || d.stock_out > 0) ? <EmptyChart icon="ArrowUpDown" message="No stock movements recorded" /> : (
-                                    <ResponsiveContainer width="100%" height={240}>
-                                        <LineChart data={data.stockMovementTrend}>
-                                            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
-                                            <XAxis dataKey="date" axisLine={false} tickLine={false} tick={chartStyle.axisTickStyle} tickFormatter={formatDateShort} />
-                                            <YAxis axisLine={false} tickLine={false} tick={chartStyle.axisTickStyle} />
-                                            <Tooltip contentStyle={chartStyle.contentStyle} labelFormatter={formatDate} />
-                                            <Line type="monotone" dataKey="stock_in" stroke="#30D158" strokeWidth={2.5} dot={true} name="Stock IN" />
-                                            <Line type="monotone" dataKey="stock_out" stroke="#FF3B30" strokeWidth={2.5} dot={true} name="Stock OUT" />
-                                            <Legend />
-                                        </LineChart>
-                                    </ResponsiveContainer>
+                                    <AreaChart
+                                        data={data.stockMovementTrend.map(d => ({
+                                            date: formatDateShort(d.date),
+                                            stock_in: Number(d.stock_in || 0)
+                                        }))}
+                                        dataKey="stock_in"
+                                        color="#30D158"
+                                        height={240}
+                                    />
                                 )}
                             </ChartCard>
                         </div>

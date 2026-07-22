@@ -9,7 +9,7 @@ import { isOnline } from '../utils/network';
 import { mazewaySupabase } from '../mazewaySupabase';
 import './AutomationPage.css';
 import ConnectedServicesCard from '../components/automation/ConnectedServicesCard';
-import { LineChart } from '@mui/x-charts/LineChart';
+import { AreaChart, ChartBrushLayout } from '../components/BklitCharts';
 
 const AGENT_PLANS = [
     { id: 'starter', name: 'Starter', price: 600, features: ['1000 mins/mo', 'WhatsApp Only', 'Basic Personality'] },
@@ -599,14 +599,14 @@ export default function AutomationPage() {
                             <span style={{ fontWeight: 600, fontSize: '13px', color: 'var(--text-secondary)' }}>AI Interactions — Last 14 Days</span>
                             <span style={{ fontSize: '12px', color: 'var(--text-tertiary)' }}>{totalInteractions} total interactions</span>
                         </div>
-                        <LineChart
-                            height={100}
-                            margin={{ left: 0, right: 0, top: 8, bottom: 24 }}
-                            xAxis={[{ data: labels, scaleType: 'point' }]}
-                            yAxis={[{ width: 0, tickNumber: 0 }]}
-                            series={[{ data: interactionsByDay, area: true, color: '#10b981', showMark: false, valueFormatter: v => `${v} interactions` }]}
-                            slotProps={{ legend: { hidden: true } }}
-                            sx={{ '& .MuiChartsAxis-tickLabel': { fontSize: '10px', fill: 'var(--text-tertiary)' }, '& .MuiChartsAxis-line, & .MuiChartsAxis-tick': { stroke: 'transparent' }, '& .MuiAreaElement-root': { fillOpacity: 0.15 } }}
+                        <AreaChart
+                            data={labels.map((lbl, idx) => ({
+                                date: lbl,
+                                value: interactionsByDay[idx] || 0
+                            }))}
+                            dataKey="value"
+                            color="#10b981"
+                            height={120}
                         />
                     </div>
                 );
