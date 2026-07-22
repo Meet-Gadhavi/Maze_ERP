@@ -48,23 +48,12 @@ export default function BillingPage() {
     const [topupAmount, setTopupAmount] = useState('500');
     const [topupLoading, setTopupLoading] = useState(false);
 
-    const handleTopupCredit = async (amountVal) => {
-        const amt = Number(amountVal || topupAmount);
-        if (!amt || amt <= 0) {
-            toast.error('Please enter a valid top-up amount');
-            return;
-        }
-        setTopupLoading(true);
-        try {
-            await api.topupCredit(amt, `Razorpay Top-up via quantro-web (₹${amt})`);
-            toast.success(`Successfully added ₹${amt.toFixed(2)} wallet credit!`);
-            setShowTopupModal(false);
-            loadBillingStatus();
-        } catch (err) {
-            toast.error(err.message || 'Failed to process top-up');
-        } finally {
-            setTopupLoading(false);
-        }
+    const handleTopupCredit = (amountVal) => {
+        const amt = Number(amountVal || topupAmount || 250);
+        const url = `${webBaseUrl}/?page=top-up&amount=${amt}&email=${encodeURIComponent(status?.email || '')}&syncId=${status?.syncId || ''}`;
+        openExternalLink(url);
+        setShowTopupModal(false);
+        toast.info(`Opening Quantro Web to top up ₹${amt.toFixed(2)} wallet credits via Razorpay.`);
     };
 
     useEffect(() => {
@@ -410,18 +399,57 @@ export default function BillingPage() {
 
     return (
         <div className="page-content">
-            {/* Header Section */}
-            <div className="page-header" style={{ marginBottom: '24px' }}>
+            {/* Header Section with Header Wallet Pill */}
+            <div className="page-header" style={{ marginBottom: '24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                     <div style={{ padding: '8px', background: 'var(--accent-light)', color: 'var(--accent)', borderRadius: '8px' }}>
                         <Icons.CreditCard size={24} />
                     </div>
                     <div>
-                        <h1 className="page-title" style={{ margin: 0, fontSize: '24px', fontWeight: 800 }}>Billing & Subscription</h1>
+                        <h1 className="page-title" style={{ margin: 0, fontSize: '24px', fontWeight: 800 }}>Billing &amp; Subscription</h1>
                         <p style={{ margin: '4px 0 0 0', color: 'var(--text-secondary)', fontSize: '13px' }}>
                             Monitor automation usage limits, pricing parameters, and pay outstanding service dues.
                         </p>
                     </div>
+                </div>
+
+                {/* Header Wallet Pill Component */}
+                <div style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '14px',
+                    padding: '8px 16px 8px 18px',
+                    background: 'var(--bg-card)',
+                    border: '1px solid var(--border)',
+                    borderRadius: '9999px',
+                    boxShadow: '0 2px 8px rgba(0, 0, 0, 0.04)'
+                }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <Icons.Wallet size={20} style={{ color: 'var(--text-secondary)' }} />
+                        <span style={{ fontSize: '18px', fontWeight: 800, color: 'var(--text-primary)', fontFamily: 'monospace', letterSpacing: '-0.5px' }}>
+                            ₹{creditBalance.toFixed(2)}
+                        </span>
+                    </div>
+                    <button
+                        onClick={() => openExternalLink(`${webBaseUrl}/?page=top-up&amount=250&email=${encodeURIComponent(status?.email || '')}&syncId=${status?.syncId || ''}`)}
+                        style={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '6px',
+                            padding: '7px 16px',
+                            borderRadius: '9999px',
+                            border: '1px solid #10b981',
+                            background: '#ecfdf5',
+                            color: '#059669',
+                            fontSize: '13px',
+                            fontWeight: 700,
+                            cursor: 'pointer',
+                            transition: 'all 0.2s ease',
+                            boxShadow: '0 1px 2px rgba(16, 185, 129, 0.1)'
+                        }}
+                    >
+                        <Icons.PlusCircle size={15} /> Add money
+                    </button>
                 </div>
             </div>
 
@@ -528,45 +556,16 @@ export default function BillingPage() {
                         </div>
                     </div>
 
-                    {/* Pay-As-You-Go Wallet Credit Card */}
-                    <div className="card" style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '20px', background: 'linear-gradient(135deg, rgba(2, 132, 199, 0.05) 0%, rgba(37, 211, 102, 0.05) 100%)', border: '1px solid rgba(2, 132, 199, 0.2)' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                                <div style={{
-                                    width: '44px', height: '44px', borderRadius: '12px', background: 'var(--accent)',
-                                    display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', boxShadow: '0 4px 12px rgba(2, 132, 199, 0.25)'
-                                }}>
-                                    <Icons.Wallet size={22} />
-                                </div>
-                                <div>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                        <h3 style={{ margin: 0, fontSize: '18px', fontWeight: 700 }}>Quantro Pay-As-You-Go Wallet</h3>
-                                        <span style={{ fontSize: '10px', fontWeight: 700, padding: '2px 8px', borderRadius: '999px', background: 'rgba(52, 199, 89, 0.15)', color: '#128C7E', border: '1px solid currentColor' }}>
-                                            Live Credit Balance
-                                        </span>
-                                    </div>
-                                    <p style={{ margin: '4px 0 0 0', fontSize: '13px', color: 'var(--text-secondary)' }}>
-                                        Real-time usage balance for WhatsApp API, Gmail Delivery, and AI Voice Calling services.
-                                    </p>
-                                </div>
-                            </div>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                                <div style={{ textAlign: 'right' }}>
-                                    <span style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-tertiary)', textTransform: 'uppercase' }}>Available Balance</span>
-                                    <div style={{ fontSize: '24px', fontWeight: 800, color: 'var(--text-primary)', letterSpacing: '-0.5px' }}>
-                                        ₹{creditBalance.toFixed(2)}
-                                    </div>
-                                </div>
-                                <SButton variant="primary" onClick={() => setShowTopupModal(true)} style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '10px 18px' }}>
-                                    <Icons.PlusCircle size={16} />
-                                    Top-Up Credit
-                                </SButton>
-                            </div>
+                    {/* Pay-As-You-Go Service Pricing Card */}
+                    <div className="card" style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <h3 style={{ margin: 0, fontSize: '15px', fontWeight: 700 }}>Pay-As-You-Go Service Rates</h3>
+                            <span style={{ fontSize: '11px', fontWeight: 700, padding: '3px 10px', borderRadius: '999px', background: 'rgba(16, 185, 129, 0.1)', color: '#059669' }}>
+                                Wallet Deducted
+                            </span>
                         </div>
-
-                        {/* Service Rates Grid */}
-                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '12px', background: '#ffffff', padding: '14px', borderRadius: '12px', border: '1px solid var(--border)' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '12px' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', background: 'var(--bg-secondary)', padding: '12px', borderRadius: '10px', border: '1px solid var(--border)' }}>
                                 <div style={{ width: '32px', height: '32px', borderRadius: '8px', background: 'rgba(37, 211, 102, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                                     <img src="./whatsapp-icon.png" alt="WA" style={{ width: '18px', height: '18px', objectFit: 'contain' }} />
                                 </div>
@@ -575,7 +574,7 @@ export default function BillingPage() {
                                     <div style={{ fontSize: '13px', fontWeight: 700, color: '#128C7E' }}>₹0.30 / message</div>
                                 </div>
                             </div>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', background: 'var(--bg-secondary)', padding: '12px', borderRadius: '10px', border: '1px solid var(--border)' }}>
                                 <div style={{ width: '32px', height: '32px', borderRadius: '8px', background: 'rgba(234, 67, 53, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                                     <img src="./gmail-icon.png" alt="Gmail" style={{ width: '18px', height: '18px', objectFit: 'contain' }} />
                                 </div>
@@ -584,7 +583,7 @@ export default function BillingPage() {
                                     <div style={{ fontSize: '13px', fontWeight: 700, color: '#ea4335' }}>₹0.05 / email</div>
                                 </div>
                             </div>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', background: 'var(--bg-secondary)', padding: '12px', borderRadius: '10px', border: '1px solid var(--border)' }}>
                                 <div style={{ width: '32px', height: '32px', borderRadius: '8px', background: 'rgba(147, 51, 234, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                                     <img src="./mazeway.png" alt="Voice" style={{ width: '18px', height: '18px', objectFit: 'contain' }} />
                                 </div>
@@ -934,58 +933,94 @@ export default function BillingPage() {
                 {/* Right Column: Summary Box and Payment Method */}
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
                     
-                    {/* Summary Dues Box */}
-                    <div className="card" style={{ padding: '24px', background: 'linear-gradient(180deg, var(--bg-card), var(--bg-secondary))' }}>
-                        <h3 style={{ margin: '0 0 16px 0', fontSize: '16px', fontWeight: 800 }}>Account Summary</h3>
-                        
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', margin: '20px 0', borderBottom: '1px solid var(--border)', paddingBottom: '16px' }}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px' }}>
-                                <span style={{ color: 'var(--text-secondary)' }}>Email Overages:</span>
-                                <strong style={{ color: 'var(--text-primary)' }}>₹{dues.emailCost.toFixed(2)}</strong>
+                    {/* Itemized Account Summary Table Card */}
+                    <div className="card" style={{ padding: '24px', background: 'var(--bg-card)' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+                            <div>
+                                <h3 style={{ margin: 0, fontSize: '16px', fontWeight: 800 }}>Account Summary</h3>
+                                <p style={{ margin: '2px 0 0 0', fontSize: '12px', color: 'var(--text-secondary)' }}>
+                                    Live breakdown of pay-as-you-go wallet deductions &amp; monthly plan dues.
+                                </p>
                             </div>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px' }}>
-                                <span style={{ color: 'var(--text-secondary)' }}>WhatsApp API Messages:</span>
-                                <strong style={{ color: 'var(--text-primary)' }}>₹{dues.whatsappCost.toFixed(2)}</strong>
-                            </div>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px' }}>
-                                <span style={{ color: 'var(--text-secondary)' }}>Voice Calling Agent:</span>
-                                <strong style={{ color: 'var(--text-primary)' }}>₹{dues.voiceCost.toFixed(2)}</strong>
-                            </div>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px' }}>
-                                <span style={{ color: 'var(--text-secondary)' }}>VoIP Subscriptions:</span>
-                                <strong style={{ color: 'var(--text-primary)' }}>₹{dues.numberCost.toFixed(2)}</strong>
-                            </div>
-                            {dues.emailPackageDue > 0 && (
-                                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px' }}>
-                                    <span style={{ color: 'var(--text-secondary)' }}>Email Package Purchase:</span>
-                                    <strong style={{ color: 'var(--text-primary)' }}>₹{dues.emailPackageDue.toFixed(2)}</strong>
+                            <div style={{ textAlign: 'right' }}>
+                                <span style={{ fontSize: '10px', color: 'var(--text-tertiary)', textTransform: 'uppercase', fontWeight: 700 }}>Total Net Outstanding Due</span>
+                                <div style={{ fontSize: '20px', fontWeight: 800, color: dues.totalDue > 0 ? 'var(--danger)' : '#16a34a', letterSpacing: '-0.5px' }}>
+                                    ₹{(dues.totalDue || 0).toFixed(2)}
                                 </div>
-                            )}
-                            {dues.subscriptionCost > 0 && (
-                                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px' }}>
-                                    <span style={{ color: 'var(--text-secondary)' }}>Subscription Plan ({status.licensePlan}):</span>
-                                    <strong style={{ color: 'var(--text-primary)' }}>₹{dues.subscriptionCost.toFixed(2)}</strong>
-                                </div>
-                            )}
+                            </div>
                         </div>
 
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
-                            <span style={{ fontSize: '15px', fontWeight: 700, color: 'var(--text-primary)' }}>Outstanding Due</span>
-                            <span style={{ fontSize: '24px', fontWeight: 800, color: 'var(--accent)' }}>₹{dues.totalDue.toFixed(2)}</span>
+                        <div style={{ overflowX: 'auto', borderRadius: '10px', border: '1px solid var(--border)', marginBottom: '16px' }}>
+                            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px', textAlign: 'left' }}>
+                                <thead>
+                                    <tr style={{ background: 'var(--bg-secondary)', borderBottom: '1px solid var(--border)', color: 'var(--text-secondary)', fontWeight: 700 }}>
+                                        <th style={{ padding: '10px 12px' }}>Service / Item</th>
+                                        <th style={{ padding: '10px 12px' }}>Model</th>
+                                        <th style={{ padding: '10px 12px' }}>Current Usage</th>
+                                        <th style={{ padding: '10px 12px' }}>Status</th>
+                                        <th style={{ padding: '10px 12px', textAlign: 'right' }}>Due (₹)</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr style={{ borderBottom: '1px solid #f1f5f9' }}>
+                                        <td style={{ padding: '10px 12px', fontWeight: 600 }}>Email Overages</td>
+                                        <td style={{ padding: '10px 12px' }}>
+                                            <span style={{ fontSize: '10px', fontWeight: 700, padding: '2px 6px', borderRadius: '999px', background: 'rgba(234, 67, 53, 0.1)', color: '#ea4335' }}>Pay-As-You-Go</span>
+                                        </td>
+                                        <td style={{ padding: '10px 12px', color: 'var(--text-secondary)' }}>{status.emailSentCount || 0} emails</td>
+                                        <td style={{ padding: '10px 12px', color: '#16a34a', fontWeight: 600 }}>Auto-Deducted</td>
+                                        <td style={{ padding: '10px 12px', textAlign: 'right', fontWeight: 700 }}>₹{(dues.emailCost || 0).toFixed(2)}</td>
+                                    </tr>
+                                    <tr style={{ borderBottom: '1px solid #f1f5f9' }}>
+                                        <td style={{ padding: '10px 12px', fontWeight: 600 }}>WhatsApp Messages</td>
+                                        <td style={{ padding: '10px 12px' }}>
+                                            <span style={{ fontSize: '10px', fontWeight: 700, padding: '2px 6px', borderRadius: '999px', background: 'rgba(37, 211, 102, 0.1)', color: '#128C7E' }}>Pay-As-You-Go</span>
+                                        </td>
+                                        <td style={{ padding: '10px 12px', color: 'var(--text-secondary)' }}>{status.whatsappNonCswCount || 0} msgs</td>
+                                        <td style={{ padding: '10px 12px', color: '#16a34a', fontWeight: 600 }}>Auto-Deducted</td>
+                                        <td style={{ padding: '10px 12px', textAlign: 'right', fontWeight: 700 }}>₹{(dues.whatsappCost || 0).toFixed(2)}</td>
+                                    </tr>
+                                    <tr style={{ borderBottom: '1px solid #f1f5f9' }}>
+                                        <td style={{ padding: '10px 12px', fontWeight: 600 }}>Voice Agent Calls</td>
+                                        <td style={{ padding: '10px 12px' }}>
+                                            <span style={{ fontSize: '10px', fontWeight: 700, padding: '2px 6px', borderRadius: '999px', background: 'rgba(147, 51, 234, 0.1)', color: '#9333ea' }}>Pay-As-You-Go</span>
+                                        </td>
+                                        <td style={{ padding: '10px 12px', color: 'var(--text-secondary)' }}>{formatSecondsToMinutes(status.voiceAgentSeconds || 0)}</td>
+                                        <td style={{ padding: '10px 12px', color: '#16a34a', fontWeight: 600 }}>Auto-Deducted</td>
+                                        <td style={{ padding: '10px 12px', textAlign: 'right', fontWeight: 700 }}>₹{(dues.voiceCost || 0).toFixed(2)}</td>
+                                    </tr>
+                                    <tr style={{ borderBottom: '1px solid #f1f5f9' }}>
+                                        <td style={{ padding: '10px 12px', fontWeight: 600 }}>VoIP Subscriptions</td>
+                                        <td style={{ padding: '10px 12px' }}>
+                                            <span style={{ fontSize: '10px', fontWeight: 700, padding: '2px 6px', borderRadius: '999px', background: 'rgba(2, 132, 199, 0.1)', color: '#0284c7' }}>Monthly</span>
+                                        </td>
+                                        <td style={{ padding: '10px 12px', color: 'var(--text-secondary)' }}>{status.phoneNumberPurchased ? status.phoneNumberDetails : 'Inactive'}</td>
+                                        <td style={{ padding: '10px 12px', color: status.phoneNumberPurchased ? '#0284c7' : 'var(--text-tertiary)', fontWeight: 600 }}>{status.phoneNumberPurchased ? 'Monthly Invoice' : 'Inactive'}</td>
+                                        <td style={{ padding: '10px 12px', textAlign: 'right', fontWeight: 700 }}>₹{(dues.numberCost || 0).toFixed(2)}</td>
+                                    </tr>
+                                    {dues.subscriptionCost > 0 && (
+                                        <tr>
+                                            <td style={{ padding: '10px 12px', fontWeight: 600 }}>Subscription Plan</td>
+                                            <td style={{ padding: '10px 12px' }}>
+                                                <span style={{ fontSize: '10px', fontWeight: 700, padding: '2px 6px', borderRadius: '999px', background: 'rgba(124, 58, 237, 0.1)', color: '#7c3aed' }}>Monthly</span>
+                                            </td>
+                                            <td style={{ padding: '10px 12px', color: 'var(--text-secondary)' }}>{status.licensePlan} Plan</td>
+                                            <td style={{ padding: '10px 12px', color: 'var(--accent)', fontWeight: 600 }}>Monthly Subscription</td>
+                                            <td style={{ padding: '10px 12px', textAlign: 'right', fontWeight: 700 }}>₹{(dues.subscriptionCost || 0).toFixed(2)}</td>
+                                        </tr>
+                                    )}
+                                </tbody>
+                            </table>
                         </div>
 
                         <SButton 
                             variant="primary" 
-                            style={{ width: '100%', padding: '12px' }}
+                            style={{ width: '100%', padding: '10px' }}
                             disabled={dues.totalDue <= 0}
                             onClick={() => setShowRazorpay(true)}
                         >
-                            Pay All Dues at Once (Razorpay)
+                            Pay Outstanding Subscription Dues (Razorpay)
                         </SButton>
-                        
-                        <div style={{ marginTop: '16px', fontSize: '11px', color: 'var(--text-tertiary)', lineHeight: 1.5 }}>
-                            * Dues are calculated at the end of the month (28th–30th). Unpaid balances past the 5-day grace period (due on the 5th) will suspend automation services.
-                        </div>
                     </div>
 
                     {/* Payment Method Added Card */}
