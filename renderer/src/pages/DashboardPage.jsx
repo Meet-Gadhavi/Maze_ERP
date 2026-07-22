@@ -3,6 +3,7 @@ import api from '../api';
 import './DashboardPage.css';
 import { formatDateShort, formatDate } from '../utils';
 import { Icons } from '../components/Icons';
+import { useNavigate } from 'react-router-dom';
 import { 
   AreaChart, BarChart, LineChart, PieChart, HeatmapChart, GaugeChart, 
   FunnelChart, RadarChart, RingChart, SunburstChart, ChartBrushLayout 
