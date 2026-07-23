@@ -677,7 +677,7 @@ export default function BillingPage() {
                                     <div>
                                         <h3 style={{ margin: 0, fontSize: '15px', fontWeight: 700 }}>WhatsApp API Service</h3>
                                         <span style={{ fontSize: '11px', color: 'var(--text-tertiary)' }}>
-                                            {!status.paymentMethodAdded ? 'Action Required: Add Payment Method' : 'Authorized'}
+                                            Service Enabled
                                         </span>
                                     </div>
                                 </div>
@@ -699,11 +699,6 @@ export default function BillingPage() {
                                     </div>
                                 </div>
                             </div>
-                            {!status.paymentMethodAdded && (
-                                <SButton variant="secondary" onClick={() => setShowPaymentSetupModal(true)}>
-                                    Add Payment Method to Enable WhatsApp Templates
-                                </SButton>
-                            )}
                         </div>
                     )}
 
@@ -757,7 +752,7 @@ export default function BillingPage() {
                                     <div>
                                         <h3 style={{ margin: 0, fontSize: '15px', fontWeight: 700 }}>AI Voice Agent Calling</h3>
                                         <span style={{ fontSize: '11px', color: 'var(--text-tertiary)' }}>
-                                            {!status.paymentMethodAdded ? 'Action Required: Add Payment Method' : 'Authorized'}
+                                            Service Enabled
                                         </span>
                                     </div>
                                 </div>
@@ -779,11 +774,6 @@ export default function BillingPage() {
                                     </div>
                                 </div>
                             </div>
-                            {!status.paymentMethodAdded && (
-                                <SButton variant="secondary" onClick={() => setShowPaymentSetupModal(true)}>
-                                    Add Payment Method to Enable AI Voice calling
-                                </SButton>
-                            )}
                         </div>
                     )}
 
@@ -891,92 +881,6 @@ export default function BillingPage() {
                         <div style={{ marginTop: '16px', fontSize: '11px', color: 'var(--text-tertiary)', lineHeight: 1.5 }}>
                             * Dues are calculated at the end of the month (28th–30th). Unpaid balances past the 5-day grace period (due on the 5th) will suspend automation services.
                         </div>
-                    </div>
-
-                    {/* Payment Method Added Card */}
-                    <div className="card" style={{ padding: '20px' }}>
-                        <h3 style={{ margin: '0 0 12px 0', fontSize: '14px', fontWeight: 700 }}>Payment Method</h3>
-                        {status.paymentMethodAdded ? (
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', background: 'var(--bg-secondary)', padding: '10px 14px', borderRadius: '8px', border: '1px solid var(--border)' }}>
-                                    {status.paymentMethodBrand === 'UPI' ? (
-                                        <div style={{
-                                            background: 'linear-gradient(135deg, #7c3aed, #4f46e5)',
-                                            color: '#ffffff',
-                                            fontSize: '10px',
-                                            fontWeight: 'bold',
-                                            padding: '4px 8px',
-                                            borderRadius: '6px',
-                                            textTransform: 'uppercase',
-                                            letterSpacing: '0.5px',
-                                            display: 'flex',
-                                            alignItems: 'center',
-                                            justifyContent: 'center',
-                                            height: '20px',
-                                            minWidth: '36px'
-                                        }}>
-                                            UPI
-                                        </div>
-                                    ) : status.paymentMethodLast4 === 'Netbanking' ? (
-                                        <div style={{
-                                            background: 'linear-gradient(135deg, #0284c7, #0369a1)',
-                                            color: '#ffffff',
-                                            fontSize: '9px',
-                                            fontWeight: 'bold',
-                                            padding: '4px 6px',
-                                            borderRadius: '6px',
-                                            textTransform: 'uppercase',
-                                            letterSpacing: '0.5px',
-                                            display: 'flex',
-                                            alignItems: 'center',
-                                            justifyContent: 'center',
-                                            height: '20px',
-                                            minWidth: '36px'
-                                        }}>
-                                            BANK
-                                        </div>
-                                    ) : (
-                                        <img src="./mazeway.png" alt="Razorpay" style={{ width: '20px', height: '20px', objectFit: 'contain' }} />
-                                    )}
-                                    <div style={{ flex: 1 }}>
-                                        {status.paymentMethodBrand === 'UPI' ? (
-                                            <div style={{ fontSize: '13px', fontWeight: 600 }}>UPI ID: {status.paymentMethodLast4}</div>
-                                        ) : status.paymentMethodLast4 === 'Netbanking' ? (
-                                            <div style={{ fontSize: '13px', fontWeight: 600 }}>{status.paymentMethodBrand} Netbanking</div>
-                                        ) : (
-                                            <div style={{ fontSize: '13px', fontWeight: 600 }}>{status.paymentMethodBrand} ending in {status.paymentMethodLast4}</div>
-                                        )}
-                                        {status.paymentMethodBrand !== 'UPI' && status.paymentMethodExpiry !== 'N/A' && (
-                                            <div style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>Expires {status.paymentMethodExpiry}</div>
-                                        )}
-                                    </div>
-                                    <span style={{ fontSize: '10px', fontWeight: 700, background: 'rgba(52, 199, 89, 0.1)', color: '#278a3e', padding: '2px 6px', borderRadius: '10px', marginRight: '8px' }}>
-                                        Default
-                                    </span>
-                                    <span 
-                                        onClick={handleRemoveCard}
-                                        style={{ fontSize: '11px', fontWeight: 650, color: 'var(--danger)', cursor: 'pointer', textDecoration: 'underline', marginLeft: 'auto' }}
-                                    >
-                                        {status.paymentMethodBrand === 'UPI' ? 'Remove UPI' : 'Remove Card'}
-                                    </span>
-                                </div>
-                                <div style={{ fontSize: '11px', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                    <Icons.ShieldCheck size={14} style={{ color: 'var(--success)' }} />
-                                    <span>
-                                        {status.paymentMethodAutopay 
-                                            ? 'Autopay enabled via Razorpay.' 
-                                            : 'Autopay not enabled. Outstanding bills must be paid manually.'}
-                                    </span>
-                                </div>
-                            </div>
-                        ) : (
-                            <div style={{ textAlign: 'center', padding: '20px 16px', border: '1px dashed var(--border)', borderRadius: '12px' }}>
-                                <div style={{ fontSize: '13.5px', color: 'var(--text-secondary)', marginBottom: '14px', fontWeight: 500 }}>No payment method configured</div>
-                                <SButton variant="secondary" style={{ width: '100%' }} onClick={() => setShowPaymentSetupModal(true)}>
-                                    Setup Payment Method (Visa / Master Card)
-                                </SButton>
-                            </div>
-                        )}
                     </div>
                 </div>
 
