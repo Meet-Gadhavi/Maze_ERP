@@ -101,6 +101,10 @@ const whatsappSender = {
 
             const data = await response.json();
             if (!response.ok) {
+                if (data.error && (data.error.code === 190 || data.error.type === 'OAuthException')) {
+                    db.run("UPDATE whatsapp_connections SET status = 'Expired' WHERE token = ?", [token]);
+                    throw new Error("Authentication Error: Your WhatsApp Cloud API token has expired or been invalidated by Meta. Please reconnect your account in Settings.");
+                }
                 throw new Error(data.error?.message || "Error sending WhatsApp message");
             }
 
@@ -200,6 +204,10 @@ const whatsappSender = {
 
             const data = await response.json();
             if (!response.ok) {
+                if (data.error && (data.error.code === 190 || data.error.type === 'OAuthException')) {
+                    db.run("UPDATE whatsapp_connections SET status = 'Expired' WHERE token = ?", [token]);
+                    throw new Error("Authentication Error: Your WhatsApp Cloud API token has expired or been invalidated by Meta. Please reconnect your account in Settings.");
+                }
                 throw new Error(data.error?.message || `Error sending WhatsApp template message ${templateName}`);
             }
 
@@ -247,6 +255,10 @@ const whatsappSender = {
 
         const data = await response.json();
         if (!response.ok) {
+            if (data.error && (data.error.code === 190 || data.error.type === 'OAuthException')) {
+                db.run("UPDATE whatsapp_connections SET status = 'Expired' WHERE token = ?", [token]);
+                throw new Error("Authentication Error: Your WhatsApp Cloud API token has expired or been invalidated by Meta. Please reconnect your account in Settings.");
+            }
             throw new Error(data.error?.message || "Error uploading WhatsApp media");
         }
 
@@ -293,6 +305,10 @@ const whatsappSender = {
 
             const data = await response.json();
             if (!response.ok) {
+                if (data.error && (data.error.code === 190 || data.error.type === 'OAuthException')) {
+                    db.run("UPDATE whatsapp_connections SET status = 'Expired' WHERE token = ?", [token]);
+                    throw new Error("Authentication Error: Your WhatsApp Cloud API token has expired or been invalidated by Meta. Please reconnect your account in Settings.");
+                }
                 throw new Error(data.error?.message || "Error sending WhatsApp document message");
             }
 
