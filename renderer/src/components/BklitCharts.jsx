@@ -237,12 +237,36 @@ export const YAxis = ({ min = 0, max = 100, formatter }) => {
   const minVal = context ? context.minVal : min;
   const maxVal = context ? context.maxVal : max;
   const activePoint = context?.activePoint;
+  
+  // Calculate active values from all active keys
+  const activeVals = useMemo(() => {
+    if (!activePoint || !context) return [];
+    const keys = context.activeKeys || [context.dataKey || 'value'];
+    return keys.map(k => Number(activePoint.raw[k] || 0));
+  }, [activePoint, context]);
+
+  const ticks = useMemo(() => {
+    return [maxVal, (maxVal + minVal) / 2, minVal];
+  }, [maxVal, minVal]);
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between', paddingRight: '12px', fontSize: '10px', color: 'var(--text-tertiary)', textAlign: 'right', fontWeight: 500, height: '100%' }}>
-      <span style={{ color: activePoint ? 'var(--text-tertiary)' : 'inherit' }}>{formatter ? formatter(maxVal) : Math.round(maxVal)}</span>
-      <span style={{ color: activePoint ? 'var(--text-tertiary)' : 'inherit' }}>{formatter ? formatter((maxVal + minVal) / 2) : Math.round((maxVal + minVal) / 2)}</span>
-      <span style={{ color: activePoint ? 'var(--text-tertiary)' : 'inherit' }}>{formatter ? formatter(minVal) : Math.round(minVal)}</span>
+      {ticks.map((t, idx) => {
+        // Highlight tick if any of the active series' values is closest to this tick
+        const isHighlighted = activeVals.some(val => Math.abs(t - val) < (maxVal - minVal) * 0.22);
+        return (
+          <span 
+            key={idx} 
+            style={{ 
+              color: isHighlighted ? 'var(--accent, #0071E3)' : 'var(--text-tertiary)', 
+              fontWeight: isHighlighted ? 700 : 500,
+              transition: 'color 150ms ease, font-weight 150ms ease'
+            }}
+          >
+            {formatter ? formatter(t) : Math.round(t)}
+          </span>
+        );
+      })}
     </div>
   );
 };
@@ -392,8 +416,21 @@ export const AreaChart = ({
     if (!containerRef.current || points.length === 0) return;
     const rect = containerRef.current.getBoundingClientRect();
     const mouseRelX = e.clientX - rect.left;
-    const pct = Math.max(0, Math.min(1, mouseRelX / rect.width));
-    const closestIdx = Math.round(pct * (points.length - 1));
+    
+    // Map relative X coordinate to the 1000px SVG coordinate space
+    const svgX = (mouseRelX / rect.width) * 1000;
+    
+    // Find index of the point closest to the mouse's X coordinate in SVG space
+    let closestIdx = 0;
+    let minDiff = Infinity;
+    for (let i = 0; i < points.length; i++) {
+      const diff = Math.abs(points[i].x - svgX);
+      if (diff < minDiff) {
+        minDiff = diff;
+        closestIdx = i;
+      }
+    }
+    
     setHoverIndex(closestIdx);
     setMouseX(mouseRelX);
   };
@@ -412,7 +449,8 @@ export const AreaChart = ({
     valRange,
     points,
     hoverIndex,
-    activePoint
+    activePoint,
+    activeKeys
   };
 
   // Find if custom XAxis or Tooltip are present as children

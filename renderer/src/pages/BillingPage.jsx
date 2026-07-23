@@ -5,7 +5,6 @@ import { Icons } from '../components/Icons';
 import { toast } from 'sonner';
 import { supabase } from '../supabase';
 import Skeleton from '../components/Skeleton';
-import { ChartBrushLayout, ChartBrush, AreaChart } from '../components/BklitCharts';
 
 export default function BillingPage() {
     const isDev = typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') && import.meta.env.DEV;
