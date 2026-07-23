@@ -573,79 +573,9 @@ export default function BillingPage() {
                             </div>
                         </div>
                     </div>
+                </div>
 
-                    {/* Credit Deduction Log & Transaction Ledger Table */}
-                    <div className="card" style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                            <div>
-                                <h3 style={{ margin: 0, fontSize: '17px', fontWeight: 700 }}>Credit Deduction Log &amp; Transaction History</h3>
-                                <p style={{ margin: '4px 0 0 0', fontSize: '13px', color: 'var(--text-secondary)' }}>
-                                    Itemized ledger of all service deductions and Razorpay credit top-ups synchronized with Quantro Web.
-                                </p>
-                            </div>
-                            <SButton variant="secondary" size="small" onClick={loadBillingStatus} style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
-                                <Icons.RefreshCw size={14} />
-                                Refresh Log
-                            </SButton>
-                        </div>
-
-                        {(!creditLedger || creditLedger.length === 0) ? (
-                            <div style={{ padding: '32px', textAlign: 'center', border: '1px dashed var(--border)', borderRadius: '12px', background: 'var(--bg-soft)', color: 'var(--text-tertiary)', fontSize: '13px' }}>
-                                No credit transactions logged yet. Deductions will appear here automatically when messages or calls are triggered.
-                            </div>
-                        ) : (
-                            <div style={{ overflowX: 'auto', borderRadius: '10px', border: '1px solid var(--border)' }}>
-                                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px', textAlign: 'left' }}>
-                                    <thead>
-                                        <tr style={{ background: '#f8fafc', borderBottom: '1px solid var(--border)', color: 'var(--text-secondary)', fontWeight: 600 }}>
-                                            <th style={{ padding: '12px 16px' }}>Date &amp; Time</th>
-                                            <th style={{ padding: '12px 16px' }}>Service</th>
-                                            <th style={{ padding: '12px 16px' }}>Description</th>
-                                            <th style={{ padding: '12px 16px', textAlign: 'center' }}>Units</th>
-                                            <th style={{ padding: '12px 16px', textAlign: 'right' }}>Amount</th>
-                                            <th style={{ padding: '12px 16px', textAlign: 'right' }}>Wallet Balance</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        {creditLedger.map((row, idx) => {
-                                            const isTopup = row.service_type === 'Credit Top-up' || row.amount > 0;
-                                            const badgeBg = row.service_type === 'WhatsApp' ? 'rgba(37, 211, 102, 0.12)' :
-                                                            row.service_type === 'Email' ? 'rgba(234, 67, 53, 0.12)' :
-                                                            row.service_type === 'Voice Agent' ? 'rgba(147, 51, 234, 0.12)' : 'rgba(2, 132, 199, 0.12)';
-                                            const badgeColor = row.service_type === 'WhatsApp' ? '#128C7E' :
-                                                               row.service_type === 'Email' ? '#ea4335' :
-                                                               row.service_type === 'Voice Agent' ? '#9333ea' : '#0284c7';
-                                            return (
-                                                <tr key={row.id || idx} style={{ borderBottom: idx < status.creditLedger.length - 1 ? '1px solid #f1f5f9' : 'none' }}>
-                                                    <td style={{ padding: '12px 16px', color: 'var(--text-tertiary)', fontSize: '12px', whiteSpace: 'nowrap' }}>
-                                                        {new Date(row.created_at).toLocaleString('en-IN', { dateStyle: 'short', timeStyle: 'short' })}
-                                                    </td>
-                                                    <td style={{ padding: '12px 16px' }}>
-                                                        <span style={{ fontSize: '11px', fontWeight: 700, padding: '3px 8px', borderRadius: '999px', background: badgeBg, color: badgeColor }}>
-                                                            {row.service_type}
-                                                        </span>
-                                                    </td>
-                                                    <td style={{ padding: '12px 16px', fontWeight: 500, color: 'var(--text-primary)' }}>
-                                                        {row.description || 'Service usage deduction'}
-                                                    </td>
-                                                    <td style={{ padding: '12px 16px', textAlign: 'center', color: 'var(--text-secondary)' }}>
-                                                        {row.units_used || 1}
-                                                    </td>
-                                                    <td style={{ padding: '12px 16px', textAlign: 'right', fontWeight: 700, color: isTopup ? '#16a34a' : '#dc2626' }}>
-                                                        {isTopup ? `+₹${Math.abs(row.amount).toFixed(2)}` : `-₹${Math.abs(row.amount).toFixed(2)}`}
-                                                    </td>
-                                                    <td style={{ padding: '12px 16px', textAlign: 'right', fontWeight: 600, color: 'var(--text-primary)' }}>
-                                                        ₹{(row.balance_after || 0).toFixed(2)}
-                                                    </td>
-                                                </tr>
-                                            );
-                                        })}
-                                    </tbody>
-                                </table>
-                            </div>
-                        )}
-                    </div>
-
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
                     {/* Gmail Email Overages */}
                     {!status.gmailConnected ? (
                         <div className="card" style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '16px', background: 'rgba(255, 149, 0, 0.04)', border: '1px solid rgba(255, 149, 0, 0.2)' }}>
@@ -1059,6 +989,78 @@ export default function BillingPage() {
                     </div>
 
                 </div>
+            </div>
+
+            {/* Credit Deduction Log & Transaction Ledger Table (Full Width at Bottom) */}
+            <div className="card" style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '16px', marginTop: '24px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div>
+                        <h3 style={{ margin: 0, fontSize: '17px', fontWeight: 700 }}>Credit Deduction Log &amp; Transaction History</h3>
+                        <p style={{ margin: '4px 0 0 0', fontSize: '13px', color: 'var(--text-secondary)' }}>
+                            Itemized ledger of all service deductions and Razorpay credit top-ups synchronized with Quantro Web.
+                        </p>
+                    </div>
+                    <SButton variant="secondary" size="small" onClick={loadBillingStatus} style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                        <Icons.RefreshCw size={14} />
+                        Refresh Log
+                    </SButton>
+                </div>
+
+                {(!creditLedger || creditLedger.length === 0) ? (
+                    <div style={{ padding: '32px', textAlign: 'center', border: '1px dashed var(--border)', borderRadius: '12px', background: 'var(--bg-soft)', color: 'var(--text-tertiary)', fontSize: '13px' }}>
+                        No credit transactions logged yet. Deductions will appear here automatically when messages or calls are triggered.
+                    </div>
+                ) : (
+                    <div style={{ overflowX: 'auto', borderRadius: '10px', border: '1px solid var(--border)' }}>
+                        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px', textAlign: 'left' }}>
+                            <thead>
+                                <tr style={{ background: '#f8fafc', borderBottom: '1px solid var(--border)', color: 'var(--text-secondary)', fontWeight: 600 }}>
+                                    <th style={{ padding: '12px 16px' }}>Date &amp; Time</th>
+                                    <th style={{ padding: '12px 16px' }}>Service</th>
+                                    <th style={{ padding: '12px 16px' }}>Description</th>
+                                    <th style={{ padding: '12px 16px', textAlign: 'center' }}>Units</th>
+                                    <th style={{ padding: '12px 16px', textAlign: 'right' }}>Amount</th>
+                                    <th style={{ padding: '12px 16px', textAlign: 'right' }}>Wallet Balance</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {creditLedger.map((row, idx) => {
+                                    const isTopup = row.service_type === 'Credit Top-up' || row.amount > 0;
+                                    const badgeBg = row.service_type === 'WhatsApp' ? 'rgba(37, 211, 102, 0.12)' :
+                                                    row.service_type === 'Email' ? 'rgba(234, 67, 53, 0.12)' :
+                                                    row.service_type === 'Voice Agent' ? 'rgba(147, 51, 234, 0.12)' : 'rgba(2, 132, 199, 0.12)';
+                                    const badgeColor = row.service_type === 'WhatsApp' ? '#128C7E' :
+                                                       row.service_type === 'Email' ? '#ea4335' :
+                                                       row.service_type === 'Voice Agent' ? '#9333ea' : '#0284c7';
+                                    return (
+                                        <tr key={row.id || idx} style={{ borderBottom: idx < status.creditLedger.length - 1 ? '1px solid #f1f5f9' : 'none' }}>
+                                            <td style={{ padding: '12px 16px', color: 'var(--text-tertiary)', fontSize: '12px', whiteSpace: 'nowrap' }}>
+                                                {new Date(row.created_at).toLocaleString('en-IN', { dateStyle: 'short', timeStyle: 'short' })}
+                                            </td>
+                                            <td style={{ padding: '12px 16px' }}>
+                                                <span style={{ fontSize: '11px', fontWeight: 700, padding: '3px 8px', borderRadius: '999px', background: badgeBg, color: badgeColor }}>
+                                                    {row.service_type}
+                                                </span>
+                                            </td>
+                                            <td style={{ padding: '12px 16px', fontWeight: 500, color: 'var(--text-primary)' }}>
+                                                {row.description || 'Service usage deduction'}
+                                            </td>
+                                            <td style={{ padding: '12px 16px', textAlign: 'center', color: 'var(--text-secondary)' }}>
+                                                {row.units_used || 1}
+                                            </td>
+                                            <td style={{ padding: '12px 16px', textAlign: 'right', fontWeight: 700, color: isTopup ? '#16a34a' : '#dc2626' }}>
+                                                {isTopup ? `+₹${Math.abs(row.amount).toFixed(2)}` : `-₹${Math.abs(row.amount).toFixed(2)}`}
+                                            </td>
+                                            <td style={{ padding: '12px 16px', textAlign: 'right', fontWeight: 600, color: 'var(--text-primary)' }}>
+                                                ₹{(row.balance_after || 0).toFixed(2)}
+                                            </td>
+                                        </tr>
+                                    );
+                                })}
+                            </tbody>
+                        </table>
+                    </div>
+                )}
             </div>
 
             {/* Setup Payment Method Authorization Dialog Popup */}
