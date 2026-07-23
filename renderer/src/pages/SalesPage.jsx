@@ -3575,12 +3575,15 @@ export default function SalesPage() {
                         const last30 = Array.from({ length: 30 }, (_, i) => {
                             const d = new Date();
                             d.setDate(d.getDate() - (29 - i));
-                            return d.toISOString().split('T')[0];
+                            const year = d.getFullYear();
+                            const month = String(d.getMonth() + 1).padStart(2, '0');
+                            const day = String(d.getDate()).padStart(2, '0');
+                            return `${year}-${month}-${day}`;
                         });
                         const salesByDay = last30.map(dateStr => {
                             const total = invoices
-                                .filter(inv => inv.created_at && inv.created_at.split('T')[0] === dateStr)
-                                .reduce((sum, inv) => sum + (parseFloat(inv.total_amount) || 0), 0);
+                                .filter(inv => inv.date === dateStr)
+                                .reduce((sum, inv) => sum + (parseFloat(inv.total) || 0), 0);
                             return total;
                         });
                         const labels = last30.map(d => {

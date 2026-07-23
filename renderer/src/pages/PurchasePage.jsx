@@ -1233,12 +1233,15 @@ export default function PurchasePage() {
                     const last30 = Array.from({ length: 30 }, (_, i) => {
                         const d = new Date();
                         d.setDate(d.getDate() - (29 - i));
-                        return d.toISOString().split('T')[0];
+                        const year = d.getFullYear();
+                        const month = String(d.getMonth() + 1).padStart(2, '0');
+                        const day = String(d.getDate()).padStart(2, '0');
+                        return `${year}-${month}-${day}`;
                     });
                     const spendByDay = last30.map(dateStr =>
                         purchases
-                            .filter(p => p.date && p.date.split('T')[0] === dateStr)
-                            .reduce((sum, p) => sum + (parseFloat(p.total_amount) || 0), 0)
+                            .filter(p => p.purchase_date === dateStr)
+                            .reduce((sum, p) => sum + (parseFloat(p.grand_total) || 0), 0)
                     );
                     const labels = last30.map(d => {
                         const [, m, day] = d.split('-');
