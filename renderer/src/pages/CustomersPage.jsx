@@ -10,7 +10,7 @@ import { formatDate, validateCustomer } from '../utils';
 import { EMPTY_CUSTOMER } from '../constants';
 import './CustomersPage.css';
 import Skeleton from '../components/Skeleton';
-import { BarChart } from '@mui/x-charts/BarChart';
+import { LineChart } from '@mui/x-charts/LineChart';
 
 const getInvoiceMockTemplateHtml = (customerName, settings) => {
     const companyName = (settings.company_name && settings.company_name.trim() !== '' && settings.company_name !== 'Quantro')
@@ -1249,12 +1249,10 @@ export default function CustomersPage() {
                                     <span style={{ fontWeight: 600, fontSize: '13px', color: 'var(--text-secondary)' }}>Customer Distribution by Tier</span>
                                     <span style={{ fontSize: '12px', color: 'var(--text-tertiary)' }}>{customers.length} total customers</span>
                                 </div>
-                                <BarChart
-                                    layout="horizontal"
+                                <LineChart
                                     height={110}
                                     margin={{ left: 60, right: 20, top: 8, bottom: 20 }}
-                                    yAxis={[{ data: ['Tier A', 'Tier B', 'Tier C'], scaleType: 'band' }]}
-                                    xAxis={[{ scaleType: 'linear', tickNumber: 4 }]}
+                                    xAxis={[{ data: ['Tier A', 'Tier B', 'Tier C'], scaleType: 'point' }]}
                                     series={[{ data: [tierACount, tierBCount, tierCCount], label: 'Customers', color: 'var(--accent, #6366f1)', valueFormatter: v => `${v} customers` }]}
                                     slotProps={{ legend: { hidden: true } }}
                                     sx={{ '& .MuiChartsAxis-tickLabel': { fontSize: '11px', fill: 'var(--text-secondary)' }, '& .MuiChartsAxis-line, & .MuiChartsAxis-tick': { stroke: 'var(--border-light)' } }}

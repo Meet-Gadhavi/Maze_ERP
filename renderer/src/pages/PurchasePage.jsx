@@ -1259,13 +1259,17 @@ export default function PurchasePage() {
                                 <span style={{ fontSize: '12px', color: 'var(--text-tertiary)' }}>₹{totalSpend.toLocaleString('en-IN', { maximumFractionDigits: 0 })} spent</span>
                             </div>
                             <LineChart
-                                height={100}
-                                margin={{ left: 0, right: 0, top: 8, bottom: 24 }}
+                                height={160}
+                                margin={{ left: 50, right: 15, top: 12, bottom: 24 }}
                                 xAxis={[{ data: labels, scaleType: 'point', tickInterval: (_, i) => i % 5 === 0 }]}
-                                yAxis={[{ width: 0, tickNumber: 0 }]}
-                                series={[{ data: spendByDay, area: true, color: '#f59e0b', showMark: false, valueFormatter: v => `₹${v.toLocaleString('en-IN', { maximumFractionDigits: 0 })}` }]}
+                                yAxis={[{ scaleType: 'linear', tickNumber: 4, valueFormatter: v => `₹${v >= 1000 ? (v/1000).toFixed(0) + 'k' : v}` }]}
+                                series={[{ data: spendByDay, color: '#f59e0b', showMark: true, valueFormatter: v => `₹${v.toLocaleString('en-IN', { maximumFractionDigits: 0 })}` }]}
                                 slotProps={{ legend: { hidden: true } }}
-                                sx={{ '& .MuiChartsAxis-tickLabel': { fontSize: '10px', fill: 'var(--text-tertiary)' }, '& .MuiChartsAxis-line, & .MuiChartsAxis-tick': { stroke: 'transparent' }, '& .MuiAreaElement-root': { fillOpacity: 0.15 } }}
+                                sx={{ 
+                                    '& .MuiChartsAxis-tickLabel': { fontSize: '10px', fill: 'var(--text-tertiary)' },
+                                    '& .MuiChartsAxis-line': { stroke: 'var(--border-light)' },
+                                    '& .MuiChartsAxis-tick': { stroke: 'var(--border-light)' }
+                                }}
                             />
                         </div>
                     );
