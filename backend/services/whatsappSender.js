@@ -59,12 +59,12 @@ const whatsappSender = {
 
             const { isCustomerSessionActive } = require('./whatsappSessionService');
             const sessionActive = await isCustomerSessionActive(phone);
+            const { getCreditBalance } = require('./billingHelper');
+            const currentBal = await getCreditBalance();
+            if (currentBal < 0.30) {
+                throw new Error("Insufficient Wallet Credit: Please top up your wallet credit balance in the Billing tab to send WhatsApp messages.");
+            }
             if (!sessionActive) {
-                // Without CSW check payment method
-                const pmAdded = db.get("SELECT value FROM settings WHERE key = 'billing_payment_method_added'")?.value === 'true';
-                if (!pmAdded) {
-                    throw new Error("Payment Method Required: Please add a payment method in the Billing tab to send WhatsApp messages outside the Customer Service Window.");
-                }
                 console.warn(`[WhatsApp Sender] CSW is inactive for ${phone}. Sending free-form text might be rejected by Meta: "${messageText.substring(0, 50)}..."`);
             }
 
@@ -133,11 +133,10 @@ const whatsappSender = {
 
             const { isCustomerSessionActive } = require('./whatsappSessionService');
             const sessionActive = await isCustomerSessionActive(phone);
-            if (!sessionActive) {
-                const pmAdded = db.get("SELECT value FROM settings WHERE key = 'billing_payment_method_added'")?.value === 'true';
-                if (!pmAdded) {
-                    throw new Error("Payment Method Required: Please add a payment method in the Billing tab to send WhatsApp templates.");
-                }
+            const { getCreditBalance } = require('./billingHelper');
+            const currentBal = await getCreditBalance();
+            if (currentBal < 0.30) {
+                throw new Error("Insufficient Wallet Credit: Please top up your wallet credit balance in the Billing tab to send WhatsApp templates.");
             }
 
             const { token, phoneNumberId } = await getCredentials();
