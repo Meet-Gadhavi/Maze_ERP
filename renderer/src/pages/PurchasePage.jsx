@@ -1259,7 +1259,7 @@ export default function PurchasePage() {
                                 <span style={{ fontSize: '12px', color: 'var(--text-tertiary)' }}>₹{totalSpend.toLocaleString('en-IN', { maximumFractionDigits: 0 })} spent</span>
                             </div>
                             <LineChart
-                                height={160}
+                                height={240}
                                 margin={{ left: 50, right: 15, top: 12, bottom: 24 }}
                                 xAxis={[{ data: labels, scaleType: 'point', tickInterval: (_, i) => i % 5 === 0 }]}
                                 yAxis={[{ scaleType: 'linear', tickNumber: 4, valueFormatter: v => `₹${v >= 1000 ? (v/1000).toFixed(0) + 'k' : v}` }]}

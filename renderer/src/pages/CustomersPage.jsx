@@ -1250,8 +1250,8 @@ export default function CustomersPage() {
                                     <span style={{ fontSize: '12px', color: 'var(--text-tertiary)' }}>{customers.length} total customers</span>
                                 </div>
                                 <LineChart
-                                    height={110}
-                                    margin={{ left: 60, right: 20, top: 8, bottom: 20 }}
+                                    height={240}
+                                    margin={{ left: 60, right: 20, top: 12, bottom: 24 }}
                                     xAxis={[{ data: ['Tier A', 'Tier B', 'Tier C'], scaleType: 'point' }]}
                                     series={[{ data: [tierACount, tierBCount, tierCCount], label: 'Customers', color: 'var(--accent, #6366f1)', valueFormatter: v => `${v} customers` }]}
                                     slotProps={{ legend: { hidden: true } }}
