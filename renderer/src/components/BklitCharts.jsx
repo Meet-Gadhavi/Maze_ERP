@@ -123,13 +123,65 @@ export const Grid = ({ horizontal = true, vertical = false, color = 'var(--borde
 );
 
 // XAxis Component
-export const XAxis = ({ ticks = [], dataKey = 'date' }) => (
-  <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 12px 0 12px', fontSize: '11px', color: 'var(--text-tertiary)', fontWeight: 500 }}>
-    {ticks.map((t, i) => (
-      <span key={i}>{typeof t === 'object' ? t[dataKey] : t}</span>
-    ))}
-  </div>
-);
+export const XAxis = ({ ticks = [], dataKey = 'date' }) => {
+  if (!ticks || ticks.length === 0) return null;
+
+  // Decide how many ticks to show (max 6-8 for clean readability)
+  const maxTicks = 7;
+  const total = ticks.length;
+  const step = Math.max(1, Math.floor(total / maxTicks));
+
+  const visibleTicks = [];
+  for (let i = 0; i < total; i += step) {
+    visibleTicks.push({
+      index: i,
+      label: typeof ticks[i] === 'object' ? ticks[i][dataKey] : ticks[i]
+    });
+  }
+
+  // Always ensure the very last tick is included
+  const lastIdx = total - 1;
+  if (lastIdx > 0 && !visibleTicks.some(vt => vt.index === lastIdx)) {
+    // If the last tick is too close to the previous one, replace it to avoid collision
+    if (visibleTicks.length > 1 && (lastIdx - visibleTicks[visibleTicks.length - 1].index) < step / 2) {
+      visibleTicks[visibleTicks.length - 1] = {
+        index: lastIdx,
+        label: typeof ticks[lastIdx] === 'object' ? ticks[lastIdx][dataKey] : ticks[lastIdx]
+      };
+    } else {
+      visibleTicks.push({
+        index: lastIdx,
+        label: typeof ticks[lastIdx] === 'object' ? ticks[lastIdx][dataKey] : ticks[lastIdx]
+      });
+    }
+  }
+
+  return (
+    <div style={{ position: 'relative', width: '100%', height: '18px', marginTop: '10px', overflow: 'hidden' }}>
+      {visibleTicks.map((vt, i) => {
+        // Aligns with the AreaChart's margin calculation (2% to 98% space)
+        const pct = 2 + (vt.index / Math.max(1, total - 1)) * 96;
+        return (
+          <span 
+            key={i} 
+            style={{ 
+              position: 'absolute', 
+              left: `${pct}%`, 
+              transform: 'translateX(-50%)', 
+              fontSize: '10px', 
+              color: 'var(--text-tertiary)', 
+              fontWeight: 600,
+              whiteSpace: 'nowrap',
+              fontFamily: 'sans-serif'
+            }}
+          >
+            {vt.label}
+          </span>
+        );
+      })}
+    </div>
+  );
+};
 
 // YAxis Component
 export const YAxis = ({ min = 0, max = 100, formatter }) => (
