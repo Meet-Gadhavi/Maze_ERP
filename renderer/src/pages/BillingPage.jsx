@@ -503,7 +503,14 @@ export default function BillingPage() {
                             {status.licensePlan === 'Pro' && 'Business PRO tier includes WhatsApp Campaign scheduler, credit limit checks, payment integrations, and automated notifications.'}
                             {status.licensePlan === 'Professional' && 'AI Professional tier includes autonomous OpenCode Zen AI Responders, Voice calling agent subscriptions, and auto-profiling converters.'}
                         </p>
-                        <div style={{ display: 'flex', gap: '10px', marginTop: '4px' }}>
+                        <div style={{ display: 'flex', gap: '10px', marginTop: '4px', flexWrap: 'wrap' }}>
+                            <SButton 
+                                variant="primary" 
+                                style={{ padding: '8px 16px', background: '#008060', borderColor: '#008060' }}
+                                onClick={() => openExternalLink(`${webBaseUrl}/?page=top-up&amount=250&email=${encodeURIComponent(status?.email || '')}&syncId=${status?.syncId || ''}`)}
+                            >
+                                Top Up Wallet Credit
+                            </SButton>
                             {status.licensePlan === 'Free' && (
                                 <>
                                     <SButton variant="primary" style={{ flex: 1 }} onClick={() => handleUpgrade('Pro')}>
@@ -540,8 +547,8 @@ export default function BillingPage() {
                                 Wallet Deducted
                             </span>
                         </div>
-                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '12px' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', background: 'var(--bg-secondary)', padding: '12px', borderRadius: '10px', border: '1px solid var(--border)' }}>
+                        <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap', marginTop: '4px' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', background: 'var(--bg-secondary)', padding: '12px 18px', borderRadius: '10px', border: '1px solid var(--border)', flex: '1 1 240px', maxWidth: '300px' }}>
                                 <div style={{ width: '32px', height: '32px', borderRadius: '8px', background: 'rgba(37, 211, 102, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                                     <img src="./whatsapp-icon.png" alt="WA" style={{ width: '18px', height: '18px', objectFit: 'contain' }} />
                                 </div>
@@ -549,8 +556,8 @@ export default function BillingPage() {
                                     <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-primary)' }}>WhatsApp API</div>
                                     <div style={{ fontSize: '13px', fontWeight: 700, color: '#128C7E' }}>₹0.30 / message</div>
                                 </div>
-                            </div>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', background: 'var(--bg-secondary)', padding: '12px', borderRadius: '10px', border: '1px solid var(--border)' }}>
+                             </div>
+                             <div style={{ display: 'flex', alignItems: 'center', gap: '12px', background: 'var(--bg-secondary)', padding: '12px 18px', borderRadius: '10px', border: '1px solid var(--border)', flex: '1 1 240px', maxWidth: '300px' }}>
                                 <div style={{ width: '32px', height: '32px', borderRadius: '8px', background: 'rgba(234, 67, 53, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                                     <img src="./gmail-icon.png" alt="Gmail" style={{ width: '18px', height: '18px', objectFit: 'contain' }} />
                                 </div>
@@ -558,8 +565,8 @@ export default function BillingPage() {
                                     <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-primary)' }}>Gmail Delivery</div>
                                     <div style={{ fontSize: '13px', fontWeight: 700, color: '#ea4335' }}>₹0.05 / email</div>
                                 </div>
-                            </div>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', background: 'var(--bg-secondary)', padding: '12px', borderRadius: '10px', border: '1px solid var(--border)' }}>
+                             </div>
+                             <div style={{ display: 'flex', alignItems: 'center', gap: '12px', background: 'var(--bg-secondary)', padding: '12px 18px', borderRadius: '10px', border: '1px solid var(--border)', flex: '1 1 240px', maxWidth: '300px' }}>
                                 <div style={{ width: '32px', height: '32px', borderRadius: '8px', background: 'rgba(147, 51, 234, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                                     <img src="./mazeway.png" alt="Voice" style={{ width: '18px', height: '18px', objectFit: 'contain' }} />
                                 </div>
@@ -567,12 +574,9 @@ export default function BillingPage() {
                                     <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-primary)' }}>AI Voice Agent</div>
                                     <div style={{ fontSize: '13px', fontWeight: 700, color: '#9333ea' }}>₹10.00 / minute</div>
                                 </div>
-                            </div>
+                             </div>
                         </div>
                     </div>
-                </div>
-
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
                     {/* Gmail Email Overages */}
                     {!status.gmailConnected ? (
                         <div className="card" style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '16px', background: 'rgba(255, 149, 0, 0.04)', border: '1px solid rgba(255, 149, 0, 0.2)' }}>
@@ -613,7 +617,7 @@ export default function BillingPage() {
                                     ₹0.05 / email overage
                                 </span>
                             </div>
-                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', background: 'var(--bg-secondary)', padding: '12px', borderRadius: '8px' }}>
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', background: 'var(--bg-secondary)', padding: '16px 20px', borderRadius: '8px', maxWidth: '500px' }}>
                                 <div>
                                     <span style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>Emails Sent This Cycle</span>
                                     <div style={{ fontSize: '16px', fontWeight: 700, color: 'var(--text-primary)', marginTop: '4px' }}>
@@ -681,7 +685,7 @@ export default function BillingPage() {
                                     ₹0.30 / message (Flat Rate)
                                 </span>
                             </div>
-                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', background: 'var(--bg-secondary)', padding: '12px', borderRadius: '8px' }}>
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', background: 'var(--bg-secondary)', padding: '16px 20px', borderRadius: '8px', maxWidth: '500px' }}>
                                 <div>
                                     <span style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>Total Billed Messages</span>
                                     <div style={{ fontSize: '16px', fontWeight: 700, color: 'var(--text-primary)', marginTop: '4px' }}>
@@ -761,7 +765,7 @@ export default function BillingPage() {
                                     ₹10.00 / minute
                                 </span>
                             </div>
-                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', background: 'var(--bg-secondary)', padding: '12px', borderRadius: '8px' }}>
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', background: 'var(--bg-secondary)', padding: '16px 20px', borderRadius: '8px', maxWidth: '500px' }}>
                                 <div>
                                     <span style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>Call Time Usage</span>
                                     <div style={{ fontSize: '16px', fontWeight: 700, color: 'var(--text-primary)', marginTop: '4px' }}>
@@ -808,7 +812,7 @@ export default function BillingPage() {
                         </div>
                         
                         {status.phoneNumberPurchased ? (
-                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', background: 'var(--bg-secondary)', padding: '12px', borderRadius: '8px' }}>
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', background: 'var(--bg-secondary)', padding: '16px 20px', borderRadius: '8px', maxWidth: '500px' }}>
                                 <div>
                                     <span style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>Dedicated Number Cost</span>
                                     <div style={{ fontSize: '16px', fontWeight: 700, color: 'var(--text-primary)', marginTop: '4px' }}>
@@ -841,7 +845,8 @@ export default function BillingPage() {
                             Standard local billing with SQLite. Upgrade to enable WhatsApp marketing dispatches, credit limit controls, and voice calling agent subscriptions.
                         </p>
 
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', margin: '16px 0', borderBottom: '1px solid var(--border)', paddingBottom: '16px' }}>
+                        <div style={{ maxWidth: '500px' }}>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', margin: '16px 0', borderBottom: '1px solid var(--border)', paddingBottom: '16px' }}>
                             <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px' }}>
                                 <span style={{ color: 'var(--text-secondary)' }}>Email Overages:</span>
                                 <strong style={{ color: 'var(--text-primary)' }}>₹{(dues.emailCost || 0).toFixed(2)}</strong>
@@ -873,13 +878,6 @@ export default function BillingPage() {
 
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                             <SButton 
-                                variant="primary" 
-                                style={{ width: '100%', padding: '11px', background: '#008060', borderColor: '#008060' }}
-                                onClick={() => openExternalLink(`${webBaseUrl}/?page=top-up&amount=250&email=${encodeURIComponent(status?.email || '')}&syncId=${status?.syncId || ''}`)}
-                            >
-                                <Icons.Wallet size={16} /> Top Up Wallet Credit (Quantro Web)
-                            </SButton>
-                            <SButton 
                                 variant="secondary" 
                                 style={{ width: '100%', padding: '11px' }}
                                 disabled={dues.totalDue <= 0}
@@ -887,6 +885,7 @@ export default function BillingPage() {
                             >
                                 Pay All Dues at Once (Razorpay)
                             </SButton>
+                        </div>
                         </div>
                         
                         <div style={{ marginTop: '16px', fontSize: '11px', color: 'var(--text-tertiary)', lineHeight: 1.5 }}>
