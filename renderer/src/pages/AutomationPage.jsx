@@ -536,22 +536,6 @@ export default function AutomationPage() {
                     <h1>Automation</h1>
                     <p className="text-secondary">Orchestrate your AI Voice and WhatsApp sales force</p>
                 </div>
-                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '8px' }}>
-                    <div className="header-actions">
-                        <SButton variant="secondary" onClick={() => handleSyncNow()} disabled={syncingNow}>
-                            {syncingNow ? 'Syncing...' : 'Sync Now'}
-                        </SButton>
-                        <SButton variant="primary" onClick={handleOpenCreate}>
-                            Create New Agent
-                        </SButton>
-                    </div>
-                    <div className="sync-meta-row" style={{ marginTop: 0, fontSize: 'var(--font-size-xs)', color: 'var(--text-tertiary)' }}>
-                        <span className="sync-meta-label" style={{ color: 'var(--text-tertiary)' }}>Last Synced with Mazeway:</span>
-                        <span className="sync-meta-value" style={{ color: 'var(--text-secondary)', fontWeight: 500 }}>
-                            {lastSyncedAt ? new Date(lastSyncedAt).toLocaleString('en-IN') : 'Never'}
-                        </span>
-                    </div>
-                </div>
             </div>
 
             <div className="stats-row">

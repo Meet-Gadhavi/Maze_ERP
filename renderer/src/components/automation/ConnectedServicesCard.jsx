@@ -47,7 +47,6 @@ export default function ConnectedServicesCard({
     // WhatsApp States
     const [waConnections, setWaConnections] = useState([]);
     const [loadingWa, setLoadingWa] = useState(true);
-    const [showWaChoiceModal, setShowWaChoiceModal] = useState(false);
     const [connectingQEIWA, setConnectingQEIWA] = useState(false);
     const [showWaTestModal, setShowWaTestModal] = useState(false);
     const [showWaManageModal, setShowWaManageModal] = useState(false);
@@ -224,14 +223,7 @@ export default function ConnectedServicesCard({
         }
     };
 
-    const handleConnectWhatsApp = () => {
-        const authUrl = 'http://localhost:3001/auth/whatsapp/connect';
-        if (window.maze?.openExternal) {
-            window.maze.openExternal(authUrl);
-        } else {
-            window.open(authUrl, '_blank');
-        }
-    };
+
 
     const handleDisconnectWhatsApp = async (phoneId) => {
         if (!window.confirm('Are you sure you want to disconnect this WhatsApp service?')) return;
@@ -403,7 +395,12 @@ export default function ConnectedServicesCard({
                         </p>
                     </div>
                     {waConnections.length === 0 && !loadingWa && (
-                        <SButton variant="primary" onClick={() => setShowWaChoiceModal(true)} style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
+                        <SButton
+                            variant="primary"
+                            onClick={handleConnectQEIWA}
+                            loading={connectingQEIWA}
+                            style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}
+                        >
                             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" className="bi bi-whatsapp" viewBox="0 0 16 16">
                                 <path d="M13.601 2.326A7.85 7.85 0 0 0 7.994 0C3.627 0 .068 3.558.064 7.926c0 1.399.366 2.76 1.057 3.965L0 16l4.204-1.102a7.9 7.9 0 0 0 3.79.965h.004c4.368 0 7.926-3.558 7.93-7.93A7.9 7.9 0 0 0 13.6 2.326zM7.994 14.521a6.6 6.6 0 0 1-3.356-.92l-.24-.144-2.494.654.666-2.433-.156-.251a6.56 6.56 0 0 1-1.007-3.505c0-3.626 2.957-6.584 6.591-6.584a6.56 6.56 0 0 1 4.66 1.931 6.56 6.56 0 0 1 1.928 4.66c-.004 3.639-2.961 6.592-6.592 6.592m3.615-4.934c-.197-.099-1.17-.578-1.353-.646-.182-.065-.315-.099-.445.099-.133.197-.513.646-.627.775-.114.133-.232.148-.43.05-.197-.1-.836-.308-1.592-.985-.59-.525-.985-1.175-1.103-1.372-.114-.198-.011-.304.088-.403.087-.088.197-.232.296-.346.1-.114.133-.198.198-.33.065-.134.034-.248-.015-.347-.05-.099-.445-1.076-.612-1.47-.16-.389-.323-.335-.445-.34-.114-.007-.247-.007-.38-.007a.73.73 0 0 0-.529.247c-.182.198-.691.677-.691 1.654s.71 1.916.81 2.049c.098.133 1.394 2.132 3.383 2.992.47.205.84.326 1.129.418.475.152.904.129 1.246.08.38-.058 1.171-.48 1.338-.943.164-.464.164-.86.114-.943-.049-.084-.182-.133-.38-.232"/>
                             </svg>
@@ -435,11 +432,11 @@ export default function ConnectedServicesCard({
                                                         padding: '2px 8px',
                                                         borderRadius: '999px',
                                                         fontWeight: 700,
-                                                        background: isQeiwa ? 'rgba(37, 211, 102, 0.15)' : 'rgba(2, 132, 199, 0.12)',
-                                                        color: isQeiwa ? '#128C7E' : '#0284c7',
+                                                        background: 'rgba(37, 211, 102, 0.15)',
+                                                        color: '#128C7E',
                                                         border: '1px solid currentColor'
                                                     }}>
-                                                        {isQeiwa ? 'QEIWA' : 'OBIWA'}
+                                                        QEIWA
                                                     </span>
                                                     <span className="agent-status-chip active" style={{
                                                         fontSize: '10px',
@@ -486,16 +483,6 @@ export default function ConnectedServicesCard({
                             <p style={{ margin: 0, fontSize: '13px', color: 'var(--text-secondary)', textAlign: 'center' }}>
                                 No WhatsApp Business accounts connected yet. Get started with WhatsApp Cloud API to automate customer outreach.
                             </p>
-                            <SButton
-                                variant="primary"
-                                onClick={() => setShowWaChoiceModal(true)}
-                                style={{ marginTop: '16px', display: 'inline-flex', alignItems: 'center', gap: '8px' }}
-                            >
-                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" className="bi bi-whatsapp" viewBox="0 0 16 16">
-                                    <path d="M13.601 2.326A7.85 7.85 0 0 0 7.994 0C3.627 0 .068 3.558.064 7.926c0 1.399.366 2.76 1.057 3.965L0 16l4.204-1.102a7.9 7.9 0 0 0 3.79.965h.004c4.368 0 7.926-3.558 7.93-7.93A7.9 7.9 0 0 0 13.6 2.326zM7.994 14.521a6.6 6.6 0 0 1-3.356-.92l-.24-.144-2.494.654.666-2.433-.156-.251a6.56 6.56 0 0 1-1.007-3.505c0-3.626 2.957-6.584 6.591-6.584a6.56 6.56 0 0 1 4.66 1.931 6.56 6.56 0 0 1 1.928 4.66c-.004 3.639-2.961 6.592-6.592 6.592m3.615-4.934c-.197-.099-1.17-.578-1.353-.646-.182-.065-.315-.099-.445.099-.133.197-.513.646-.627.775-.114.133-.232.148-.43.05-.197-.1-.836-.308-1.592-.985-.59-.525-.985-1.175-1.103-1.372-.114-.198-.011-.304.088-.403.087-.088.197-.232.296-.346.1-.114.133-.198.198-.33.065-.134.034-.248-.015-.347-.05-.099-.445-1.076-.612-1.47-.16-.389-.323-.335-.445-.34-.114-.007-.247-.007-.38-.007a.73.73 0 0 0-.529.247c-.182.198-.691.677-.691 1.654s.71 1.916.81 2.049c.098.133 1.394 2.132 3.383 2.992.47.205.84.326 1.129.418.475.152.904.129 1.246.08.38-.058 1.171-.48 1.338-.943.164-.464.164-.86.114-.943-.049-.084-.182-.133-.38-.232"/>
-                                </svg>
-                                Get WhatsApp Service
-                            </SButton>
                         </div>
                     )}
                 </div>
@@ -1077,133 +1064,7 @@ export default function ConnectedServicesCard({
                 </Modal>
             )}
 
-            {/* WhatsApp Connection Type Choice Modal (QEIWA vs OBIWA) */}
-            {showWaChoiceModal && (
-                <Modal
-                    open={showWaChoiceModal}
-                    heading="Connect WhatsApp Service"
-                    title="Connect WhatsApp Service"
-                    onClose={() => setShowWaChoiceModal(false)}
-                    size="medium"
-                >
-                    <div style={{ padding: '4px 0' }}>
-                        <p style={{ margin: '0 0 20px 0', fontSize: '13px', color: 'var(--text-secondary)', lineHeight: 1.5 }}>
-                            Select how you would like to connect WhatsApp Business Automation to Quantro ERP:
-                        </p>
 
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                            {/* QEIWA Option */}
-                            <div style={{
-                                border: '2px solid #25D366',
-                                borderRadius: '14px',
-                                padding: '20px',
-                                background: 'linear-gradient(135deg, rgba(37, 211, 102, 0.06) 0%, rgba(255,255,255,1) 100%)',
-                                position: 'relative'
-                            }}>
-                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                                    <span style={{
-                                        fontSize: '11px',
-                                        fontWeight: 700,
-                                        color: '#128C7E',
-                                        background: 'rgba(37, 211, 102, 0.18)',
-                                        padding: '3px 10px',
-                                        borderRadius: '999px',
-                                        textTransform: 'uppercase',
-                                        letterSpacing: '0.5px'
-                                    }}>
-                                        Instant Setup (Shared)
-                                    </span>
-                                    <span style={{ fontSize: '13px', fontWeight: 700, color: 'var(--text-primary)' }}>
-                                        +91 90332 81960
-                                    </span>
-                                </div>
-
-                                <h4 style={{ margin: '0 0 6px 0', fontSize: '16px', fontWeight: 700, color: 'var(--text-primary)' }}>
-                                    QEIWA — Quantro ERP Identity WhatsApp Automation
-                                </h4>
-                                <p style={{ margin: '0 0 16px 0', fontSize: '13px', color: 'var(--text-secondary)', lineHeight: 1.5 }}>
-                                    Connect instantly using Quantro's official verified WhatsApp Business line. Send invoices, PDFs, and automated customer notifications right away without needing your own Meta developer account.
-                                </p>
-
-                                <SButton
-                                    variant="primary"
-                                    onClick={handleConnectQEIWA}
-                                    loading={connectingQEIWA}
-                                    style={{
-                                        width: '100%',
-                                        background: '#25D366',
-                                        borderColor: '#25D366',
-                                        color: '#fff',
-                                        fontWeight: 600,
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        justifyContent: 'center',
-                                        gap: '8px'
-                                    }}
-                                >
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" className="bi bi-whatsapp" viewBox="0 0 16 16">
-                                        <path d="M13.601 2.326A7.85 7.85 0 0 0 7.994 0C3.627 0 .068 3.558.064 7.926c0 1.399.366 2.76 1.057 3.965L0 16l4.204-1.102a7.9 7.9 0 0 0 3.79.965h.004c4.368 0 7.926-3.558 7.93-7.93A7.9 7.9 0 0 0 13.6 2.326zM7.994 14.521a6.6 6.6 0 0 1-3.356-.92l-.24-.144-2.494.654.666-2.433-.156-.251a6.56 6.56 0 0 1-1.007-3.505c0-3.626 2.957-6.584 6.591-6.584a6.56 6.56 0 0 1 4.66 1.931 6.56 6.56 0 0 1 1.928 4.66c-.004 3.639-2.961 6.592-6.592 6.592m3.615-4.934c-.197-.099-1.17-.578-1.353-.646-.182-.065-.315-.099-.445.099-.133.197-.513.646-.627.775-.114.133-.232.148-.43.05-.197-.1-.836-.308-1.592-.985-.59-.525-.985-1.175-1.103-1.372-.114-.198-.011-.304.088-.403.087-.088.197-.232.296-.346.1-.114.133-.198.198-.33.065-.134.034-.248-.015-.347-.05-.099-.445-1.076-.612-1.47-.16-.389-.323-.335-.445-.34-.114-.007-.247-.007-.38-.007a.73.73 0 0 0-.529.247c-.182.198-.691.677-.691 1.654s.71 1.916.81 2.049c.098.133 1.394 2.132 3.383 2.992.47.205.84.326 1.129.418.475.152.904.129 1.246.08.38-.058 1.171-.48 1.338-.943.164-.464.164-.86.114-.943-.049-.084-.182-.133-.38-.232"/>
-                                    </svg>
-                                    Connect with QEIWA
-                                </SButton>
-                            </div>
-
-                            {/* OBIWA Option */}
-                            <div style={{
-                                border: '1px solid var(--border)',
-                                borderRadius: '14px',
-                                padding: '20px',
-                                background: 'var(--bg-soft)',
-                                position: 'relative'
-                            }}>
-                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                                    <span style={{
-                                        fontSize: '11px',
-                                        fontWeight: 700,
-                                        color: '#0284c7',
-                                        background: 'rgba(2, 132, 199, 0.12)',
-                                        padding: '3px 10px',
-                                        borderRadius: '999px',
-                                        textTransform: 'uppercase',
-                                        letterSpacing: '0.5px'
-                                    }}>
-                                        Custom Branding
-                                    </span>
-                                    <span style={{ fontSize: '12px', fontWeight: 500, color: 'var(--text-tertiary)' }}>
-                                        Meta Embedded Portal
-                                    </span>
-                                </div>
-
-                                <h4 style={{ margin: '0 0 6px 0', fontSize: '16px', fontWeight: 700, color: 'var(--text-primary)' }}>
-                                    OBIWA — Own Business Identity WhatsApp Automation
-                                </h4>
-                                <p style={{ margin: '0 0 16px 0', fontSize: '13px', color: 'var(--text-secondary)', lineHeight: 1.5 }}>
-                                    Connect your own Meta WhatsApp Business Account via Meta Embedded Signup using your company's custom phone number, display name, and brand identity.
-                                </p>
-
-                                <SButton
-                                    variant="secondary"
-                                    onClick={() => {
-                                        setShowWaChoiceModal(false);
-                                        handleConnectWhatsApp();
-                                    }}
-                                    style={{
-                                        width: '100%',
-                                        fontWeight: 600,
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        justifyContent: 'center',
-                                        gap: '8px'
-                                    }}
-                                >
-                                    <Icons.ShieldCheck size={16} />
-                                    Connect with OBIWA (Meta Portal)
-                                </SButton>
-                            </div>
-                        </div>
-                    </div>
-                </Modal>
-            )}
         </div>
     );
 }
