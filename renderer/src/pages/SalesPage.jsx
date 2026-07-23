@@ -3602,16 +3602,12 @@ export default function SalesPage() {
                                 </div>
                                 <LineChart
                                     height={240}
-                                    margin={{ left: 50, right: 15, top: 12, bottom: 24 }}
+                                    margin={{ left: 60, right: 20, top: 12, bottom: 24 }}
                                     xAxis={[{ data: labels, scaleType: 'point', tickInterval: (_, i) => i % 5 === 0 }]}
                                     yAxis={[{ scaleType: 'linear', tickNumber: 4, valueFormatter: v => `₹${v >= 1000 ? (v/1000).toFixed(0) + 'k' : v}` }]}
                                     series={[{ data: salesByDay, color: 'var(--accent, #6366f1)', showMark: true, valueFormatter: v => `₹${v.toLocaleString('en-IN', { maximumFractionDigits: 0 })}` }]}
                                     slotProps={{ legend: { hidden: true } }}
-                                    sx={{ 
-                                        '& .MuiChartsAxis-tickLabel': { fontSize: '10px', fill: 'var(--text-tertiary)' },
-                                        '& .MuiChartsAxis-line': { stroke: 'var(--border-light)' },
-                                        '& .MuiChartsAxis-tick': { stroke: 'var(--border-light)' }
-                                    }}
+                                    sx={{ '& .MuiChartsAxis-tickLabel': { fontSize: '11px', fill: 'var(--text-secondary)' }, '& .MuiChartsAxis-line, & .MuiChartsAxis-tick': { stroke: 'var(--border-light)' } }}
                                 />
                             </div>
                         );
