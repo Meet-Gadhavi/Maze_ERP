@@ -459,11 +459,8 @@ export default function BillingPage() {
                 </div>
             )}
 
-            {/* Main Billing Grid */}
-            <div style={{ display: 'grid', gridTemplateColumns: '1.8fr 1.2fr', gap: '24px', alignItems: 'start' }}>
-                
-                {/* Left Column: Services & Pricing Cards */}
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+            {/* Main Billing Layout Container (Full Width Cards) */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
                     
                     {/* Subscription Plan Card */}
                     <div className="card" style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
@@ -836,11 +833,6 @@ export default function BillingPage() {
                             </div>
                         )}
                     </div>
-
-                </div>
-
-                {/* Right Column: Summary Box and Payment Method */}
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
                     
                     {/* Reverted Account Summary Card */}
                     <div className="card" style={{ padding: '24px', background: 'linear-gradient(180deg, var(--bg-card), var(--bg-secondary))' }}>
@@ -987,9 +979,7 @@ export default function BillingPage() {
                             </div>
                         )}
                     </div>
-
                 </div>
-            </div>
 
             {/* Credit Deduction Log & Transaction Ledger Table (Full Width at Bottom) */}
             <div className="card" style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '16px', marginTop: '24px' }}>
