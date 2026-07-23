@@ -700,17 +700,31 @@ export default function DashboardPage() {
                         <div style={{ gridColumn: 'span 2' }}>
                             <ChartCard title="Stock Movement Trend" subtitle="Inventory in vs out over period">
                                 {!data.stockMovementTrend?.some(d => d.stock_in > 0 || d.stock_out > 0) ? <EmptyChart icon="ArrowUpDown" message="No stock movements recorded" /> : (
-                                    <ResponsiveContainer width="100%" height={240}>
-                                        <LineChart data={data.stockMovementTrend}>
-                                            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
-                                            <XAxis dataKey="date" axisLine={false} tickLine={false} tick={chartStyle.axisTickStyle} tickFormatter={formatDateShort} />
-                                            <YAxis axisLine={false} tickLine={false} tick={chartStyle.axisTickStyle} />
-                                            <Tooltip contentStyle={chartStyle.contentStyle} labelFormatter={formatDate} />
-                                            <Line type="monotone" dataKey="stock_in" stroke="#30D158" strokeWidth={2.5} dot={true} name="Stock IN" />
-                                            <Line type="monotone" dataKey="stock_out" stroke="#FF3B30" strokeWidth={2.5} dot={true} name="Stock OUT" />
-                                            <Legend />
-                                        </LineChart>
-                                    </ResponsiveContainer>
+                                    <LineChart
+                                        dataset={data.stockMovementTrend}
+                                        xAxis={[{
+                                            dataKey: 'date',
+                                            scaleType: 'band',
+                                            valueFormatter: formatDateShort,
+                                            tickLabelStyle: chartStyle.axisTickStyle
+                                        }]}
+                                        series={[
+                                            {
+                                                dataKey: 'stock_in',
+                                                label: 'Stock IN',
+                                                color: '#30D158',
+                                                showMark: true
+                                            },
+                                            {
+                                                dataKey: 'stock_out',
+                                                label: 'Stock OUT',
+                                                color: '#FF3B30',
+                                                showMark: true
+                                            }
+                                        ]}
+                                        height={240}
+                                        margin={{ left: 50, right: 20, top: 20, bottom: 30 }}
+                                    />
                                 )}
                             </ChartCard>
                         </div>
@@ -1029,18 +1043,21 @@ export default function DashboardPage() {
                         {/* Payment Method by Count */}
                         <ChartCard title="Transactions by Method" subtitle="Number of transactions per payment type">
                             {!data.paymentMethodBreakdown?.length ? <EmptyChart icon="CreditCard" message="No payment data" /> : (
-                                <ResponsiveContainer width="100%" height={260}>
-                                    <PieChart>
-                                        <Pie
-                                            data={data.paymentMethodBreakdown.map(p => ({ name: p.method || 'Cash', value: p.count }))}
-                                            cx="50%" cy="50%" innerRadius={60} outerRadius={90} paddingAngle={4} dataKey="value"
-                                        >
-                                            {data.paymentMethodBreakdown.map((_, i) => <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />)}
-                                        </Pie>
-                                        <Tooltip contentStyle={chartStyle.contentStyle} formatter={v => [v, 'Transactions']} />
-                                        <Legend verticalAlign="bottom" height={36} iconType="circle" iconSize={8} />
-                                    </PieChart>
-                                </ResponsiveContainer>
+                                <PieChart
+                                    series={[{
+                                        data: data.paymentMethodBreakdown.map((p, i) => ({
+                                            id: i,
+                                            value: p.count,
+                                            label: p.method || 'Cash',
+                                            color: CHART_COLORS[i % CHART_COLORS.length]
+                                        })),
+                                        innerRadius: 60,
+                                        outerRadius: 90,
+                                        paddingAngle: 4
+                                    }]}
+                                    height={260}
+                                    slotProps={{ legend: { position: { vertical: 'bottom', horizontal: 'center' } } }}
+                                />
                             )}
                         </ChartCard>
                     </div>
@@ -1048,18 +1065,27 @@ export default function DashboardPage() {
                     {/* Return Analytics */}
                     <ChartCard title="Return & Refund Analytics" subtitle="Refund amounts over the selected period">
                         {!data.returnAnalytics?.some(r => r.count > 0) ? <EmptyChart icon="RotateCcw" message="No returns in this period" /> : (
-                            <ResponsiveContainer width="100%" height={220}>
-                                <ComposedChart data={data.returnAnalytics}>
-                                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
-                                    <XAxis dataKey="date" axisLine={false} tickLine={false} tick={chartStyle.axisTickStyle} tickFormatter={formatDateShort} />
-                                    <YAxis yAxisId="left" axisLine={false} tickLine={false} tick={chartStyle.axisTickStyle} tickFormatter={v => `₹${v}`} width={60} />
-                                    <YAxis yAxisId="right" orientation="right" axisLine={false} tickLine={false} tick={chartStyle.axisTickStyle} />
-                                    <Tooltip contentStyle={chartStyle.contentStyle} formatter={(v, name) => name === 'amount' ? [fmt(v), 'Refund'] : [v, 'Returns']} labelFormatter={formatDate} />
-                                    <Bar yAxisId="right" dataKey="count" fill="rgba(255,59,48,0.2)" radius={[4, 4, 0, 0]} name="count" />
-                                    <Line yAxisId="left" type="monotone" dataKey="amount" stroke="#FF3B30" strokeWidth={2.5} dot={false} name="amount" />
-                                </ComposedChart>
-                            </ResponsiveContainer>
-                        )}
+                             <LineChart
+                                 dataset={data.returnAnalytics}
+                                 xAxis={[{
+                                     dataKey: 'date',
+                                     scaleType: 'band',
+                                     valueFormatter: formatDateShort,
+                                     tickLabelStyle: chartStyle.axisTickStyle
+                                 }]}
+                                 series={[
+                                     {
+                                         dataKey: 'amount',
+                                         label: 'Refund Amount',
+                                         color: '#FF3B30',
+                                         showMark: true,
+                                         valueFormatter: (v) => `₹${Number(v || 0).toLocaleString('en-IN')}`
+                                     }
+                                 ]}
+                                 height={240}
+                                 margin={{ left: 80, right: 20, top: 20, bottom: 30 }}
+                             />
+                         )}
                     </ChartCard>
                 </div>
             )}
