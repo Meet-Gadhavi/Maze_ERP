@@ -1,12 +1,8 @@
-import React, { useState, useMemo, useEffect, useRef } from 'react';
+import React, { useState, useMemo, useEffect, useRef, createContext, useContext } from 'react';
 
-// Bklit UI Design Color Palette
-const BKLIT_COLORS = [
-  'var(--chart-line-primary, #0071E3)',
-  'var(--chart-line-secondary, #30D158)',
-  '#FF9F0A', '#FF3B30', '#5856D6', 
-  '#AF52DE', '#FF6B35', '#00C7BE', '#64D2FF'
-];
+// Bklit Chart Context
+const ChartContext = createContext(null);
+export const useChart = () => useContext(ChartContext);
 
 // Monotone Cubic Hermite Interpolation (D3 curveMonotoneX equivalent)
 function buildMonotonePath(points) {
@@ -60,12 +56,23 @@ function buildMonotonePath(points) {
   return path;
 }
 
-// Bklit Glassmorphic Floating Tooltip
+// Bklit Glassmorphic Tooltip
 export const ChartTooltip = ({ active, payload, label, formatter }) => {
-  if (!active || !payload || !payload.length) return null;
+  const context = useChart();
+  const activePayload = payload || (context?.activePoint ? [{
+    name: context.dataKey || 'value',
+    value: context.activePoint.raw[context.dataKey || 'value'],
+    color: context.color || '#0071E3'
+  }] : []);
+  
+  const activeLabel = label || context?.activePoint?.raw[context?.xDataKey || 'date'];
+  const isShown = active !== undefined ? active : !!context?.activePoint;
+
+  if (!isShown || !activePayload.length) return null;
+
   return (
     <div style={{
-      background: 'rgba(15, 23, 42, 0.92)',
+      background: 'rgba(15, 23, 42, 0.94)',
       backdropFilter: 'blur(12px)',
       border: '1px solid rgba(255, 255, 255, 0.12)',
       color: '#fff',
@@ -75,10 +82,10 @@ export const ChartTooltip = ({ active, payload, label, formatter }) => {
       boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.5), 0 8px 10px -6px rgba(0, 0, 0, 0.5)',
       pointerEvents: 'none',
       zIndex: 50,
-      minWidth: '130px'
+      minWidth: '140px'
     }}>
-      {label && <div style={{ fontWeight: 700, color: '#94a3b8', marginBottom: '6px', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>{label}</div>}
-      {payload.map((item, idx) => (
+      {activeLabel && <div style={{ fontWeight: 700, color: '#94a3b8', marginBottom: '6px', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>{activeLabel}</div>}
+      {activePayload.map((item, idx) => (
         <div key={idx} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', marginTop: idx > 0 ? '4px' : 0 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
             <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: item.color || '#0071E3' }} />
@@ -93,22 +100,7 @@ export const ChartTooltip = ({ active, payload, label, formatter }) => {
   );
 };
 
-// Bklit Legend
-export const ChartLegend = ({ payload = [] }) => {
-  if (!payload || !payload.length) return null;
-  return (
-    <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: '20px', marginTop: '14px', fontSize: '12px' }}>
-      {payload.map((entry, i) => (
-        <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <span style={{ width: '10px', height: '10px', borderRadius: '50%', background: entry.color || '#0071E3', boxShadow: `0 0 8px ${entry.color || '#0071E3'}66` }} />
-          <span style={{ color: 'var(--text-secondary)', fontWeight: 600 }}>{entry.value || entry.name}</span>
-        </div>
-      ))}
-    </div>
-  );
-};
-
-// SVG Grid Component
+// SVG Grid Lines
 export const Grid = ({ horizontal = true, vertical = false, color = 'var(--border, rgba(255, 255, 255, 0.08))' }) => (
   <g opacity={0.4}>
     {horizontal && (
@@ -122,45 +114,99 @@ export const Grid = ({ horizontal = true, vertical = false, color = 'var(--borde
   </g>
 );
 
-// XAxis Component
-export const XAxis = ({ ticks = [], dataKey = 'date' }) => {
-  if (!ticks || ticks.length === 0) return null;
+// Composable ReferenceArea Component
+export const ReferenceArea = ({ y1, y2, fill = 'rgba(255, 255, 255, 0.04)', fillOpacity = 1 }) => {
+  const context = useChart();
+  if (!context) return null;
+  const { minVal, valRange } = context;
 
-  // Decide how many ticks to show (max 6-8 for clean readability)
+  const marginT = 30;
+  const marginB = 370;
+  const plotH = marginB - marginT;
+
+  const yCoord1 = marginB - ((y1 - minVal) / valRange) * plotH;
+  const yCoord2 = marginB - ((y2 - minVal) / valRange) * plotH;
+
+  const topY = Math.min(yCoord1, yCoord2);
+  const rectHeight = Math.abs(yCoord1 - yCoord2);
+
+  return (
+    <rect 
+      x="0" 
+      y={topY} 
+      width="1000" 
+      height={rectHeight} 
+      fill={fill} 
+      opacity={fillOpacity} 
+      pointerEvents="none"
+    />
+  );
+};
+
+// Composable XAxis Component with sliding date pill highlight
+export const XAxis = () => {
+  const context = useChart();
+  if (!context) return null;
+  const { displayData, xDataKey, activePoint, points } = context;
+
+  // Maximum 6-7 ticks for clean spacing
   const maxTicks = 7;
-  const total = ticks.length;
+  const total = displayData.length;
   const step = Math.max(1, Math.floor(total / maxTicks));
 
   const visibleTicks = [];
   for (let i = 0; i < total; i += step) {
     visibleTicks.push({
       index: i,
-      label: typeof ticks[i] === 'object' ? ticks[i][dataKey] : ticks[i]
+      label: typeof displayData[i] === 'object' ? displayData[i][xDataKey] : displayData[i]
     });
   }
 
-  // Always ensure the very last tick is included
+  // Ensure last tick is included
   const lastIdx = total - 1;
   if (lastIdx > 0 && !visibleTicks.some(vt => vt.index === lastIdx)) {
-    // If the last tick is too close to the previous one, replace it to avoid collision
     if (visibleTicks.length > 1 && (lastIdx - visibleTicks[visibleTicks.length - 1].index) < step / 2) {
       visibleTicks[visibleTicks.length - 1] = {
         index: lastIdx,
-        label: typeof ticks[lastIdx] === 'object' ? ticks[lastIdx][dataKey] : ticks[lastIdx]
+        label: typeof displayData[lastIdx] === 'object' ? displayData[lastIdx][xDataKey] : displayData[lastIdx]
       };
     } else {
       visibleTicks.push({
         index: lastIdx,
-        label: typeof ticks[lastIdx] === 'object' ? ticks[lastIdx][dataKey] : ticks[lastIdx]
+        label: typeof displayData[lastIdx] === 'object' ? displayData[lastIdx][xDataKey] : displayData[lastIdx]
       });
     }
   }
 
   return (
-    <div style={{ position: 'relative', width: '100%', height: '18px', marginTop: '10px', overflow: 'hidden' }}>
+    <div style={{ position: 'relative', width: '100%', height: '36px', marginTop: '12px' }}>
+      {/* Dynamic Sliding Date Pill Indicator */}
+      {activePoint && (
+        <div style={{
+          position: 'absolute',
+          left: `${(activePoint.x / 1000) * 100}%`,
+          transform: 'translateX(-50%)',
+          bottom: '2px',
+          background: 'rgba(15, 23, 42, 0.95)',
+          color: '#fff',
+          padding: '6px 12px',
+          borderRadius: '9999px',
+          fontSize: '11px',
+          fontWeight: 700,
+          boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+          whiteSpace: 'nowrap',
+          zIndex: 10,
+          transition: 'left 120ms cubic-bezier(0.25, 1, 0.5, 1)'
+        }}>
+          {activePoint.raw[xDataKey]}
+        </div>
+      )}
+
+      {/* Axis Tick Labels */}
       {visibleTicks.map((vt, i) => {
-        // Aligns with the AreaChart's margin calculation (2% to 98% space)
         const pct = 2 + (vt.index / Math.max(1, total - 1)) * 96;
+        // Hide standard label if it sits underneath the active sliding pill
+        const isOverlapped = activePoint && Math.abs(activePoint.x - (20 + (vt.index / (total - 1)) * 960)) < 60;
         return (
           <span 
             key={i} 
@@ -172,7 +218,9 @@ export const XAxis = ({ ticks = [], dataKey = 'date' }) => {
               color: 'var(--text-tertiary)', 
               fontWeight: 600,
               whiteSpace: 'nowrap',
-              fontFamily: 'sans-serif'
+              fontFamily: 'sans-serif',
+              opacity: isOverlapped ? 0 : 1,
+              transition: 'opacity 150ms ease'
             }}
           >
             {vt.label}
@@ -183,55 +231,34 @@ export const XAxis = ({ ticks = [], dataKey = 'date' }) => {
   );
 };
 
-// YAxis Component
-export const YAxis = ({ min = 0, max = 100, formatter }) => (
-  <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between', paddingRight: '12px', fontSize: '10px', color: 'var(--text-tertiary)', textAlign: 'right', fontWeight: 500 }}>
-    <span>{formatter ? formatter(max) : max}</span>
-    <span>{formatter ? formatter((max + min) / 2) : Math.round((max + min) / 2)}</span>
-    <span>{formatter ? formatter(min) : min}</span>
-  </div>
-);
+// Composable YAxis Component
+export const YAxis = ({ min = 0, max = 100, formatter }) => {
+  const context = useChart();
+  const minVal = context ? context.minVal : min;
+  const maxVal = context ? context.maxVal : max;
+  const activePoint = context?.activePoint;
 
-// 1. AREA CHART (Official Bklit Specification)
-export const AreaChart = ({
-  data = [],
-  xDataKey = 'date',
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between', paddingRight: '12px', fontSize: '10px', color: 'var(--text-tertiary)', textAlign: 'right', fontWeight: 500, height: '100%' }}>
+      <span style={{ color: activePoint ? 'var(--text-tertiary)' : 'inherit' }}>{formatter ? formatter(maxVal) : Math.round(maxVal)}</span>
+      <span style={{ color: activePoint ? 'var(--text-tertiary)' : 'inherit' }}>{formatter ? formatter((maxVal + minVal) / 2) : Math.round((maxVal + minVal) / 2)}</span>
+      <span style={{ color: activePoint ? 'var(--text-tertiary)' : 'inherit' }}>{formatter ? formatter(minVal) : Math.round(minVal)}</span>
+    </div>
+  );
+};
+
+// Composable Area Component
+export const Area = ({
   dataKey = 'value',
   color = '#0071E3',
-  fillOpacity = 0.35,
-  height = 220,
-  xDomain,
-  children
+  fillOpacity = 0.3,
+  strokeWidth = 2,
+  curve
 }) => {
-  const containerRef = useRef(null);
-  const [hoverIndex, setHoverIndex] = useState(null);
-  const [mouseX, setMouseX] = useState(null);
+  const context = useChart();
+  if (!context) return null;
+  const { displayData, minVal, valRange, activePoint, hoverIndex } = context;
 
-  const displayData = useMemo(() => {
-    if (!data || data.length === 0) {
-      // Fallback baseline points when data is empty
-      return [
-        { [xDataKey]: 'Day 1', [dataKey]: 0 },
-        { [xDataKey]: 'Day 2', [dataKey]: 0 },
-        { [xDataKey]: 'Day 3', [dataKey]: 0 },
-        { [xDataKey]: 'Day 4', [dataKey]: 0 },
-        { [xDataKey]: 'Day 5', [dataKey]: 0 },
-        { [xDataKey]: 'Day 6', [dataKey]: 0 },
-        { [xDataKey]: 'Day 7', [dataKey]: 0 }
-      ];
-    }
-    if (!xDomain || xDomain.length < 2) return data;
-    const startIdx = Math.floor((xDomain[0] / 100) * data.length);
-    const endIdx = Math.ceil((xDomain[1] / 100) * data.length);
-    return data.slice(Math.max(0, startIdx), Math.min(data.length, endIdx));
-  }, [data, xDomain, xDataKey, dataKey]);
-
-  const values = displayData.map(d => Number(d[dataKey] || 0));
-  const maxVal = Math.max(...values, 10);
-  const minVal = Math.min(...values, 0);
-  const valRange = maxVal - minVal || 1;
-
-  // Compute SVG Points in 1000 x 400 space
   const points = useMemo(() => {
     const marginT = 30;
     const marginB = 370;
@@ -253,7 +280,113 @@ export const AreaChart = ({
     return `${smoothCurve} L ${lastX.toFixed(2)},370 L ${firstX.toFixed(2)},370 Z`;
   }, [smoothCurve, points]);
 
-  const gradId = useMemo(() => `bklit-grad-${Math.random().toString(36).substr(2, 6)}`, []);
+  const gradId = useMemo(() => `bklit-area-grad-${dataKey}-${Math.random().toString(36).substr(2, 6)}`, [dataKey]);
+  const activeY = hoverIndex !== null && points[hoverIndex] ? points[hoverIndex].y : null;
+
+  return (
+    <>
+      <defs>
+        <linearGradient id={gradId} x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor={color} stopOpacity={fillOpacity} />
+          <stop offset="100%" stopColor={color} stopOpacity={0.0} />
+        </linearGradient>
+      </defs>
+
+      {/* Area Fill */}
+      <path d={areaPath} fill={`url(#${gradId})`} style={{ transition: 'all 0.3s ease' }} />
+
+      {/* Curve Stroke Line */}
+      <path 
+        d={smoothCurve} 
+        fill="none" 
+        stroke={color} 
+        strokeWidth={strokeWidth} 
+        vectorEffect="non-scaling-stroke" 
+        strokeLinecap="round" 
+        strokeLinejoin="round" 
+        style={{ transition: 'all 0.3s ease' }}
+      />
+
+      {/* Circle highlight overlay */}
+      {hoverIndex !== null && points[hoverIndex] && (
+        <circle 
+          cx={points[hoverIndex].x} 
+          cy={points[hoverIndex].y} 
+          r="5.5" 
+          fill={color} 
+          stroke="#fff" 
+          strokeWidth="2.5" 
+        />
+      )}
+    </>
+  );
+};
+
+// Composable AreaChart Root Container
+export const AreaChart = ({
+  data = [],
+  xDataKey = 'date',
+  dataKey = 'value',
+  color = '#0071E3',
+  fillOpacity = 0.3,
+  height = 220,
+  xDomain,
+  children
+}) => {
+  const containerRef = useRef(null);
+  const [hoverIndex, setHoverIndex] = useState(null);
+  const [mouseX, setMouseX] = useState(null);
+
+  const displayData = useMemo(() => {
+    if (!data || data.length === 0) {
+      return [
+        { [xDataKey]: 'Day 1', [dataKey]: 0 },
+        { [xDataKey]: 'Day 2', [dataKey]: 0 },
+        { [xDataKey]: 'Day 3', [dataKey]: 0 },
+        { [xDataKey]: 'Day 4', [dataKey]: 0 },
+        { [xDataKey]: 'Day 5', [dataKey]: 0 },
+        { [xDataKey]: 'Day 6', [dataKey]: 0 },
+        { [xDataKey]: 'Day 7', [dataKey]: 0 }
+      ];
+    }
+    if (!xDomain || xDomain.length < 2) return data;
+    const startIdx = Math.floor((xDomain[0] / 100) * data.length);
+    const endIdx = Math.ceil((xDomain[1] / 100) * data.length);
+    return data.slice(Math.max(0, startIdx), Math.min(data.length, endIdx));
+  }, [data, xDomain, xDataKey, dataKey]);
+
+  // Extract all potential data keys dynamically from child Area components
+  const activeKeys = useMemo(() => {
+    const keys = [];
+    React.Children.forEach(children, child => {
+      if (child && child.type === Area && child.props.dataKey) {
+        keys.push(child.props.dataKey);
+      }
+    });
+    if (keys.length === 0) keys.push(dataKey);
+    return keys;
+  }, [children, dataKey]);
+
+  const { minVal, maxVal, valRange } = useMemo(() => {
+    let allVals = [];
+    displayData.forEach(d => {
+      activeKeys.forEach(k => {
+        allVals.push(Number(d[k] || 0));
+      });
+    });
+    if (allVals.length === 0) allVals = [0];
+    const mx = Math.max(...allVals, 10);
+    const mn = Math.min(...allVals, 0);
+    return { minVal: mn, maxVal: mx, valRange: mx - mn || 1 };
+  }, [displayData, activeKeys]);
+
+  // General X positions mapping
+  const points = useMemo(() => {
+    return displayData.map((d, i) => {
+      const x = displayData.length === 1 ? 500 : 20 + (i / (displayData.length - 1)) * 960;
+      return { x, raw: d };
+    });
+  }, [displayData]);
 
   const handleMouseMove = (e) => {
     if (!containerRef.current || points.length === 0) return;
@@ -267,97 +400,115 @@ export const AreaChart = ({
 
   const activePoint = hoverIndex !== null ? points[hoverIndex] : null;
 
+  // Context value exposed to all composable children
+  const contextValue = {
+    data,
+    displayData,
+    xDataKey,
+    dataKey,
+    color,
+    minVal,
+    maxVal,
+    valRange,
+    points,
+    hoverIndex,
+    activePoint
+  };
+
+  // Find if custom XAxis or Tooltip are present as children
+  const hasCustomXAxis = React.Children.toArray(children).some(c => c && c.type === XAxis);
+  const hasCustomTooltip = React.Children.toArray(children).some(c => c && c.type === ChartTooltip);
+
   return (
-    <div 
-      ref={containerRef}
-      style={{ position: 'relative', width: '100%', height, userSelect: 'none' }}
-      onMouseMove={handleMouseMove}
-      onMouseLeave={() => { setHoverIndex(null); setMouseX(null); }}
-    >
-      <svg viewBox="0 0 1000 400" preserveAspectRatio="none" style={{ width: '100%', height: '100%', overflow: 'visible' }}>
-        <defs>
-          <linearGradient id={gradId} x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor={color} stopOpacity={fillOpacity} />
-            <stop offset="100%" stopColor={color} stopOpacity={0.0} />
-          </linearGradient>
-        </defs>
+    <ChartContext.Provider value={contextValue}>
+      <div 
+        ref={containerRef}
+        style={{ position: 'relative', width: '100%', height, userSelect: 'none' }}
+        onMouseMove={handleMouseMove}
+        onMouseLeave={() => { setHoverIndex(null); setMouseX(null); }}
+      >
+        <svg viewBox="0 0 1000 400" preserveAspectRatio="none" style={{ width: '100%', height: '100%', overflow: 'visible' }}>
+          {/* Render horizontal/grid references first */}
+          {React.Children.map(children, child => {
+            if (child && (child.type === Grid || child.type === ReferenceArea)) return child;
+            return null;
+          })}
 
-        <Grid />
+          {/* Render Area series */}
+          {React.Children.map(children, child => {
+            if (child && child.type === Area) return child;
+            return null;
+          })}
 
-        {/* Gradient Area Fill */}
-        <path d={areaPath} fill={`url(#${gradId})`} />
+          {/* Render default Area series if none declared */}
+          {!React.Children.toArray(children).some(c => c && c.type === Area) && (
+            <Area dataKey={dataKey} color={color} fillOpacity={fillOpacity} />
+          )}
 
-        {/* Smooth Curved Monotone Line */}
-        <path 
-          d={smoothCurve} 
-          fill="none" 
-          stroke={color} 
-          strokeWidth="3.5" 
-          vectorEffect="non-scaling-stroke" 
-          strokeLinecap="round" 
-          strokeLinejoin="round" 
-        />
-
-        {/* Vertical Crosshair Line */}
-        {activePoint && (
-          <line
-            x1={activePoint.x}
-            y1="20"
-            x2={activePoint.x}
-            y2="370"
-            stroke="var(--chart-crosshair, rgba(255, 255, 255, 0.3))"
-            strokeDasharray="4 4"
-            strokeWidth="1.5"
-            vectorEffect="non-scaling-stroke"
-          />
-        )}
-      </svg>
-
-      {/* HTML Absolute Overlay for Marker Dots & Tooltip (Fixes Oval Distortion) */}
-      {activePoint && (
-        <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }}>
-          {/* Active Highlight Marker Ring */}
-          <div style={{
-            position: 'absolute',
-            left: `${(activePoint.x / 1000) * 100}%`,
-            top: `${(activePoint.y / 400) * 100}%`,
-            width: '12px',
-            height: '12px',
-            borderRadius: '50%',
-            background: color,
-            border: '2.5px solid #fff',
-            transform: 'translate(-50%, -50%)',
-            boxShadow: `0 0 12px ${color}`,
-            zIndex: 10
-          }} />
-
-          {/* Floating Tooltip */}
-          <div style={{
-            position: 'absolute',
-            left: Math.min(Math.max(mouseX, 80), (containerRef.current?.getBoundingClientRect().width || 400) - 80),
-            top: '12px',
-            transform: 'translateX(-50%)',
-            zIndex: 30
-          }}>
-            <ChartTooltip 
-              active={true} 
-              label={activePoint.raw[xDataKey]} 
-              payload={[{ name: dataKey, value: activePoint.raw[dataKey], color }]} 
+          {/* Render crosshair line */}
+          {activePoint && (
+            <line
+              x1={activePoint.x}
+              y1="20"
+              x2={activePoint.x}
+              y2="370"
+              stroke="var(--chart-crosshair, rgba(255, 255, 255, 0.25))"
+              strokeDasharray="4 4"
+              strokeWidth="1.5"
+              vectorEffect="non-scaling-stroke"
             />
-          </div>
-        </div>
-      )}
+          )}
+        </svg>
 
-      {/* Render XAxis */}
-      <XAxis ticks={displayData} dataKey={xDataKey} />
-    </div>
+        {/* HTML Absolute Floating Overlays for Tooltip */}
+        {activePoint && (
+          <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }}>
+            <div style={{
+              position: 'absolute',
+              left: Math.min(Math.max(mouseX, 85), (containerRef.current?.getBoundingClientRect().width || 400) - 85),
+              top: '12px',
+              transform: 'translateX(-50%)',
+              zIndex: 30,
+              transition: 'left 100ms ease-out'
+            }}>
+              {hasCustomTooltip ? (
+                React.Children.map(children, child => {
+                  if (child && child.type === ChartTooltip) return child;
+                  return null;
+                })
+              ) : (
+                <ChartTooltip />
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Render bottom XAxis */}
+        {hasCustomXAxis ? (
+          React.Children.map(children, child => {
+            if (child && child.type === XAxis) return child;
+            return null;
+          })
+        ) : (
+          <XAxis />
+        )}
+      </div>
+    </ChartContext.Provider>
   );
 };
 
-// 2. LINE CHART
-export const LineChart = (props) => <AreaChart {...props} fillOpacity={0.0} />;
+// 2. LINE CHART wrapper
+export const LineChart = ({ children, ...props }) => (
+  <AreaChart {...props}>
+    {children}
+    {/* Map standard Area with fillOpacity=0 if not specified */}
+    {!React.Children.toArray(children).some(c => c && c.type === Area) && (
+      <Area dataKey={props.dataKey} color={props.color} fillOpacity={0} />
+    )}
+  </AreaChart>
+);
 
-// 3. BAR CHART (Clean Bklit Column Styling)
+// 3. BAR CHART
 export const BarChart = ({ data = [], xDataKey = 'name', dataKey = 'value', color = '#0071E3', height = 220, horizontal = false }) => {
   const [hoverIndex, setHoverIndex] = useState(null);
   const displayData = data && data.length ? data : [
