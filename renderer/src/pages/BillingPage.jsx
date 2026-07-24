@@ -14,13 +14,13 @@ export default function BillingPage() {
     const [error, setError] = useState(null);
     const [licenseDetails, setLicenseDetails] = useState(null);
 
-    // Activation / Upgrade Key Verification States
+    // Activation Key Modal States
     const [showKeyModal, setShowKeyModal] = useState(false);
     const [activationKey, setActivationKey] = useState('');
     const [keyVerifying, setKeyVerifying] = useState(false);
     const [keyError, setKeyError] = useState('');
 
-    // Credit Topup States
+    // Credit Topup Modal States
     const [showTopupModal, setShowTopupModal] = useState(false);
     const [topupAmount, setTopupAmount] = useState('500');
 
@@ -39,7 +39,6 @@ export default function BillingPage() {
             const data = await api.getBillingStatus();
             setStatus(data);
 
-            // Fetch live Supabase license details
             if (data && data.licenseKey) {
                 const { data: licenseData } = await supabase
                     .from('licenses')
@@ -131,7 +130,7 @@ export default function BillingPage() {
         }
     };
 
-    // Calculate ERP License Days Remaining
+    // Calculate Days Left for Subscription Expiration
     const getLicenseDaysLeft = () => {
         if (!licenseDetails || !licenseDetails.expires_at) return null;
         const expiryDate = new Date(licenseDetails.expires_at);
@@ -140,7 +139,7 @@ export default function BillingPage() {
         return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
     };
 
-    // Calculate VoBiz Number Days Remaining
+    // Calculate Days Left for VoBiz Phone Number Expiration
     const getVobizDaysLeft = () => {
         if (!licenseDetails || !licenseDetails.vobiz_expires_at) return null;
         const expiryDate = new Date(licenseDetails.vobiz_expires_at);
@@ -157,11 +156,8 @@ export default function BillingPage() {
             <div style={{ padding: '32px', maxWidth: '1200px', margin: '0 auto' }}>
                 <Skeleton width="240px" height="36px" style={{ marginBottom: '8px' }} />
                 <Skeleton width="400px" height="20px" style={{ marginBottom: '32px' }} />
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))', gap: '24px' }}>
-                    <Skeleton height="260px" borderRadius="16px" />
-                    <Skeleton height="260px" borderRadius="16px" />
-                    <Skeleton height="260px" borderRadius="16px" />
-                </div>
+                <Skeleton height="300px" borderRadius="16px" style={{ marginBottom: '24px' }} />
+                <Skeleton height="240px" borderRadius="16px" />
             </div>
         );
     }
@@ -170,14 +166,14 @@ export default function BillingPage() {
     const isPro = currentPlan !== 'Free';
 
     return (
-        <div style={{ padding: '32px', maxWidth: '1200px', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '28px' }}>
+        <div style={{ padding: '32px', maxWidth: '1200px', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '24px' }}>
             {/* Page Header */}
             <div>
                 <h1 style={{ margin: 0, fontSize: '26px', fontWeight: 800, color: 'var(--text-primary)', letterSpacing: '-0.02em' }}>
                     Billing & Subscriptions
                 </h1>
                 <p style={{ margin: '6px 0 0 0', color: 'var(--text-secondary)', fontSize: '14px' }}>
-                    Manage your Quantro ERP license, VoBiz telephony numbers, and prepaid pay-as-you-go wallet.
+                    Manage your Quantro ERP license plan, monthly usage billing, and prepaid pay-as-you-go wallet.
                 </p>
             </div>
 
@@ -189,176 +185,193 @@ export default function BillingPage() {
                 </div>
             )}
 
-            {/* Top Overview Cards Grid */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))', gap: '24px' }}>
-                
-                {/* 1. ERP LICENSE SUBSCRIPTION CARD */}
-                <div className="card" style={{ padding: '24px', borderRadius: '16px', border: '1px solid var(--border)', background: 'var(--bg-primary)', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', gap: '20px' }}>
-                    <div>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                                <div style={{ width: '40px', height: '40px', borderRadius: '10px', background: 'rgba(10, 110, 255, 0.1)', color: '#0A6EFF', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                    <Icons.Award size={22} />
-                                </div>
-                                <div>
-                                    <h3 style={{ margin: 0, fontSize: '16px', fontWeight: 700, color: 'var(--text-primary)' }}>ERP Subscription</h3>
-                                    <span style={{ fontSize: '12px', color: 'var(--text-tertiary)' }}>Quantro License Plan</span>
-                                </div>
+            {/* 1. MAIN ACCOUNT & LICENSE SUMMARY CARD */}
+            <div className="card" style={{ padding: '24px', borderRadius: '16px', border: '1px solid var(--border)', background: 'var(--bg-primary)', display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '20px' }}>
+                    
+                    {/* Left: Active License Overview */}
+                    <div style={{ flex: '1 1 320px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '12px' }}>
+                            <div style={{ width: '40px', height: '40px', borderRadius: '10px', background: 'rgba(10, 110, 255, 0.1)', color: '#0A6EFF', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                <Icons.Award size={22} />
                             </div>
-                            <span style={{
-                                padding: '4px 12px', borderRadius: '20px', fontSize: '12px', fontWeight: 700,
-                                background: isPro ? 'rgba(16, 185, 129, 0.1)' : 'var(--bg-secondary)',
-                                color: isPro ? '#10B981' : 'var(--text-secondary)',
-                                border: `1px solid ${isPro ? 'rgba(16, 185, 129, 0.2)' : 'var(--border)'}`
-                            }}>
-                                {isPro ? `${currentPlan} Active` : 'Free Starter'}
-                            </span>
+                            <div>
+                                <h2 style={{ margin: 0, fontSize: '18px', fontWeight: 800, color: 'var(--text-primary)' }}>
+                                    Active Plan: {isPro ? `${currentPlan} Tier` : 'Free Starter'}
+                                </h2>
+                                <span style={{ fontSize: '12px', color: 'var(--text-tertiary)' }}>
+                                    License key: <code style={{ color: 'var(--text-primary)', fontWeight: 700 }}>{status?.licenseKey || 'QTY-FREE-STARTER'}</code>
+                                </span>
+                            </div>
                         </div>
 
-                        <div style={{ background: 'var(--bg-secondary)', padding: '16px', borderRadius: '12px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                            <div>
-                                <span style={{ fontSize: '11px', color: 'var(--text-tertiary)', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.05em' }}>License Key</span>
-                                <div style={{ fontFamily: 'monospace', fontSize: '14px', fontWeight: 700, color: 'var(--text-primary)', marginTop: '2px' }}>
-                                    {status?.licenseKey || 'QTY-FREE-STARTER-KEY'}
-                                </div>
-                            </div>
+                        <div style={{ fontSize: '13px', color: 'var(--text-secondary)', lineHeight: 1.5, marginTop: '8px' }}>
+                            {isPro ? 'Pro plan subscription active with multi-channel automation & advanced ERP tooling.' : 'Free Starter plan with basic ERP features. Upgrade to PRO to unlock advanced automations.'}
+                        </div>
 
-                            <div style={{ borderTop: '1px solid var(--border)', paddingTop: '10px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                <span style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>Expiration Date:</span>
-                                <strong style={{ fontSize: '13px', color: licenseDaysLeft !== null && licenseDaysLeft <= 5 ? '#DC2626' : 'var(--text-primary)' }}>
+                        {/* Expiration Date Info */}
+                        <div style={{ marginTop: '16px', display: 'flex', alignItems: 'center', gap: '16px', flexWrap: 'wrap' }}>
+                            <div style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>
+                                Expiration Date: <strong style={{ color: licenseDaysLeft !== null && licenseDaysLeft <= 5 ? '#DC2626' : 'var(--text-primary)' }}>
                                     {licenseDetails?.expires_at 
                                         ? new Date(licenseDetails.expires_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })
                                         : 'Never (Free Tier)'}
                                 </strong>
                             </div>
+
+                            {/* Renew Button when <= 5 Days */}
+                            {isPro && (licenseDaysLeft === null || licenseDaysLeft <= 5) && (
+                                <SButton
+                                    variant="primary"
+                                    onClick={() => openExternalLink(`${webBaseUrl}/renew?key=${encodeURIComponent(status?.licenseKey || '')}`)}
+                                    style={{ padding: '6px 14px', fontSize: '12px', height: '32px' }}
+                                >
+                                    Renew Subscription
+                                </SButton>
+                            )}
                         </div>
                     </div>
 
-                    <div style={{ display: 'flex', gap: '10px' }}>
-                        {isPro && (licenseDaysLeft === null || licenseDaysLeft <= 5) ? (
-                            <SButton
-                                variant="primary"
-                                style={{ flex: 1, justifyContent: 'center' }}
-                                onClick={() => openExternalLink(`${webBaseUrl}/renew?key=${encodeURIComponent(status?.licenseKey || '')}`)}
-                            >
-                                Renew Subscription
-                            </SButton>
-                        ) : (
-                            <SButton
-                                variant="primary"
-                                style={{ flex: 1, justifyContent: 'center' }}
-                                onClick={() => openExternalLink(`${webBaseUrl}/pricing`)}
-                            >
-                                {isPro ? 'Manage / Upgrade' : 'Get PRO License'}
-                            </SButton>
-                        )}
-                        <SButton
-                            variant="secondary"
-                            onClick={() => setShowKeyModal(true)}
-                            style={{ padding: '0 16px' }}
-                        >
-                            Enter Key
-                        </SButton>
-                    </div>
-                </div>
-
-                {/* 2. VOBIZ PHONE NUMBER & VOICE AGENT CARD */}
-                <div className="card" style={{ padding: '24px', borderRadius: '16px', border: '1px solid var(--border)', background: 'var(--bg-primary)', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', gap: '20px' }}>
-                    <div>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                                <div style={{ width: '40px', height: '40px', borderRadius: '10px', background: 'rgba(139, 92, 246, 0.1)', color: '#8B5CF6', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                    <Icons.Phone size={22} />
-                                </div>
-                                <div>
-                                    <h3 style={{ margin: 0, fontSize: '16px', fontWeight: 700, color: 'var(--text-primary)' }}>VoBiz Phone Number</h3>
-                                    <span style={{ fontSize: '12px', color: 'var(--text-tertiary)' }}>Voice Calling Telephony</span>
-                                </div>
-                            </div>
-                            <span style={{
-                                padding: '4px 12px', borderRadius: '20px', fontSize: '12px', fontWeight: 700,
-                                background: status?.phoneNumberPurchased ? 'rgba(139, 92, 246, 0.1)' : 'var(--bg-secondary)',
-                                color: status?.phoneNumberPurchased ? '#8B5CF6' : 'var(--text-secondary)',
-                                border: `1px solid ${status?.phoneNumberPurchased ? 'rgba(139, 92, 246, 0.2)' : 'var(--border)'}`
-                            }}>
-                                {status?.phoneNumberPurchased ? 'Active Number' : 'Not Subscribed'}
-                            </span>
+                    {/* Right: Wallet Credit Balance */}
+                    <div style={{ background: 'var(--bg-secondary)', padding: '20px 24px', borderRadius: '14px', border: '1px solid var(--border)', display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '8px', minWidth: '240px' }}>
+                        <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Prepaid Wallet Balance</span>
+                        <div style={{ fontSize: '32px', fontWeight: 800, color: (status?.creditBalance || 0) <= 10 ? '#DC2626' : '#10B981', letterSpacing: '-0.02em' }}>
+                            ₹{Number(status?.creditBalance || 0).toFixed(2)}
                         </div>
-
-                        <div style={{ background: 'var(--bg-secondary)', padding: '16px', borderRadius: '12px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                            <div>
-                                <span style={{ fontSize: '11px', color: 'var(--text-tertiary)', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.05em' }}>Assigned Number</span>
-                                <div style={{ fontFamily: 'monospace', fontSize: '14px', fontWeight: 700, color: 'var(--text-primary)', marginTop: '2px' }}>
-                                    {status?.phoneNumberDetails || 'No Active Phone Number'}
-                                </div>
-                            </div>
-
-                            <div style={{ borderTop: '1px solid var(--border)', paddingTop: '10px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                <span style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>VoBiz Expiration:</span>
-                                <strong style={{ fontSize: '13px', color: vobizDaysLeft !== null && vobizDaysLeft <= 5 ? '#DC2626' : 'var(--text-primary)' }}>
-                                    {licenseDetails?.vobiz_expires_at 
-                                        ? new Date(licenseDetails.vobiz_expires_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })
-                                        : (status?.phoneNumberPurchased ? 'Active Subscription' : 'N/A')}
-                                </strong>
-                            </div>
-                        </div>
-
-                        {/* Reallocation Grace Period Warning */}
-                        {vobizDaysLeft !== null && vobizDaysLeft <= 5 && (
-                            <div style={{ marginTop: '12px', padding: '10px 12px', background: '#FEF2F2', border: '1px solid #FCA5A5', borderRadius: '8px', fontSize: '11px', color: '#991B1B', lineHeight: 1.4 }}>
-                                <strong>Warning:</strong> Renew your VoBiz number now. Once your subscription ends, after a 2-day grace period, your phone number access will be provided to another user and your organization will have to buy a new VoBiz number.
-                            </div>
-                        )}
-                    </div>
-
-                    <div>
                         <SButton
                             variant="primary"
-                            style={{ width: '100%', justifyContent: 'center' }}
-                            onClick={() => openExternalLink(`${webBaseUrl}/renew?key=${encodeURIComponent(status?.licenseKey || '')}&type=vobiz`)}
+                            onClick={() => setShowTopupModal(true)}
+                            style={{ backgroundColor: '#10B981', padding: '6px 16px', fontSize: '12px', height: '32px' }}
                         >
-                            {vobizDaysLeft !== null && vobizDaysLeft <= 5 ? 'Renew VoBiz Number' : 'Buy / Renew VoBiz Number'}
+                            Top Up Balance
                         </SButton>
                     </div>
                 </div>
 
-                {/* 3. PREPAID WALLET CARD */}
-                <div className="card" style={{ padding: '24px', borderRadius: '16px', border: '1px solid var(--border)', background: 'var(--bg-primary)', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', gap: '20px' }}>
-                    <div>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                                <div style={{ width: '40px', height: '40px', borderRadius: '10px', background: 'rgba(16, 185, 129, 0.1)', color: '#10B981', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                    <Icons.Wallet size={22} />
-                                </div>
-                                <div>
-                                    <h3 style={{ margin: 0, fontSize: '16px', fontWeight: 700, color: 'var(--text-primary)' }}>Prepaid Wallet</h3>
-                                    <span style={{ fontSize: '12px', color: 'var(--text-tertiary)' }}>Pay-As-You-Go Credit Balance</span>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div style={{ background: 'var(--bg-secondary)', padding: '20px', borderRadius: '12px', textAlign: 'center' }}>
-                            <span style={{ fontSize: '12px', color: 'var(--text-secondary)', fontWeight: 600 }}>Available Balance</span>
-                            <div style={{ fontSize: '32px', fontWeight: 800, color: (status?.creditBalance || 0) <= 10 ? '#DC2626' : '#10B981', marginTop: '4px', letterSpacing: '-0.02em' }}>
-                                ₹{Number(status?.creditBalance || 0).toFixed(2)}
-                            </div>
-                            <span style={{ fontSize: '11px', color: 'var(--text-tertiary)', marginTop: '6px', display: 'block' }}>
-                                Used for WhatsApp (₹0.30/msg) & Email dispatches (₹0.05/email)
-                            </span>
-                        </div>
-                    </div>
-
-                    <SButton
-                        variant="primary"
-                        style={{ width: '100%', justifyContent: 'center', backgroundColor: '#10B981' }}
-                        onClick={() => setShowTopupModal(true)}
-                    >
-                        Top Up Wallet Balance
+                {/* Bottom Action Bar */}
+                <div style={{ borderTop: '1px solid var(--border)', paddingTop: '16px', display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+                    <SButton variant="primary" onClick={() => openExternalLink(`${webBaseUrl}/pricing`)}>
+                        {isPro ? 'Manage / Upgrade Plan' : 'Upgrade to PRO'}
+                    </SButton>
+                    <SButton variant="secondary" onClick={() => setShowKeyModal(true)}>
+                        Enter Activation Key
                     </SButton>
                 </div>
             </div>
 
-            {/* PREPAID TRANSACTIONS LEDGER */}
+            {/* 2. MONTHLY BILLED & SERVICE USAGE RATES CARD */}
+            <div className="card" style={{ padding: '24px', borderRadius: '16px', border: '1px solid var(--border)', background: 'var(--bg-primary)', display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                <div>
+                    <h3 style={{ margin: 0, fontSize: '18px', fontWeight: 700, color: 'var(--text-primary)' }}>
+                        Service Usage & Monthly Billing Rates
+                    </h3>
+                    <p style={{ margin: '4px 0 0 0', fontSize: '13px', color: 'var(--text-secondary)' }}>
+                        Real-time monthly consumption for WhatsApp API, Email delivery, AI Voice Agents, and VoBiz phone numbers.
+                    </p>
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '16px' }}>
+                    
+                    {/* WhatsApp API */}
+                    <div style={{ background: 'var(--bg-secondary)', padding: '16px', borderRadius: '12px', border: '1px solid var(--border)', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                            <div style={{ width: '32px', height: '32px', borderRadius: '8px', background: 'rgba(37, 211, 102, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                <img src="./whatsapp-icon.png" alt="WA" style={{ width: '18px', height: '18px', objectFit: 'contain' }} />
+                            </div>
+                            <div>
+                                <strong style={{ fontSize: '14px', color: 'var(--text-primary)' }}>WhatsApp API</strong>
+                                <span style={{ fontSize: '11px', color: 'var(--text-tertiary)', display: 'block' }}>Monthly Billed</span>
+                            </div>
+                        </div>
+                        <div style={{ fontSize: '18px', fontWeight: 800, color: '#128C7E', marginTop: '4px' }}>
+                            ₹0.30 <span style={{ fontSize: '12px', fontWeight: 500, color: 'var(--text-secondary)' }}>/ message</span>
+                        </div>
+                        <div style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>
+                            Status: <strong style={{ color: status?.whatsappConnected ? '#10B981' : 'var(--text-tertiary)' }}>{status?.whatsappConnected ? 'Connected (QEIWA)' : 'Not Connected'}</strong>
+                        </div>
+                    </div>
+
+                    {/* Gmail Delivery */}
+                    <div style={{ background: 'var(--bg-secondary)', padding: '16px', borderRadius: '12px', border: '1px solid var(--border)', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                            <div style={{ width: '32px', height: '32px', borderRadius: '8px', background: 'rgba(234, 67, 53, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                <img src="./gmail-icon.png" alt="Gmail" style={{ width: '18px', height: '18px', objectFit: 'contain' }} />
+                            </div>
+                            <div>
+                                <strong style={{ fontSize: '14px', color: 'var(--text-primary)' }}>Gmail Delivery</strong>
+                                <span style={{ fontSize: '11px', color: 'var(--text-tertiary)', display: 'block' }}>Monthly Billed</span>
+                            </div>
+                        </div>
+                        <div style={{ fontSize: '18px', fontWeight: 800, color: '#EA4335', marginTop: '4px' }}>
+                            ₹0.05 <span style={{ fontSize: '12px', fontWeight: 500, color: 'var(--text-secondary)' }}>/ email</span>
+                        </div>
+                        <div style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>
+                            Status: <strong style={{ color: status?.gmailConnected ? '#10B981' : 'var(--text-tertiary)' }}>{status?.gmailConnected ? 'Connected' : 'Not Connected'}</strong>
+                        </div>
+                    </div>
+
+                    {/* AI Voice Agent */}
+                    <div style={{ background: 'var(--bg-secondary)', padding: '16px', borderRadius: '12px', border: '1px solid var(--border)', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                            <div style={{ width: '32px', height: '32px', borderRadius: '8px', background: 'rgba(147, 51, 234, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                <img src="./mazeway.png" alt="Voice" style={{ width: '18px', height: '18px', objectFit: 'contain' }} />
+                            </div>
+                            <div>
+                                <strong style={{ fontSize: '14px', color: 'var(--text-primary)' }}>AI Voice Agent</strong>
+                                <span style={{ fontSize: '11px', color: 'var(--text-tertiary)', display: 'block' }}>Monthly Billed</span>
+                            </div>
+                        </div>
+                        <div style={{ fontSize: '18px', fontWeight: 800, color: '#9333EA', marginTop: '4px' }}>
+                            ₹10.00 <span style={{ fontSize: '12px', fontWeight: 500, color: 'var(--text-secondary)' }}>/ minute</span>
+                        </div>
+                        <div style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>
+                            Voice Seconds: <strong>{status?.voiceAgentSeconds || 0}s</strong>
+                        </div>
+                    </div>
+
+                    {/* VoBiz Phone Number */}
+                    <div style={{ background: 'var(--bg-secondary)', padding: '16px', borderRadius: '12px', border: '1px solid var(--border)', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                            <div style={{ width: '32px', height: '32px', borderRadius: '8px', background: 'rgba(139, 92, 246, 0.1)', color: '#8B5CF6', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                <Icons.Phone size={18} />
+                            </div>
+                            <div>
+                                <strong style={{ fontSize: '14px', color: 'var(--text-primary)' }}>VoBiz Phone Number</strong>
+                                <span style={{ fontSize: '11px', color: 'var(--text-tertiary)', display: 'block' }}>Telephony Subscription</span>
+                            </div>
+                        </div>
+                        <div style={{ fontSize: '13px', fontWeight: 700, color: 'var(--text-primary)', marginTop: '4px', fontFamily: 'monospace' }}>
+                            {status?.phoneNumberDetails || 'No Active Phone Number'}
+                        </div>
+                        <div style={{ fontSize: '12px', color: 'var(--text-secondary)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <span>VoBiz Expiry:</span>
+                            <strong style={{ color: vobizDaysLeft !== null && vobizDaysLeft <= 5 ? '#DC2626' : 'var(--text-primary)' }}>
+                                {licenseDetails?.vobiz_expires_at 
+                                    ? new Date(licenseDetails.vobiz_expires_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })
+                                    : (status?.phoneNumberPurchased ? 'Active' : 'N/A')}
+                            </strong>
+                        </div>
+                    </div>
+                </div>
+
+                {/* VoBiz Expiration Warning & Renew Button */}
+                {vobizDaysLeft !== null && vobizDaysLeft <= 5 && (
+                    <div style={{ padding: '12px 16px', background: '#FEF2F2', border: '1px solid #FCA5A5', borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '16px', flexWrap: 'wrap' }}>
+                        <div style={{ fontSize: '12px', color: '#991B1B', lineHeight: 1.4, flex: 1 }}>
+                            <strong>Warning:</strong> Renew your VoBiz number now. Once your subscription ends, after a 2-day grace period, your phone number access will be provided to another user and your organization will have to buy a new VoBiz number.
+                        </div>
+                        <SButton
+                            variant="primary"
+                            style={{ backgroundColor: '#DC2626', padding: '6px 14px', fontSize: '12px', height: '32px' }}
+                            onClick={() => openExternalLink(`${webBaseUrl}/renew?key=${encodeURIComponent(status?.licenseKey || '')}&type=vobiz`)}
+                        >
+                            Renew VoBiz Number
+                        </SButton>
+                    </div>
+                )}
+            </div>
+
+            {/* 3. PREPAID TRANSACTIONS LEDGER TABLE */}
             <div className="card" style={{ padding: '24px', borderRadius: '16px', border: '1px solid var(--border)', background: 'var(--bg-primary)' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
                     <div>
