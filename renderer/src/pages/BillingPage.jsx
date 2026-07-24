@@ -275,8 +275,8 @@ export default function BillingPage() {
                     {/* WhatsApp API */}
                     <div style={{ background: 'var(--bg-secondary)', padding: '16px', borderRadius: '12px', border: '1px solid var(--border)', display: 'flex', flexDirection: 'column', gap: '8px' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                            <div style={{ width: '32px', height: '32px', borderRadius: '8px', background: 'rgba(37, 211, 102, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                <img src="./whatsapp-icon.png" alt="WA" style={{ width: '18px', height: '18px', objectFit: 'contain' }} />
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: '11px', background: 'rgba(37, 211, 102, 0.1)', color: '#25D366', padding: '4px 8px', borderRadius: '6px' }}>
+                                WA
                             </div>
                             <div>
                                 <strong style={{ fontSize: '14px', color: 'var(--text-primary)' }}>WhatsApp API</strong>
@@ -294,8 +294,8 @@ export default function BillingPage() {
                     {/* Gmail Delivery */}
                     <div style={{ background: 'var(--bg-secondary)', padding: '16px', borderRadius: '12px', border: '1px solid var(--border)', display: 'flex', flexDirection: 'column', gap: '8px' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                            <div style={{ width: '32px', height: '32px', borderRadius: '8px', background: 'rgba(234, 67, 53, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                <img src="./gmail-icon.png" alt="Gmail" style={{ width: '18px', height: '18px', objectFit: 'contain' }} />
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: '11px', background: 'rgba(234, 67, 53, 0.1)', color: '#EA4335', padding: '4px 8px', borderRadius: '6px' }}>
+                                Gmail
                             </div>
                             <div>
                                 <strong style={{ fontSize: '14px', color: 'var(--text-primary)' }}>Gmail Delivery</strong>
@@ -313,8 +313,8 @@ export default function BillingPage() {
                     {/* AI Voice Agent */}
                     <div style={{ background: 'var(--bg-secondary)', padding: '16px', borderRadius: '12px', border: '1px solid var(--border)', display: 'flex', flexDirection: 'column', gap: '8px' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                            <div style={{ width: '32px', height: '32px', borderRadius: '8px', background: 'rgba(147, 51, 234, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                <img src="./mazeway.png" alt="Voice" style={{ width: '18px', height: '18px', objectFit: 'contain' }} />
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: '11px', background: 'rgba(147, 51, 234, 0.1)', color: '#9333EA', padding: '4px 8px', borderRadius: '6px' }}>
+                                Voice
                             </div>
                             <div>
                                 <strong style={{ fontSize: '14px', color: 'var(--text-primary)' }}>AI Voice Agent</strong>
@@ -341,14 +341,14 @@ export default function BillingPage() {
                             </div>
                         </div>
                         <div style={{ fontSize: '13px', fontWeight: 700, color: 'var(--text-primary)', marginTop: '4px', fontFamily: 'monospace' }}>
-                            {status?.phoneNumberDetails || 'No Active Phone Number'}
+                            {licenseDetails?.vobiz_phone_number || 'No Active Phone Number'}
                         </div>
                         <div style={{ fontSize: '12px', color: 'var(--text-secondary)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                             <span>VoBiz Expiry:</span>
                             <strong style={{ color: vobizDaysLeft !== null && vobizDaysLeft <= 5 ? '#DC2626' : 'var(--text-primary)' }}>
                                 {licenseDetails?.vobiz_expires_at 
                                     ? new Date(licenseDetails.vobiz_expires_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })
-                                    : (status?.phoneNumberPurchased ? 'Active' : 'N/A')}
+                                    : 'N/A'}
                             </strong>
                         </div>
                     </div>
