@@ -156,7 +156,7 @@ export default function ExpirationBanner() {
                             justifyContent: 'center',
                             flexShrink: 0
                         }}>
-                            <Icons.PhoneCall size={20} />
+                            <Icons.Phone size={20} />
                         </div>
                         <div>
                             <strong style={{ fontSize: '13px', color: '#991B1B', display: 'block' }}>
