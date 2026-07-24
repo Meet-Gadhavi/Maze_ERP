@@ -1933,11 +1933,25 @@ export default function SettingsPage() {
                                         </div>
                                     )}
 
+                                    {/* Timeline Item: v2.10.55 — Prepaid Wallet & Live Supabase Billing Overhaul */}
+                                    <div style={{ position: 'relative' }}>
+                                        <div style={{ position: 'absolute', left: '-22px', top: '4px', width: '12px', height: '12px', borderRadius: '50%', background: 'var(--accent)', border: '2px solid var(--bg-primary)' }}></div>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                            <strong style={{ fontSize: '15px' }}>Version 2.10.55 {updateState.status !== 'available' && '(Latest)'}</strong>
+                                            <span style={{ fontSize: '11px', color: 'var(--text-tertiary)', background: 'var(--bg-secondary)', padding: '2px 8px', borderRadius: '12px' }}>July 24, 2026</span>
+                                        </div>
+                                        <div style={{ fontSize: '13px', color: 'var(--text-secondary)', marginTop: '8px', lineHeight: 1.6 }}>
+                                             <ul style={{ margin: 0, paddingLeft: '16px' }}>
+                                                 <li><strong>Prepaid Wallet & Live Supabase Billing Overhaul</strong>: Overhauled billing architecture to pull live license keys, plans, and expiration dates directly from Supabase (<code style={{ color: 'var(--accent)' }}>licenses</code> table). Purged legacy postpaid dues, 1-Rupee card verification, and 5-day grace period suspension warnings in favor of a Pay-As-You-Go Prepaid Wallet model. Added global top expiration banners and inline Renew buttons for ERP subscriptions and VoBiz telephony numbers (<code style={{ color: 'var(--accent)' }}>/renew</code>).</li>
+                                             </ul>
+                                        </div>
+                                    </div>
+
                                     {/* Timeline Item: v2.10.54 — Fixed Dashboard Chart Mismatch Crashes */}
                                     <div style={{ position: 'relative' }}>
                                         <div style={{ position: 'absolute', left: '-22px', top: '4px', width: '12px', height: '12px', borderRadius: '50%', background: 'var(--accent)', border: '2px solid var(--bg-primary)' }}></div>
                                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                            <strong style={{ fontSize: '15px' }}>Version 2.10.54 {updateState.status !== 'available' && '(Latest)'}</strong>
+                                            <strong style={{ fontSize: '15px' }}>Version 2.10.54</strong>
                                             <span style={{ fontSize: '11px', color: 'var(--text-tertiary)', background: 'var(--bg-secondary)', padding: '2px 8px', borderRadius: '12px' }}>July 23, 2026</span>
                                         </div>
                                         <div style={{ fontSize: '13px', color: 'var(--text-secondary)', marginTop: '8px', lineHeight: 1.6 }}>

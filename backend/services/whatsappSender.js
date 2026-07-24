@@ -54,7 +54,7 @@ const whatsappSender = {
             const { isBillingBlocked } = require('./billingHelper');
             const blocked = await isBillingBlocked();
             if (blocked) {
-                throw new Error("WhatsApp Service Blocked: Outstanding dues have not been paid. Please complete payment in the Billing tab.");
+                throw new Error("WhatsApp Service Blocked: Prepaid wallet credit balance is depleted. Please top up your wallet in the Billing tab.");
             }
 
             const { isCustomerSessionActive } = require('./whatsappSessionService');
@@ -132,7 +132,7 @@ const whatsappSender = {
             const { isBillingBlocked } = require('./billingHelper');
             const blocked = await isBillingBlocked();
             if (blocked) {
-                throw new Error("WhatsApp Service Blocked: Outstanding dues have not been paid. Please complete payment in the Billing tab.");
+                throw new Error("WhatsApp Service Blocked: Prepaid wallet credit balance is depleted. Please top up your wallet in the Billing tab.");
             }
 
             const { isCustomerSessionActive } = require('./whatsappSessionService');

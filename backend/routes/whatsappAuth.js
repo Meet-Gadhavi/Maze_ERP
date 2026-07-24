@@ -88,8 +88,8 @@ router.post('/test-message', async (req, res, next) => {
             return res.status(400).json({ error: "recipient phone is required" });
         }
 
-        const msgText = "Test Message from Quantro ERP WhatsApp Integration!\n\nYour WhatsApp Cloud API is successfully configured.";
-        const result = await whatsappSender.sendText(phone, msgText);
+        console.log(`[WhatsApp Auth] Sending hello_world template test message to ${phone}...`);
+        const result = await whatsappSender.sendTemplate(phone, "hello_world", [], null, "en_US");
         res.json({ success: true, result });
     } catch (err) {
         res.status(500).json({ error: err.message });

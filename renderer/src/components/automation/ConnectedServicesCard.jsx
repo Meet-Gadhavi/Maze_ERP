@@ -213,7 +213,6 @@ export default function ConnectedServicesCard({
         try {
             await api.connectQEIWA();
             toast.success('Connected to Quantro ERP Identity WhatsApp Automation (QEIWA) successfully!', { id: loadingId });
-            setShowWaChoiceModal(false);
             fetchWhatsAppConnections();
         } catch (err) {
             console.error('Failed to connect QEIWA:', err);

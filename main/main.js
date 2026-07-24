@@ -265,7 +265,10 @@ function createWindow() {
     });
 
     if (isDev) {
-        mainWindow.loadURL('http://localhost:5175');
+        mainWindow.loadURL('http://localhost:5175').catch(() => {
+            console.log('[Maze ERP] Could not connect to dev server at http://localhost:5175, loading local dist build...');
+            mainWindow.loadFile(path.join(__dirname, '..', 'renderer', 'dist', 'index.html'));
+        });
     } else {
         mainWindow.loadFile(path.join(__dirname, '..', 'renderer', 'dist', 'index.html'));
     }
