@@ -1329,8 +1329,7 @@ export default function InvoicePreviewModal({ invoice, onClose, autoOpenShare = 
                         {invoice?.financial_status || 'PAID'}
                     </span>
                 </div>,
-                <SButton key="share" variant="secondary" onClick={() => setShowShareModal(true)}>Share</SButton>,
-                <SButton key="print" onClick={handlePrint}>Print / PDF</SButton>
+                <SButton key="share" variant="secondary" onClick={() => setShowShareModal(true)}>Share</SButton>
             ]}
         >
             <div className={`invoice-preview-content ${settings?.invoice_style === 'formal' ? 'formal-mode' : settings?.invoice_style === 'pos' ? 'pos-mode' : settings?.invoice_style === 'minimalist' ? 'minimalist-mode' : ''}`} ref={contentRef} style={{ padding: '20px' }}>

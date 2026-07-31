@@ -1,0 +1,23 @@
+# Billing System & Notification Improvements Tasks
+
+- [x] Fix WhatsApp Share Link Parameter Suffix Route (`v2.10.59`)
+  - [x] Change button parameter suffix format in `backend/services/whatsappSender.js` to `invoice/${token}`
+- [x] Verify Web app compatibility with secure token url structure
+  - [x] Inspect website route handler `InvoiceViewer.jsx` to ensure dynamic token lookup is supported out of the box
+- [x] Auto-Send Success Notification Toasts (`v2.10.60`)
+  - [x] Add auto-send feedback status toasts in `SalesPage.jsx` when checkout is completed
+  - [x] Verify local renderer build compiles successfully
+- [x] Fix Production Backend Startup Crash (`v2.10.61`)
+  - [x] Require missing `fs` module in `main/main.js` to prevent ReferenceError
+  - [x] Add `logToFile` backend error logging utility in the main process
+- [x] Publish GitHub Releases
+  - [x] Tag and release version `v2.10.59` with setup exe and config
+  - [x] Tag and release version `v2.10.60` with setup exe and config
+  - [x] Tag and release version `v2.10.61` with setup exe and config
+- [x] Diagnostic Backend Error Reporting (`v2.10.62`)
+  - [x] Capture main thread exceptions and expose to renderer via IPC
+  - [x] Display actual stack traces on connection failure to isolate client PC startup crashes
+  - [x] Compile, package, and release version `v2.10.62` to GitHub
+- [x] Supabase Node.js WebSocket Crash Fix (`v2.10.63`)
+  - [x] Add global WebSocket polyfill in `backend/server.js` to resolve realtime client initialization checks
+  - [x] Compile, package, and release version `v2.10.63` to GitHub

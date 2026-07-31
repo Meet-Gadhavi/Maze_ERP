@@ -1,4 +1,16 @@
 process.env.TZ = 'Asia/Kolkata';
+
+// Polyfill global WebSocket for Supabase Realtime check in Electron Node context
+if (typeof globalThis.WebSocket === 'undefined') {
+    const DummyWS = class DummyWebSocket {
+        constructor() {
+            throw new Error('WebSockets are not supported/needed in this environment.');
+        }
+    };
+    globalThis.WebSocket = DummyWS;
+    global.WebSocket = DummyWS;
+}
+
 const express = require('express');
 const cors = require('cors');
 const path = require('path');

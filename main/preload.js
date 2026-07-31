@@ -3,6 +3,7 @@ const { contextBridge, ipcRenderer } = require('electron');
 contextBridge.exposeInMainWorld('maze', {
     platform: process.platform,
     version: '1.0.1',
+    getBackendStartError: () => ipcRenderer.invoke('get-backend-start-error'),
     onAuthCallback: (callback) => ipcRenderer.on('auth-callback', (_event, url) => callback(url)),
     openCustomerDisplay: () => ipcRenderer.send('open-customer-window'),
     updateCustomerDisplay: (data) => ipcRenderer.send('update-customer-display-data', data),

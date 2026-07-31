@@ -1,5 +1,6 @@
 const { app, BrowserWindow, ipcMain, nativeImage } = require('electron');
 const path = require('path');
+const fs = require('fs');
 const { autoUpdater } = require('electron-updater');
 
 // Disable background auto-download to allow user-driven, interactive downloads in settings
@@ -209,6 +210,38 @@ const iconPath = isDev
 
 const appIcon = nativeImage.createFromPath(iconPath);
 
+let backendStartError = null;
+
+process.on('uncaughtException', (err) => {
+    console.error('Uncaught Exception in Main process:', err);
+    logToFile('Uncaught Exception in Main process', err);
+    backendStartError = err.stack || err.message || String(err);
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+    console.error('Unhandled Rejection in Main process:', reason);
+    logToFile('Unhandled Rejection in Main process', reason);
+    backendStartError = (reason && (reason.stack || reason.message)) || String(reason);
+});
+
+ipcMain.handle('get-backend-start-error', () => {
+    return backendStartError;
+});
+
+function logToFile(msg, err) {
+    try {
+        const logDir = process.env.MAZE_USER_DATA || app.getPath('userData');
+        const logPath = path.join(logDir, 'main_error.log');
+        const timestamp = new Date().toISOString();
+        let logMsg = `[${timestamp}] ${msg}\n`;
+        if (err) {
+            logMsg += `${err.stack || err.message || String(err)}\n\n`;
+        }
+        fs.appendFileSync(logPath, logMsg);
+    } catch (e) {
+        console.error('Failed to write to log file:', e);
+    }
+}
 
 function startBackend() {
     if (isDev) {
@@ -217,11 +250,14 @@ function startBackend() {
     }
 
     try {
+        logToFile('Attempting to start backend server...');
         const { startServer } = require('../backend/server');
         backendServer = startServer();
-        console.log('[Maze ERP] Backend server started successfully');
+        logToFile('Backend server started successfully');
     } catch (err) {
         console.error('[Maze ERP] Failed to start backend:', err);
+        backendStartError = err.stack || err.message || String(err);
+        logToFile('Failed to start backend', err);
     }
 }
 

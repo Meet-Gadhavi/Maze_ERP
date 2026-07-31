@@ -146,6 +146,62 @@ router.post('/send-invoice', async (req, res, next) => {
     }
 });
 
+// POST send-quotation via WhatsApp
+router.post('/send-quotation', async (req, res, next) => {
+    const { to, quotationId } = req.body;
+    if (!to || !quotationId) {
+        return res.status(400).json({ error: 'to and quotationId parameters are required.' });
+    }
+
+    try {
+        await db.ready;
+        // Fetch Quotation details
+        const quotationQuery = `
+            SELECT q.*, c.name AS customer_name, c.phone AS customer_phone, c.email AS customer_email, c.address AS customer_address, c.gstin AS customer_gstin
+            FROM quotations q 
+            LEFT JOIN customers c ON q.customer_id = c.id 
+            WHERE q.id = ?
+        `;
+        const quotation = db.get(quotationQuery, [quotationId]);
+        if (!quotation) {
+            return res.status(404).json({ error: 'Quotation not found.' });
+        }
+
+        // Fetch items
+        const items = db.all('SELECT * FROM quotation_items WHERE quotation_id = ?', [quotationId]);
+        quotation.items = items;
+
+        // Fetch settings
+        const settingsRows = db.all('SELECT key, value FROM settings');
+        const settings = {};
+        settingsRows.forEach(r => { settings[r.key] = r.value; });
+
+        const companyName = settings.company_name || 'Maze ERP';
+        
+        // Generate Quotation PDF
+        const { generateQuotationPDF } = require('../services/pdfGenerator');
+        const pdfBuffer = await generateQuotationPDF(quotation, settings);
+        const filename = `Quotation_${String(quotation.id).padStart(4, '0')}.pdf`;
+        const caption = `Dear customer, please find attached quotation #QTN-${String(quotation.id).padStart(4, '0')} from ${companyName}.`;
+
+        // Send PDF via WhatsApp
+        await whatsappSender.sendInvoicePDF(to, pdfBuffer, filename, caption);
+
+        // Record communication log
+        if (quotation.customer_id) {
+            db.run(
+                "INSERT INTO customer_communication_logs (customer_id, type, notes) VALUES (?, 'SMS', ?)",
+                [quotation.customer_id, `Sent quotation #QTN-${String(quotation.id).padStart(4, '0')} via WhatsApp`]
+            );
+        }
+
+        res.json({ message: 'Quotation sent successfully via WhatsApp' });
+    } catch (err) {
+        console.error('[WhatsApp Auth] Send quotation failed:', err);
+        res.status(500).json({ error: err.message || 'Failed to send quotation via WhatsApp.' });
+    }
+});
+
 // Webhook Verification (GET /webhook)
 router.get('/webhook', (req, res) => {
     const mode = req.query['hub.mode'];
@@ -237,6 +293,37 @@ router.post('/webhook', (req, res) => {
                                                 console.log(`[WhatsApp Webhook] Replied to ${fromPhone} using AI`);
                                             } catch (e) {
                                                 console.error('[WhatsApp Webhook AI Processing Error]', e);
+                                            }
+                                        })();
+                                    } else if (message.type === 'button' && message.button) {
+                                        const buttonText = message.button.text;
+                                        
+                                        // Execute matching and rating logging asynchronously
+                                        (async () => {
+                                            try {
+                                                const cleanFromPhone = fromPhone.replace(/\D/g, '');
+                                                let customer = null;
+                                                if (cleanFromPhone) {
+                                                    const customers = db.all("SELECT * FROM customers WHERE phone IS NOT NULL AND phone != ''");
+                                                    customer = customers.find(c => {
+                                                        const dbPhone = (c.phone || '').replace(/\D/g, '');
+                                                        return dbPhone && (dbPhone === cleanFromPhone || dbPhone.endsWith(cleanFromPhone) || cleanFromPhone.endsWith(dbPhone));
+                                                    });
+                                                }
+                                                
+                                                if (customer) {
+                                                    // Log rating
+                                                    db.run(
+                                                        "INSERT INTO customer_communication_logs (customer_id, type, notes) VALUES (?, 'SMS', ?)",
+                                                        [customer.id, `Received WhatsApp Feedback rating: ${buttonText}`]
+                                                    );
+                                                    console.log(`[WhatsApp Webhook] Recorded rating of ${buttonText} for customer ID ${customer.id}`);
+                                                    
+                                                    // Reply thanking the user
+                                                    await whatsappSender.sendText(fromPhone, `Thank you so much for your rating of ${buttonText}! We appreciate your feedback.`);
+                                                }
+                                            } catch (e) {
+                                                console.error('[WhatsApp Webhook Rating Logging Error]', e);
                                             }
                                         })();
                                     }

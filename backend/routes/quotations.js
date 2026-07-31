@@ -38,6 +38,10 @@ router.get('/', async (req, res, next) => {
             ORDER BY q.created_at DESC
         `;
         const quotations = db.all(query);
+        for (const q of quotations) {
+            const items = db.all('SELECT * FROM quotation_items WHERE quotation_id = ?', [q.id]);
+            q.items = items || [];
+        }
         res.json(quotations);
     } catch (err) {
         next(err);
@@ -135,6 +139,19 @@ router.delete('/:id', async (req, res, next) => {
 
         db.run('DELETE FROM quotations WHERE id = ?', [id]);
         res.json({ success: true, message: 'Quotation deleted successfully' });
+    } catch (err) {
+        next(err);
+    }
+});
+
+// GET /api/quotations/:id/share-link — Generate secure hosted link for quotation
+router.get('/:id/share-link', async (req, res, next) => {
+    try {
+        await db.ready;
+        const quotationId = Number(req.params.id);
+        const { generateHostedQuotation } = require('../services/hostedInvoiceService');
+        const result = await generateHostedQuotation(quotationId);
+        res.json(result);
     } catch (err) {
         next(err);
     }

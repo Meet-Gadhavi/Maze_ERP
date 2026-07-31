@@ -142,6 +142,9 @@ export default function SalesPage() {
     const [quotationDiscountRate, setQuotationDiscountRate] = useState(0);
     const [quotationProductSearch, setQuotationProductSearch] = useState('');
     const [selectedQuotation, setSelectedQuotation] = useState(null); // for preview modal
+    const [loadingQuotationTemplate, setLoadingQuotationTemplate] = useState(false);
+    const [selectedTemplateId, setSelectedTemplateId] = useState(null);
+    const [templateSearch, setTemplateSearch] = useState('');
     const [showCustomerSelectForConvert, setShowCustomerSelectForConvert] = useState(null); // quotation object being converted
     const [selectedCustomerForConvert, setSelectedCustomerForConvert] = useState(''); // customer id
     const [walkInNameForConvert, setWalkInNameForConvert] = useState('');
@@ -179,6 +182,7 @@ export default function SalesPage() {
         api.getProducts().then(setProducts).catch(() => { });
         api.getPricelists().then(data => setPricelists((data || []).filter(pl => pl.active === 1))).catch(() => { });
         loadHistory();
+        loadQuotations();
         setSelectedInvoiceIds([]);
         if (tab === 'new') setStep('customer');
         if (tab === 'ai-sales') loadMazewayOrders();
@@ -195,7 +199,66 @@ export default function SalesPage() {
         }
     }, [invoices]);
 
+    // Session Recovery: Restore saved sales session on load if recovery requested or saved session exists
+    useEffect(() => {
+        const isRestorePending = localStorage.getItem('quantro_restore_pending') === 'true';
+        const savedSessionStr = localStorage.getItem('quantro_sales_cart_session');
+
+        if ((isRestorePending || savedSessionStr) && savedSessionStr) {
+            try {
+                const sessionData = JSON.parse(savedSessionStr);
+                if (sessionData) {
+                    if (Array.isArray(sessionData.cart) && sessionData.cart.length > 0) {
+                        setCart(sessionData.cart);
+                    }
+                    if (sessionData.selectedCustomer !== undefined) setSelectedCustomer(String(sessionData.selectedCustomer));
+                    if (sessionData.step) setStep(sessionData.step);
+                    if (sessionData.walkInName !== undefined) setWalkInName(sessionData.walkInName);
+                    if (sessionData.walkInPhone !== undefined) setWalkInPhone(sessionData.walkInPhone);
+                    if (sessionData.gstEnabled !== undefined) setGstEnabled(sessionData.gstEnabled);
+                    if (sessionData.gstRate !== undefined) setGstRate(sessionData.gstRate);
+                    if (sessionData.discountEnabled !== undefined) setDiscountEnabled(sessionData.discountEnabled);
+                    if (sessionData.discountRate !== undefined) setDiscountRate(sessionData.discountRate);
+                    if (sessionData.selectedPricelistId !== undefined) setSelectedPricelistId(sessionData.selectedPricelistId);
+                    if (sessionData.selectedTemplateId !== undefined) setSelectedTemplateId(sessionData.selectedTemplateId);
+
+                    if (isRestorePending) {
+                        toast.success('Session restored! Cart items and customer configuration recovered.', { duration: 4000 });
+                        localStorage.removeItem('quantro_restore_pending');
+                    }
+                }
+            } catch (err) {
+                console.error('[SessionRecovery] Failed to restore session data:', err);
+            }
+        }
+    }, []);
+
+    // Session Recovery: Auto-persist active cart and customer state for recovery
+    useEffect(() => {
+        if (cart.length > 0 || (selectedCustomer && selectedCustomer !== '') || step === 'products') {
+            const sessionData = {
+                cart,
+                selectedCustomer,
+                step,
+                walkInName,
+                walkInPhone,
+                gstEnabled,
+                gstRate,
+                discountEnabled,
+                discountRate,
+                selectedPricelistId,
+                selectedTemplateId,
+                timestamp: Date.now()
+            };
+            localStorage.setItem('quantro_sales_cart_session', JSON.stringify(sessionData));
+        } else if (cart.length === 0 && !selectedCustomer && step === 'customer') {
+            localStorage.removeItem('quantro_sales_cart_session');
+        }
+    }, [cart, selectedCustomer, step, walkInName, walkInPhone, gstEnabled, gstRate, discountEnabled, discountRate, selectedPricelistId, selectedTemplateId]);
+
     const handleSelectCustomer = (customer) => {
+        setCart([]);
+        setSelectedTemplateId(null);
         if (!customer) {
             setSelectedCustomer('');
             setDiscountRate(0);
@@ -217,6 +280,19 @@ export default function SalesPage() {
                 setDiscountEnabled(false);
             }
         }
+    };
+
+    const handleBackToCustomers = () => {
+        setCart([]);
+        setSelectedTemplateId(null);
+        setGstEnabled(false);
+        setDiscountEnabled(false);
+        setDiscountRate(0);
+        setSelectedCustomer('');
+        setWalkInName('');
+        setWalkInPhone('');
+        setStep('customer');
+        localStorage.removeItem('quantro_sales_cart_session');
     };
 
     async function loadMazewayOrders() {
@@ -512,20 +588,11 @@ export default function SalesPage() {
     }
 
     function handleQuotationConvert(q) {
-        // Always show the customer assignment modal so the user can confirm/change before converting
-        setShowCustomerSelectForConvert(q);
+        // Go directly to cart with the quotation's existing customer info
         if (q.customer_id) {
-            setSelectedCustomerForConvert(String(q.customer_id));
-            setWalkInNameForConvert('');
-            setWalkInPhoneForConvert('');
-        } else if (q.walk_in_name) {
-            setSelectedCustomerForConvert('walk-in');
-            setWalkInNameForConvert(q.walk_in_name || '');
-            setWalkInPhoneForConvert(q.walk_in_phone || '');
+            proceedWithQuotationConvert(q, String(q.customer_id), '', '');
         } else {
-            setSelectedCustomerForConvert(customers[0]?.id ? String(customers[0].id) : 'walk-in');
-            setWalkInNameForConvert('Walk-in Customer');
-            setWalkInPhoneForConvert('');
+            proceedWithQuotationConvert(q, 'walk-in', q.walk_in_name || 'Walk-in Customer', q.walk_in_phone || '');
         }
     }
 
@@ -655,6 +722,58 @@ export default function SalesPage() {
         setStep('products');
         setShowCustomerSelectForConvert(null);
         toast.success(`Quotation "${quotationDetails.name}" converted to order. Verify and finalize invoice below.`);
+    }
+
+    async function handleLoadQuotationTemplate(quotationId) {
+        if (!quotationId) return;
+        setLoadingQuotationTemplate(true);
+        try {
+            const q = await api.getQuotation(quotationId);
+            if (!q || !q.items || q.items.length === 0) {
+                toast.error('This quotation has no items.');
+                return;
+            }
+            const newItems = [];
+            for (const item of q.items) {
+                const product = products.find(p => p.id === item.product_id);
+                const price = Number(item.price);
+                const qty = Number(item.quantity);
+                newItems.push({
+                    cartRowId: Date.now().toString() + Math.random().toString() + item.id,
+                    product_id: item.product_id,
+                    variant_id: item.variant_id || null,
+                    name: item.product_name,
+                    subcategory_name: product ? (product.subcategory_name || '') : '',
+                    price: price,
+                    original_price: product ? Number(product.selling_price) : price,
+                    quantity: qty,
+                    total: price * qty,
+                    maxStock: product ? Number(product.stock_quantity) : qty,
+                    unit: item.unit || (product ? product.unit : 'PCS'),
+                    baseUnit: product ? (product.unit || 'PCS') : 'PCS',
+                    secondaryUnit: product ? product.secondary_unit : null,
+                    conversionFactor: product ? (product.conversion_factor || 1) : 1,
+                    allowDecimal: product ? !!product.allow_decimal : false,
+                    is_free: false,
+                    gst_rate: q.gst_rate || 0,
+                    discount_rate: q.discount_rate || 0,
+                    track_batches: settings.enable_batch_system === 'true',
+                    batch_id: '',
+                    available_batches: [],
+                    track_serials: product ? !!product.track_serials : false,
+                    serials: []
+                });
+            }
+            setCart(newItems);
+            setSelectedTemplateId(quotationId);
+            if (q.gst_rate > 0) { setGstEnabled(true); setGstRate(q.gst_rate); } else { setGstEnabled(false); }
+            if (q.discount_rate > 0) { setDiscountEnabled(true); setDiscountRate(q.discount_rate); } else { setDiscountEnabled(false); setDiscountRate(0); }
+            toast.success(`Loaded ${newItems.length} items from quotation template "${q.name}"`);
+        } catch (err) {
+            toast.error('Failed to load quotation template');
+        } finally {
+            setLoadingQuotationTemplate(false);
+        }
     }
 
     async function handleBulkDeleteInvoices() {
@@ -1560,6 +1679,7 @@ export default function SalesPage() {
 
             // Reset state on success
             setCart([]);
+            localStorage.removeItem('quantro_sales_cart_session');
             setGstEnabled(false);
             setDiscountEnabled(false);
             setDiscountRate(0);
@@ -1585,8 +1705,15 @@ export default function SalesPage() {
             api.getProducts().then(setProducts).catch(() => {});
             api.getCustomers().then(setCustomers).catch(() => {});
             loadHistory();
-
             toast.success('Invoice created successfully!', { id: toastId });
+
+            // Show auto-send feedback toasts if enabled
+            if (settings.auto_whatsapp_invoice_created === 'true') {
+                toast.success('WhatsApp auto-send done!');
+            }
+            if (settings.auto_email_invoice_created === 'true') {
+                toast.success('Email auto-send done!');
+            }
 
             // Send completion status to customer display
             if (settings.enable_customer_display === 'true') {
@@ -1973,12 +2100,151 @@ export default function SalesPage() {
                     ) : (
                         <div className="invoice-layout">
                             <div className="invoice-products-section">
-                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
                                     <h3 style={{ fontSize: '16px', fontWeight: '700', margin: 0 }}>Add Products</h3>
-                                    <SButton variant="secondary" onClick={() => setStep('customer')}>
+                                    <SButton variant="secondary" onClick={handleBackToCustomers}>
                                         <Icons.ChevronLeft size={14} strokeWidth={2.5} /> Back to Customers
                                     </SButton>
                                 </div>
+
+                                {/* Quotation Templates Section — Vertical Stack matching Product Picker (Double-click to load) */}
+                                {(() => {
+                                    if (!Array.isArray(quotations)) return null;
+                                    const visibleTemplates = quotations.filter(q => {
+                                        if (!q) return false;
+                                        // Global: walk-in or no customer assigned
+                                        const isGlobal = !q.customer_id;
+                                        // Belongs strictly to currently selected customer
+                                        const isForCurrentCustomer = selectedCustomer && q.customer_id && String(q.customer_id) === String(selectedCustomer);
+                                        const matchesCustomer = isGlobal || isForCurrentCustomer;
+
+                                        const qtnNum = `QTN-${String(q.id).padStart(4, '0')}`;
+                                        const searchLower = (templateSearch || '').toLowerCase().trim();
+                                        const matchesSearch = !searchLower ||
+                                            (q.name && q.name.toLowerCase().includes(searchLower)) ||
+                                            qtnNum.toLowerCase().includes(searchLower);
+
+                                        return matchesCustomer && matchesSearch;
+                                    });
+                                    if (quotations.length === 0) return null;
+                                    return (
+                                        <div style={{ marginBottom: '20px', padding: '16px', background: 'var(--bg-card)', borderRadius: '12px', border: '1px solid var(--border-light)' }}>
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                    <Icons.FileText size={16} style={{ color: 'var(--accent)' }} />
+                                                    <h4 style={{ margin: 0, fontSize: '13px', fontWeight: 700, color: 'var(--text-primary)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                                                        Quotation Templates <span style={{ fontSize: '10px', color: 'var(--text-tertiary)', fontWeight: 'normal', textTransform: 'none', marginLeft: '4px' }}>(Double-click to load)</span>
+                                                    </h4>
+                                                    <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '12px', background: 'var(--bg-primary)', color: 'var(--text-tertiary)', border: '1px solid var(--border-light)' }}>
+                                                        {visibleTemplates.length} available
+                                                    </span>
+                                                </div>
+                                                {selectedTemplateId && (
+                                                    <button
+                                                        onClick={() => {
+                                                            setSelectedTemplateId(null);
+                                                            setCart([]);
+                                                            toast.info('Template deselected & cart cleared');
+                                                        }}
+                                                        style={{ background: 'none', border: 'none', color: 'var(--danger)', fontSize: '12px', fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}
+                                                    >
+                                                        <Icons.X size={14} /> Clear Template
+                                                    </button>
+                                                )}
+                                            </div>
+
+                                            {/* Search Bar for Quotation Templates */}
+                                            <div className="search-bar" style={{ marginBottom: '12px' }}>
+                                                <Icons.Search size={16} style={{ color: 'var(--text-tertiary)' }} />
+                                                <input
+                                                    type="text"
+                                                    placeholder="Search quotation templates by title or QTN number…"
+                                                    value={templateSearch}
+                                                    onChange={e => setTemplateSearch(e.target.value)}
+                                                    style={{ width: '100%', fontSize: '12px' }}
+                                                />
+                                            </div>
+
+                                            {/* Vertical Stack List */}
+                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                                {visibleTemplates.map(q => {
+                                                    const isSelected = selectedTemplateId === q.id;
+                                                    return (
+                                                        <div
+                                                            key={q.id}
+                                                            onDoubleClick={() => handleLoadQuotationTemplate(q.id)}
+                                                            title="Double-click to load this quotation template"
+                                                            style={{
+                                                                display: 'grid',
+                                                                gridTemplateColumns: '1fr auto 90px',
+                                                                alignItems: 'center',
+                                                                padding: '10px 14px',
+                                                                borderRadius: '8px',
+                                                                border: isSelected ? '2px solid var(--accent)' : '1px solid var(--border-light)',
+                                                                background: isSelected ? 'var(--accent-light, rgba(0, 166, 81, 0.08))' : 'var(--bg-primary)',
+                                                                cursor: 'pointer',
+                                                                userSelect: 'none',
+                                                                transition: 'all 0.2s ease',
+                                                                width: '100%',
+                                                                boxSizing: 'border-box'
+                                                            }}
+                                                            onMouseEnter={(e) => {
+                                                                if (!isSelected) {
+                                                                    e.currentTarget.style.borderColor = 'var(--accent)';
+                                                                }
+                                                            }}
+                                                            onMouseLeave={(e) => {
+                                                                if (!isSelected) {
+                                                                    e.currentTarget.style.borderColor = 'var(--border-light)';
+                                                                }
+                                                            }}
+                                                        >
+                                                            {/* Left Column: QTN Number + Title, and Pricing under the title */}
+                                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
+                                                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                                    <span style={{ fontSize: '11px', fontWeight: 700, color: 'var(--accent)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                                                                        QTN-{String(q.id).padStart(4, '0')}
+                                                                    </span>
+                                                                    <span style={{ fontSize: '13px', fontWeight: 700, color: 'var(--text-primary)' }}>
+                                                                        {q.name}
+                                                                    </span>
+                                                                </div>
+                                                                <div style={{ fontSize: '13px', fontWeight: 700, color: 'var(--text-primary)' }}>
+                                                                    ₹{(q.total || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                                                                </div>
+                                                            </div>
+
+                                                            {/* Center Column: Item Count */}
+                                                            <div style={{ textAlign: 'center', padding: '0 12px' }}>
+                                                                <span style={{ fontSize: '11px', color: 'var(--text-secondary)', fontWeight: 600, background: 'var(--bg-card)', padding: '3px 8px', borderRadius: '12px', border: '1px solid var(--border-light)' }}>
+                                                                    {q.items?.length || 0} items
+                                                                </span>
+                                                            </div>
+
+                                                            {/* Right Column: Client / Global tag at far right end */}
+                                                            <div style={{ textAlign: 'right' }}>
+                                                                <span style={{
+                                                                    fontSize: '10px',
+                                                                    color: !q.customer_id ? 'var(--text-secondary)' : 'var(--accent)',
+                                                                    padding: '3px 8px',
+                                                                    borderRadius: '4px',
+                                                                    background: !q.customer_id ? 'var(--bg-card)' : 'var(--accent-light, rgba(0, 166, 81, 0.1))',
+                                                                    border: '1px solid var(--border-light)',
+                                                                    fontWeight: 700,
+                                                                    textTransform: 'uppercase',
+                                                                    letterSpacing: '0.5px',
+                                                                    display: 'inline-block'
+                                                                }}>
+                                                                    {!q.customer_id ? 'Global' : 'Client'}
+                                                                </span>
+                                                            </div>
+                                                        </div>
+                                                    );
+                                                })}
+                                            </div>
+                                        </div>
+                                    );
+                                })()}
 
                                 <div className="search-bar">
                                     <Icons.Search size={20} />
@@ -2136,13 +2402,13 @@ export default function SalesPage() {
                                         {selectedCustomer ? (
                                             <>
                                                 <span className="customer-name-sm">{customers.find(c => String(c.id) === selectedCustomer)?.name}</span>
-                                                <SButton variant="secondary" onClick={() => setStep('customer')}>Change</SButton>
+                                                <SButton variant="secondary" onClick={handleBackToCustomers}>Change</SButton>
                                             </>
                                         ) : (
                                             <div style={{ width: '100%' }}>
                                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
                                                     <span className="customer-name-sm">Walk-in Customer</span>
-                                                    <SButton variant="secondary" onClick={() => setStep('customer')}>Change</SButton>
+                                                    <SButton variant="secondary" onClick={handleBackToCustomers}>Change</SButton>
                                                 </div>
                                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                                                         {!selectedCustomer && (
@@ -3013,16 +3279,7 @@ export default function SalesPage() {
                                                             <SButton
                                                                 variant="secondary"
                                                                 size="sm"
-                                                                title="Convert to Sales Order"
-                                                                onClick={() => handleQuotationConvert(q)}
-                                                                style={{ display: 'flex', alignItems: 'center', gap: '4px' }}
-                                                            >
-                                                                <Icons.ShoppingCart size={14} /> Create Order
-                                                            </SButton>
-                                                            <SButton
-                                                                variant="secondary"
-                                                                size="sm"
-                                                                title="Print or View PDF"
+                                                                title="View Quotation"
                                                                 onClick={async () => {
                                                                     try {
                                                                         const res = await api.getQuotation(q.id);
@@ -3032,7 +3289,7 @@ export default function SalesPage() {
                                                                     }
                                                                 }}
                                                             >
-                                                                <Icons.Printer size={14} /> Print
+                                                                <Icons.Eye size={14} /> View
                                                             </SButton>
                                                             <SButton
                                                                 variant="secondary"
@@ -3364,9 +3621,6 @@ export default function SalesPage() {
                                     </SButton>
                                     <SButton variant="primary" style={{ flex: 1.5 }} onClick={handleCreateQuotation}>
                                         Save Quotation
-                                    </SButton>
-                                    <SButton variant="success" style={{ flex: 1.5 }} onClick={handleCreateQuotationAndConvert}>
-                                        🛒 Create Order
                                     </SButton>
                                 </div>
                             </div>

@@ -467,6 +467,71 @@ const gmailSender = {
                     <p style="margin: 0; font-weight: 600; color: #1d1d1f;">${companyName}</p>
                     <p style="margin: 4px 0 0 0;">${settings.address || ''}</p>
                     <p style="margin: 2px 0 0 0;">Support: ${settings.email || ''} | Phone: ${settings.phone || ''}</p>
+        `;
+    },
+
+    generateQuotationTemplate(quotation, settings, style = 'classic') {
+        const itemsList = (quotation.items || []).map(item => `
+            <tr>
+                <td style="padding: 10px; border-bottom: 1px solid #f1f5f9; text-align: left;">
+                    ${item.product_name}
+                </td>
+                <td style="padding: 10px; border-bottom: 1px solid #f1f5f9; text-align: center;">${item.quantity}</td>
+                <td style="padding: 10px; border-bottom: 1px solid #f1f5f9; text-align: right;">₹${item.price.toLocaleString('en-IN')}</td>
+                <td style="padding: 10px; border-bottom: 1px solid #f1f5f9; text-align: right; font-weight: bold;">₹${item.total.toLocaleString('en-IN')}</td>
+            </tr>
+        `).join('');
+
+        const displayTotal = quotation.total || 0;
+        const logoUrl = settings.logo_url || getDefaultLogo();
+        const companyName = getCompanyName(settings);
+
+        return `
+            <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color: #334155; max-width: 600px; margin: 0 auto; padding: 24px; border: 1px solid #e2e8f0; border-radius: 12px; background: #ffffff;">
+                <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #f1f5f9; padding-bottom: 16px; margin-bottom: 24px;">
+                    <div>
+                        ${logoUrl 
+                            ? `<img src="${logoUrl}" alt="${companyName}" style="max-height: 40px; margin-bottom: 8px; display: block;" />` 
+                            : ''
+                        }
+                        <h2 style="margin: 0; font-size: 20px; font-weight: 800; color: #0f172a;">${companyName}</h2>
+                        <p style="margin: 4px 0 0 0; font-size: 12px; color: #64748b;">${settings.email || ''}</p>
+                    </div>
+                    <div style="text-align: right;">
+                        <h3 style="margin: 0; font-size: 16px; font-weight: 700; color: #0f172a;">QUOTATION</h3>
+                        <p style="margin: 4px 0 0 0; font-size: 12px; color: #64748b;">#QTN-${String(quotation.id).padStart(4, '0')}</p>
+                    </div>
+                </div>
+                <div style="margin-bottom: 24px;">
+                    <h4 style="margin: 0 0 8px 0; font-size: 12px; text-transform: uppercase; color: #94a3b8; letter-spacing: 0.05em;">Prepared For</h4>
+                    <p style="margin: 0; font-weight: 600; color: #1e293b;">${quotation.customer_name || quotation.walk_in_name || 'Valued Customer'}</p>
+                    ${quotation.customer_email ? `<p style="margin: 2px 0 0 0; font-size: 13px; color: #64748b;">${quotation.customer_email}</p>` : ''}
+                </div>
+                <table style="width: 100%; border-collapse: collapse; margin-bottom: 24px; font-size: 14px;">
+                    <thead>
+                        <tr style="background: #f8fafc;">
+                            <th style="padding: 10px; border-bottom: 1px solid #e2e8f0; text-align: left; font-weight: 600; color: #475569;">Item</th>
+                            <th style="padding: 10px; border-bottom: 1px solid #e2e8f0; text-align: center; font-weight: 600; color: #475569;">Qty</th>
+                            <th style="padding: 10px; border-bottom: 1px solid #e2e8f0; text-align: right; font-weight: 600; color: #475569;">Price</th>
+                            <th style="padding: 10px; border-bottom: 1px solid #e2e8f0; text-align: right; font-weight: 600; color: #475569;">Total</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${itemsList}
+                    </tbody>
+                </table>
+                <div style="width: 250px; margin-left: auto; font-size: 14px;">
+                    <div style="display: flex; justify-content: space-between; padding: 6px 0; color: #475569;">
+                        <span>Subtotal</span>
+                        <span>₹${displayTotal.toLocaleString('en-IN')}</span>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; padding: 10px 0; border-top: 1px solid #0f172a; font-weight: 700; color: #0f172a; font-size: 16px; margin-top: 8px;">
+                        <span>Estimated Total</span>
+                        <span>₹${displayTotal.toLocaleString('en-IN')}</span>
+                    </div>
+                </div>
+                <div style="margin-top: 32px; border-top: 1px solid #f1f5f9; padding-top: 16px; text-align: center; font-size: 12px; color: #94a3b8;">
+                    This is an estimated quotation. Valid for 30 days. Thank you!
                 </div>
             </div>
         `;

@@ -19,6 +19,8 @@ const SETTINGS_KEYS = {
   PAYMENT_QR_URL: 'payment_qr_url',
   DECLARATION: 'declaration',
   TERMS_AND_CONDITIONS: 'terms_and_conditions',
+  QUOTATION_DECLARATION: 'quotation_declaration',
+  QUOTATION_TERMS_AND_CONDITIONS: 'quotation_terms_and_conditions',
   BACKUP_CYCLE: 'backup_cycle',
   LAST_BACKUP_DATE: 'last_backup_date',
   ENABLE_GST_PER_ITEM: 'enable_gst_per_item',
@@ -410,6 +412,8 @@ ready = (async () => {
         [SETTINGS_KEYS.UPI_ID, ''],
         [SETTINGS_KEYS.DECLARATION, 'We declare that this invoice shows the actual price of the goods described and that all particulars are true and correct.'],
         [SETTINGS_KEYS.TERMS_AND_CONDITIONS, '1. Goods once sold will not be taken back.\n2. Interest @18% will be charged if payment is not made within due date.\n3. Subject to local jurisdiction.'],
+        [SETTINGS_KEYS.QUOTATION_DECLARATION, 'This quotation is valid for 30 days from the date of issue. Prices are subject to change after the validity period.'],
+        [SETTINGS_KEYS.QUOTATION_TERMS_AND_CONDITIONS, '1. This is a quotation and not a confirmed order.\n2. Prices are subject to availability.\n3. Payment terms will be discussed upon order confirmation.'],
         [SETTINGS_KEYS.AUTO_UPDATE_ENABLED, 'false'],
         [SETTINGS_KEYS.DEFAULT_CURRENCY, 'INR'],
         [SETTINGS_KEYS.INVOICE_LANGUAGE, 'en'],
@@ -514,7 +518,7 @@ ready = (async () => {
         else if (k === 'billing_email_sent_count') defaultValue = '0';
         else if (k === 'billing_email_package_active') defaultValue = 'false';
         else if (k === 'billing_email_package_due') defaultValue = '0';
-        else if (k === 'billing_credit_balance') defaultValue = '500.00';
+        else if (k === 'billing_credit_balance') defaultValue = '0.00';
         else if (k === 'billing_simulated_day') defaultValue = '';
         else if (k === SETTINGS_KEYS.LOYALTY_POINTS_PER_RUPEE) defaultValue = '1';
         else if (k === SETTINGS_KEYS.LOYALTY_POINTS_REDEEM_RATE) defaultValue = '100';
@@ -524,6 +528,8 @@ ready = (async () => {
         
         db.run('INSERT OR IGNORE INTO settings (key, value) VALUES (?, ?)', [k, defaultValue]);
       });
+      // Reset any legacy seeded 500.00 free credits to 0.00
+      db.run("UPDATE settings SET value = '0.00' WHERE key = 'billing_credit_balance' AND value = '500.00'");
     }
   } catch (err) {
     console.error('Settings seeding failed', err);
@@ -1222,6 +1228,16 @@ ready = (async () => {
   db.run(`
     CREATE TABLE IF NOT EXISTS invoice_tokens (
       invoice_id INTEGER PRIMARY KEY,
+      token TEXT NOT NULL,
+      expires_at INTEGER,
+      created_at TEXT DEFAULT (datetime('now','localtime'))
+    )
+  `);
+
+  // Hosted Quotation Secure Tokens Table
+  db.run(`
+    CREATE TABLE IF NOT EXISTS quotation_tokens (
+      quotation_id INTEGER PRIMARY KEY,
       token TEXT NOT NULL,
       expires_at INTEGER,
       created_at TEXT DEFAULT (datetime('now','localtime'))

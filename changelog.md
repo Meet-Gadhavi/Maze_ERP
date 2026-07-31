@@ -4,6 +4,81 @@ All notable changes to the Quantro ERP application will be documented here.
 
 ---
 
+## [2.10.68] - 2026-07-26
+### Added
+- **Quotation Preview Redesign**: Completely rebuilt the quotation preview with a premium construction-style green-themed layout featuring client/details side-by-side cards, branded header, signature lines, and green-accented items table.
+- **Quotation Share via Email & WhatsApp**: Added full Share popup for quotations — send quotation via Gmail or WhatsApp PDF directly from the preview modal, matching the invoice sharing experience.
+- **Backend Quotation Email Template**: Added `generateQuotationTemplate` in Gmail sender and `generateQuotationPDF` in PDF generator for server-side quotation rendering.
+- **Backend Send-Quotation Endpoints**: New `/auth/google/send-quotation` and `/auth/whatsapp/send-quotation` API endpoints.
+
+### Removed
+- **Invoice Print Button**: Removed the Print / PDF button from the Invoice Preview modal footer to streamline the UI.
+
+## [2.10.67] - 2026-07-25
+### Changed
+- **Forced Seeded Credit Reset**: Automatically resets any legacy/free seeded ₹500.00 wallet balances to ₹0.00 in the local SQLite settings database on startup, forcing users to top up manually.
+- **Low Credit Warn Banner**: Display warnings on the Billing Page when the wallet balance drops below ₹50.00, prompting early top-ups.
+
+## [2.10.66] - 2026-07-25
+### Changed
+- **Robust Offline Support**: Registered fallback custom web components for `s-button` and `s-modal` at the entry point level. This prevents the white screen crash on startup when internet is disconnected, and ensures buttons and modals render properly with native styling.
+
+## [2.10.65] - 2026-07-25
+### Changed
+- **Dynamic Overage Cost Display**: Fixed the Overage Cost displays showing ₹0.00 for Gmail and WhatsApp. The cards now dynamically calculate and count usage costs (e.g. ₹0.30 per WhatsApp, ₹0.05 per email) based on active usage.
+- **Improved Transaction Verification**: Documented SQL editor instructions to resolve the Supabase RLS policy issue, which previously prevented deductions and transactions from registering in the history log.
+
+## [2.10.64] - 2026-07-25
+### Changed
+- **Zero Default Wallet Credits**: Removed default ₹500.00 wallet credit allocations on new installations, defaulting to ₹0.00 instead.
+- **Local ERP Live Database Fallback**: Integrated automatic local SQLite live database fallback for reading and writing wallet balances. If the remote database has no transactions for a license, it inherits the local ERP settings table balance.
+- **Path-Based Billing Routing**: Fixed broken query parameter URLs for billing top-up and scanner pages, shifting to path-based routing (`/top-up` and `/scanner`) on Quantro Web.
+
+## [2.10.63] - 2026-07-24
+### Fixed
+- **Supabase Node.js WebSocket Crash**: Added a mock WebSocket polyfill at the server startup level to resolve a crash where the Supabase Realtime client checks for a global WebSocket constructor in Node environments and fails. This completely fixes the "Backend server is not running" error on client installations.
+
+## [2.10.62] - 2026-07-24
+### Added
+- **Diagnostic Backend Startup Error Reporting**: Prepend the actual stack trace and diagnostic error details directly in the frontend UI activation panel if the local Express backend fails to start. This prevents silent crashes (e.g. port conflicts, database locks, permission errors, or missing runtime resources) on clean client machines and simplifies troubleshooting.
+
+## [2.10.61] - 2026-07-24
+### Fixed
+- **Electron fs Module ReferenceError**: Imported the missing `fs` module in the main Electron thread (`main/main.js`), resolving a crash/ReferenceError that blocked the Express backend server from starting up in packaged production builds.
+- **Backend Error Logging**: Added local logging to `main_error.log` in the application's user data directory to simplify troubleshooting startup errors.
+
+## [2.10.60] - 2026-07-24
+### Added
+- **Auto-Send Success Feedback Toasts**: Added active visual status toasts when generating new sales invoices when auto-send for WhatsApp or Email is enabled.
+
+## [2.10.59] - 2026-07-24
+### Fixed
+- **WhatsApp Share Link**: Corrected the dynamic button URL suffix parameter format to resolve directly to `invoice/{token}`, matching the real web client path mapping instead of `invoice/{id}?token={token}`.
+
+## [2.10.58] - 2026-07-24
+### Added
+- **WhatsApp Rating Webhook Interceptor**: Integrated support in the webhook receiver for handling Quick Reply button response events. Customer 1-5 star feedback selections are now automatically logged directly into the communication history logs in SQLite, followed by a thank-you reply message.
+
+## [2.10.57] - 2026-07-24
+### Added
+- **Named Variable Support for WhatsApp Templates**: Integrated support for Meta's Named Variable template format. The ERP now maps positional parameters to custom names (`customer_name`, `inv_id`, and `buniness`) in the API payload to prevent validation crashes.
+
+## [2.10.56] - 2026-07-24
+### Changed
+- **WhatsApp Invoice Template Variables**: Modified the `invoice_ready` template parameters sent by the ERP to only include 3 body variables (`customerName`, `invoiceNumber`, `companyName`), shifting the invoice share link completely to the "View Invoice" call-to-action button to support clean, link-free text bodies.
+
+## [2.10.55] - 2026-07-24
+### Fixed
+- **Gmail Overage and Limit Displays**: Corrected transactional status and email limit logic on the Free plan so it accurately displays the standard free limit of 1,000 emails instead of the premium 50,000 threshold.
+- **Account Summary Cleanup**: Removed the monthly dues summary card from the Billing page, fully transitioning the layout to the prepaid wallet model.
+
+## [2.10.54] - 2026-07-24
+### Added
+- **Supabase-Driven Billing Page**: Migrated all license and wallet verification data from the local SQLite store to query live from the remote Supabase database.
+- **Pre-Paid Wallet Model**: Removed legacy outstanding dues blocks and card payment setups. Usage costs are now deducted in real-time from pre-paid wallet balance credits.
+- **Subscription Expiry Banners**: Added orange-gradient Apple-style warning notifications to the dashboard alerting users when their ERP subscription is within 5 days of expiration.
+- **Vobiz Number Expiry Banners & Renewals**: Added upcoming expiration banners for Vobiz VoIP number subscriptions, with a warning that numbers will be released to other users after a 2-day grace period. Added conditional "Renew Subscription" and "Renew Vobiz Number" action buttons that open the `/renews` portal.
+
 ## [2.10.19] - 2026-07-18
 ### Fixed
 - **Purchase Tab Navigation**: Corrected asynchronous fallback redirects in the Purchase Center. Free plan cashiers can now fully browse other tabs (such as Bill Center, History, Suppliers, Payments, Returns, and Expenses), while only the **Upload Invoice** scanner tab remains restricted.

@@ -7,22 +7,167 @@ import { supabase } from '../supabase';
 import Skeleton from '../components/Skeleton';
 
 export default function BillingPage() {
+    const isDev = typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') && import.meta.env.DEV;
+    // Always use the production web URL
     const webBaseUrl = 'https://quantro-web.onrender.com';
 
     const [status, setStatus] = useState(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
+    const [showRazorpay, setShowRazorpay] = useState(false);
+    const [showPaymentSetupModal, setShowPaymentSetupModal] = useState(false);
+    const [enableAutopay, setEnableAutopay] = useState(true);
+    const [paymentDetails, setPaymentDetails] = useState({
+        cardName: '',
+        cardNumber: '4111 2222 3333 4444',
+        cardExpiry: '12/28',
+        cardCvv: '123'
+    });
+    const [paying, setPaying] = useState(false);
+    const [paymentMode, setPaymentMode] = useState('card');
+    const [upiId, setUpiId] = useState('');
+
+    // Plan Upgrade Modal States
+    const [showUpgradeModal, setShowUpgradeModal] = useState(false);
+    const [upgradePlan, setUpgradePlan] = useState('');
+    const [newLicenseKey, setNewLicenseKey] = useState('');
+    const [upgradeVerifying, setUpgradeVerifying] = useState(false);
+    const [upgradeError, setUpgradeError] = useState('');
+
+    const [termsAccepted, setTermsAccepted] = useState(false);
     const [licenseDetails, setLicenseDetails] = useState(null);
 
-    // Activation Key Modal States
-    const [showKeyModal, setShowKeyModal] = useState(false);
-    const [activationKey, setActivationKey] = useState('');
-    const [keyVerifying, setKeyVerifying] = useState(false);
-    const [keyError, setKeyError] = useState('');
+    // Cancellation Code Modal States
+    const [showCancelModal, setShowCancelModal] = useState(false);
+    const [cancellationCode, setCancellationCode] = useState('');
+    const [cancelVerifying, setCancelVerifying] = useState(false);
+    const [cancelError, setCancelError] = useState('');
 
-    // Credit Topup Modal States
+    // Credit Topup States
     const [showTopupModal, setShowTopupModal] = useState(false);
     const [topupAmount, setTopupAmount] = useState('500');
+    const [topupLoading, setTopupLoading] = useState(false);
+
+    // Session Recovery: Restore billing page session on load
+    useEffect(() => {
+        const isRestorePending = localStorage.getItem('quantro_restore_pending') === 'true';
+        const savedSessionStr = localStorage.getItem('quantro_billing_session');
+
+        if ((isRestorePending || savedSessionStr) && savedSessionStr) {
+            try {
+                const data = JSON.parse(savedSessionStr);
+                if (data) {
+                    if (data.upgradePlan) setUpgradePlan(data.upgradePlan);
+                    if (data.newLicenseKey !== undefined) setNewLicenseKey(data.newLicenseKey);
+                    if (data.topupAmount !== undefined) setTopupAmount(data.topupAmount);
+                    if (isRestorePending) {
+                        toast.success('Billing page session restored!');
+                    }
+                }
+            } catch (e) {
+                console.error('[SessionRecovery] Billing restore error:', e);
+            }
+        }
+    }, []);
+
+    // Session Recovery: Auto-save billing page state
+    useEffect(() => {
+        const sessionState = {
+            upgradePlan,
+            newLicenseKey,
+            topupAmount,
+            timestamp: Date.now()
+        };
+        localStorage.setItem('quantro_billing_session', JSON.stringify(sessionState));
+    }, [upgradePlan, newLicenseKey, topupAmount]);
+
+    const handleTopupCredit = (amountVal) => {
+        const amt = Number(amountVal || topupAmount || 250);
+        const url = `${webBaseUrl}/top-up?amount=${amt}&email=${encodeURIComponent(status?.email || '')}&syncId=${status?.syncId || ''}&licenseKey=${encodeURIComponent(status?.licenseKey || '')}`;
+        openExternalLink(url);
+        setShowTopupModal(false);
+        toast.info(`Opening Quantro Web to top up ₹${amt.toFixed(2)} wallet credits via Razorpay.`);
+    };
+
+    useEffect(() => {
+        async function fetchLicense() {
+            if (status && status.licenseKey && status.licensePlan !== 'Free') {
+                try {
+                    const { data, error } = await supabase
+                        .from('licenses')
+                        .select('*')
+                        .eq('license_key', status.licenseKey)
+                        .maybeSingle();
+                    if (!error && data) {
+                        setLicenseDetails(data);
+                    }
+                } catch (e) {
+                    console.error('Failed to fetch license details:', e);
+                }
+            } else {
+                setLicenseDetails(null);
+            }
+        }
+        fetchLicense();
+    }, [status]);
+
+    const getSubscriptionEndDate = () => {
+        const dateStr = status?.licenseCreatedAt || licenseDetails?.created_at;
+        if (!dateStr) return '';
+        const createdDate = new Date(dateStr);
+        createdDate.setDate(createdDate.getDate() + 30);
+        return createdDate.toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' });
+    };
+
+    const getVobizEndDate = () => {
+        if (!status?.vobizLicense?.created_at) return '';
+        const createdDate = new Date(status.vobizLicense.created_at);
+        createdDate.setDate(createdDate.getDate() + 30);
+        return createdDate.toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' });
+    };
+
+    const isSubscriptionExpiringSoon = () => {
+        const dateStr = status?.licenseCreatedAt || licenseDetails?.created_at;
+        if (!dateStr || status.licensePlan === 'Free') return false;
+        const expiryDate = new Date(dateStr);
+        expiryDate.setDate(expiryDate.getDate() + 30);
+        const diffTime = expiryDate.getTime() - new Date().getTime();
+        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+        return diffDays >= 0 && diffDays <= 5;
+    };
+
+    const isVobizExpiringSoon = () => {
+        if (!status?.vobizLicense?.created_at) return false;
+        const expiryDate = new Date(status.vobizLicense.created_at);
+        expiryDate.setDate(expiryDate.getDate() + 30);
+        const diffTime = expiryDate.getTime() - new Date().getTime();
+        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+        return diffDays >= 0 && diffDays <= 5;
+    };
+
+    const isVobizExpiredGrace = () => {
+        if (!status?.vobizLicense?.created_at) return false;
+        const expiryDate = new Date(status.vobizLicense.created_at);
+        expiryDate.setDate(expiryDate.getDate() + 30);
+        const diffTime = new Date().getTime() - expiryDate.getTime();
+        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+        return diffDays > 0 && diffDays <= 2;
+    };
+
+    const loadBillingStatus = async () => {
+        setLoading(true);
+        setError(null);
+        try {
+            const data = await api.getBillingStatus();
+            setStatus(data);
+        } catch (e) {
+            console.error('Failed to load billing status:', e);
+            setError(e.message || 'Failed to retrieve billing status data.');
+            toast.error('Failed to retrieve billing status data.');
+        } finally {
+            setLoading(false);
+        }
+    };
 
     const openExternalLink = (url) => {
         if (window.maze && typeof window.maze.openExternal === 'function') {
@@ -32,83 +177,134 @@ export default function BillingPage() {
         }
     };
 
-    const loadBillingStatus = async () => {
-        setLoading(true);
-        setError(null);
-        try {
-            const data = await api.getBillingStatus();
-            setStatus(data);
-
-            if (data && data.licenseKey) {
-                const { data: licenseData } = await supabase
-                    .from('licenses')
-                    .select('*')
-                    .eq('license_key', data.licenseKey)
-                    .maybeSingle();
-
-                if (licenseData) {
-                    setLicenseDetails(licenseData);
-                }
-            }
-        } catch (e) {
-            console.error('Failed to load billing status:', e);
-            setError(e.message || 'Failed to retrieve billing status data.');
-        } finally {
-            setLoading(false);
-        }
-    };
-
     useEffect(() => {
         loadBillingStatus();
     }, []);
 
-    const handleTopupCredit = (amountVal) => {
-        const amt = Number(amountVal || topupAmount || 250);
-        const url = `${webBaseUrl}/?page=top-up&amount=${amt}&email=${encodeURIComponent(status?.email || '')}&syncId=${status?.syncId || ''}`;
+    const handleConfirmPaymentSetup = () => {
+        if (!termsAccepted) {
+            toast.error('You must accept the Terms & Conditions, Privacy Policy, and Refund Policy to proceed.');
+            return;
+        }
+        setShowPaymentSetupModal(false);
+        setTermsAccepted(false);
+
+        const url = `${webBaseUrl}/add-card?syncId=${status?.syncId || ''}&sync_id=${status?.syncId || ''}&email=${encodeURIComponent(status?.email || '')}&autopay=${enableAutopay ? 'true' : 'false'}`;
         openExternalLink(url);
-        setShowTopupModal(false);
-        toast.info(`Opening Quantro Web to top up ₹${amt.toFixed(2)} wallet credits.`);
+        toast.info('Opening Quantro Web Portal to complete 1 Rupee verification checkout.');
     };
 
-    const handleVerifyKey = async (e) => {
-        if (e) e.preventDefault();
-        if (!activationKey.trim()) {
-            setKeyError('Please enter your license activation key.');
+    const handleBuyEmailPackage = async () => {
+        try {
+            await api.buyEmailPackage();
+            toast.success('Transactional Email Package purchased! Limit increased to 50,000 emails/mo.');
+            loadBillingStatus();
+        } catch (e) {
+            toast.error(e.message || 'Failed to buy email package.');
+        }
+    };
+
+    const handleRazorpayPay = async () => {
+        if (paymentMode === 'upi') {
+            if (!upiId || !upiId.includes('@') || upiId.trim().startsWith('@') || upiId.trim().endsWith('@')) {
+                toast.error('Please enter a valid UPI ID (e.g., username@bank).');
+                return;
+            }
+        }
+        setPaying(true);
+        setTimeout(async () => {
+            try {
+                await api.payDues();
+                if (paymentMode === 'upi' && enableAutopay) {
+                    await api.addPaymentMethod({
+                        enableAutopay: true,
+                        brand: 'UPI',
+                        last4: upiId.trim(),
+                        expiry: 'N/A'
+                    });
+                }
+                toast.success('Razorpay Payment Successful! All dues cleared and services active.');
+                setShowRazorpay(false);
+                setPaying(false);
+                loadBillingStatus();
+            } catch (e) {
+                toast.error(e.message || 'Payment failed. Try again.');
+                setPaying(false);
+            }
+        }, 1500);
+    };
+
+    const formatSecondsToMinutes = (sec) => {
+        const mins = Math.floor(sec / 60);
+        const secs = sec % 60;
+        return `${mins}m ${secs}s`;
+    };
+
+    const handleUpgrade = (plan) => {
+        setUpgradePlan(plan);
+        setNewLicenseKey('');
+        setUpgradeError('');
+        setShowUpgradeModal(true);
+        openExternalLink('https://quantro-web.onrender.com/pricing');
+    };
+
+    const handleVerifyUpgrade = async () => {
+        if (!newLicenseKey.trim()) {
+            setUpgradeError('Please enter your new license activation key.');
             return;
         }
 
-        setKeyVerifying(true);
-        setKeyError('');
-        const loadingId = toast.loading('Verifying license key in Supabase...');
+        setUpgradeVerifying(true);
+        setUpgradeError('');
+        const loadingId = toast.loading('Verifying updated license key in Supabase...');
 
         try {
             const { data: { user } } = await supabase.auth.getUser();
-            if (!user) throw new Error('No active user session found.');
+            if (!user) {
+                throw new Error('No active user session found. Please re-login.');
+            }
 
             const { data, error } = await supabase
                 .from('licenses')
                 .select('*')
-                .eq('license_key', activationKey.trim())
+                .eq('license_key', newLicenseKey.trim())
                 .maybeSingle();
 
             if (error) throw error;
 
             if (!data) {
-                const invalidErr = 'Invalid activation key. Please check spelling and try again.';
-                setKeyError(invalidErr);
+                const invalidErr = 'Invalid activation key. Please check the spelling and try again.';
+                setUpgradeError(invalidErr);
                 toast.error(invalidErr, { id: loadingId });
-                setKeyVerifying(false);
+                setUpgradeVerifying(false);
                 return;
+            }
+
+            if (data.user_id !== user.id) {
+                if (data.email === user.email) {
+                    // Sync user_id if email matches
+                    await supabase
+                        .from('licenses')
+                        .update({ user_id: user.id })
+                        .eq('id', data.id);
+                } else {
+                    const diffAccountError = `This key is registered to a different account (${data.email || 'another user'}).`;
+                    setUpgradeError(diffAccountError);
+                    toast.error(diffAccountError, { id: loadingId });
+                    setUpgradeVerifying(false);
+                    return;
+                }
             }
 
             if (data.status !== 'Active') {
-                const inactiveErr = `This license key is currently ${data.status}.`;
-                setKeyError(inactiveErr);
-                toast.error(inactiveErr, { id: loadingId });
-                setKeyVerifying(false);
+                const inactiveError = `This license key is currently ${data.status}.`;
+                setUpgradeError(inactiveError);
+                toast.error(inactiveError, { id: loadingId });
+                setUpgradeVerifying(false);
                 return;
             }
 
+            // Save details to SQLite settings
             await api.updateSettings({
                 license_key: data.license_key,
                 license_plan: data.plan,
@@ -116,389 +312,1203 @@ export default function BillingPage() {
                 license_user_id: user.id
             });
 
-            toast.success(`License activated successfully! Plan: ${data.plan}`, { id: loadingId });
-            setShowKeyModal(false);
-            setActivationKey('');
+            // Sync with local backend
+            try {
+                await api.upgradeSubscription(data.plan);
+            } catch (err) {
+                console.warn('Local API update failed:', err.message);
+            }
+
+            toast.success(`Welcome to Quantro ${data.plan}! Plan activated successfully.`, { id: loadingId });
+            setShowUpgradeModal(false);
             loadBillingStatus();
         } catch (err) {
-            console.error('License key verification error:', err);
+            console.error('Upgrade verification error:', err);
             const failError = `Verification failed: ${err.message}`;
-            setKeyError(failError);
+            setUpgradeError(failError);
             toast.error(failError, { id: loadingId });
         } finally {
-            setKeyVerifying(false);
+            setUpgradeVerifying(false);
         }
     };
 
-    // Calculate Days Left for Subscription Expiration
-    const getLicenseDaysLeft = () => {
-        if (!licenseDetails || !licenseDetails.expires_at) return null;
-        const expiryDate = new Date(licenseDetails.expires_at);
-        const now = new Date();
-        const diffTime = expiryDate.getTime() - now.getTime();
-        return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    const handleCancel = async () => {
+        if (!window.confirm('Are you sure you want to cancel your subscription? You will be downgraded to the Free tier.')) {
+            return;
+        }
+        setCancellationCode('');
+        setCancelError('');
+        setCancelVerifying(false);
+        setShowCancelModal(true);
+        const loadingId = toast.loading('Sending cancellation verification code to your email...');
+        try {
+            const res = await api.sendCancellationCode();
+            if (res.success) {
+                toast.success(res.message || 'Verification code sent to your email.', { id: loadingId });
+            } else {
+                toast.error(res.message || 'Failed to send verification code.', { id: loadingId });
+            }
+        } catch (e) {
+            console.error('Failed to send cancellation code:', e);
+            toast.error(e.message || 'Failed to send verification code.', { id: loadingId });
+        }
     };
 
-    // Calculate Days Left for VoBiz Phone Number Expiration
-    const getVobizDaysLeft = () => {
-        if (!licenseDetails || !licenseDetails.vobiz_expires_at) return null;
-        const expiryDate = new Date(licenseDetails.vobiz_expires_at);
-        const now = new Date();
-        const diffTime = expiryDate.getTime() - now.getTime();
-        return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    const handleConfirmCancellation = async () => {
+        if (!cancellationCode.trim()) {
+            setCancelError('Please enter the 6-digit confirmation code.');
+            return;
+        }
+        setCancelVerifying(true);
+        setCancelError('');
+        const loadingId = toast.loading('Confirming cancellation...');
+
+        try {
+            await api.confirmCancellation(cancellationCode.trim());
+
+            const { data: { user } } = await supabase.auth.getUser();
+            if (user && status.licenseKey) {
+                const { error: supabaseError } = await supabase
+                    .from('licenses')
+                    .update({ plan: 'Free', price: 0, status: 'Active' })
+                    .eq('license_key', status.licenseKey)
+                    .eq('user_id', user.id);
+                
+                if (supabaseError) throw supabaseError;
+            }
+
+            toast.success('Subscription cancelled successfully. Plan is now Free Starter.', { id: loadingId });
+            setShowCancelModal(false);
+            loadBillingStatus();
+        } catch (err) {
+            console.error('Cancellation confirmation error:', err);
+            const failError = err.message || 'Verification failed.';
+            setCancelError(failError);
+            toast.error(failError, { id: loadingId });
+        } finally {
+            setCancelVerifying(false);
+        }
     };
 
-    const licenseDaysLeft = getLicenseDaysLeft();
-    const vobizDaysLeft = getVobizDaysLeft();
+    const handleRemoveCard = async () => {
+        if (!window.confirm('Are you sure you want to remove your saved payment method? WhatsApp template alerts and Voice Agent calling will be disabled.')) {
+            return;
+        }
+        const loadingId = toast.loading('Removing payment method securely...');
+        try {
+            await api.removePaymentMethod();
+            toast.success('Payment method successfully removed.', { id: loadingId });
+            loadBillingStatus();
+        } catch (e) {
+            toast.error(e.message || 'Failed to remove payment method.', { id: loadingId });
+        }
+    };
 
     if (loading) {
         return (
-            <div style={{ padding: '32px', maxWidth: '1200px', margin: '0 auto' }}>
-                <Skeleton width="240px" height="36px" style={{ marginBottom: '8px' }} />
-                <Skeleton width="400px" height="20px" style={{ marginBottom: '32px' }} />
-                <Skeleton height="300px" borderRadius="16px" style={{ marginBottom: '24px' }} />
-                <Skeleton height="240px" borderRadius="16px" />
+            <div className="page-content" style={{ padding: '24px' }}>
+                <div className="page-header" style={{ marginBottom: '24px' }}>
+                    <div style={{ display: 'flex', gap: '12px' }}>
+                        <div className="skeleton-box skeleton-avatar" />
+                        <div>
+                            <div className="skeleton-box skeleton-title" style={{ width: '180px' }} />
+                            <div className="skeleton-box skeleton-text" style={{ width: '350px' }} />
+                        </div>
+                    </div>
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1.8fr 1.2fr', gap: '24px' }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                        <div className="skeleton-card" style={{ height: '180px' }}>
+                            <div className="skeleton-box skeleton-title" />
+                            <div className="skeleton-box skeleton-text" />
+                            <div className="skeleton-box skeleton-button" style={{ marginTop: '16px' }} />
+                        </div>
+                        <div className="skeleton-card" style={{ height: '150px' }}>
+                            <div className="skeleton-box skeleton-title" />
+                            <div className="skeleton-box skeleton-text" />
+                        </div>
+                    </div>
+                    <div className="skeleton-card" style={{ height: '300px' }}>
+                        <div className="skeleton-box skeleton-title" />
+                        <div className="skeleton-box skeleton-text" />
+                        <div className="skeleton-box skeleton-text" style={{ width: '80%' }} />
+                        <div className="skeleton-box skeleton-button" style={{ marginTop: '24px', width: '100%' }} />
+                    </div>
+                </div>
             </div>
         );
     }
 
-    const currentPlan = licenseDetails?.plan || status?.licensePlan || 'Free';
-    const isPro = currentPlan !== 'Free';
+    if (error || !status) {
+        return (
+            <div className="page-content" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '80vh', gap: '16px' }}>
+                <Icons.AlertTriangle size={48} style={{ color: 'var(--danger)' }} />
+                <h3 style={{ margin: 0, fontSize: '18px', fontWeight: 700 }}>Connection Error</h3>
+                <p style={{ margin: 0, color: 'var(--text-secondary)', fontSize: '14px', textAlign: 'center', maxWidth: '360px' }}>
+                    {error || 'Failed to retrieve billing status data. Please verify the backend service is running.'}
+                </p>
+                <SButton variant="primary" onClick={loadBillingStatus}>
+                    Retry Connection
+                </SButton>
+            </div>
+        );
+    }
+
+    const dues = status?.dues || {
+        whatsappCost: 0,
+        voiceCost: 0,
+        emailCost: 0,
+        numberCost: 0,
+        emailPackageDue: 0,
+        subscriptionCost: 0,
+        totalDue: 0
+    };
+    const creditLedger = Array.isArray(status?.creditLedger) ? status.creditLedger : [];
+    const creditBalance = Number(status?.creditBalance || 0);
 
     return (
-        <div style={{ padding: '32px', maxWidth: '1200px', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '24px' }}>
-            {/* Page Header */}
-            <div>
-                <h1 style={{ margin: 0, fontSize: '26px', fontWeight: 800, color: 'var(--text-primary)', letterSpacing: '-0.02em' }}>
-                    Billing & Subscriptions
-                </h1>
-                <p style={{ margin: '6px 0 0 0', color: 'var(--text-secondary)', fontSize: '14px' }}>
-                    Manage your Quantro ERP license plan, monthly usage billing, and prepaid pay-as-you-go wallet.
-                </p>
+        <div className="page-content">
+            {/* Header Section with Header Wallet Pill */}
+            <div className="page-header" style={{ marginBottom: '24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                    <div style={{ padding: '8px', background: 'var(--accent-light)', color: 'var(--accent)', borderRadius: '8px' }}>
+                        <Icons.CreditCard size={24} />
+                    </div>
+                    <div>
+                        <h1 className="page-title" style={{ margin: 0, fontSize: '24px', fontWeight: 800 }}>Billing &amp; Subscription</h1>
+                        <p style={{ margin: '4px 0 0 0', color: 'var(--text-secondary)', fontSize: '13px' }}>
+                            Monitor automation usage limits, pricing parameters, and pay outstanding service dues.
+                        </p>
+                    </div>
+                </div>
+
+                {/* Header Wallet Pill Component */}
+                <div style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '10px',
+                    padding: '8px 18px',
+                    background: 'var(--bg-card)',
+                    border: '1px solid var(--border)',
+                    borderRadius: '9999px',
+                    boxShadow: '0 2px 8px rgba(0, 0, 0, 0.04)'
+                }}>
+                    <Icons.Wallet size={20} style={{ color: 'var(--accent)' }} />
+                    <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-secondary)' }}>Wallet Balance:</span>
+                    <span style={{ fontSize: '18px', fontWeight: 800, color: 'var(--text-primary)', fontFamily: 'monospace', letterSpacing: '-0.5px' }}>
+                        ₹{creditBalance.toFixed(2)}
+                    </span>
+                </div>
             </div>
 
-            {/* Error Banner */}
-            {error && (
-                <div style={{ padding: '16px 20px', background: '#FEF2F2', border: '1px solid #FCA5A5', borderRadius: '12px', color: '#991B1B', display: 'flex', alignItems: 'center', gap: '12px' }}>
-                    <Icons.AlertCircle size={20} />
-                    <span>{error}</span>
+            {/* Block Warning Alert Banner */}
+            {status.isBlocked && (
+                <div style={{
+                    background: 'rgba(255, 59, 48, 0.08)',
+                    border: '1px solid rgba(255, 59, 48, 0.2)',
+                    padding: '16px 20px',
+                    borderRadius: '12px',
+                    color: 'var(--danger)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '16px',
+                    marginBottom: '24px',
+                    animation: 'pulse 2s infinite'
+                }}>
+                    <Icons.AlertTriangle size={24} />
+                    <div style={{ flex: 1 }}>
+                        <strong style={{ fontSize: '15px' }}>Automations Suspended (Exhausted Balance)</strong>
+                        <p style={{ margin: '4px 0 0 0', fontSize: '13px', color: 'var(--danger)' }}>
+                            Your prepaid wallet balance is exhausted (₹{creditBalance.toFixed(2)}). All automated services (WhatsApp dispatches, Gmail delivery, Voice agents) are temporarily suspended. Please top up your wallet to resume services.
+                        </p>
+                    </div>
+                    <SButton variant="primary" style={{ background: 'var(--danger)', borderColor: 'var(--danger)' }} onClick={() => setShowTopupModal(true)}>
+                        Top Up Wallet Credit
+                    </SButton>
                 </div>
             )}
 
-            {/* 1. MAIN ACCOUNT & LICENSE SUMMARY CARD */}
-            <div className="card" style={{ padding: '24px', borderRadius: '16px', border: '1px solid var(--border)', background: 'var(--bg-primary)', display: 'flex', flexDirection: 'column', gap: '20px' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '20px' }}>
+            {/* Low Credit Warning Banner */}
+            {!status.isBlocked && creditBalance > 0 && creditBalance < 50 && (
+                <div style={{
+                    background: 'rgba(255, 149, 0, 0.08)',
+                    border: '1px solid rgba(255, 149, 0, 0.2)',
+                    padding: '16px 20px',
+                    borderRadius: '12px',
+                    color: '#c27800',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '16px',
+                    marginBottom: '24px'
+                }}>
+                    <Icons.AlertCircle size={24} style={{ color: '#FF9500' }} />
+                    <div style={{ flex: 1 }}>
+                        <strong style={{ fontSize: '15px', color: '#c27800' }}>Low Wallet Credit Warning</strong>
+                        <p style={{ margin: '4px 0 0 0', fontSize: '13px', color: '#a06200' }}>
+                            You are running on low credit (₹{creditBalance.toFixed(2)}). Please top up your wallet at an early stage to prevent service interruptions.
+                        </p>
+                    </div>
+                    <SButton variant="primary" style={{ background: '#FF9500', borderColor: '#FF9500' }} onClick={() => setShowTopupModal(true)}>
+                        Top Up Wallet Credit
+                    </SButton>
+                </div>
+            )}
+
+            {/* Main Billing Layout Container (Full Width Cards) */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
                     
-                    {/* Left: Active License Overview */}
-                    <div style={{ flex: '1 1 320px' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '12px' }}>
-                            <div style={{ width: '40px', height: '40px', borderRadius: '10px', background: 'rgba(10, 110, 255, 0.1)', color: '#0A6EFF', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                <Icons.Award size={22} />
+                    {/* Subscription Plan Card */}
+                    <div className="card" style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                <div style={{
+                                    padding: '8px', background: 'var(--accent-light)', color: 'var(--accent)', borderRadius: '8px',
+                                    display: 'flex', alignItems: 'center', justifyContent: 'center'
+                                }}>
+                                    <Icons.Award size={20} />
+                                </div>
+                                <div>
+                                    <h3 style={{ margin: 0, fontSize: '15px', fontWeight: 700 }}>
+                                        Active Plan: {status.licensePlan === 'Free' ? 'Free Starter' : status.licensePlan === 'Pro' ? 'Business PRO' : 'AI Professional'}
+                                    </h3>
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', marginTop: '2px' }}>
+                                        <span style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>
+                                            License key: <code style={{ fontFamily: 'monospace', background: 'var(--bg-secondary)', padding: '2px 4px', borderRadius: '4px' }}>{status.licenseKey || 'N/A'}</code>
+                                        </span>
+                                        {status.licensePlan !== 'Free' && getSubscriptionEndDate() && (
+                                            <span style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>
+                                                End of subscription: <strong style={{ color: 'var(--text-primary)' }}>{getSubscriptionEndDate()}</strong>
+                                            </span>
+                                        )}
+                                    </div>
+                                </div>
                             </div>
-                            <div>
-                                <h2 style={{ margin: 0, fontSize: '18px', fontWeight: 800, color: 'var(--text-primary)' }}>
-                                    Active Plan: {isPro ? `${currentPlan} Tier` : 'Free Starter'}
-                                </h2>
-                                <span style={{ fontSize: '12px', color: 'var(--text-tertiary)' }}>
-                                    License key: <code style={{ color: 'var(--text-primary)', fontWeight: 700 }}>{status?.licenseKey || 'QTY-FREE-STARTER'}</code>
-                                </span>
-                            </div>
+                            <span style={{ 
+                                fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', 
+                                padding: '4px 10px', borderRadius: '12px',
+                                background: status.licensePlan === 'Free' ? 'var(--bg-secondary)' : 'rgba(16, 185, 129, 0.1)',
+                                color: status.licensePlan === 'Free' ? 'var(--text-secondary)' : 'rgb(16, 185, 129)',
+                                border: '1px solid ' + (status.licensePlan === 'Free' ? 'var(--border)' : 'rgba(16, 185, 129, 0.2)')
+                            }}>
+                                {status.licensePlan === 'Free' ? 'Starter' : status.licenseStatus === 'Active' ? 'PRO' : 'Active'}
+                            </span>
                         </div>
-
-                        <div style={{ fontSize: '13px', color: 'var(--text-secondary)', lineHeight: 1.5, marginTop: '8px' }}>
-                            {isPro ? 'Pro plan subscription active with multi-channel automation & advanced ERP tooling.' : 'Free Starter plan with basic ERP features. Upgrade to PRO to unlock advanced automations.'}
-                        </div>
-
-                        {/* Expiration Date Info */}
-                        <div style={{ marginTop: '16px', display: 'flex', alignItems: 'center', gap: '16px', flexWrap: 'wrap' }}>
-                            <div style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>
-                                Expiration Date: <strong style={{ color: licenseDaysLeft !== null && licenseDaysLeft <= 5 ? '#DC2626' : 'var(--text-primary)' }}>
-                                    {licenseDetails?.expires_at 
-                                        ? new Date(licenseDetails.expires_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })
-                                        : 'Never (Free Tier)'}
-                                </strong>
-                            </div>
-
-                            {/* Renew Button when <= 5 Days */}
-                            {isPro && (licenseDaysLeft === null || licenseDaysLeft <= 5) && (
-                                <SButton
-                                    variant="primary"
-                                    onClick={() => openExternalLink(`${webBaseUrl}/renew?key=${encodeURIComponent(status?.licenseKey || '')}`)}
-                                    style={{ padding: '6px 14px', fontSize: '12px', height: '32px' }}
+                        <p style={{ margin: 0, fontSize: '12px', color: 'var(--text-secondary)', lineHeight: 1.5 }}>
+                            {status.licensePlan === 'Free' && 'Standard local billing with SQLite. Upgrade to enable WhatsApp marketing dispatches, credit limit controls, and voice calling agent subscriptions.'}
+                            {status.licensePlan === 'Pro' && 'Business PRO tier includes WhatsApp Campaign scheduler, credit limit checks, payment integrations, and automated notifications.'}
+                            {status.licensePlan === 'Professional' && 'AI Professional tier includes autonomous OpenCode Zen AI Responders, Voice calling agent subscriptions, and auto-profiling converters.'}
+                        </p>
+                        <div style={{ display: 'flex', gap: '10px', marginTop: '4px', flexWrap: 'wrap' }}>
+                            <SButton 
+                                variant="primary" 
+                                style={{ padding: '8px 16px', background: '#008060', borderColor: '#008060' }}
+                                onClick={() => openExternalLink(`${webBaseUrl}/top-up?amount=250&email=${encodeURIComponent(status?.email || '')}&syncId=${status?.syncId || ''}&licenseKey=${encodeURIComponent(status?.licenseKey || '')}`)}
+                            >
+                                Top Up Wallet Credit
+                            </SButton>
+                            {isSubscriptionExpiringSoon() && (
+                                <SButton 
+                                    variant="primary" 
+                                    style={{ flex: 1, background: '#FF9500', borderColor: '#FF9500' }}
+                                    onClick={() => openExternalLink(`https://quantro-web.onrender.com/renews?key=${status.licenseKey}`)}
                                 >
                                     Renew Subscription
+                                </SButton>
+                            )}
+                            {status.licensePlan === 'Free' && (
+                                <>
+                                    <SButton variant="primary" style={{ flex: 1 }} onClick={() => handleUpgrade('Pro')}>
+                                        Upgrade to PRO (₹499/mo)
+                                    </SButton>
+                                    <SButton variant="primary" style={{ flex: 1, background: 'var(--purple)', borderColor: 'var(--purple)' }} onClick={() => handleUpgrade('Professional')}>
+                                        Go Professional (₹1199/mo)
+                                    </SButton>
+                                </>
+                            )}
+                            {status.licensePlan === 'Pro' && (
+                                <>
+                                    <SButton variant="primary" style={{ flex: 1, background: 'var(--purple)', borderColor: 'var(--purple)' }} onClick={() => handleUpgrade('Professional')}>
+                                        Upgrade to Professional (₹1199/mo)
+                                    </SButton>
+                                    <SButton variant="secondary" style={{ color: 'var(--danger)' }} onClick={handleCancel}>
+                                        Cancel Subscription
+                                    </SButton>
+                                </>
+                            )}
+                            {status.licensePlan === 'Professional' && (
+                                <SButton variant="secondary" style={{ flex: 1, color: 'var(--danger)' }} onClick={handleCancel}>
+                                    Cancel Professional Subscription
                                 </SButton>
                             )}
                         </div>
                     </div>
 
-                    {/* Right: Wallet Credit Balance */}
-                    <div style={{ background: 'var(--bg-secondary)', padding: '20px 24px', borderRadius: '14px', border: '1px solid var(--border)', display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '8px', minWidth: '240px' }}>
-                        <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Prepaid Wallet Balance</span>
-                        <div style={{ fontSize: '32px', fontWeight: 800, color: (status?.creditBalance || 0) <= 10 ? '#DC2626' : '#10B981', letterSpacing: '-0.02em' }}>
-                            ₹{Number(status?.creditBalance || 0).toFixed(2)}
+                    {/* Pay-As-You-Go Service Pricing Card */}
+                    <div className="card" style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <h3 style={{ margin: 0, fontSize: '15px', fontWeight: 700 }}>Pay-As-You-Go Service Rates</h3>
+                            <span style={{ fontSize: '11px', fontWeight: 700, padding: '3px 10px', borderRadius: '999px', background: 'rgba(16, 185, 129, 0.1)', color: '#059669' }}>
+                                Wallet Deducted
+                            </span>
                         </div>
-                        <SButton
-                            variant="primary"
-                            onClick={() => setShowTopupModal(true)}
-                            style={{ backgroundColor: '#10B981', padding: '6px 16px', fontSize: '12px', height: '32px' }}
-                        >
-                            Top Up Balance
-                        </SButton>
+                        <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap', marginTop: '4px' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', background: 'var(--bg-secondary)', padding: '12px 18px', borderRadius: '10px', border: '1px solid var(--border)', flex: '1 1 240px', maxWidth: '300px' }}>
+                                <div style={{ width: '32px', height: '32px', borderRadius: '8px', background: 'rgba(37, 211, 102, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                    <img src="./whatsapp-icon.png" alt="WA" style={{ width: '18px', height: '18px', objectFit: 'contain' }} />
+                                </div>
+                                <div>
+                                    <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-primary)' }}>WhatsApp API</div>
+                                    <div style={{ fontSize: '13px', fontWeight: 700, color: '#128C7E' }}>₹0.30 / message</div>
+                                </div>
+                             </div>
+                             <div style={{ display: 'flex', alignItems: 'center', gap: '12px', background: 'var(--bg-secondary)', padding: '12px 18px', borderRadius: '10px', border: '1px solid var(--border)', flex: '1 1 240px', maxWidth: '300px' }}>
+                                <div style={{ width: '32px', height: '32px', borderRadius: '8px', background: 'rgba(234, 67, 53, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                    <img src="./gmail-icon.png" alt="Gmail" style={{ width: '18px', height: '18px', objectFit: 'contain' }} />
+                                </div>
+                                <div>
+                                    <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-primary)' }}>Gmail Delivery</div>
+                                    <div style={{ fontSize: '13px', fontWeight: 700, color: '#ea4335' }}>₹0.05 / email</div>
+                                </div>
+                             </div>
+                             <div style={{ display: 'flex', alignItems: 'center', gap: '12px', background: 'var(--bg-secondary)', padding: '12px 18px', borderRadius: '10px', border: '1px solid var(--border)', flex: '1 1 240px', maxWidth: '300px' }}>
+                                <div style={{ width: '32px', height: '32px', borderRadius: '8px', background: 'rgba(147, 51, 234, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                    <img src="./mazeway.png" alt="Voice" style={{ width: '18px', height: '18px', objectFit: 'contain' }} />
+                                </div>
+                                <div>
+                                    <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-primary)' }}>AI Voice Agent</div>
+                                    <div style={{ fontSize: '13px', fontWeight: 700, color: '#9333ea' }}>₹10.00 / minute</div>
+                                </div>
+                             </div>
+                        </div>
                     </div>
-                </div>
+                    {/* Gmail Email Overages */}
+                    {!status.gmailConnected ? (
+                        <div className="card" style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '16px', background: 'rgba(255, 149, 0, 0.04)', border: '1px solid rgba(255, 149, 0, 0.2)' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                <div style={{
+                                    width: '36px', height: '36px', borderRadius: '8px', background: '#f8fafc',
+                                    border: '1px solid #e2e8f0', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '4px'
+                                }}>
+                                    <img src="./gmail-icon.png" alt="Gmail" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+                                </div>
+                                <div>
+                                    <h3 style={{ margin: 0, fontSize: '15px', fontWeight: 700 }}>Gmail API Delivery Service</h3>
+                                    <span style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>Gmail is not connected to enable transactions</span>
+                                </div>
+                            </div>
+                            <p style={{ margin: 0, fontSize: '12px', color: 'var(--text-secondary)' }}>
+                                Please connect your Gmail account in the Automation page to enable auto-emails and transactional package subscriptions.
+                            </p>
+                        </div>
+                    ) : (
+                        <div className="card" style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                    <div style={{
+                                        width: '36px', height: '36px', borderRadius: '8px', background: '#f8fafc',
+                                        border: '1px solid #e2e8f0', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '4px'
+                                    }}>
+                                        <img src="./gmail-icon.png" alt="Gmail" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+                                    </div>
+                                    <div>
+                                        <h3 style={{ margin: 0, fontSize: '15px', fontWeight: 700 }}>Gmail API Delivery Service</h3>
+                                        <span style={{ fontSize: '11px', color: 'var(--text-tertiary)' }}>
+                                            {status.licensePlan !== 'Free' && status.emailPackageActive ? 'Transactional Plan Active' : 'Standard Free Plan'}
+                                        </span>
+                                    </div>
+                                </div>
+                                <span style={{ fontSize: '12px', fontWeight: 600, background: 'var(--bg-secondary)', padding: '4px 8px', borderRadius: '12px' }}>
+                                    ₹0.05 / email overage
+                                </span>
+                            </div>
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', background: 'var(--bg-secondary)', padding: '16px 20px', borderRadius: '8px', maxWidth: '500px' }}>
+                                <div>
+                                    <span style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>Emails Sent This Cycle</span>
+                                    <div style={{ fontSize: '16px', fontWeight: 700, color: 'var(--text-primary)', marginTop: '4px' }}>
+                                        {status.emailSentCount} <span style={{ fontSize: '11px', fontWeight: 500, color: 'var(--text-tertiary)' }}>/ {status.licensePlan !== 'Free' && status.emailPackageActive ? '50,000' : '1,000 free'}</span>
+                                    </div>
+                                </div>
+                                <div>
+                                    <span style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>Overage Cost</span>
+                                    <div style={{ fontSize: '16px', fontWeight: 700, color: 'var(--text-primary)', marginTop: '4px' }}>
+                                        ₹{dues.emailCost.toFixed(2)}
+                                    </div>
+                                </div>
+                            </div>
+                            {!status.emailPackageActive && (
+                                <SButton 
+                                    variant="secondary" 
+                                    disabled={status.emailSentCount < 1000}
+                                    onClick={handleBuyEmailPackage}
+                                >
+                                    {status.emailSentCount < 1000 
+                                        ? `Upgrade available after daily free limit is reached (${status.emailSentCount}/1000 sent)`
+                                        : "Upgrade to Transactional Package (₹2500/mo - 50k Limit)"}
+                                </SButton>
+                            )}
+                        </div>
+                    )}
 
-                {/* Bottom Action Bar */}
-                <div style={{ borderTop: '1px solid var(--border)', paddingTop: '16px', display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
-                    <SButton variant="primary" onClick={() => openExternalLink(`${webBaseUrl}/pricing`)}>
-                        {isPro ? 'Manage / Upgrade Plan' : 'Upgrade to PRO'}
-                    </SButton>
-                    <SButton variant="secondary" onClick={() => setShowKeyModal(true)}>
-                        Enter Activation Key
-                    </SButton>
-                </div>
-            </div>
+                    {/* WhatsApp Non-CSW Messages */}
+                    {!status.whatsappConnected ? (
+                        <div className="card" style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '16px', background: 'rgba(255, 149, 0, 0.04)', border: '1px solid rgba(255, 149, 0, 0.2)' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                <div style={{
+                                    width: '36px', height: '36px', borderRadius: '8px', background: '#f8fafc',
+                                    border: '1px solid #e2e8f0', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '4px'
+                                }}>
+                                    <img src="./whatsapp-icon.png" alt="WhatsApp" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+                                </div>
+                                <div>
+                                    <h3 style={{ margin: 0, fontSize: '15px', fontWeight: 700 }}>WhatsApp Service</h3>
+                                    <span style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>WhatsApp is not connected to enable transactions</span>
+                                </div>
+                            </div>
+                            <p style={{ margin: 0, fontSize: '12px', color: 'var(--text-secondary)' }}>
+                                Please connect your WhatsApp Business account in the Automation page to enable auto-notifications and campaign templates.
+                            </p>
+                        </div>
+                    ) : (
+                        <div className="card" style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                    <div style={{
+                                        width: '36px', height: '36px', borderRadius: '8px', background: '#f8fafc',
+                                        border: '1px solid #e2e8f0', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '4px'
+                                    }}>
+                                        <img src="./whatsapp-icon.png" alt="WhatsApp" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+                                    </div>
+                                    <div>
+                                        <h3 style={{ margin: 0, fontSize: '15px', fontWeight: 700 }}>WhatsApp API Service</h3>
+                                        <span style={{ fontSize: '11px', color: 'var(--text-tertiary)' }}>
+                                            Service Enabled
+                                        </span>
+                                    </div>
+                                </div>
+                                <span style={{ fontSize: '12px', fontWeight: 600, background: 'var(--bg-secondary)', padding: '4px 8px', borderRadius: '12px' }}>
+                                    ₹0.30 / message (Flat Rate)
+                                </span>
+                            </div>
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', background: 'var(--bg-secondary)', padding: '16px 20px', borderRadius: '8px', maxWidth: '500px' }}>
+                                <div>
+                                    <span style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>Total Billed Messages</span>
+                                    <div style={{ fontSize: '16px', fontWeight: 700, color: 'var(--text-primary)', marginTop: '4px' }}>
+                                        {status.whatsappNonCswCount}
+                                    </div>
+                                </div>
+                                <div>
+                                    <span style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>Accumulated Cost</span>
+                                    <div style={{ fontSize: '16px', fontWeight: 700, color: 'var(--text-primary)', marginTop: '4px' }}>
+                                        ₹{dues.whatsappCost.toFixed(2)}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    )}
 
-            {/* 2. MONTHLY BILLED & SERVICE USAGE RATES CARD */}
-            <div className="card" style={{ padding: '24px', borderRadius: '16px', border: '1px solid var(--border)', background: 'var(--bg-primary)', display: 'flex', flexDirection: 'column', gap: '20px' }}>
-                <div>
-                    <h3 style={{ margin: 0, fontSize: '18px', fontWeight: 700, color: 'var(--text-primary)' }}>
-                        Service Usage & Monthly Billing Rates
-                    </h3>
-                    <p style={{ margin: '4px 0 0 0', fontSize: '13px', color: 'var(--text-secondary)' }}>
-                        Real-time monthly consumption for WhatsApp API, Email delivery, AI Voice Agents, and VoBiz phone numbers.
-                    </p>
-                </div>
+                    {/* Voice Calling Agent */}
+                    {!status.voiceAgentCreated ? (
+                        <div className="card" style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '16px', background: 'rgba(255, 149, 0, 0.04)', border: '1px solid rgba(255, 149, 0, 0.2)' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                <div style={{
+                                    width: '36px', height: '36px', borderRadius: '8px', background: '#f8fafc',
+                                    border: '1px solid #e2e8f0', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '4px'
+                                }}>
+                                    <img src="./mazeway.png" alt="Voice Agent" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+                                </div>
+                                <div>
+                                    <h3 style={{ margin: 0, fontSize: '15px', fontWeight: 700 }}>AI Voice Agent Calling</h3>
+                                    <span style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>Get Voice Agent to enable transactions</span>
+                                </div>
+                            </div>
+                            <p style={{ margin: 0, fontSize: '12px', color: 'var(--text-secondary)' }}>
+                                Please create your first voice calling agent in the Automation page to enable auto-notifications and campaign templates and furthermore transactions.
+                            </p>
+                        </div>
+                    ) : !status.phoneNumberPurchased ? (
+                        <div className="card" style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '16px', background: 'rgba(255, 149, 0, 0.04)', border: '1px solid rgba(255, 149, 0, 0.2)' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                <div style={{
+                                    width: '36px', height: '36px', borderRadius: '8px', background: '#f8fafc',
+                                    border: '1px solid #e2e8f0', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '4px'
+                                }}>
+                                    <img src="./mazeway.png" alt="Voice Agent" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+                                </div>
+                                <div>
+                                    <h3 style={{ margin: 0, fontSize: '15px', fontWeight: 700 }}>AI Voice Agent Calling</h3>
+                                    <span style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>Voice Agent is provisioning to enable transactions</span>
+                                </div>
+                            </div>
+                            <p style={{ margin: 0, fontSize: '12px', color: 'var(--text-secondary)' }}>
+                                Your AI Voice Agent is currently being provisioned by the admin. Please wait for approval to get your dedicated VoIP number.
+                            </p>
+                        </div>
+                    ) : (
+                        <div className="card" style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                    <div style={{
+                                        width: '36px', height: '36px', borderRadius: '8px', background: '#f8fafc',
+                                        border: '1px solid #e2e8f0', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '4px'
+                                    }}>
+                                        <img src="./mazeway.png" alt="Voice Agent" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+                                    </div>
+                                    <div>
+                                        <h3 style={{ margin: 0, fontSize: '15px', fontWeight: 700 }}>AI Voice Agent Calling</h3>
+                                        <span style={{ fontSize: '11px', color: 'var(--text-tertiary)' }}>
+                                            Service Enabled
+                                        </span>
+                                    </div>
+                                </div>
+                                <span style={{ fontSize: '12px', fontWeight: 600, background: 'var(--bg-secondary)', padding: '4px 8px', borderRadius: '12px' }}>
+                                    ₹10.00 / minute
+                                </span>
+                            </div>
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', background: 'var(--bg-secondary)', padding: '16px 20px', borderRadius: '8px', maxWidth: '500px' }}>
+                                <div>
+                                    <span style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>Call Time Usage</span>
+                                    <div style={{ fontSize: '16px', fontWeight: 700, color: 'var(--text-primary)', marginTop: '4px' }}>
+                                        {formatSecondsToMinutes(status.voiceAgentSeconds)}
+                                    </div>
+                                </div>
+                                <div>
+                                    <span style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>Accumulated Cost</span>
+                                    <div style={{ fontSize: '16px', fontWeight: 700, color: 'var(--text-primary)', marginTop: '4px' }}>
+                                        ₹{dues.voiceCost.toFixed(2)}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    )}
 
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '16px' }}>
+                    {/* VoIP / Dedicated Number Card */}
+                    <div className="card" style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                <div style={{
+                                    width: '36px', height: '36px', borderRadius: '8px', background: '#f8fafc',
+                                    border: '1px solid #e2e8f0', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '4px'
+                                }}>
+                                    <img src="./mazeway.png" alt="VoIP Number" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+                                </div>
+                                <div>
+                                    <h3 style={{ margin: 0, fontSize: '15px', fontWeight: 700 }}>Dedicated VoIP Number</h3>
+                                    <span style={{ fontSize: '11px', color: 'var(--text-tertiary)' }}>
+                                        {status.phoneNumberPurchased ? `Active: ${status.phoneNumberDetails}` : 'No VoIP Number Active'}
+                                    </span>
+                                </div>
+                            </div>
+                            {status.phoneNumberPurchased && (
+                                <span style={{ fontSize: '12px', fontWeight: 600, background: 'var(--bg-secondary)', padding: '4px 8px', borderRadius: '12px' }}>
+                                    Active Subscription
+                                </span>
+                            )}
+                        </div>
+                        
+                        {status.phoneNumberPurchased ? (
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', background: 'var(--bg-secondary)', padding: '16px 20px', borderRadius: '8px', maxWidth: '500px' }}>
+                                    <div>
+                                        <span style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>Dedicated Number Cost</span>
+                                        <div style={{ fontSize: '16px', fontWeight: 700, color: 'var(--text-primary)', marginTop: '4px' }}>
+                                            ₹750.00 / mo
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <span style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>Status</span>
+                                        <div style={{ fontSize: '16px', fontWeight: 700, color: 'var(--success)', marginTop: '4px' }}>
+                                            Active & Provisioned
+                                        </div>
+                                    </div>
+                                </div>
+                                {status.vobizLicense && (
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                        <span style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>
+                                            End of subscription: <strong style={{ color: 'var(--text-primary)' }}>{getVobizEndDate()}</strong>
+                                        </span>
+                                        {(isVobizExpiringSoon() || isVobizExpiredGrace()) && (
+                                            <SButton 
+                                                variant="primary" 
+                                                style={{ padding: '8px 16px', background: '#FF9500', borderColor: '#FF9500', alignSelf: 'flex-start' }}
+                                                onClick={() => openExternalLink(`https://quantro-web.onrender.com/renews?key=${status.vobizLicense.license_key}`)}
+                                            >
+                                                Renew Vobiz Number
+                                            </SButton>
+                                        )}
+                                    </div>
+                                )}
+                            </div>
+                        ) : (
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', background: 'rgba(255, 59, 48, 0.02)', border: '1px dashed rgba(255, 59, 48, 0.15)', padding: '16px', borderRadius: '8px', textAlign: 'center' }}>
+                                <span style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>
+                                    You don't own active VoIP number
+                                </span>
+                                <p style={{ margin: 0, fontSize: '11px', color: 'var(--text-tertiary)' }}>
+                                    To get one, please create and buy an agent in the Automation page first.
+                                </p>
+                            </div>
+                        )}
+                    </div>
                     
-                    {/* WhatsApp API */}
-                    <div style={{ background: 'var(--bg-secondary)', padding: '16px', borderRadius: '12px', border: '1px solid var(--border)', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: '11px', background: 'rgba(37, 211, 102, 0.1)', color: '#25D366', padding: '4px 8px', borderRadius: '6px' }}>
-                                WA
-                            </div>
-                            <div>
-                                <strong style={{ fontSize: '14px', color: 'var(--text-primary)' }}>WhatsApp API</strong>
-                                <span style={{ fontSize: '11px', color: 'var(--text-tertiary)', display: 'block' }}>Monthly Billed</span>
-                            </div>
-                        </div>
-                        <div style={{ fontSize: '18px', fontWeight: 800, color: '#128C7E', marginTop: '4px' }}>
-                            ₹0.30 <span style={{ fontSize: '12px', fontWeight: 500, color: 'var(--text-secondary)' }}>/ message</span>
-                        </div>
-                        <div style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>
-                            Status: <strong style={{ color: status?.whatsappConnected ? '#10B981' : 'var(--text-tertiary)' }}>{status?.whatsappConnected ? 'Connected (QEIWA)' : 'Not Connected'}</strong>
-                        </div>
                     </div>
 
-                    {/* Gmail Delivery */}
-                    <div style={{ background: 'var(--bg-secondary)', padding: '16px', borderRadius: '12px', border: '1px solid var(--border)', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: '11px', background: 'rgba(234, 67, 53, 0.1)', color: '#EA4335', padding: '4px 8px', borderRadius: '6px' }}>
-                                Gmail
-                            </div>
-                            <div>
-                                <strong style={{ fontSize: '14px', color: 'var(--text-primary)' }}>Gmail Delivery</strong>
-                                <span style={{ fontSize: '11px', color: 'var(--text-tertiary)', display: 'block' }}>Monthly Billed</span>
-                            </div>
-                        </div>
-                        <div style={{ fontSize: '18px', fontWeight: 800, color: '#EA4335', marginTop: '4px' }}>
-                            ₹0.05 <span style={{ fontSize: '12px', fontWeight: 500, color: 'var(--text-secondary)' }}>/ email</span>
-                        </div>
-                        <div style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>
-                            Status: <strong style={{ color: status?.gmailConnected ? '#10B981' : 'var(--text-tertiary)' }}>{status?.gmailConnected ? 'Connected' : 'Not Connected'}</strong>
-                        </div>
-                    </div>
-
-                    {/* AI Voice Agent */}
-                    <div style={{ background: 'var(--bg-secondary)', padding: '16px', borderRadius: '12px', border: '1px solid var(--border)', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: '11px', background: 'rgba(147, 51, 234, 0.1)', color: '#9333EA', padding: '4px 8px', borderRadius: '6px' }}>
-                                Voice
-                            </div>
-                            <div>
-                                <strong style={{ fontSize: '14px', color: 'var(--text-primary)' }}>AI Voice Agent</strong>
-                                <span style={{ fontSize: '11px', color: 'var(--text-tertiary)', display: 'block' }}>Monthly Billed</span>
-                            </div>
-                        </div>
-                        <div style={{ fontSize: '18px', fontWeight: 800, color: '#9333EA', marginTop: '4px' }}>
-                            ₹10.00 <span style={{ fontSize: '12px', fontWeight: 500, color: 'var(--text-secondary)' }}>/ minute</span>
-                        </div>
-                        <div style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>
-                            Voice Seconds: <strong>{status?.voiceAgentSeconds || 0}s</strong>
-                        </div>
-                    </div>
-
-                    {/* VoBiz Phone Number */}
-                    <div style={{ background: 'var(--bg-secondary)', padding: '16px', borderRadius: '12px', border: '1px solid var(--border)', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                            <div style={{ width: '32px', height: '32px', borderRadius: '8px', background: 'rgba(139, 92, 246, 0.1)', color: '#8B5CF6', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                <Icons.Phone size={18} />
-                            </div>
-                            <div>
-                                <strong style={{ fontSize: '14px', color: 'var(--text-primary)' }}>VoBiz Phone Number</strong>
-                                <span style={{ fontSize: '11px', color: 'var(--text-tertiary)', display: 'block' }}>Telephony Subscription</span>
-                            </div>
-                        </div>
-                        <div style={{ fontSize: '13px', fontWeight: 700, color: 'var(--text-primary)', marginTop: '4px', fontFamily: 'monospace' }}>
-                            {licenseDetails?.vobiz_phone_number || 'No Active Phone Number'}
-                        </div>
-                        <div style={{ fontSize: '12px', color: 'var(--text-secondary)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                            <span>VoBiz Expiry:</span>
-                            <strong style={{ color: vobizDaysLeft !== null && vobizDaysLeft <= 5 ? '#DC2626' : 'var(--text-primary)' }}>
-                                {licenseDetails?.vobiz_expires_at 
-                                    ? new Date(licenseDetails.vobiz_expires_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })
-                                    : 'N/A'}
-                            </strong>
-                        </div>
-                    </div>
-                </div>
-
-                {/* VoBiz Expiration Warning & Renew Button */}
-                {vobizDaysLeft !== null && vobizDaysLeft <= 5 && (
-                    <div style={{ padding: '12px 16px', background: '#FEF2F2', border: '1px solid #FCA5A5', borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '16px', flexWrap: 'wrap' }}>
-                        <div style={{ fontSize: '12px', color: '#991B1B', lineHeight: 1.4, flex: 1 }}>
-                            <strong>Warning:</strong> Renew your VoBiz number now. Once your subscription ends, after a 2-day grace period, your phone number access will be provided to another user and your organization will have to buy a new VoBiz number.
-                        </div>
-                        <SButton
-                            variant="primary"
-                            style={{ backgroundColor: '#DC2626', padding: '6px 14px', fontSize: '12px', height: '32px' }}
-                            onClick={() => openExternalLink(`${webBaseUrl}/renew?key=${encodeURIComponent(status?.licenseKey || '')}&type=vobiz`)}
-                        >
-                            Renew VoBiz Number
-                        </SButton>
-                    </div>
-                )}
-            </div>
-
-            {/* 3. PREPAID TRANSACTIONS LEDGER TABLE */}
-            <div className="card" style={{ padding: '24px', borderRadius: '16px', border: '1px solid var(--border)', background: 'var(--bg-primary)' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+            {/* Credit Deduction Log & Transaction Ledger Table (Full Width at Bottom) */}
+            <div className="card" style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '16px', marginTop: '24px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <div>
-                        <h3 style={{ margin: 0, fontSize: '18px', fontWeight: 700, color: 'var(--text-primary)' }}>Wallet Usage History</h3>
+                        <h3 style={{ margin: 0, fontSize: '17px', fontWeight: 700 }}>Credit Deduction Log &amp; Transaction History</h3>
                         <p style={{ margin: '4px 0 0 0', fontSize: '13px', color: 'var(--text-secondary)' }}>
-                            Real-time deductions and top-ups recorded in your prepaid ledger.
+                            Itemized ledger of all service deductions and Razorpay credit top-ups synchronized with Quantro Web.
                         </p>
                     </div>
+                    <SButton variant="secondary" size="small" onClick={loadBillingStatus} style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                        <Icons.RefreshCw size={14} />
+                        Refresh Log
+                    </SButton>
                 </div>
 
-                {(!status?.creditLedger || status.creditLedger.length === 0) ? (
-                    <div style={{ textAlign: 'center', padding: '40px', color: 'var(--text-tertiary)', fontSize: '14px' }}>
-                        No transactions recorded yet in your prepaid wallet.
+                {(!creditLedger || creditLedger.length === 0) ? (
+                    <div style={{ padding: '32px', textAlign: 'center', border: '1px dashed var(--border)', borderRadius: '12px', background: 'var(--bg-soft)', color: 'var(--text-tertiary)', fontSize: '13px' }}>
+                        No credit transactions logged yet. Deductions will appear here automatically when messages or calls are triggered.
                     </div>
                 ) : (
-                    <div style={{ overflowX: 'auto' }}>
+                    <div style={{ overflowX: 'auto', borderRadius: '10px', border: '1px solid var(--border)' }}>
                         <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px', textAlign: 'left' }}>
                             <thead>
-                                <tr style={{ borderBottom: '1px solid var(--border)', color: 'var(--text-secondary)' }}>
-                                    <th style={{ padding: '12px 16px', fontWeight: 600 }}>Date & Time</th>
-                                    <th style={{ padding: '12px 16px', fontWeight: 600 }}>Service Type</th>
-                                    <th style={{ padding: '12px 16px', fontWeight: 600 }}>Description</th>
-                                    <th style={{ padding: '12px 16px', fontWeight: 600, textAlign: 'right' }}>Amount</th>
-                                    <th style={{ padding: '12px 16px', fontWeight: 600, textAlign: 'right' }}>Balance After</th>
+                                <tr style={{ background: '#f8fafc', borderBottom: '1px solid var(--border)', color: 'var(--text-secondary)', fontWeight: 600 }}>
+                                    <th style={{ padding: '12px 16px' }}>Date &amp; Time</th>
+                                    <th style={{ padding: '12px 16px' }}>Service</th>
+                                    <th style={{ padding: '12px 16px' }}>Description</th>
+                                    <th style={{ padding: '12px 16px', textAlign: 'center' }}>Units</th>
+                                    <th style={{ padding: '12px 16px', textAlign: 'right' }}>Amount</th>
+                                    <th style={{ padding: '12px 16px', textAlign: 'right' }}>Wallet Balance</th>
                                 </tr>
                             </thead>
                             <tbody>
-                                {status.creditLedger.map((row) => (
-                                    <tr key={row.id} style={{ borderBottom: '1px solid var(--border)' }}>
-                                        <td style={{ padding: '12px 16px', color: 'var(--text-secondary)' }}>
-                                            {new Date(row.timestamp || Date.now()).toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
-                                        </td>
-                                        <td style={{ padding: '12px 16px', fontWeight: 600, color: 'var(--text-primary)' }}>
-                                            {row.service_type}
-                                        </td>
-                                        <td style={{ padding: '12px 16px', color: 'var(--text-secondary)' }}>
-                                            {row.description}
-                                        </td>
-                                        <td style={{ padding: '12px 16px', textAlign: 'right', fontWeight: 700, color: row.amount > 0 ? '#10B981' : '#DC2626' }}>
-                                            {row.amount > 0 ? `+₹${row.amount.toFixed(2)}` : `-₹${Math.abs(row.amount).toFixed(2)}`}
-                                        </td>
-                                        <td style={{ padding: '12px 16px', textAlign: 'right', fontWeight: 600, color: 'var(--text-primary)' }}>
-                                            ₹{Number(row.balance_after || 0).toFixed(2)}
-                                        </td>
-                                    </tr>
-                                ))}
+                                {creditLedger.map((row, idx) => {
+                                    const isTopup = row.service_type === 'Credit Top-up' || row.amount > 0;
+                                    const badgeBg = row.service_type === 'WhatsApp' ? 'rgba(37, 211, 102, 0.12)' :
+                                                    row.service_type === 'Email' ? 'rgba(234, 67, 53, 0.12)' :
+                                                    row.service_type === 'Voice Agent' ? 'rgba(147, 51, 234, 0.12)' : 'rgba(2, 132, 199, 0.12)';
+                                    const badgeColor = row.service_type === 'WhatsApp' ? '#128C7E' :
+                                                       row.service_type === 'Email' ? '#ea4335' :
+                                                       row.service_type === 'Voice Agent' ? '#9333ea' : '#0284c7';
+                                    return (
+                                        <tr key={row.id || idx} style={{ borderBottom: idx < status.creditLedger.length - 1 ? '1px solid #f1f5f9' : 'none' }}>
+                                            <td style={{ padding: '12px 16px', color: 'var(--text-tertiary)', fontSize: '12px', whiteSpace: 'nowrap' }}>
+                                                {new Date(row.created_at).toLocaleString('en-IN', { dateStyle: 'short', timeStyle: 'short' })}
+                                            </td>
+                                            <td style={{ padding: '12px 16px' }}>
+                                                <span style={{ fontSize: '11px', fontWeight: 700, padding: '3px 8px', borderRadius: '999px', background: badgeBg, color: badgeColor }}>
+                                                    {row.service_type}
+                                                </span>
+                                            </td>
+                                            <td style={{ padding: '12px 16px', fontWeight: 500, color: 'var(--text-primary)' }}>
+                                                {row.description || 'Service usage deduction'}
+                                            </td>
+                                            <td style={{ padding: '12px 16px', textAlign: 'center', color: 'var(--text-secondary)' }}>
+                                                {row.units_used || 1}
+                                            </td>
+                                            <td style={{ padding: '12px 16px', textAlign: 'right', fontWeight: 700, color: isTopup ? '#16a34a' : '#dc2626' }}>
+                                                {isTopup ? `+₹${Math.abs(row.amount).toFixed(2)}` : `-₹${Math.abs(row.amount).toFixed(2)}`}
+                                            </td>
+                                            <td style={{ padding: '12px 16px', textAlign: 'right', fontWeight: 600, color: 'var(--text-primary)' }}>
+                                                ₹{(row.balance_after || 0).toFixed(2)}
+                                            </td>
+                                        </tr>
+                                    );
+                                })}
                             </tbody>
                         </table>
                     </div>
                 )}
             </div>
 
-            {/* TOP UP MODAL */}
-            {showTopupModal && (
-                <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(15, 23, 42, 0.6)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100000, padding: '20px' }}>
-                    <div style={{ width: '100%', maxWidth: '440px', padding: '28px', borderRadius: '16px', background: 'var(--bg-primary)', border: '1px solid var(--border)', boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1)', display: 'flex', flexDirection: 'column', gap: '20px' }}>
-                        <div>
-                            <h3 style={{ margin: 0, fontSize: '18px', fontWeight: 700, color: 'var(--text-primary)' }}>Top Up Prepaid Wallet</h3>
-                            <p style={{ margin: '6px 0 0 0', fontSize: '13px', color: 'var(--text-secondary)' }}>
-                                Select an amount to add funds directly to your wallet via Quantro Web.
+            {/* Setup Payment Method Authorization Dialog Popup */}
+            {showPaymentSetupModal && (
+                <div style={{
+                    position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+                    background: 'rgba(15, 23, 42, 0.6)', backdropFilter: 'blur(4px)',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    zIndex: 1000
+                }}>
+                    <div style={{
+                        background: '#ffffff', width: '420px', borderRadius: '16px',
+                        overflow: 'hidden', boxShadow: '0 20px 25px -5px rgba(0,0,0,0.15)'
+                    }}>
+                        {/* Header */}
+                        <div style={{ background: 'var(--accent)', color: '#ffffff', padding: '20px 24px' }}>
+                            <h3 style={{ margin: 0, fontSize: '18px', fontWeight: 800 }}>Set Up Payment Method</h3>
+                            <p style={{ margin: '4px 0 0 0', color: 'rgba(255,255,255,0.8)', fontSize: '12px' }}>
+                                Link your card securely on the Quantro Web Portal
                             </p>
                         </div>
+                        
+                        {/* Body */}
+                        <div style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                            <div style={{ fontSize: '13px', color: 'var(--text-secondary)', lineHeight: 1.5 }}>
+                                Setting up your payment method requires a refundable <strong>₹1.00</strong> transaction to verify card details. This process will happen securely on the Quantro Web Portal.
+                            </div>
 
-                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '10px' }}>
-                            {['100', '250', '500', '1000', '2500', '5000'].map(amt => (
-                                <button
-                                    key={amt}
-                                    onClick={() => setTopupAmount(amt)}
-                                    style={{
-                                        padding: '12px', borderRadius: '10px', border: topupAmount === amt ? '2px solid #10B981' : '1px solid var(--border)',
-                                        background: topupAmount === amt ? 'rgba(16, 185, 129, 0.08)' : 'var(--bg-secondary)',
-                                        fontWeight: 700, fontSize: '14px', color: topupAmount === amt ? '#10B981' : 'var(--text-primary)',
-                                        cursor: 'pointer'
-                                    }}
-                                >
-                                    ₹{amt}
-                                </button>
-                            ))}
+                            {/* Terms Checkbox */}
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', background: 'var(--bg-secondary)', padding: '16px', borderRadius: '10px' }}>
+                                <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-primary)' }}>Legal Agreements</div>
+                                <label style={{ display: 'flex', gap: '8px', alignItems: 'flex-start', cursor: 'pointer', userSelect: 'none' }}>
+                                    <input 
+                                        type="checkbox" 
+                                        checked={termsAccepted} 
+                                        onChange={(e) => setTermsAccepted(e.target.checked)} 
+                                        style={{ marginTop: '3px' }}
+                                    />
+                                    <div style={{ fontSize: '12px', color: 'var(--text-secondary)', lineHeight: 1.4 }}>
+                                        I have read and agree to Quantro's{' '}
+                                        <a href="#" onClick={(e) => { e.preventDefault(); openExternalLink(`${webBaseUrl}/terms`); }} style={{ color: 'var(--accent)', fontWeight: 650, textDecoration: 'underline' }}>Terms of Service</a>,{' '}
+                                        <a href="#" onClick={(e) => { e.preventDefault(); openExternalLink(`${webBaseUrl}/privacy`); }} style={{ color: 'var(--accent)', fontWeight: 650, textDecoration: 'underline' }}>Privacy Policy</a>, and{' '}
+                                        <a href="#" onClick={(e) => { e.preventDefault(); openExternalLink(`${webBaseUrl}/refund`); }} style={{ color: 'var(--accent)', fontWeight: 650, textDecoration: 'underline' }}>Refund Policy</a>.
+                                    </div>
+                                </label>
+                            </div>
+
+                            {/* Autopay Checkbox */}
+                            <label style={{ display: 'flex', gap: '10px', alignItems: 'flex-start', cursor: 'pointer', userSelect: 'none' }}>
+                                <input 
+                                    type="checkbox" 
+                                    checked={enableAutopay} 
+                                    onChange={(e) => setEnableAutopay(e.target.checked)} 
+                                    style={{ marginTop: '3px' }}
+                                />
+                                <div>
+                                    <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-primary)' }}>Enable Autopay</span>
+                                    <p style={{ margin: '2px 0 0 0', fontSize: '11px', color: 'var(--text-secondary)', lineHeight: 1.4 }}>
+                                        Automatically charge future outstanding balances via Razorpay on the 5th of the month.
+                                    </p>
+                                </div>
+                            </label>
                         </div>
 
-                        <div style={{ display: 'flex', gap: '12px' }}>
-                            <SButton variant="secondary" style={{ flex: 1, justifyContent: 'center' }} onClick={() => setShowTopupModal(false)}>
+                        {/* Footer */}
+                        <div style={{ background: '#f8fafc', padding: '16px 20px', display: 'flex', justifyContent: 'flex-end', gap: '12px', borderTop: '1px solid var(--border)' }}>
+                            <SButton variant="secondary" onClick={() => { setShowPaymentSetupModal(false); setTermsAccepted(false); }}>
                                 Cancel
                             </SButton>
-                            <SButton variant="primary" style={{ flex: 1, justifyContent: 'center', backgroundColor: '#10B981' }} onClick={() => handleTopupCredit(topupAmount)}>
-                                Proceed to Pay
+                            <SButton variant="primary" style={{ background: 'var(--accent)', borderColor: 'var(--accent)' }} disabled={!termsAccepted} onClick={handleConfirmPaymentSetup}>
+                                Link Card on Website (₹1.00)
                             </SButton>
                         </div>
                     </div>
                 </div>
             )}
 
-            {/* ACTIVATION KEY ENTRY MODAL */}
-            {showKeyModal && (
-                <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(15, 23, 42, 0.6)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100000, padding: '20px' }}>
-                    <div style={{ width: '100%', maxWidth: '440px', padding: '28px', borderRadius: '16px', background: 'var(--bg-primary)', border: '1px solid var(--border)', boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1)', display: 'flex', flexDirection: 'column', gap: '20px' }}>
-                        <div>
-                            <h3 style={{ margin: 0, fontSize: '18px', fontWeight: 700, color: 'var(--text-primary)' }}>Enter License Activation Key</h3>
-                            <p style={{ margin: '6px 0 0 0', fontSize: '13px', color: 'var(--text-secondary)' }}>
-                                Enter the license key purchased from Quantro Web pricing page.
+            {/* Subscription Cancellation Verification Code Modal */}
+            {showCancelModal && (
+                <div style={{
+                    position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+                    background: 'rgba(15, 23, 42, 0.6)', backdropFilter: 'blur(4px)',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    zIndex: 1000
+                }}>
+                    <div style={{
+                        background: '#ffffff', width: '420px', borderRadius: '16px',
+                        overflow: 'hidden', boxShadow: '0 20px 25px -5px rgba(0,0,0,0.15)'
+                    }}>
+                        {/* Header */}
+                        <div style={{ background: 'var(--danger)', color: '#ffffff', padding: '20px 24px' }}>
+                            <h3 style={{ margin: 0, fontSize: '18px', fontWeight: 800 }}>Confirm Subscription Cancellation</h3>
+                            <p style={{ margin: '4px 0 0 0', color: 'rgba(255,255,255,0.8)', fontSize: '12px' }}>
+                                Enter verification code sent to your email
                             </p>
                         </div>
+                        
+                        {/* Body */}
+                        <div style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                            <div style={{ fontSize: '13px', color: 'var(--text-secondary)', lineHeight: 1.5 }}>
+                                We have sent a 6-digit confirmation code to your email. Please enter it below to authorize the cancellation of your paid tier.
+                            </div>
 
-                        <form onSubmit={handleVerifyKey} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                            <input
-                                type="text"
-                                placeholder="QTY-XXXX-XXXX-XXXX"
-                                value={activationKey}
-                                onChange={(e) => setActivationKey(e.target.value)}
-                                style={{ width: '100%', padding: '12px 16px', borderRadius: '10px', border: '1px solid var(--border)', fontFamily: 'monospace', fontSize: '14px', boxSizing: 'border-box' }}
-                            />
+                            <div>
+                                <label style={{ display: 'block', fontSize: '11px', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '6px' }}>6-Digit Code</label>
+                                <input 
+                                    type="text" 
+                                    className="input-text" 
+                                    value={cancellationCode} 
+                                    onChange={(e) => setCancellationCode(e.target.value)} 
+                                    placeholder="Enter 6-digit code" 
+                                    maxLength={6}
+                                    style={{ height: '38px', fontSize: '16px', fontWeight: 'bold', textAlign: 'center', letterSpacing: '4px' }} 
+                                />
+                            </div>
 
-                            {keyError && (
-                                <div style={{ fontSize: '12px', color: '#DC2626', background: '#FEF2F2', padding: '8px 12px', borderRadius: '8px', border: '1px solid #FCA5A5' }}>
-                                    {keyError}
+                            {cancelError && (
+                                <div style={{
+                                    padding: '10px 14px',
+                                    background: '#fef2f2',
+                                    color: '#b91c1c',
+                                    border: '1px solid #fee2e2',
+                                    borderRadius: '8px',
+                                    fontSize: '12px',
+                                    lineHeight: '1.4',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '8px'
+                                }}>
+                                    <Icons.AlertCircle size={16} style={{ flexShrink: 0, color: '#ef4444' }} />
+                                    <span>{cancelError}</span>
                                 </div>
                             )}
+                        </div>
 
-                            <div style={{ display: 'flex', gap: '12px' }}>
-                                <SButton variant="secondary" style={{ flex: 1, justifyContent: 'center' }} onClick={() => setShowKeyModal(false)} type="button">
-                                    Cancel
-                                </SButton>
-                                <SButton variant="primary" style={{ flex: 1, justifyContent: 'center' }} type="submit" loading={keyVerifying} disabled={keyVerifying}>
-                                    Activate Key
-                                </SButton>
+                        {/* Footer */}
+                        <div style={{ background: '#f8fafc', padding: '16px 20px', display: 'flex', justifyContent: 'flex-end', gap: '12px', borderTop: '1px solid var(--border)' }}>
+                            <SButton variant="secondary" disabled={cancelVerifying} onClick={() => setShowCancelModal(false)}>
+                                Cancel
+                            </SButton>
+                            <SButton variant="primary" style={{ background: 'var(--danger)', borderColor: 'var(--danger)' }} disabled={cancelVerifying} onClick={handleConfirmCancellation}>
+                                {cancelVerifying ? 'Downgrading...' : 'Verify & Downgrade Plan'}
+                            </SButton>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Simulated Razorpay Checkout Dialog Portal Overlay */}
+            {showRazorpay && (
+                <div style={{
+                    position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+                    background: 'rgba(15, 23, 42, 0.6)', backdropFilter: 'blur(4px)',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    zIndex: 1000
+                }}>
+                    <div style={{
+                        background: '#ffffff', width: '380px', borderRadius: '16px',
+                        overflow: 'hidden', boxShadow: '0 20px 25px -5px rgba(0,0,0,0.15)'
+                    }}>
+                        
+                        {/* Razorpay Brand Header */}
+                        <div style={{ background: '#172554', color: '#ffffff', padding: '24px 20px', display: 'flex', justifyItems: 'center', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <div>
+                                <div style={{ fontSize: '11px', fontWeight: 600, color: '#38bdf8', textTransform: 'uppercase', letterSpacing: '1px' }}>Razorpay Secure Checkout</div>
+                                <h3 style={{ margin: '4px 0 0 0', fontSize: '18px', fontWeight: 800 }}>Quantro ERP</h3>
                             </div>
-                        </form>
+                            <span style={{ fontSize: '20px', fontWeight: 800, color: '#ffffff' }}>₹{dues.totalDue.toFixed(2)}</span>
+                        </div>
+
+                        {/* Payment Method Selector Tab */}
+                        <div style={{ display: 'flex', background: '#f1f5f9', padding: '4px', borderRadius: '10px', margin: '20px 20px 0 20px' }}>
+                            <button
+                                type="button"
+                                onClick={() => setPaymentMode('card')}
+                                style={{
+                                    flex: 1,
+                                    border: 'none',
+                                    borderRadius: '8px',
+                                    padding: '8px',
+                                    fontSize: '13px',
+                                    fontWeight: 600,
+                                    cursor: 'pointer',
+                                    background: paymentMode === 'card' ? '#ffffff' : 'transparent',
+                                    color: paymentMode === 'card' ? '#1e293b' : '#64748b',
+                                    boxShadow: paymentMode === 'card' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
+                                    transition: 'all 0.2s ease',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    gap: '6px'
+                                }}
+                            >
+                                <Icons.CreditCard size={15} />
+                                Card
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => setPaymentMode('upi')}
+                                style={{
+                                    flex: 1,
+                                    border: 'none',
+                                    borderRadius: '8px',
+                                    padding: '8px',
+                                    fontSize: '13px',
+                                    fontWeight: 600,
+                                    cursor: 'pointer',
+                                    background: paymentMode === 'upi' ? '#ffffff' : 'transparent',
+                                    color: paymentMode === 'upi' ? '#1e293b' : '#64748b',
+                                    boxShadow: paymentMode === 'upi' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
+                                    transition: 'all 0.2s ease',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    gap: '6px'
+                                }}
+                            >
+                                <div style={{
+                                    background: paymentMode === 'upi' ? 'linear-gradient(135deg, #7c3aed, #4f46e5)' : '#94a3b8',
+                                    color: '#ffffff',
+                                    fontSize: '8px',
+                                    fontWeight: 'bold',
+                                    padding: '2px 4px',
+                                    borderRadius: '3px',
+                                    lineHeight: 1
+                                }}>UPI</div>
+                                UPI / VPA
+                            </button>
+                        </div>
+
+                        {/* Razorpay Body */}
+                        <div style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                            {paymentMode === 'card' ? (
+                                <>
+                                    <div>
+                                        <label style={{ display: 'block', fontSize: '11px', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '6px' }}>Cardholder Name</label>
+                                        <input 
+                                            type="text" 
+                                            className="input-text" 
+                                            value={paymentDetails.cardName || 'Valued Customer'} 
+                                            onChange={(e) => setPaymentDetails({ ...paymentDetails, cardName: e.target.value })} 
+                                            placeholder="Enter your name" 
+                                            style={{ height: '36px', fontSize: '13px' }} 
+                                        />
+                                    </div>
+
+                                    <div>
+                                        <label style={{ display: 'block', fontSize: '11px', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '6px' }}>Card Number</label>
+                                        <input 
+                                            type="text" 
+                                            className="input-text" 
+                                            value={paymentDetails.cardNumber} 
+                                            onChange={(e) => setPaymentDetails({ ...paymentDetails, cardNumber: e.target.value })} 
+                                            style={{ height: '36px', fontSize: '13px' }} 
+                                        />
+                                    </div>
+
+                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                                        <div>
+                                            <label style={{ display: 'block', fontSize: '11px', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '6px' }}>Expiry</label>
+                                            <input 
+                                                type="text" 
+                                                className="input-text" 
+                                                value={paymentDetails.cardExpiry} 
+                                                onChange={(e) => setPaymentDetails({ ...paymentDetails, cardExpiry: e.target.value })} 
+                                                placeholder="MM/YY" 
+                                                style={{ height: '36px', fontSize: '13px' }} 
+                                            />
+                                        </div>
+                                        <div>
+                                            <label style={{ display: 'block', fontSize: '11px', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '6px' }}>CVV</label>
+                                            <input 
+                                                type="password" 
+                                                className="input-text" 
+                                                value={paymentDetails.cardCvv} 
+                                                onChange={(e) => setPaymentDetails({ ...paymentDetails, cardCvv: e.target.value })} 
+                                                placeholder="•••" 
+                                                style={{ height: '36px', fontSize: '13px' }} 
+                                            />
+                                        </div>
+                                    </div>
+                                </>
+                            ) : (
+                                <>
+                                    <div>
+                                        <label style={{ display: 'block', fontSize: '11px', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '6px' }}>UPI ID (VPA)</label>
+                                        <input 
+                                            type="text" 
+                                            className="input-text" 
+                                            value={upiId} 
+                                            onChange={(e) => setUpiId(e.target.value)} 
+                                            placeholder="mobile@ybl or user@upi" 
+                                            style={{ height: '36px', fontSize: '13px' }} 
+                                        />
+                                    </div>
+
+                                    <label style={{ display: 'flex', gap: '10px', alignItems: 'flex-start', cursor: 'pointer', userSelect: 'none', background: '#f8fafc', padding: '10px 12px', borderRadius: '8px', border: '1px solid #e2e8f0', marginTop: '4px' }}>
+                                        <input 
+                                            type="checkbox" 
+                                            checked={enableAutopay} 
+                                            onChange={(e) => setEnableAutopay(e.target.checked)} 
+                                            style={{ marginTop: '3px' }}
+                                        />
+                                        <div>
+                                            <span style={{ fontSize: '12px', fontWeight: 600, color: '#1e293b' }}>Enable UPI Autopay</span>
+                                            <p style={{ margin: '2px 0 0 0', fontSize: '10px', color: '#64748b', lineHeight: 1.3 }}>
+                                                Securely authorize Quantro to charge future outstanding bills to this UPI account.
+                                            </p>
+                                        </div>
+                                    </label>
+                                </>
+                            )}
+
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#278a3e', fontSize: '11px', marginTop: '4px' }}>
+                                <Icons.ShieldCheck size={16} />
+                                <span>Secured by 256-bit SSL encryption.</span>
+                            </div>
+                        </div>
+
+                        {/* Razorpay Footer */}
+                        <div style={{ background: '#f8fafc', padding: '16px 20px', display: 'flex', justifyContent: 'flex-end', gap: '12px', borderTop: '1px solid var(--border)' }}>
+                            <SButton variant="secondary" disabled={paying} onClick={() => setShowRazorpay(false)}>
+                                Cancel
+                            </SButton>
+                            <SButton variant="primary" style={{ background: '#0a6eff', borderColor: '#0a6eff' }} disabled={paying} onClick={handleRazorpayPay}>
+                                {paying ? 'Processing Securely...' : `Pay ₹${dues.totalDue.toFixed(2)}`}
+                            </SButton>
+                        </div>
+
+                    </div>
+                </div>
+            )}
+
+            {/* Plan Upgrade Verification Input Modal */}
+            {showUpgradeModal && (
+                <div style={{
+                    position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+                    background: 'rgba(15, 23, 42, 0.6)', backdropFilter: 'blur(4px)',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    zIndex: 1000
+                }}>
+                    <div style={{
+                        background: '#ffffff', width: '420px', borderRadius: '16px',
+                        overflow: 'hidden', boxShadow: '0 20px 25px -5px rgba(0,0,0,0.15)'
+                    }}>
+                        {/* Header */}
+                        <div style={{ background: 'var(--accent)', color: '#ffffff', padding: '20px 24px' }}>
+                            <h3 style={{ margin: 0, fontSize: '18px', fontWeight: 800 }}>Activate Upgraded Plan</h3>
+                            <p style={{ margin: '4px 0 0 0', color: 'rgba(255,255,255,0.8)', fontSize: '12px' }}>
+                                Unlock {upgradePlan} tier features
+                            </p>
+                        </div>
+                        
+                        {/* Body */}
+                        <div style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                            <div style={{ fontSize: '13px', color: 'var(--text-secondary)', lineHeight: 1.5 }}>
+                                We have redirected you to the website to purchase your <strong>{upgradePlan}</strong> upgrade. After completing the payment, please paste your new activation key below to activate the plan tier.
+                            </div>
+
+                            <div>
+                                <label style={{ display: 'block', fontSize: '11px', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '6px' }}>License Key</label>
+                                <input 
+                                    type="text" 
+                                    className="input-text" 
+                                    value={newLicenseKey} 
+                                    onChange={(e) => setNewLicenseKey(e.target.value)} 
+                                    placeholder="QTY-XXXX-XXXX-XXXX" 
+                                    style={{ height: '38px', fontSize: '13.5px', fontFamily: 'monospace' }} 
+                                />
+                            </div>
+
+                            {upgradeError && (
+                                <div style={{
+                                    padding: '10px 14px',
+                                    background: '#fef2f2',
+                                    color: '#b91c1c',
+                                    border: '1px solid #fee2e2',
+                                    borderRadius: '8px',
+                                    fontSize: '12px',
+                                    lineHeight: '1.4',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '8px'
+                                }}>
+                                    <Icons.AlertCircle size={16} style={{ flexShrink: 0, color: '#ef4444' }} />
+                                    <span>{upgradeError}</span>
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Footer */}
+                        <div style={{ background: '#f8fafc', padding: '16px 20px', display: 'flex', justifyContent: 'flex-end', gap: '12px', borderTop: '1px solid var(--border)' }}>
+                            <SButton variant="secondary" disabled={upgradeVerifying} onClick={() => setShowUpgradeModal(false)}>
+                                Cancel
+                            </SButton>
+                            <SButton variant="primary" style={{ background: 'var(--accent)', borderColor: 'var(--accent)' }} disabled={upgradeVerifying} onClick={handleVerifyUpgrade}>
+                                {upgradeVerifying ? 'Activating Plan...' : 'Verify & Activate'}
+                            </SButton>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Pay-As-You-Go Credit Topup Modal (Shopify Polaris Design System) */}
+            {showTopupModal && (
+                <div style={{ position: 'fixed', inset: 0, background: 'rgba(32, 34, 35, 0.6)', backdropFilter: 'blur(4px)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px' }}>
+                    <div style={{ background: '#ffffff', borderRadius: '12px', maxWidth: '460px', width: '100%', border: '1px solid #e1e3e5', boxShadow: '0 8px 30px rgba(0,0,0,0.12)', overflow: 'hidden' }}>
+                        
+                        {/* Polaris Modal Header */}
+                        <div style={{ padding: '20px 24px', borderBottom: '1px solid #e1e3e5', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#f7f8f9' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                <div style={{ width: '36px', height: '36px', borderRadius: '8px', background: '#e0f2fe', color: '#0284c7', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                    <Icons.Wallet size={20} />
+                                </div>
+                                <div>
+                                    <h3 style={{ margin: 0, fontSize: '16px', fontWeight: 700, color: '#202223' }}>Top-Up Wallet Credits</h3>
+                                    <span style={{ fontSize: '11px', color: '#6d7175', fontWeight: 500 }}>Shopify Polaris Wallet Manager</span>
+                                </div>
+                            </div>
+                            <button onClick={() => setShowTopupModal(false)} style={{ border: 'none', background: 'none', cursor: 'pointer', color: '#6d7175', padding: '4px', borderRadius: '4px' }}>
+                                <Icons.X size={18} />
+                            </button>
+                        </div>
+
+                        {/* Polaris Modal Body */}
+                        <div style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                            <p style={{ margin: 0, fontSize: '13px', color: '#6d7175', lineHeight: 1.5 }}>
+                                Recharge your wallet balance online via Razorpay to dispatch WhatsApp marketing dispatches, Gmail notifications, and AI Voice Calling calls.
+                            </p>
+
+                            {/* Preset Buttons Group (Polaris ButtonGroup) */}
+                            <div>
+                                <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: '#202223', marginBottom: '8px' }}>Select Preset Amount</label>
+                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '10px' }}>
+                                    {['250', '500', '1000'].map(amt => (
+                                        <button
+                                            key={amt}
+                                            type="button"
+                                            onClick={() => setTopupAmount(amt)}
+                                            style={{
+                                                padding: '12px',
+                                                borderRadius: '8px',
+                                                border: topupAmount === amt ? '2px solid #008060' : '1px solid #c9cccf',
+                                                background: topupAmount === amt ? '#f0fdf4' : '#ffffff',
+                                                color: topupAmount === amt ? '#008060' : '#202223',
+                                                fontWeight: 700,
+                                                fontSize: '14px',
+                                                cursor: 'pointer',
+                                                transition: 'all 0.15s ease'
+                                            }}
+                                        >
+                                            ₹{amt}
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+
+                            {/* Custom Input (Polaris TextField) */}
+                            <div>
+                                <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: '#202223', marginBottom: '6px' }}>Or Enter Custom Amount (₹)</label>
+                                <div style={{ position: 'relative' }}>
+                                    <input
+                                        type="number"
+                                        className="input-text"
+                                        value={topupAmount}
+                                        onChange={(e) => setTopupAmount(e.target.value)}
+                                        placeholder="e.g. 500"
+                                        style={{ height: '42px', fontSize: '15px', fontWeight: 700, paddingLeft: '12px', borderRadius: '8px', border: '1px solid #c9cccf', width: '100%' }}
+                                    />
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Polaris Footer Action Bar */}
+                        <div style={{ padding: '16px 24px', background: '#f7f8f9', borderTop: '1px solid #e1e3e5', display: 'flex', justifyContent: 'flex-end', gap: '12px' }}>
+                            <SButton variant="secondary" onClick={() => setShowTopupModal(false)}>
+                                Cancel
+                            </SButton>
+                            <SButton
+                                variant="primary"
+                                style={{ background: '#008060', borderColor: '#008060' }}
+                                onClick={() => handleTopupCredit(topupAmount)}
+                            >
+                                Pay ₹{Number(topupAmount || 0).toFixed(2)} via Razorpay
+                            </SButton>
+                        </div>
+
                     </div>
                 </div>
             )}

@@ -91,9 +91,11 @@ export default function DashboardPage() {
     const [newVersion, setNewVersion] = useState(null);
     const [isDownloaded, setIsDownloaded] = useState(localStorage.getItem('maze_update_downloaded') === 'true');
     const [activeTab, setActiveTab] = useState('sales');
+    const [billingStatus, setBillingStatus] = useState(null);
 
     useEffect(() => {
         api.getSettings().then(setSettings).catch(console.error);
+        api.getBillingStatus().then(setBillingStatus).catch(console.error);
 
         const cachedUpdate = localStorage.getItem('maze_update_available');
         if (cachedUpdate) setNewVersion(cachedUpdate);
@@ -233,8 +235,122 @@ export default function DashboardPage() {
 
     const fmt = (n) => `₹${Number(n || 0).toLocaleString('en-IN')}`;
 
+    // Expiry Check helpers
+    const getErpExpiryInfo = () => {
+        if (!billingStatus?.licenseKey || !billingStatus?.licenseCreatedAt || billingStatus.licensePlan === 'Free') return null;
+        const expiryDate = new Date(billingStatus.licenseCreatedAt);
+        expiryDate.setDate(expiryDate.getDate() + 30);
+        const diffTime = expiryDate.getTime() - new Date().getTime();
+        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+        const formattedDate = expiryDate.toLocaleDateString('en-IN', { day: 'numeric', month: 'long' });
+        return { diffDays, formattedDate, key: billingStatus.licenseKey, plan: billingStatus.licensePlan };
+    };
+
+    const getVobizExpiryInfo = () => {
+        if (!billingStatus?.vobizLicense?.created_at) return null;
+        const expiryDate = new Date(billingStatus.vobizLicense.created_at);
+        expiryDate.setDate(expiryDate.getDate() + 30);
+        const diffTime = expiryDate.getTime() - new Date().getTime();
+        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+        const formattedDate = expiryDate.toLocaleDateString('en-IN', { day: 'numeric', month: 'long' });
+        const key = billingStatus.vobizLicense.license_key;
+        return { diffDays, formattedDate, key };
+    };
+
+    const erpInfo = getErpExpiryInfo();
+    const vobizInfo = getVobizExpiryInfo();
+    
+    const openExternalLink = (url) => {
+        if (window.maze && typeof window.maze.openExternal === 'function') {
+            window.maze.openExternal(url);
+        } else {
+            window.open(url, '_blank');
+        }
+    };
+
     return (
-        <div className="dashboard-container">
+        <div className="dashboard-container" style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+            {/* ── ERP Expiration Banner ─────────────────────── */}
+            {erpInfo && erpInfo.diffDays >= 0 && erpInfo.diffDays <= 5 && (
+                <div className="update-banner" style={{
+                    background: 'linear-gradient(135deg,#FF9500 0%,#FF5E00 100%)',
+                    color: '#fff', padding: '14px 20px', borderRadius: '12px', marginBottom: '0',
+                    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                    boxShadow: '0 4px 14px rgba(255,149,0,0.25)', animation: 'slideDown 0.3s ease'
+                }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                        <div style={{ width: 32, height: 32, background: 'rgba(255,255,255,0.15)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                            <Icons.AlertTriangle size={18} color="#fff" />
+                        </div>
+                        <div>
+                            <strong style={{ fontSize: '14px' }}>Quantro Subscription Expiring Soon!</strong>
+                            <span style={{ fontSize: '13px', marginLeft: 8, opacity: 0.9 }}>
+                                Your {erpInfo.plan} plan will expire in {erpInfo.diffDays} days on {erpInfo.formattedDate}. Renew to keep premium features active.
+                            </span>
+                        </div>
+                    </div>
+                    <SButton type="button" variant="secondary"
+                        style={{ background: '#fff', color: '#FF9500', border: 'none', fontSize: '12px', fontWeight: 700, padding: '6px 14px', borderRadius: '6px' }}
+                        onClick={() => openExternalLink(`https://quantro-web.onrender.com/renews?key=${erpInfo.key}`)}>
+                        Renew Plan
+                    </SButton>
+                </div>
+            )}
+
+            {/* ── Vobiz VoIP Expiration Banner ────────────────── */}
+            {vobizInfo && vobizInfo.diffDays >= 0 && vobizInfo.diffDays <= 5 && (
+                <div className="update-banner" style={{
+                    background: 'linear-gradient(135deg,#FF9500 0%,#FF5E00 100%)',
+                    color: '#fff', padding: '14px 20px', borderRadius: '12px', marginBottom: '0',
+                    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                    boxShadow: '0 4px 14px rgba(255,149,0,0.25)', animation: 'slideDown 0.3s ease'
+                }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                        <div style={{ width: 32, height: 32, background: 'rgba(255,255,255,0.15)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                            <Icons.PhoneCall size={18} color="#fff" />
+                        </div>
+                        <div style={{ flex: 1, paddingRight: '12px' }}>
+                            <strong style={{ fontSize: '14px' }}>Vobiz Phone Number Expiring!</strong>
+                            <span style={{ fontSize: '13px', marginLeft: 8, opacity: 0.9 }}>
+                                Please renew your Vobiz number. Otherwise, once the subscription ends, within 2 days your phone number access will be provided to another user and your organization will have to buy a new Vobiz number.
+                            </span>
+                        </div>
+                    </div>
+                    <SButton type="button" variant="secondary"
+                        style={{ background: '#fff', color: '#FF9500', border: 'none', fontSize: '12px', fontWeight: 700, padding: '6px 14px', borderRadius: '6px', whiteSpace: 'nowrap' }}
+                        onClick={() => openExternalLink(`https://quantro-web.onrender.com/renews?key=${vobizInfo.key}`)}>
+                        Renew Vobiz Number
+                    </SButton>
+                </div>
+            )}
+
+            {/* ── Vobiz VoIP Expired Grace Banner ─────────────── */}
+            {vobizInfo && vobizInfo.diffDays < 0 && vobizInfo.diffDays >= -2 && (
+                <div className="update-banner" style={{
+                    background: 'linear-gradient(135deg,#FF3B30 0%,#FF2D55 100%)',
+                    color: '#fff', padding: '14px 20px', borderRadius: '12px', marginBottom: '0',
+                    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                    boxShadow: '0 4px 14px rgba(255,59,48,0.25)', animation: 'slideDown 0.3s ease'
+                }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                        <div style={{ width: 32, height: 32, background: 'rgba(255,255,255,0.15)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                            <Icons.AlertOctagon size={18} color="#fff" />
+                        </div>
+                        <div style={{ flex: 1, paddingRight: '12px' }}>
+                            <strong style={{ fontSize: '14px' }}>Vobiz Phone Number Expired!</strong>
+                            <span style={{ fontSize: '13px', marginLeft: 8, opacity: 0.9 }}>
+                                Your Vobiz phone number subscription has expired! You have less than {2 + Math.ceil(vobizInfo.diffDays)} days to renew before the number is released to other users.
+                            </span>
+                        </div>
+                    </div>
+                    <SButton type="button" variant="secondary"
+                        style={{ background: '#fff', color: '#FF3B30', border: 'none', fontSize: '12px', fontWeight: 700, padding: '6px 14px', borderRadius: '6px', whiteSpace: 'nowrap' }}
+                        onClick={() => openExternalLink(`https://quantro-web.onrender.com/renews?key=${vobizInfo.key}`)}>
+                        Renew Vobiz Number
+                    </SButton>
+                </div>
+            )}
+
             {/* ── Update Banner ─────────────────────────────── */}
             {newVersion && (
                 <div className="update-banner" style={{

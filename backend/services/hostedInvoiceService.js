@@ -216,8 +216,139 @@ async function syncAllSharedInvoices() {
     console.log(`[Sync Service] Completed re-syncing of settings for all shared invoices.`);
 }
 
+/**
+ * Generates a secure hosted quotation link and synchronizes details to the cloud DB.
+ * @param {number} quotationId 
+ * @returns {Promise<{token: string, url: string}>}
+ */
+async function generateHostedQuotation(quotationId) {
+    await db.ready;
+
+    let tokenRow = db.get("SELECT token FROM quotation_tokens WHERE quotation_id = ?", [quotationId]);
+    let token;
+    if (tokenRow) {
+        token = tokenRow.token;
+    } else {
+        token = crypto.randomBytes(24).toString('hex');
+        db.run("INSERT INTO quotation_tokens (quotation_id, token) VALUES (?, ?)", [quotationId, token]);
+    }
+
+    const quotation = db.get(`
+        SELECT q.*, c.name AS customer_name, c.phone AS customer_phone, c.email AS customer_email, c.address AS customer_address, c.gstin AS customer_gstin
+        FROM quotations q
+        LEFT JOIN customers c ON q.customer_id = c.id
+        WHERE q.id = ?
+    `, [quotationId]);
+
+    if (!quotation) {
+        throw new Error(`Quotation with ID ${quotationId} not found locally.`);
+    }
+
+    const items = db.all('SELECT * FROM quotation_items WHERE quotation_id = ?', [quotationId]);
+
+    const settingsRows = db.all('SELECT key, value FROM settings');
+    const settings = {};
+    const allowedSettingsKeys = [
+        'company_name', 'address', 'phone', 'email', 'gstin',
+        'terms_and_conditions', 'quotation_terms_and_conditions',
+        'quotation_declaration', 'logo_url', 'company_logo'
+    ];
+    settingsRows.forEach(r => {
+        if (allowedSettingsKeys.includes(r.key)) {
+            settings[r.key] = r.value;
+        }
+    });
+
+    let finalLogo = settings.logo_url || settings.company_logo;
+    if (finalLogo && finalLogo.startsWith('data:image/') && finalLogo.length > 100000) {
+        finalLogo = null;
+    }
+    if (finalLogo) {
+        settings.company_logo = finalLogo;
+        settings.logo_url = finalLogo;
+    }
+
+    const quotationData = {
+        quotation: {
+            ...quotation,
+            quotation_number: `QTN-${String(quotation.id).padStart(4, '0')}`,
+            invoice_number: `QTN-${String(quotation.id).padStart(4, '0')}`,
+            payment_status: 'QUOTATION',
+            type: 'Quotation'
+        },
+        items: items.map(item => ({
+            ...item,
+            product_name: item.product_name,
+            quantity: item.quantity,
+            price: item.price,
+            total: item.total,
+            unit: item.unit
+        })),
+        settings,
+        payments: [],
+        returns: []
+    };
+
+    // 1. Sync directly to hosted_quotations table on Supabase
+    try {
+        let qExists = false;
+        const checkQ = await fetch(`${DB_URL}/rest/v1/hosted_quotations?quotation_id=eq.${quotationId}&token=eq.${token}&select=*`, {
+            headers: { 'apikey': DB_ANON_KEY, 'Authorization': `Bearer ${DB_ANON_KEY}` }
+        });
+        if (checkQ.ok) {
+            const records = await checkQ.json();
+            qExists = Array.isArray(records) && records.length > 0;
+        }
+        if (qExists) {
+            await fetch(`${DB_URL}/rest/v1/hosted_quotations?quotation_id=eq.${quotationId}&token=eq.${token}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json', 'apikey': DB_ANON_KEY, 'Authorization': `Bearer ${DB_ANON_KEY}` },
+                body: JSON.stringify({ quotation_data: quotationData })
+            });
+        } else {
+            await fetch(`${DB_URL}/rest/v1/hosted_quotations`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'apikey': DB_ANON_KEY, 'Authorization': `Bearer ${DB_ANON_KEY}` },
+                body: JSON.stringify({ quotation_id: quotationId, token: token, quotation_data: quotationData })
+            });
+        }
+    } catch (e) {
+        console.warn(`[Sync Service] Cloud sync to hosted_quotations warning:`, e.message);
+    }
+
+    // 2. Fallback sync to hosted_invoices table for backward compatibility with existing public viewers
+    const targetCloudId = quotationId + 900000;
+    try {
+        let exists = false;
+        const checkResponse = await fetch(`${DB_URL}/rest/v1/hosted_invoices?invoice_id=eq.${targetCloudId}&token=eq.${token}&select=*`, {
+            headers: { 'apikey': DB_ANON_KEY, 'Authorization': `Bearer ${DB_ANON_KEY}` }
+        });
+        if (checkResponse.ok) {
+            const records = await checkResponse.json();
+            exists = Array.isArray(records) && records.length > 0;
+        }
+        if (exists) {
+            await fetch(`${DB_URL}/rest/v1/hosted_invoices?invoice_id=eq.${targetCloudId}&token=eq.${token}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json', 'apikey': DB_ANON_KEY, 'Authorization': `Bearer ${DB_ANON_KEY}` },
+                body: JSON.stringify({ invoice_data: quotationData })
+            });
+        } else {
+            await fetch(`${DB_URL}/rest/v1/hosted_invoices`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'apikey': DB_ANON_KEY, 'Authorization': `Bearer ${DB_ANON_KEY}` },
+                body: JSON.stringify({ invoice_id: targetCloudId, token: token, invoice_data: quotationData })
+            });
+        }
+    } catch (e) {}
+
+    const publicUrl = `${PUBLIC_DOMAIN}/quotation/${token}`;
+    return { token, url: publicUrl };
+}
+
 module.exports = {
     generateHostedInvoice,
+    generateHostedQuotation,
     getHostedInvoiceUrl,
     syncAllSharedInvoices
 };

@@ -58,6 +58,45 @@ export default function PurchasePage() {
     const [activeModalTab, setActiveModalTab] = useState('basic');
     const [tempVariants, setTempVariants] = useState([]);
     const [variantForm, setVariantForm] = useState({ name: '', sku: '', selling_price: '', cost_price: '', stock_quantity: 0, min_stock_level: 0, max_stock_level: 0 });
+
+    // Session Recovery: Restore purchase page session on load
+    useEffect(() => {
+        const isRestorePending = localStorage.getItem('quantro_restore_pending') === 'true';
+        const savedSessionStr = localStorage.getItem('quantro_purchase_session');
+
+        if ((isRestorePending || savedSessionStr) && savedSessionStr) {
+            try {
+                const data = JSON.parse(savedSessionStr);
+                if (data) {
+                    if (data.activeTab) setActiveTab(data.activeTab);
+                    if (data.selectedSupplier !== undefined) setSelectedSupplier(data.selectedSupplier);
+                    if (data.billNumber !== undefined) setBillNumber(data.billNumber);
+                    if (Array.isArray(data.cart) && data.cart.length > 0) setCart(data.cart);
+                    if (data.paymentStatus) setPaymentStatus(data.paymentStatus);
+                    if (data.paidAmount !== undefined) setPaidAmount(data.paidAmount);
+                    if (isRestorePending) {
+                        toast.success('Purchase bill session restored!');
+                    }
+                }
+            } catch (e) {
+                console.error('[SessionRecovery] Purchase restore error:', e);
+            }
+        }
+    }, []);
+
+    // Session Recovery: Auto-save purchase page state
+    useEffect(() => {
+        const sessionState = {
+            activeTab,
+            selectedSupplier,
+            billNumber,
+            cart,
+            paymentStatus,
+            paidAmount,
+            timestamp: Date.now()
+        };
+        localStorage.setItem('quantro_purchase_session', JSON.stringify(sessionState));
+    }, [activeTab, selectedSupplier, billNumber, cart, paymentStatus, paidAmount]);
     const [savingProduct, setSavingProduct] = useState(false);
 
     // Inner modal states for quick creation
@@ -323,7 +362,7 @@ export default function PurchasePage() {
     const isDev = typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') && import.meta.env.DEV;
     // Always use the production web URL so phone scanners can access the site online
     const webBaseUrl = 'https://quantro-web.onrender.com';
-    const scanUrl = syncId ? `${webBaseUrl}/?page=scanner&syncId=${syncId}&sync_id=${syncId}` : '';
+    const scanUrl = syncId ? `${webBaseUrl}/scanner?syncId=${syncId}&sync_id=${syncId}` : '';
 
     const cartRef = useRef(cart);
     const productsRef = useRef(products);

@@ -442,6 +442,41 @@ export default function CustomersPage() {
     const [currentPage, setCurrentPage] = useState(1);
     const PAGE_SIZE = 50;
 
+    // Session Recovery: Restore customer page session on load
+    useEffect(() => {
+        const isRestorePending = localStorage.getItem('quantro_restore_pending') === 'true';
+        const savedSessionStr = localStorage.getItem('quantro_customers_session');
+
+        if ((isRestorePending || savedSessionStr) && savedSessionStr) {
+            try {
+                const data = JSON.parse(savedSessionStr);
+                if (data) {
+                    if (data.search !== undefined) setSearch(data.search);
+                    if (data.sortBy !== undefined) setSortBy(data.sortBy);
+                    if (data.filterCredit !== undefined) setFilterCredit(data.filterCredit);
+                    if (data.currentPage) setCurrentPage(data.currentPage);
+                    if (isRestorePending) {
+                        toast.success('Customers page session restored!');
+                    }
+                }
+            } catch (e) {
+                console.error('[SessionRecovery] Customers restore error:', e);
+            }
+        }
+    }, []);
+
+    // Session Recovery: Auto-save customers page state
+    useEffect(() => {
+        const sessionState = {
+            search,
+            sortBy,
+            filterCredit,
+            currentPage,
+            timestamp: Date.now()
+        };
+        localStorage.setItem('quantro_customers_session', JSON.stringify(sessionState));
+    }, [search, sortBy, filterCredit, currentPage]);
+
     // Delete
     const [deleteId, setDeleteId] = useState(null);
 

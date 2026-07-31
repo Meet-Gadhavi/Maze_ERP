@@ -54,7 +54,7 @@ const whatsappSender = {
             const { isBillingBlocked } = require('./billingHelper');
             const blocked = await isBillingBlocked();
             if (blocked) {
-                throw new Error("WhatsApp Service Blocked: Prepaid wallet credit balance is depleted. Please top up your wallet in the Billing tab.");
+                throw new Error("WhatsApp Service Blocked: Outstanding dues have not been paid. Please complete payment in the Billing tab.");
             }
 
             const { isCustomerSessionActive } = require('./whatsappSessionService');
@@ -132,7 +132,7 @@ const whatsappSender = {
             const { isBillingBlocked } = require('./billingHelper');
             const blocked = await isBillingBlocked();
             if (blocked) {
-                throw new Error("WhatsApp Service Blocked: Prepaid wallet credit balance is depleted. Please top up your wallet in the Billing tab.");
+                throw new Error("WhatsApp Service Blocked: Outstanding dues have not been paid. Please complete payment in the Billing tab.");
             }
 
             const { isCustomerSessionActive } = require('./whatsappSessionService');
@@ -155,13 +155,36 @@ const whatsappSender = {
 
             const url = `https://graph.facebook.com/v21.0/${phoneNumberId}/messages`;
             
+            let bodyParameters;
+            if (templateName === 'invoice_ready') {
+                bodyParameters = [
+                    {
+                        type: "text",
+                        parameter_name: "customer_name",
+                        text: String(variables[0])
+                    },
+                    {
+                        type: "text",
+                        parameter_name: "inv_id",
+                        text: String(variables[1])
+                    },
+                    {
+                        type: "text",
+                        parameter_name: "buniness",
+                        text: String(variables[2])
+                    }
+                ];
+            } else {
+                bodyParameters = variables.map(val => ({
+                    type: "text",
+                    text: String(val)
+                }));
+            }
+
             const components = [
                 {
                     type: "body",
-                    parameters: variables.map(val => ({
-                        type: "text",
-                        text: String(val)
-                    }))
+                    parameters: bodyParameters
                 }
             ];
 
@@ -384,12 +407,10 @@ const whatsappSender = {
             } else {
                 console.log(`[WhatsApp Sender] No active CSW for ${phone}. Sending template message with link and URL CTA button.`);
                 
-                // Send approved WhatsApp utility template with body parameters
-                // Variables: [customerName, invoiceNumber, companyName, invoiceUrl]
-                // Dynamic button URL suffix parameter: invoice/{id}?token={token}
-                const buttonUrlParam = `invoice/${invoiceId}?token=${secureToken}`;
+                // Dynamic button URL suffix parameter: invoice/{token}
+                const buttonUrlParam = `invoice/${secureToken}`;
                 console.log(`[WhatsApp Sender] Sending utility template "invoice_ready" with button suffix parameter: "${buttonUrlParam}"`);
-                return await this.sendTemplate(phone, "invoice_ready", [customerName, invoiceNumber, companyName, invoiceUrl], buttonUrlParam);
+                return await this.sendTemplate(phone, "invoice_ready", [customerName, invoiceNumber, companyName], buttonUrlParam);
             }
         } catch (err) {
             console.error('[WhatsApp Sender] Error in sendInvoicePDF wrapper:', err);

@@ -56,6 +56,46 @@ export default function InventoryPage() {
     const [variantForm, setVariantForm] = useState({ name: '', sku: '', selling_price: '', cost_price: '', stock_quantity: 0, min_stock_level: 0, max_stock_level: 0 });
     const [saving, setSaving] = useState(false);
 
+    // Session Recovery: Restore inventory page session on load
+    useEffect(() => {
+        const isRestorePending = localStorage.getItem('quantro_restore_pending') === 'true';
+        const savedSessionStr = localStorage.getItem('quantro_inventory_session');
+
+        if ((isRestorePending || savedSessionStr) && savedSessionStr) {
+            try {
+                const data = JSON.parse(savedSessionStr);
+                if (data) {
+                    if (data.activeTab) setActiveTab(data.activeTab);
+                    if (data.search !== undefined) {
+                        setSearch(data.search);
+                        setDebouncedSearch(data.search);
+                    }
+                    if (data.filterCat !== undefined) setFilterCat(data.filterCat);
+                    if (data.filterSubCat !== undefined) setFilterSubCat(data.filterSubCat);
+                    if (data.filterBrand !== undefined) setFilterBrand(data.filterBrand);
+                    if (isRestorePending) {
+                        toast.success('Inventory view session restored!');
+                    }
+                }
+            } catch (e) {
+                console.error('[SessionRecovery] Inventory restore error:', e);
+            }
+        }
+    }, []);
+
+    // Session Recovery: Auto-save inventory page state
+    useEffect(() => {
+        const sessionState = {
+            activeTab,
+            search,
+            filterCat,
+            filterSubCat,
+            filterBrand,
+            timestamp: Date.now()
+        };
+        localStorage.setItem('quantro_inventory_session', JSON.stringify(sessionState));
+    }, [activeTab, search, filterCat, filterSubCat, filterBrand]);
+
     // Stock extensions
     const [alertsData, setAlertsData] = useState({ outOfStock: [], lowStock: [], overStock: [], expired: [], expiringSoon: [] });
     const [adjustModalProduct, setAdjustModalProduct] = useState(null);

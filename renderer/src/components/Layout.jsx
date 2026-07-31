@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Sidebar from './Sidebar';
 import KeyboardShortcutsModal from './KeyboardShortcutsModal';
-import ExpirationBanner from './ExpirationBanner';
 import './Layout.css';
 
 export default function Layout({ children }) {
@@ -50,7 +49,6 @@ export default function Layout({ children }) {
         <div className={`layout ${isCollapsed ? 'sidebar-collapsed' : ''}`}>
             <Sidebar isCollapsed={isCollapsed} setIsCollapsed={setIsCollapsed} />
             <main className="layout-content">
-                <ExpirationBanner />
                 {children}
             </main>
 

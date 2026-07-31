@@ -27,6 +27,8 @@ export default function SettingsPage() {
         payment_qr_url: '',
         declaration: '',
         terms_and_conditions: '',
+        quotation_declaration: '',
+        quotation_terms_and_conditions: '',
         enable_batch_system: 'true',
         require_batch_number: 'false',
         enable_expiry_tracking: 'false',
@@ -897,6 +899,17 @@ export default function SettingsPage() {
                                 </div>
 
                                 <div className="settings-divider" style={{ margin: '30px 0 20px 0', borderTop: '1px solid var(--border-light)' }}></div>
+
+                                <h3 style={{ marginBottom: '16px' }}>Quotation Terms</h3>
+                                <div className="form-group">
+                                    <label>Quotation Declaration</label>
+                                    <textarea value={settings.quotation_declaration} onChange={e => setSettings({ ...settings, quotation_declaration: e.target.value })} rows="3" />
+                                </div>
+                                <div className="form-group">
+                                    <label>Quotation Terms & Conditions (One per line)</label>
+                                    <textarea value={settings.quotation_terms_and_conditions} onChange={e => setSettings({ ...settings, quotation_terms_and_conditions: e.target.value })} rows="6" />
+                                </div>
+
                                 
                                 <h3 style={{ marginBottom: '20px' }}>Tax & SKU Configuration</h3>
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
@@ -1933,21 +1946,214 @@ export default function SettingsPage() {
                                         </div>
                                     )}
 
-                                    {/* Timeline Item: v2.10.56 — Billing Page UI Polish */}
+                                     {/* Timeline Item: v2.10.70 — Full Stateful Session Recovery & Quotations UI */}
+                                     <div style={{ position: 'relative' }}>
+                                         <div style={{ position: 'absolute', left: '-22px', top: '4px', width: '12px', height: '12px', borderRadius: '50%', background: 'var(--accent)', border: '2px solid var(--bg-primary)' }}></div>
+                                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                             <strong style={{ fontSize: '15px' }}>Version 2.10.70 {updateState.status !== 'available' && '(Latest)'}</strong>
+                                             <span style={{ fontSize: '11px', color: 'var(--text-tertiary)', background: 'var(--bg-secondary)', padding: '2px 8px', borderRadius: '12px' }}>July 31, 2026</span>
+                                         </div>
+                                         <div style={{ fontSize: '13px', color: 'var(--text-secondary)', marginTop: '8px', lineHeight: 1.6 }}>
+                                              <ul style={{ margin: 0, paddingLeft: '16px' }}>
+                                                  <li><strong>Full Stateful Session Recovery</strong>: Comprehensive session auto-save & recovery across all ERP pages (Sales, Inventory, Purchase, Customers, Billing, Automation). If power loss or a crash occurs, restoring your session instantly recovers cart items, active steps, customer selections, search inputs, and page states.</li>
+                                                  <li><strong>Quotation Template Real-Time Search</strong>: Added dedicated search bar inside Quotation Templates to quickly filter templates by title or QTN number.</li>
+                                                  <li><strong>Instant Template Auto-Load</strong>: Quotation templates load immediately on initial page mount without requiring tab switches.</li>
+                                                  <li><strong>Improved Template Grid Layout</strong>: Quotation templates list updated with pricing on a second line under the title, centered item count badges, and right-aligned Client/Global tags.</li>
+                                              </ul>
+                                         </div>
+                                     </div>
+
+                                     {/* Timeline Item: v2.10.68 — Quotation Redesign & Share */}
+                                     <div style={{ position: 'relative' }}>
+                                         <div style={{ position: 'absolute', left: '-22px', top: '4px', width: '12px', height: '12px', borderRadius: '50%', background: 'var(--text-tertiary)', border: '2px solid var(--bg-primary)' }}></div>
+                                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                             <strong style={{ fontSize: '15px' }}>Version 2.10.68</strong>
+                                             <span style={{ fontSize: '11px', color: 'var(--text-tertiary)', background: 'var(--bg-secondary)', padding: '2px 8px', borderRadius: '12px' }}>July 26, 2026</span>
+                                         </div>
+                                         <div style={{ fontSize: '13px', color: 'var(--text-secondary)', marginTop: '8px', lineHeight: 1.6 }}>
+                                              <ul style={{ margin: 0, paddingLeft: '16px' }}>
+                                                  <li><strong>Quotation Share Links & Messaging</strong>: Generate secure hosted URLs for quotations with one-click Copy Link, along with editable recipient email and phone fields for Gmail and WhatsApp PDF sending.</li>
+                                                  <li><strong>Quotation Templates Interaction & Layout</strong>: Updated quotation templates to double-click loading, displaying item counts next to titles, and moving `CLIENT` / `GLOBAL` tags to the right end.</li>
+                                                  <li><strong>Automatic Cart & Template Reset</strong>: Going back to the customer list or changing customers automatically deselects active templates and resets cart items to prevent accidental cross-customer data carryover.</li>
+                                                  <li><strong>High-Contrast Quotation Layout</strong>: Enhanced PDF & preview headers with green contrast background, crisp white table headers, centered signature blocks, and company contact details.</li>
+                                              </ul>
+                                         </div>
+                                     </div>
+
+                                     {/* Timeline Item: v2.10.67 — Wallet Seeding Reset & Warnings */}
+                                     <div style={{ position: 'relative' }}>
+                                         <div style={{ position: 'absolute', left: '-22px', top: '4px', width: '12px', height: '12px', borderRadius: '50%', background: 'var(--accent)', border: '2px solid var(--bg-primary)' }}></div>
+                                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                             <strong style={{ fontSize: '15px' }}>Version 2.10.67</strong>
+                                             <span style={{ fontSize: '11px', color: 'var(--text-tertiary)', background: 'var(--bg-secondary)', padding: '2px 8px', borderRadius: '12px' }}>July 25, 2026</span>
+                                         </div>
+                                         <div style={{ fontSize: '13px', color: 'var(--text-secondary)', marginTop: '8px', lineHeight: 1.6 }}>
+                                              <ul style={{ margin: 0, paddingLeft: '16px' }}>
+                                                  <li><strong>Forced Legacy Credit Clean-Up</strong>: Automatically resets older free seeded ₹500.00 wallet balances to ₹0.00 in the SQLite database to require manual Razorpay top-ups.</li>
+                                                  <li><strong>Low Credit Warning Banners</strong>: Added visual alerts prompting users to top up early when their prepaid balance drops below ₹50.00.</li>
+                                              </ul>
+                                         </div>
+                                     </div>
+
+                                     {/* Timeline Item: v2.10.66 — Robust Offline Fallback */}
+                                     <div style={{ position: 'relative' }}>
+                                         <div style={{ position: 'absolute', left: '-22px', top: '4px', width: '12px', height: '12px', borderRadius: '50%', background: 'var(--accent)', border: '2px solid var(--bg-primary)' }}></div>
+                                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                             <strong style={{ fontSize: '15px' }}>Version 2.10.66</strong>
+                                             <span style={{ fontSize: '11px', color: 'var(--text-tertiary)', background: 'var(--bg-secondary)', padding: '2px 8px', borderRadius: '12px' }}>July 25, 2026</span>
+                                         </div>
+                                         <div style={{ fontSize: '13px', color: 'var(--text-secondary)', marginTop: '8px', lineHeight: 1.6 }}>
+                                              <ul style={{ margin: 0, paddingLeft: '16px' }}>
+                                                  <li><strong>Robust Offline Support</strong>: Implemented fallback custom elements for \`s-button\` and \`s-modal\` custom elements, preventing white screen crashes when the app runs without an active internet connection.</li>
+                                              </ul>
+                                         </div>
+                                     </div>
+
+                                     {/* Timeline Item: v2.10.65 — Dynamic Overage Cost Fixes */}
+                                     <div style={{ position: 'relative' }}>
+                                         <div style={{ position: 'absolute', left: '-22px', top: '4px', width: '12px', height: '12px', borderRadius: '50%', background: 'var(--accent)', border: '2px solid var(--bg-primary)' }}></div>
+                                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                             <strong style={{ fontSize: '15px' }}>Version 2.10.65</strong>
+                                             <span style={{ fontSize: '11px', color: 'var(--text-tertiary)', background: 'var(--bg-secondary)', padding: '2px 8px', borderRadius: '12px' }}>July 25, 2026</span>
+                                         </div>
+                                         <div style={{ fontSize: '13px', color: 'var(--text-secondary)', marginTop: '8px', lineHeight: 1.6 }}>
+                                              <ul style={{ margin: 0, paddingLeft: '16px' }}>
+                                                  <li><strong>Dynamic Overage Cost Display</strong>: Fixed the Gmail and WhatsApp Overage Cost values in cards which were showing ₹0.00. The cost is now computed dynamically from active usage statistics in real-time.</li>
+                                                  <li><strong>Prepaid Transaction Logging</strong>: Investigated and identified Supabase RLS policy restrictions blocking transaction log history writes.</li>
+                                              </ul>
+                                         </div>
+                                     </div>
+
+                                     {/* Timeline Item: v2.10.64 — Pre-Paid Wallet RLS & Routing Adjustments */}
+                                     <div style={{ position: 'relative' }}>
+                                         <div style={{ position: 'absolute', left: '-22px', top: '4px', width: '12px', height: '12px', borderRadius: '50%', background: 'var(--accent)', border: '2px solid var(--bg-primary)' }}></div>
+                                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                             <strong style={{ fontSize: '15px' }}>Version 2.10.64</strong>
+                                             <span style={{ fontSize: '11px', color: 'var(--text-tertiary)', background: 'var(--bg-secondary)', padding: '2px 8px', borderRadius: '12px' }}>July 25, 2026</span>
+                                         </div>
+                                         <div style={{ fontSize: '13px', color: 'var(--text-secondary)', marginTop: '8px', lineHeight: 1.6 }}>
+                                              <ul style={{ margin: 0, paddingLeft: '16px' }}>
+                                                  <li><strong>Zero Default Wallet Credits</strong>: Removed default ₹500.00 credit allocations on clean installations, starting at ₹0.00 instead.</li>
+                                                  <li><strong>Local ERP Live Database Fallback</strong>: Automatically falls back to reading the wallet balance from the local SQLite settings table when the remote Supabase database has no transaction history yet.</li>
+                                                  <li><strong>Path-Based Routing URLs</strong>: Updated billing top-up and scanner redirection links to use clean path-based routing (`/top-up` and `/scanner`) on the hosted domain.</li>
+                                              </ul>
+                                         </div>
+                                     </div>
+
+                                     {/* Timeline Item: v2.10.63 — Supabase Node.js WebSocket Crash Fix */}
+                                     <div style={{ position: 'relative' }}>
+                                         <div style={{ position: 'absolute', left: '-22px', top: '4px', width: '12px', height: '12px', borderRadius: '50%', background: 'var(--accent)', border: '2px solid var(--bg-primary)' }}></div>
+                                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                             <strong style={{ fontSize: '15px' }}>Version 2.10.63</strong>
+                                             <span style={{ fontSize: '11px', color: 'var(--text-tertiary)', background: 'var(--bg-secondary)', padding: '2px 8px', borderRadius: '12px' }}>July 24, 2026</span>
+                                         </div>
+                                         <div style={{ fontSize: '13px', color: 'var(--text-secondary)', marginTop: '8px', lineHeight: 1.6 }}>
+                                              <ul style={{ margin: 0, paddingLeft: '16px' }}>
+                                                  <li><strong>Supabase Node.js WebSocket Crash Fix</strong>: Added a global WebSocket polyfill at the server startup level to resolve a crash where the Supabase Realtime client checks for a global WebSocket constructor in Node environments and fails. This completely fixes the "Backend server is not running" error on client installations.</li>
+                                              </ul>
+                                         </div>
+                                     </div>
+
+                                    {/* Timeline Item: v2.10.62 — Diagnostic Backend Startup Error Reporting */}
+                                     <div style={{ position: 'relative' }}>
+                                         <div style={{ position: 'absolute', left: '-22px', top: '4px', width: '12px', height: '12px', borderRadius: '50%', background: 'var(--accent)', border: '2px solid var(--bg-primary)' }}></div>
+                                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                             <strong style={{ fontSize: '15px' }}>Version 2.10.62</strong>
+                                             <span style={{ fontSize: '11px', color: 'var(--text-tertiary)', background: 'var(--bg-secondary)', padding: '2px 8px', borderRadius: '12px' }}>July 24, 2026</span>
+                                         </div>
+                                         <div style={{ fontSize: '13px', color: 'var(--text-secondary)', marginTop: '8px', lineHeight: 1.6 }}>
+                                              <ul style={{ margin: 0, paddingLeft: '16px' }}>
+                                                  <li><strong>Diagnostic Backend Startup Error Reporting</strong>: Prepends the exact backend startup stack trace/error description directly to the network fetch failure notice on the verification card, preventing silent crashes and simplifying client-side troubleshooting.</li>
+                                              </ul>
+                                         </div>
+                                     </div>
+
+                                    {/* Timeline Item: v2.10.61 — Electron fs ReferenceError Fix */}
                                     <div style={{ position: 'relative' }}>
                                         <div style={{ position: 'absolute', left: '-22px', top: '4px', width: '12px', height: '12px', borderRadius: '50%', background: 'var(--accent)', border: '2px solid var(--bg-primary)' }}></div>
                                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                            <strong style={{ fontSize: '15px' }}>Version 2.10.56 {updateState.status !== 'available' && '(Latest)'}</strong>
+                                            <strong style={{ fontSize: '15px' }}>Version 2.10.61</strong>
                                             <span style={{ fontSize: '11px', color: 'var(--text-tertiary)', background: 'var(--bg-secondary)', padding: '2px 8px', borderRadius: '12px' }}>July 24, 2026</span>
                                         </div>
                                         <div style={{ fontSize: '13px', color: 'var(--text-secondary)', marginTop: '8px', lineHeight: 1.6 }}>
                                              <ul style={{ margin: 0, paddingLeft: '16px' }}>
-                                                 <li><strong>Billing Page UI Polish</strong>: Customized card headers (WA, Gmail, Voice) and integrated VoBiz phone number display live from Supabase metadata, ensuring absolute synchronization with cloud license data.</li>
+                                                 <li><strong>Electron fs ReferenceError Fix</strong>: Imported the missing `fs` module in the main Electron process (`main/main.js`), correcting a crash/ReferenceError that blocked the local Express backend from starting up in packaged builds.</li>
+                                                 <li><strong>Backend Error Logging</strong>: Added local logging to `main_error.log` in the user data directory for better error tracing.</li>
                                              </ul>
                                         </div>
                                     </div>
 
-                                    {/* Timeline Item: v2.10.55 — Prepaid Wallet & Live Supabase Billing Overhaul */}
+                                    {/* Timeline Item: v2.10.60 — Auto-Send Success Feedback Toasts */}
+                                    <div style={{ position: 'relative' }}>
+                                        <div style={{ position: 'absolute', left: '-22px', top: '4px', width: '12px', height: '12px', borderRadius: '50%', background: 'var(--accent)', border: '2px solid var(--bg-primary)' }}></div>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                            <strong style={{ fontSize: '15px' }}>Version 2.10.60</strong>
+                                            <span style={{ fontSize: '11px', color: 'var(--text-tertiary)', background: 'var(--bg-secondary)', padding: '2px 8px', borderRadius: '12px' }}>July 24, 2026</span>
+                                        </div>
+                                        <div style={{ fontSize: '13px', color: 'var(--text-secondary)', marginTop: '8px', lineHeight: 1.6 }}>
+                                             <ul style={{ margin: 0, paddingLeft: '16px' }}>
+                                                 <li><strong>Auto-Send Success Feedback Toasts</strong>: Added active visual status toasts when generating new sales invoices when auto-send for WhatsApp or Email is enabled.</li>
+                                             </ul>
+                                        </div>
+                                    </div>
+
+                                    {/* Timeline Item: v2.10.59 — WhatsApp Share Link Fix */}
+                                    <div style={{ position: 'relative' }}>
+                                        <div style={{ position: 'absolute', left: '-22px', top: '4px', width: '12px', height: '12px', borderRadius: '50%', background: 'var(--accent)', border: '2px solid var(--bg-primary)' }}></div>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                            <strong style={{ fontSize: '15px' }}>Version 2.10.59</strong>
+                                            <span style={{ fontSize: '11px', color: 'var(--text-tertiary)', background: 'var(--bg-secondary)', padding: '2px 8px', borderRadius: '12px' }}>July 24, 2026</span>
+                                        </div>
+                                        <div style={{ fontSize: '13px', color: 'var(--text-secondary)', marginTop: '8px', lineHeight: 1.6 }}>
+                                             <ul style={{ margin: 0, paddingLeft: '16px' }}>
+                                                 <li><strong>WhatsApp Share Link Fix</strong>: Corrected the dynamic button URL suffix parameter format to resolve directly to `invoice/{token}`, matching the real web client path mapping.</li>
+                                             </ul>
+                                        </div>
+                                    </div>
+
+                                    {/* Timeline Item: v2.10.58 — WhatsApp Rating Webhook Interceptor */}
+                                    <div style={{ position: 'relative' }}>
+                                        <div style={{ position: 'absolute', left: '-22px', top: '4px', width: '12px', height: '12px', borderRadius: '50%', background: 'var(--accent)', border: '2px solid var(--bg-primary)' }}></div>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                            <strong style={{ fontSize: '15px' }}>Version 2.10.58</strong>
+                                            <span style={{ fontSize: '11px', color: 'var(--text-tertiary)', background: 'var(--bg-secondary)', padding: '2px 8px', borderRadius: '12px' }}>July 24, 2026</span>
+                                        </div>
+                                        <div style={{ fontSize: '13px', color: 'var(--text-secondary)', marginTop: '8px', lineHeight: 1.6 }}>
+                                             <ul style={{ margin: 0, paddingLeft: '16px' }}>
+                                                 <li><strong>WhatsApp Rating Webhook Interceptor</strong>: Integrated webhook receiver support to capture template Quick Reply button responses, enabling 1-5 star ratings to automatically log directly to the customer's communication log history followed by a thank-you reply message.</li>
+                                             </ul>
+                                        </div>
+                                    </div>
+
+                                    {/* Timeline Item: v2.10.57 — Named Variables Support for WhatsApp */}
+                                    <div style={{ position: 'relative' }}>
+                                        <div style={{ position: 'absolute', left: '-22px', top: '4px', width: '12px', height: '12px', borderRadius: '50%', background: 'var(--accent)', border: '2px solid var(--bg-primary)' }}></div>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                            <strong style={{ fontSize: '15px' }}>Version 2.10.57</strong>
+                                            <span style={{ fontSize: '11px', color: 'var(--text-tertiary)', background: 'var(--bg-secondary)', padding: '2px 8px', borderRadius: '12px' }}>July 24, 2026</span>
+                                        </div>
+                                        <div style={{ fontSize: '13px', color: 'var(--text-secondary)', marginTop: '8px', lineHeight: 1.6 }}>
+                                             <ul style={{ margin: 0, paddingLeft: '16px' }}>
+                                                 <li><strong>Named Variables Support for WhatsApp Templates</strong>: Integrated support for Meta's Named Variable template format. The ERP now maps positional parameters to custom names (`customer_name`, `inv_id`, and `buniness`) in the API payload to prevent validation crashes.</li>
+                                             </ul>
+                                        </div>
+                                    </div>
+
+                                    {/* Timeline Item: v2.10.56 — WhatsApp Invoice Template Updates */}
+                                    <div style={{ position: 'relative' }}>
+                                        <div style={{ position: 'absolute', left: '-22px', top: '4px', width: '12px', height: '12px', borderRadius: '50%', background: 'var(--accent)', border: '2px solid var(--bg-primary)' }}></div>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                            <strong style={{ fontSize: '15px' }}>Version 2.10.56</strong>
+                                            <span style={{ fontSize: '11px', color: 'var(--text-tertiary)', background: 'var(--bg-secondary)', padding: '2px 8px', borderRadius: '12px' }}>July 24, 2026</span>
+                                        </div>
+                                        <div style={{ fontSize: '13px', color: 'var(--text-secondary)', marginTop: '8px', lineHeight: 1.6 }}>
+                                             <ul style={{ margin: 0, paddingLeft: '16px' }}>
+                                                 <li><strong>WhatsApp Invoice Template Variables</strong>: Modified the `invoice_ready` template parameters sent by the ERP to only include 3 body variables (`customerName`, `invoiceNumber`, `companyName`), shifting the invoice share link completely to the "View Invoice" call-to-action button to support clean, link-free text bodies.</li>
+                                             </ul>
+                                        </div>
+                                    </div>
+
+                                    {/* Timeline Item: v2.10.55 — Prepaid Wallet Model and Expiry Warnings */}
                                     <div style={{ position: 'relative' }}>
                                         <div style={{ position: 'absolute', left: '-22px', top: '4px', width: '12px', height: '12px', borderRadius: '50%', background: 'var(--accent)', border: '2px solid var(--bg-primary)' }}></div>
                                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -1956,7 +2162,9 @@ export default function SettingsPage() {
                                         </div>
                                         <div style={{ fontSize: '13px', color: 'var(--text-secondary)', marginTop: '8px', lineHeight: 1.6 }}>
                                              <ul style={{ margin: 0, paddingLeft: '16px' }}>
-                                                 <li><strong>Prepaid Wallet & Live Supabase Billing Overhaul</strong>: Overhauled billing architecture to pull live license keys, plans, and expiration dates directly from Supabase (<code style={{ color: 'var(--accent)' }}>licenses</code> table). Purged legacy postpaid dues, 1-Rupee card verification, and 5-day grace period suspension warnings in favor of a Pay-As-You-Go Prepaid Wallet model. Added global top expiration banners and inline Renew buttons for ERP subscriptions and VoBiz telephony numbers (<code style={{ color: 'var(--accent)' }}>/renew</code>).</li>
+                                                 <li><strong>Live Supabase Billing Integration</strong>: Migrated all user licenses and wallet logs to remote Supabase tables, supporting a real-time prepaid credit deduction model.</li>
+                                                 <li><strong>Subscription Renewal Warnings</strong>: Integrated orange warning banners on the Dashboard and renewal buttons linking to the renews portal when ERP/Vobiz plans expire within 5 days.</li>
+                                                 <li><strong>Gmail & Dues Cleanups</strong>: Corrected Gmail free limits to show 1,000, and removed legacy outstanding monthly dues components.</li>
                                              </ul>
                                         </div>
                                     </div>

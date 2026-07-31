@@ -208,6 +208,65 @@ router.post('/send-invoice', async (req, res, next) => {
     }
 });
 
+// POST /auth/google/send-quotation -> Sends compiled quotation to customer
+router.post('/send-quotation', async (req, res, next) => {
+    const { senderEmail, to, quotationId, style } = req.body;
+    if (!senderEmail || !to || !quotationId) {
+        return res.status(400).json({ error: 'senderEmail, to, and quotationId parameters are required.' });
+    }
+
+    try {
+        await db.ready;
+        // Fetch Quotation details
+        const quotationQuery = `
+            SELECT q.*, c.name AS customer_name, c.phone AS customer_phone, c.email AS customer_email, c.address AS customer_address, c.gstin AS customer_gstin
+            FROM quotations q 
+            LEFT JOIN customers c ON q.customer_id = c.id 
+            WHERE q.id = ?
+        `;
+        const quotation = db.get(quotationQuery, [quotationId]);
+        if (!quotation) {
+            return res.status(404).json({ error: 'Quotation not found.' });
+        }
+
+        // Fetch items
+        const items = db.all('SELECT * FROM quotation_items WHERE quotation_id = ?', [quotationId]);
+        quotation.items = items;
+
+        // Fetch settings
+        const settingsRows = db.all('SELECT key, value FROM settings');
+        const settings = {};
+        settingsRows.forEach(r => { settings[r.key] = r.value; });
+
+        // Compile template
+        const activeStyle = style || settings.invoice_style || 'classic';
+        const htmlBody = gmailSender.generateQuotationTemplate(quotation, settings, activeStyle);
+
+        // Send Email
+        const subject = `Quotation #QTN-${String(quotation.id).padStart(4, '0')} from ${settings.company_name || 'Maze ERP'}`;
+        await gmailSender.sendMail({
+            senderEmail,
+            to,
+            subject,
+            htmlBody,
+            textBody: `Please find attached your Quotation #QTN-${String(quotation.id).padStart(4, '0')} from ${settings.company_name || 'Maze ERP'}.`
+        });
+
+        // Record communication log
+        if (quotation.customer_id) {
+            db.run(
+                "INSERT INTO customer_communication_logs (customer_id, type, notes) VALUES (?, 'Email', ?)",
+                [quotation.customer_id, `Sent quotation #QTN-${String(quotation.id).padStart(4, '0')} via Gmail (${senderEmail})`]
+            );
+        }
+
+        res.json({ message: 'Quotation sent successfully' });
+    } catch (err) {
+        console.error('[Google Auth] Send quotation failed:', err);
+        res.status(500).json({ error: err.message || 'Failed to send quotation email.' });
+    }
+});
+
 // GET /auth/google/campaigns -> Fetch scheduled campaigns
 router.get('/campaigns', async (req, res, next) => {
     try {

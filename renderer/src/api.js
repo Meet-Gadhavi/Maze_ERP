@@ -27,7 +27,18 @@ async function request(endpoint, options = {}) {
         // Network errors (no backend running)
         if (err.name === 'TypeError' && err.message.includes('fetch')) {
             console.error('[API] Backend not reachable at', API_BASE);
-            throw new Error('Backend server is not running. Please restart the application.');
+            let startErrMsg = '';
+            if (window.maze && window.maze.getBackendStartError) {
+                try {
+                    const startErr = await window.maze.getBackendStartError();
+                    if (startErr) {
+                        startErrMsg = `\n\nDiagnostic Info:\n${startErr}`;
+                    }
+                } catch (e) {
+                    console.error('[API] Failed to get backend startup error:', e);
+                }
+            }
+            throw new Error(`Backend server is not running. Please restart the application.${startErrMsg}`);
         }
         throw err;
     }
@@ -489,6 +500,7 @@ const api = {
     disconnectGmail: (email) => request('/auth/google/disconnect', { method: 'POST', body: { email } }),
     sendTestEmail: (data) => request('/auth/google/test-email', { method: 'POST', body: data }),
     sendInvoiceEmail: (data) => request('/auth/google/send-invoice', { method: 'POST', body: data }),
+    sendQuotationEmail: (data) => request('/auth/google/send-quotation', { method: 'POST', body: data }),
     getCampaigns: () => request('/auth/google/campaigns'),
     scheduleCampaign: (data) => request('/auth/google/campaigns', { method: 'POST', body: data }),
     cancelCampaign: (id) => request(`/auth/google/campaigns/${id}`, { method: 'DELETE' }),
@@ -500,6 +512,7 @@ const api = {
     disconnectWhatsApp: (phone_number_id) => request('/auth/whatsapp/disconnect', { method: 'POST', body: { phone_number_id } }),
     sendWhatsAppTest: (data) => request('/auth/whatsapp/test-message', { method: 'POST', body: data }),
     sendWhatsAppInvoice: (data) => request('/auth/whatsapp/send-invoice', { method: 'POST', body: data }),
+    sendWhatsAppQuotation: (data) => request('/auth/whatsapp/send-quotation', { method: 'POST', body: data }),
     getInvoiceShareLink: (invoiceId) => request(`/invoices/${invoiceId}/share-link`),
     
     // --- Billing ---
@@ -528,6 +541,7 @@ const api = {
     // Quotations
     getQuotations: () => request('/quotations'),
     getQuotation: (id) => request(`/quotations/${id}`),
+    getQuotationShareLink: (quotationId) => request(`/quotations/${quotationId}/share-link`),
     createQuotation: (data) => request('/quotations', { method: 'POST', body: data }),
     deleteQuotation: (id) => request(`/quotations/${id}`, { method: 'DELETE' }),
 };

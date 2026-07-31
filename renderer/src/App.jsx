@@ -393,21 +393,32 @@ export default function App() {
         // Check if previous session was open (crashed/sudden shutdown)
         const sessionStatus = localStorage.getItem('quantro_session_status');
         const lastPath = localStorage.getItem('quantro_last_path');
+        const hasCartSession = !!localStorage.getItem('quantro_sales_cart_session');
         
-        if (sessionStatus === 'open' && lastPath && lastPath !== '/') {
+        if (sessionStatus === 'open' && (hasCartSession || (lastPath && lastPath !== '/'))) {
             setShowRestoreModal(true);
         }
         
         // Mark current session as active/open
         localStorage.setItem('quantro_session_status', 'open');
+
+        const handleBeforeUnload = () => {
+            // Mark session as cleanly closed when window unloads normally
+            localStorage.setItem('quantro_session_status', 'closed');
+        };
+        window.addEventListener('beforeunload', handleBeforeUnload);
+        return () => window.removeEventListener('beforeunload', handleBeforeUnload);
     }, []);
 
     const handleRestoreAction = (action) => {
         if (action === 'restore') {
-            const lastPath = localStorage.getItem('quantro_last_path');
-            if (lastPath) {
-                setRestorePath(lastPath);
-            }
+            localStorage.setItem('quantro_restore_pending', 'true');
+            const lastPath = localStorage.getItem('quantro_last_path') || '/sales';
+            setRestorePath(lastPath);
+        } else {
+            localStorage.removeItem('quantro_sales_cart_session');
+            localStorage.removeItem('quantro_restore_pending');
+            localStorage.setItem('quantro_session_status', 'closed');
         }
         setShowRestoreModal(false);
     };
@@ -805,7 +816,7 @@ export default function App() {
                     </div>
                 </div>
             )}
-            <HashRouter>
+            <HashRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
                 <Toaster 
                     position="bottom-right" 
                     expand={true} 

@@ -102,6 +102,37 @@ export default function AutomationPage() {
     useEffect(() => {
         formDataRef.current = formData;
     }, [formData]);
+
+    // Session Recovery: Restore automation page session on load
+    useEffect(() => {
+        const isRestorePending = localStorage.getItem('quantro_restore_pending') === 'true';
+        const savedSessionStr = localStorage.getItem('quantro_automation_session');
+
+        if ((isRestorePending || savedSessionStr) && savedSessionStr) {
+            try {
+                const data = JSON.parse(savedSessionStr);
+                if (data) {
+                    if (data.step) setStep(data.step);
+                    if (data.formData) setFormData(data.formData);
+                    if (isRestorePending) {
+                        toast.success('Automation session restored!');
+                    }
+                }
+            } catch (e) {
+                console.error('[SessionRecovery] Automation restore error:', e);
+            }
+        }
+    }, []);
+
+    // Session Recovery: Auto-save automation page state
+    useEffect(() => {
+        const sessionState = {
+            step,
+            formData,
+            timestamp: Date.now()
+        };
+        localStorage.setItem('quantro_automation_session', JSON.stringify(sessionState));
+    }, [step, formData]);
     const stats = [
         {
             label: 'Total AI Minutes',
