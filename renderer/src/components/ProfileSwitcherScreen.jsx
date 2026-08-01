@@ -24,13 +24,26 @@ export default function ProfileSwitcherScreen({ onSelectProfile, onAddNewAccount
         try {
             let combinedProfiles = [];
 
-            // 1. Fetch real active employees from database (SQLite + Supabase), filtering out any old fake admin@quantro.app
+            // 1. Fetch saved profiles from localStorage
+            let savedLocal = [];
+            try {
+                savedLocal = JSON.parse(localStorage.getItem('quantro_saved_profiles') || '[]');
+            } catch (e) {}
+
+            savedLocal.forEach(sp => {
+                if (sp && sp.email && sp.email.toLowerCase() !== 'admin@quantro.app') {
+                    combinedProfiles.push(sp);
+                }
+            });
+
+            // 2. Fetch real active employees from database (SQLite + Supabase)
             try {
                 const empRes = await api.getEmployees();
                 if (empRes && empRes.employees && Array.isArray(empRes.employees)) {
                     empRes.employees.forEach(emp => {
                         if (emp.email && emp.email.toLowerCase() !== 'admin@quantro.app') {
-                            combinedProfiles.push({
+                            const idx = combinedProfiles.findIndex(p => p.email.toLowerCase() === emp.email.toLowerCase());
+                            const empObj = {
                                 id: emp.id,
                                 email: emp.email,
                                 full_name: emp.full_name,
@@ -38,7 +51,12 @@ export default function ProfileSwitcherScreen({ onSelectProfile, onAddNewAccount
                                 phone: emp.phone || '',
                                 avatar_url: emp.avatar_url || '',
                                 source: 'db'
-                            });
+                            };
+                            if (idx >= 0) {
+                                combinedProfiles[idx] = { ...combinedProfiles[idx], ...empObj };
+                            } else {
+                                combinedProfiles.push(empObj);
+                            }
                         }
                     });
                 }
@@ -46,7 +64,7 @@ export default function ProfileSwitcherScreen({ onSelectProfile, onAddNewAccount
                 console.warn('[Profile Switcher] Failed to load DB employees:', e.message);
             }
 
-            // 2. Fetch real authenticated primary user from Supabase session / local storage
+            // 3. Fetch real authenticated primary user from Supabase session / local storage
             let activeUser = null;
             try {
                 const { data } = await supabase.auth.getSession();
@@ -77,7 +95,7 @@ export default function ProfileSwitcherScreen({ onSelectProfile, onAddNewAccount
                 } catch (e) {}
             }
 
-            // 3. Merge primary admin active user if present
+            // Merge active logged-in user to top of list
             if (activeUser) {
                 const existingIdx = combinedProfiles.findIndex(p => p.email.toLowerCase() === activeUser.email.toLowerCase());
                 if (existingIdx >= 0) {
@@ -87,7 +105,7 @@ export default function ProfileSwitcherScreen({ onSelectProfile, onAddNewAccount
                 }
             }
 
-            // Purge fake admin@quantro.app from saved profiles
+            // Filter out any legacy fake admin@quantro.app profile
             combinedProfiles = combinedProfiles.filter(p => p.email && p.email.toLowerCase() !== 'admin@quantro.app');
 
             localStorage.setItem('quantro_saved_profiles', JSON.stringify(combinedProfiles));
@@ -131,6 +149,16 @@ export default function ProfileSwitcherScreen({ onSelectProfile, onAddNewAccount
     };
 
     const handleProfileClick = (profile) => {
+        const r = (profile.role || 'OWNER').toUpperCase();
+        
+        // ADMIN / OWNER profiles do NOT require PINs! Log straight in to Dashboard.
+        if (r === 'OWNER' || r === 'HQ' || r === 'ADMIN') {
+            toast.success(`Welcome back, ${profile.full_name || profile.email}!`);
+            if (onSelectProfile) onSelectProfile(profile);
+            return;
+        }
+
+        // Employee staff profiles require 4-digit PIN
         setSelectedProfile(profile);
         setPinInput('');
         setPinError(false);
@@ -155,7 +183,7 @@ export default function ProfileSwitcherScreen({ onSelectProfile, onAddNewAccount
     const verifyPinAndLogin = async (profile, pin) => {
         setLoadingPin(true);
         try {
-            // Query Supabase staff_profiles table
+            // Query Supabase staff_profiles table for assigned PIN
             const { data } = await supabase
                 .from('staff_profiles')
                 .select('*')
@@ -179,7 +207,7 @@ export default function ProfileSwitcherScreen({ onSelectProfile, onAddNewAccount
                     id: profile.id || 1,
                     full_name: profile.full_name,
                     email: profile.email,
-                    role: profile.role || 'OWNER',
+                    role: profile.role || 'CASHIER',
                     avatar_url: profile.avatar_url || ''
                 };
                 toast.success(`Welcome back, ${profile.full_name}!`);
@@ -194,7 +222,7 @@ export default function ProfileSwitcherScreen({ onSelectProfile, onAddNewAccount
                     id: profile.id || 1,
                     full_name: profile.full_name,
                     email: profile.email,
-                    role: profile.role || 'OWNER',
+                    role: profile.role || 'CASHIER',
                     avatar_url: profile.avatar_url || ''
                 };
                 toast.success(`Welcome back, ${profile.full_name}!`);
@@ -219,7 +247,7 @@ export default function ProfileSwitcherScreen({ onSelectProfile, onAddNewAccount
                 </div>
                 <h1 className="profile-switcher-title">Who's using Quantro?</h1>
                 <p className="profile-switcher-subtitle">
-                    Select your staff profile to launch your personalized workspace, roles, and terminal permissions.
+                    Select your profile to launch your personalized workspace, roles, and terminal permissions.
                 </p>
             </div>
 
@@ -273,7 +301,7 @@ export default function ProfileSwitcherScreen({ onSelectProfile, onAddNewAccount
                 </div>
             </div>
 
-            {/* PIN Entry Modal */}
+            {/* PIN Entry Modal — Only shown for Employees */}
             {selectedProfile && (
                 <Modal
                     open={!!selectedProfile}

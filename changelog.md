@@ -2,6 +2,13 @@
 
 All notable changes to the Quantro ERP application will be documented here.
 
+## [2.15.4] - 2026-08-01
+### Added
+- 🔓 **Admin Direct PIN Bypass (`ProfileSwitcherScreen.jsx`)**: Admin / Owner profiles now log directly back into the Dashboard without entering a PIN, reserving 4-digit PIN access strictly for staff/employee profiles.
+- 💾 **Automatic Logged-In Profile Storage (`AuthPage.jsx`)**: Authenticated user accounts (Email / Google) are automatically saved to the device terminal's profile list upon login for easy profile switching.
+
+---
+
 ## [2.15.3] - 2026-08-01
 ### Added
 - 🔒 **Purged Legacy Hardcoded Email (`admin@quantro.app`)**: Completely removed `admin@quantro.app` string fallbacks from `db.js`, `AuthContext.jsx`, `Sidebar.jsx`, and `ProfileSwitcherScreen.jsx` so only real authenticated user emails are displayed.

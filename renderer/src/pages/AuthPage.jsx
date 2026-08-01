@@ -109,18 +109,20 @@ export default function AuthPage() {
         );
     }
 
-    const saveToProfiles = (userEmail) => {
+    const saveToProfiles = (userEmail, userMeta = {}) => {
         try {
             const saved = JSON.parse(localStorage.getItem('quantro_saved_profiles') || '[]');
-            const filtered = saved.filter(p => p.email !== userEmail);
-            filtered.unshift({
+            const filtered = saved.filter(p => p.email !== userEmail && p.email !== 'admin@quantro.app');
+            const newProfile = {
                 email: userEmail,
-                full_name: userEmail.split('@')[0],
-                role: 'OWNER',
-                avatar_url: '',
+                full_name: userMeta.full_name || userMeta.name || userEmail.split('@')[0],
+                role: userMeta.role || 'OWNER',
+                avatar_url: userMeta.avatar_url || userMeta.picture || '',
                 last_login: new Date().toISOString()
-            });
+            };
+            filtered.unshift(newProfile);
             localStorage.setItem('quantro_saved_profiles', JSON.stringify(filtered));
+            localStorage.setItem('quantro_auth_user', JSON.stringify(newProfile));
         } catch (e) {
             console.error('Save to profiles error:', e);
         }
@@ -141,7 +143,7 @@ export default function AuthPage() {
             if (isLogin) {
                 const { data, error } = await supabase.auth.signInWithPassword({ email, password });
                 if (error) throw error;
-                saveToProfiles(email);
+                saveToProfiles(email, data?.user?.user_metadata || {});
                 toast.success('Welcome back!');
             } else {
                 const isLocal = window.location.origin.includes('localhost');
