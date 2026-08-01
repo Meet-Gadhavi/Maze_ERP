@@ -2,6 +2,12 @@
 
 All notable changes to the Quantro ERP application will be documented here.
 
+## [2.15.6] - 2026-08-01
+### Added
+- 👥 **Real-Time Customer Cloud Sync (`customers.js`)**: Wired customer creation and updates directly to `cloudSyncManager.syncCustomer()` to guarantee instant upsert into Supabase `public.customers` table.
+
+---
+
 ## [2.15.5] - 2026-08-01
 ### Added
 - 🚀 **Per-Account Onboarding Evaluation (`App.jsx` & `OnboardingModal.jsx`)**: Updated onboarding trigger logic to evaluate onboarding per user account email (`quantro_onboarding_completed_${userEmail}`), ensuring the business onboarding modal pops up for every newly registered email account.
