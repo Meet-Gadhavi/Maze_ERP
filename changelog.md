@@ -2,6 +2,13 @@
 
 All notable changes to the Quantro ERP application will be documented here.
 
+## [2.15.2] - 2026-08-01
+### Added
+- 🔑 **4-Digit POS Security PIN Setup in Onboarding Wizard (`OnboardingModal.jsx`)**: Integrated mandatory 4-digit PIN setup during business account onboarding (Step 4) for instant 1-second terminal profile login.
+- 👤 **Automated Initial Staff Profile Creation**: Automatically provisions the primary admin staff profile with their 4-digit PIN into SQLite DB and Supabase `public.staff_profiles` upon completing onboarding setup.
+
+---
+
 ## [2.15.1] - 2026-08-01
 ### Added
 - 📥 **Automatic JSON Backup Import Categorization & Supabase Cloud Sync (`data.js`)**: When users import data JSON files in Settings Data Management, all imported tables (`products`, `customers`, `invoices`, `suppliers`, `purchases`, `expenses`, `employees`, `settings`) are automatically categorized and inserted directly into their respective Supabase cloud tables.

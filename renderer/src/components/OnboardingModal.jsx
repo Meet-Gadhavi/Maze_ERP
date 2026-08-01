@@ -17,6 +17,7 @@ export default function OnboardingModal({ isOpen, onComplete }) {
         place_of_supply: '',
         phone: '',
         email: '',
+        pos_pin: '1234',
         logo_url: ''
     });
 
@@ -29,7 +30,7 @@ export default function OnboardingModal({ isOpen, onComplete }) {
         "Store & Terminal Alignment",
         "Shop & Business Profile",
         "GSTIN & Tax Registration",
-        "Contact & Communications",
+        "Contact, Email & 4-Digit Security PIN",
         "Business Logo & Final Launch"
     ];
 
@@ -77,6 +78,13 @@ export default function OnboardingModal({ isOpen, onComplete }) {
             return;
         }
 
+        if (step === 4) {
+            if (form.pos_pin && form.pos_pin.length !== 4) {
+                toast.error("Security POS PIN must be exactly 4 digits");
+                return;
+            }
+        }
+
         if (step < totalSteps) {
             setStep(prev => prev + 1);
         }
@@ -93,7 +101,7 @@ export default function OnboardingModal({ isOpen, onComplete }) {
         try {
             localStorage.setItem('quantro_onboarding_completed', '1');
 
-            // Save business profile settings
+            // 1. Save business profile settings
             await api.updateSettings({
                 shop_name: form.shop_name || 'Quantro',
                 gstin: form.gstin,
@@ -103,6 +111,21 @@ export default function OnboardingModal({ isOpen, onComplete }) {
                 logo_url: form.logo_url,
                 onboarding_completed: '1'
             });
+
+            // 2. Create/update primary staff profile with 4-digit PIN in SQLite & Supabase
+            if (form.email) {
+                try {
+                    await api.createEmployee({
+                        full_name: form.shop_name || 'Primary Admin',
+                        email: form.email.trim().toLowerCase(),
+                        pos_pin: form.pos_pin || '1234',
+                        password: 'Quantro123!',
+                        role: 'ADMIN'
+                    });
+                } catch (empErr) {
+                    console.warn('[Onboarding] Staff profile creation notice:', empErr.message);
+                }
+            }
 
             toast.success("Onboarding Completed! Welcome to Quantro ERP.");
             if (onComplete) onComplete();
@@ -229,14 +252,14 @@ export default function OnboardingModal({ isOpen, onComplete }) {
                         </div>
                     )}
 
-                    {/* STEP 4: Contact & Communications */}
+                    {/* STEP 4: Contact, Email & 4-Digit Security PIN */}
                     {step === 4 && (
                         <div className="onboarding-step-content">
-                            <h2 className="step-heading">Contact & Communications</h2>
-                            <p className="step-desc">Provide customer helpline phone number and store billing email address.</p>
+                            <h2 className="step-heading">Contact, Account Email & Security PIN</h2>
+                            <p className="step-desc">Set your account email and a 4-digit PIN for 1-second POS terminal profile switching.</p>
 
                             <div className="form-group" style={{ marginTop: '16px' }}>
-                                <label>Phone Number</label>
+                                <label>Helpline Phone Number</label>
                                 <input 
                                     type="text"
                                     value={form.phone}
@@ -246,12 +269,26 @@ export default function OnboardingModal({ isOpen, onComplete }) {
                             </div>
 
                             <div className="form-group" style={{ marginTop: '16px' }}>
-                                <label>Email Address</label>
+                                <label>Account Email Address *</label>
                                 <input 
                                     type="email"
+                                    required
                                     value={form.email}
                                     onChange={e => setForm({ ...form, email: e.target.value })}
-                                    placeholder="e.g. contact@business.com"
+                                    placeholder="e.g. admin@store.com"
+                                />
+                            </div>
+
+                            <div className="form-group" style={{ marginTop: '16px' }}>
+                                <label>Create 4-Digit Security POS PIN * (for 1-second Profile Login)</label>
+                                <input 
+                                    type="password"
+                                    maxLength={4}
+                                    required
+                                    value={form.pos_pin}
+                                    onChange={e => setForm({ ...form, pos_pin: e.target.value.replace(/\D/g, '') })}
+                                    placeholder="1234"
+                                    style={{ fontSize: '18px', letterSpacing: '4px', fontWeight: 'bold' }}
                                 />
                             </div>
                         </div>
@@ -295,6 +332,14 @@ export default function OnboardingModal({ isOpen, onComplete }) {
                                     <strong>{form.shop_name}</strong>
                                 </div>
                                 <div className="summary-row">
+                                    <span>Account Email:</span>
+                                    <strong>{form.email || 'N/A'}</strong>
+                                </div>
+                                <div className="summary-row">
+                                    <span>4-Digit Security PIN:</span>
+                                    <strong>•••• ({form.pos_pin || '1234'})</strong>
+                                </div>
+                                <div className="summary-row">
                                     <span>GSTIN:</span>
                                     <strong>{form.gstin || 'Not Provided'}</strong>
                                 </div>
@@ -306,10 +351,6 @@ export default function OnboardingModal({ isOpen, onComplete }) {
                                     <span>Contact Phone:</span>
                                     <strong>{form.phone || 'N/A'}</strong>
                                 </div>
-                                <div className="summary-row">
-                                    <span>Contact Email:</span>
-                                    <strong>{form.email || 'N/A'}</strong>
-                                </div>
                             </div>
                         </div>
                     )}
@@ -318,29 +359,28 @@ export default function OnboardingModal({ isOpen, onComplete }) {
                 {/* Footer Controls */}
                 <div className="onboarding-footer">
                     <SButton 
-                        variant="secondary" 
-                        onClick={handleBack} 
+                        variant="secondary"
+                        onClick={handleBack}
                         disabled={step === 1 || loading}
                     >
-                        <Icons.ArrowLeft size={16} /> Back
+                        Back
                     </SButton>
 
                     {step < totalSteps ? (
                         <SButton 
-                            variant="primary" 
-                            onClick={handleNext} 
-                            loading={loading}
+                            variant="primary"
+                            onClick={handleNext}
+                            disabled={loading}
                         >
-                            Continue <Icons.ArrowRight size={16} />
+                            Next Step
                         </SButton>
                     ) : (
                         <SButton 
-                            variant="primary" 
-                            onClick={handleFinish} 
-                            loading={loading}
-                            style={{ background: '#16a34a' }}
+                            variant="primary"
+                            onClick={handleFinish}
+                            disabled={loading}
                         >
-                            Finish & Launch Quantro <Icons.Check size={16} />
+                            {loading ? "Launching Quantro..." : "Complete Setup & Launch"}
                         </SButton>
                     )}
                 </div>
