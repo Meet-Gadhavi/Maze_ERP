@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const db = require('../db');
 const Tesseract = require('tesseract.js');
+const cloudSyncManager = require('../services/cloudSyncManager');
 
 // GET /api/purchases
 router.get('/', async (req, res, next) => {
@@ -268,6 +269,9 @@ router.post('/', async (req, res, next) => {
         resultObj = { id: purchaseId, grand_total, due_amount: finalDue, status: finalStatus };
         }); // End transaction
         
+        const createdPurchase = db.get('SELECT p.*, s.name as supplier_name FROM purchases p JOIN suppliers s ON p.supplier_id = s.id WHERE p.id = ?', [purchaseId]);
+        if (createdPurchase) cloudSyncManager.syncPurchase(createdPurchase);
+
         res.status(201).json(resultObj);
         } catch (txnErr) {
             if (txnErr.apiResponse) return;

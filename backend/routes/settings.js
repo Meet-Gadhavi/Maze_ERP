@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const db = require('../db');
 const campaignSyncService = require('../services/email/campaignSyncService');
+const cloudSyncManager = require('../services/cloudSyncManager');
 
 // Whitelist of permitted settings keys — any key not listed here is silently ignored.
 const ALLOWED_SETTINGS_KEYS = new Set([
@@ -73,6 +74,11 @@ router.post('/', async (req, res, next) => {
 
         // Sync metadata (settings) to cloud
         campaignSyncService.pushMetadata().catch(err => console.error('[Sync] Failed to push metadata on settings update:', err.message));
+        
+        const allSettingsRows = db.all('SELECT key, value FROM settings');
+        const settingsMap = {};
+        allSettingsRows.forEach(r => { settingsMap[r.key] = r.value; });
+        cloudSyncManager.syncSettings(settingsMap);
 
         res.json({ message: 'Settings updated' });
     } catch (err) {

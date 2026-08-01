@@ -8,6 +8,7 @@ const whatsappSender = require('../services/whatsappSender');
 const { generateInvoicePDF } = require('../services/pdfGenerator');
 const hostedInvoiceService = require('../services/hostedInvoiceService');
 const loyaltyService = require('../services/loyaltyService');
+const cloudSyncManager = require('../services/cloudSyncManager');
 
 function resolveBundleStock(product) {
     if (!product || product.is_bundle !== 1) return product ? product.stock_quantity : 0;
@@ -802,6 +803,7 @@ router.post('/', async (req, res, next) => {
                 })();
             }
         }
+        if (invoice) cloudSyncManager.syncInvoice(invoice, invoice.items);
         res.status(201).json(invoice);
         } catch (txnErr) {
             if (txnErr.apiResponse) return; // Already handled

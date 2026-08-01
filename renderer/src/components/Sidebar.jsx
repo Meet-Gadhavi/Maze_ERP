@@ -1,248 +1,396 @@
-import { useState, useEffect } from 'react';
-import { NavLink } from 'react-router-dom';
-import { APP_COMPANY, APP_NAME, APP_VERSION, PURCHASES_LABEL } from '../constants';
-import { supabase } from '../supabase';
+import React, { useState, useEffect, useRef } from 'react';
+import { NavLink, useLocation } from 'react-router-dom';
+import { APP_COMPANY, APP_NAME, APP_VERSION } from '../constants';
 import { Icons } from './Icons';
-import api from '../api';
+import { useAuth } from '../context/AuthContext';
+import {
+    Sidebar as RadixSidebar,
+    SidebarHeader,
+    SidebarContent,
+    SidebarGroup,
+    SidebarGroupLabel,
+    SidebarMenu,
+    SidebarMenuItem,
+    SidebarMenuButton,
+    SidebarMenuSub,
+    SidebarMenuSubItem,
+    SidebarMenuSubButton,
+    SidebarFooter,
+    SidebarRail,
+    useSidebar
+} from './ui/sidebar';
 import './Sidebar.css';
 
-const navItems = [
-    {
-        to: '/',
-        label: 'Dashboard',
-        icon: <Icons.Layout size={20} />
-    },
-    {
-        to: '/inventory',
-        label: 'Inventory',
-        icon: <Icons.Package size={20} />
-    },
-    {
-        to: '/sales',
-        label: 'Sales',
-        icon: <Icons.ShoppingCart size={20} />
-    },
-    {
-        to: '/customers',
-        label: 'Customers',
-        icon: <Icons.Users size={20} />
-    },
-    {
-        to: '/purchase',
-        label: PURCHASES_LABEL,
-        icon: <Icons.FileText size={20} />
-    },
-    {
-        to: '/automation',
-        label: 'Automation',
-        icon: <Icons.Cpu size={20} />
-    },
-    {
-        to: '/billing',
-        label: 'Billing',
-        icon: <Icons.CreditCard size={20} />
-    },
-    {
-        to: '/settings',
-        label: 'Settings',
-        icon: <Icons.Settings size={20} />
-    }
-];
+import api from '../api';
+import { supabase } from '../supabase';
 
 export default function Sidebar({ isCollapsed, setIsCollapsed }) {
-    const [user, setUser] = useState(null);
-    const [settings, setSettings] = useState(null);
+    const location = useLocation();
+    const [showStorePopover, setShowStorePopover] = useState(false);
+    const [showProfilePopover, setShowProfilePopover] = useState(false);
+    const [openCollapsibles, setOpenCollapsibles] = useState({ inventory: true });
+    const [settingsLogo, setSettingsLogo] = useState('');
+    const [userAvatar, setUserAvatar] = useState('');
+
+    const storePopoverRef = useRef(null);
+    const profilePopoverRef = useRef(null);
+
+    const { currentUser, userRole, activeStoreId, setActiveStoreId, stores, canViewAllStores, isChildTerminal, logout } = useAuth();
 
     useEffect(() => {
-        const loadSettings = () => {
-            api.getSettings().then(setSettings).catch(console.error);
-        };
-        loadSettings();
-        window.addEventListener('settings-updated', loadSettings);
-        return () => window.removeEventListener('settings-updated', loadSettings);
-    }, []);
-
-    useEffect(() => {
-        // Get initial user
-        supabase.auth.getUser().then(({ data: { user } }) => {
-            setUser(user);
-        });
-
-        // Listen for changes
-        const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-            setUser(session?.user ?? null);
-        });
-
-        return () => subscription.unsubscribe();
-    }, []);
-
-    const userAvatar = user?.user_metadata?.avatar_url || user?.user_metadata?.picture;
-    const userName = user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'User';
-
-    const renderSubscriptionBadge = () => {
-        const plan = settings?.license_plan || 'Free';
-        
-        let label = 'Free Starter';
-        let shieldColor = '#cd7f32'; // Bronze
-        let badgeBg = 'rgba(205, 127, 50, 0.1)';
-        let badgeBorder = 'rgba(205, 127, 50, 0.2)';
-        let hasUpgrade = true;
-        let ShieldIcon = <Icons.Shield size={13} style={{ color: shieldColor }} />;
-
-        if (plan === 'Pro') {
-            label = 'Business PRO';
-            shieldColor = '#ffd700'; // Gold
-            badgeBg = 'rgba(255, 215, 0, 0.1)';
-            badgeBorder = 'rgba(255, 215, 0, 0.2)';
-            hasUpgrade = true;
-            ShieldIcon = <Icons.ShieldCheck size={13} style={{ color: shieldColor }} />;
-        } else if (plan === 'Professional') {
-            label = 'AI Professional';
-            shieldColor = '#00d4ff'; // Diamond Cyan
-            badgeBg = 'rgba(0, 212, 255, 0.1)';
-            badgeBorder = 'rgba(0, 212, 255, 0.2)';
-            hasUpgrade = false;
-            ShieldIcon = (
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke={shieldColor} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
-                    <path d="M6 3h12l4 6-10 13L2 9z" />
-                </svg>
-            );
+        if (currentUser?.avatar_url) {
+            setUserAvatar(currentUser.avatar_url);
         }
-
-        const handleUpgradeClick = (e) => {
-            e.stopPropagation();
-            if (window.maze && typeof window.maze.openExternal === 'function') {
-                window.maze.openExternal('https://quantro-web.onrender.com/pricing');
-            } else {
-                window.open('https://quantro-web.onrender.com/pricing', '_blank');
+        supabase.auth.getSession().then(({ data: { session } }) => {
+            if (session?.user) {
+                const googleAvatar = session.user.user_metadata?.avatar_url || session.user.user_metadata?.picture || '';
+                if (googleAvatar) setUserAvatar(googleAvatar);
             }
-        };
+        }).catch(console.error);
+    }, [currentUser]);
 
-        if (isCollapsed) {
-            return (
-                <div 
-                    onClick={hasUpgrade ? handleUpgradeClick : undefined}
-                    className="shiny-badge-anim"
-                    title={`${label} (Click to Upgrade)`}
-                    style={{ 
-                        display: 'flex', 
-                        alignItems: 'center', 
-                        justifyContent: 'center', 
-                        width: '28px', 
-                        height: '28px', 
-                        borderRadius: '8px', 
-                        background: badgeBg, 
-                        border: `1px solid ${badgeBorder}`,
-                        margin: '0 auto 12px auto',
-                        cursor: hasUpgrade ? 'pointer' : 'default',
-                        position: 'relative'
-                    }}
-                >
-                    {ShieldIcon}
-                    {hasUpgrade && (
-                        <div style={{ position: 'absolute', top: '-4px', right: '-4px', background: 'var(--accent)', borderRadius: '50%', width: '10px', height: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                            <Icons.ArrowUpRight size={7} style={{ color: '#fff' }} />
-                        </div>
-                    )}
-                </div>
-            );
-        }
-
-        return (
-            <div 
-                className="shiny-badge-anim"
-                style={{ 
-                    display: 'flex', 
-                    alignItems: 'center', 
-                    justifyContent: 'space-between', 
-                    padding: '6px 10px', 
-                    borderRadius: '8px', 
-                    background: badgeBg, 
-                    border: `1px solid ${badgeBorder}`,
-                    marginBottom: '12px',
-                    width: '100%'
-                }}
-            >
-                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    {ShieldIcon}
-                    <span style={{ fontSize: '11px', fontWeight: 700, color: shieldColor, letterSpacing: '0.02em', textTransform: 'uppercase' }}>
-                        {label}
-                    </span>
-                </div>
-                {hasUpgrade && (
-                    <button 
-                        onClick={handleUpgradeClick}
-                        style={{ 
-                            background: 'none', 
-                            border: 'none', 
-                            padding: 0, 
-                            cursor: 'pointer', 
-                            display: 'flex', 
-                            alignItems: 'center', 
-                            color: 'var(--text-secondary)',
-                            transition: 'color 0.2s'
-                        }}
-                        onMouseEnter={(e) => e.currentTarget.style.color = shieldColor}
-                        onMouseLeave={(e) => e.currentTarget.style.color = 'var(--text-secondary)'}
-                        title="Upgrade Subscription Plan"
-                    >
-                        <Icons.ArrowUpRight size={14} />
-                    </button>
-                )}
-            </div>
-        );
+    const formatRoleTitle = (roleStr) => {
+        const r = (roleStr || 'OWNER').toUpperCase();
+        if (r === 'OWNER' || r === 'HQ' || r === 'ADMIN') return isChildTerminal ? 'Child Terminal Admin' : 'Primary Admin';
+        if (r === 'STORE_MGR') return 'Store Manager';
+        if (r === 'INVENTORY_CLERK') return 'Inventory Clerk';
+        if (r === 'CASHIER') return 'Cashier';
+        if (r === 'ACCOUNTANT') return 'Accountant';
+        return roleStr || 'Primary Admin';
     };
 
+    const userRoleTitle = formatRoleTitle(currentUser?.role || userRole);
+    const userDisplayEmail = currentUser?.email || 'admin@quantro.app';
+
+    useEffect(() => {
+        api.getSettings().then(s => {
+            if (s && s.logo_url) {
+                setSettingsLogo(s.logo_url);
+            }
+        }).catch(console.error);
+    }, []);
+
+    useEffect(() => {
+        const handleClickOutside = (e) => {
+            if (storePopoverRef.current && !storePopoverRef.current.contains(e.target)) {
+                setShowStorePopover(false);
+            }
+            if (profilePopoverRef.current && !profilePopoverRef.current.contains(e.target)) {
+                setShowProfilePopover(false);
+            }
+        };
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, []);
+
+    const toggleCollapsible = (key) => {
+        setOpenCollapsibles(prev => ({ ...prev, [key]: !prev[key] }));
+    };
+
+    const activeStore = stores.find(s => String(s.id) === String(activeStoreId)) || stores[0];
+    const displayLogo = activeStore?.logo_url || settingsLogo;
+
+    const effectiveRole = (userRole || currentUser?.role || 'OWNER').toUpperCase();
+
+    const canAccess = (feature) => {
+        if (effectiveRole === 'OWNER' || effectiveRole === 'REGIONAL_MGR' || effectiveRole === 'HQ' || effectiveRole === 'ADMIN') return true;
+        if (effectiveRole === 'CASHIER') return feature === 'sales';
+        if (effectiveRole === 'INVENTORY_CLERK') return feature === 'dashboard' || feature === 'inventory';
+        if (effectiveRole === 'STORE_MGR') return ['dashboard', 'inventory', 'sales', 'customers', 'purchase'].includes(feature);
+        if (effectiveRole === 'ACCOUNTANT') return ['dashboard', 'sales', 'purchase', 'hr', 'billing'].includes(feature);
+        return true;
+    };
+
+    const handleSwitchAccount = async () => {
+        setShowProfilePopover(false);
+        try {
+            await logout();
+        } catch (e) {
+            console.error('[Logout] Error:', e);
+        }
+        window.location.hash = '#/auth';
+        window.location.reload();
+    };
+
+    const getInitials = (name, email) => {
+        const target = (name && name !== 'Primary Admin') ? name : (email ? email.split('@')[0] : 'Primary Admin');
+        const parts = target.trim().split(/[ ._]/);
+        if (parts.length >= 2 && parts[0] && parts[1]) {
+            return (parts[0][0] + parts[1][0]).toUpperCase();
+        }
+        return target.substring(0, 2).toUpperCase();
+    };
+
+    const userInitials = getInitials(currentUser?.full_name, userDisplayEmail);
+
     return (
-        <aside className={`sidebar ${isCollapsed ? 'collapsed' : ''}`}>
-            <div className="sidebar-brand" onClick={() => setIsCollapsed(!isCollapsed)} title={isCollapsed ? "Expand Sidebar" : "Collapse Sidebar"}>
-                <div className="sidebar-logo">
-                    <img src="./icons/Logo.png" alt={APP_NAME} className="sidebar-logo-img" />
-                    <div className="sidebar-logo-hover-icon">
-                        {isCollapsed ? <Icons.ChevronRight size={22} strokeWidth={3} /> : <Icons.ChevronLeft size={22} strokeWidth={3} />}
+        <RadixSidebar className={isCollapsed ? 'collapsed' : ''}>
+            {/* Top Sidebar Header (Store / Company Switcher) */}
+            <SidebarHeader ref={storePopoverRef} style={{ position: 'relative' }}>
+                <button 
+                    className="sidebar-header-button"
+                    onClick={() => setShowStorePopover(!showStorePopover)}
+                    title="Switch Store Branch Outlet"
+                >
+                    <div style={{ display: 'flex', alignItems: 'center' }}>
+                        <div className="header-brand-icon" style={{ background: displayLogo ? '#ffffff' : '#2563eb', border: displayLogo ? '1px solid #e2e8f0' : 'none', padding: '2px' }}>
+                            {displayLogo ? (
+                                <img src={displayLogo} alt="Business Logo" style={{ width: '100%', height: '100%', objectFit: 'contain', borderRadius: '6px' }} />
+                            ) : (
+                                <img src="/icons/Logo.png" alt="Quantro Logo" onError={(e) => { e.target.style.display = 'none'; }} style={{ width: '100%', height: '100%', objectFit: 'contain', borderRadius: '6px' }} />
+                            )}
+                        </div>
+                        {!isCollapsed && (
+                            <div className="header-brand-info">
+                                <span className="header-brand-title">
+                                    {activeStoreId === '*' ? 'All Outlets' : (activeStore?.name || APP_NAME)}
+                                </span>
+                                <span className="header-brand-sub">
+                                    {activeStoreId === '*' ? 'Consolidated HQ View' : (activeStore?.is_hq ? 'Main Warehouse HQ' : `Branch ${activeStore?.store_code || ''}`)}
+                                </span>
+                            </div>
+                        )}
                     </div>
-                </div>
-                <div className="sidebar-brand-text">
-                    <span className="sidebar-brand-name">{APP_NAME}</span>
-                    <span className="sidebar-brand-sub">{APP_COMPANY}</span>
-                </div>
-            </div>
+                    {!isCollapsed && (
+                        <Icons.ChevronsUpDown size={16} className="header-chevrons" />
+                    )}
+                </button>
 
-            <nav className="sidebar-nav">
-                {navItems.map(item => (
-                    <NavLink
-                        key={item.to}
-                        to={item.to}
-                        end={item.to === '/'}
-                        className={({ isActive }) => `sidebar-link${isActive ? ' active' : ''}`}
-                        title={isCollapsed ? item.label : ''}
-                    >
-                        <div className="sidebar-link-icon">{item.icon}</div>
-                        <span className="sidebar-link-label">{item.label}</span>
-                    </NavLink>
-                ))}
-            </nav>
+                {showStorePopover && !isCollapsed && (
+                    <div className="store-switcher-popover">
+                        {canViewAllStores && (
+                            <div 
+                                className={`popover-store-item ${activeStoreId === '*' ? 'active' : ''}`}
+                                onClick={() => { setActiveStoreId('*'); setShowStorePopover(false); }}
+                            >
+                                ALL STORES CONSOLIDATED (HQ View)
+                            </div>
+                        )}
+                        {stores.map(st => (
+                            <div 
+                                key={st.id}
+                                className={`popover-store-item ${String(activeStoreId) === String(st.id) ? 'active' : ''}`}
+                                onClick={() => { setActiveStoreId(String(st.id)); setShowStorePopover(false); }}
+                            >
+                                {st.is_hq ? <Icons.Building size={14} /> : <Icons.Store size={14} />} {st.name} ({st.store_code})
+                            </div>
+                        ))}
+                    </div>
+                )}
+            </SidebarHeader>
 
-            <div className="sidebar-footer">
-                <div className="sidebar-footer-content">
-                    {renderSubscriptionBadge()}
-                    <div className="sidebar-footer-info" style={{ justifyContent: 'space-between', width: '100%', display: 'flex', alignItems: 'center' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                            <div className="user-avatar-wrapper circular" title={userName}>
+            {/* Sidebar Main Content & Collapsible Groups */}
+            <SidebarContent>
+                {/* Group 1: Platform & Commerce */}
+                <SidebarGroup>
+                    <SidebarGroupLabel>Platform</SidebarGroupLabel>
+                    <SidebarMenu>
+                        {canAccess('dashboard') && (
+                            <SidebarMenuItem>
+                                <NavLink to="/" end style={{ width: '100%', textDecoration: 'none' }}>
+                                    {({ isActive }) => (
+                                        <SidebarMenuButton isActive={isActive} title={isCollapsed ? "Dashboard" : ""}>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                                <Icons.Layout size={18} />
+                                                {!isCollapsed && <span>Dashboard</span>}
+                                            </div>
+                                        </SidebarMenuButton>
+                                    )}
+                                </NavLink>
+                            </SidebarMenuItem>
+                        )}
+
+                        {canAccess('inventory') && (
+                            <SidebarMenuItem>
+                                <NavLink to="/inventory" style={{ width: '100%', textDecoration: 'none' }}>
+                                    {({ isActive }) => (
+                                        <SidebarMenuButton isActive={isActive} title={isCollapsed ? "Inventory" : ""}>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                                <Icons.Package size={18} />
+                                                {!isCollapsed && <span>Inventory</span>}
+                                            </div>
+                                        </SidebarMenuButton>
+                                    )}
+                                </NavLink>
+                            </SidebarMenuItem>
+                        )}
+
+                        {canAccess('sales') && (
+                            <SidebarMenuItem>
+                                <NavLink to="/sales" style={{ width: '100%', textDecoration: 'none' }}>
+                                    {({ isActive }) => (
+                                        <SidebarMenuButton isActive={isActive} title={isCollapsed ? "Sales & Billing" : ""}>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                                <Icons.ShoppingCart size={18} />
+                                                {!isCollapsed && <span>Sales & Invoices</span>}
+                                            </div>
+                                        </SidebarMenuButton>
+                                    )}
+                                </NavLink>
+                            </SidebarMenuItem>
+                        )}
+
+                        {canAccess('customers') && (
+                            <SidebarMenuItem>
+                                <NavLink to="/customers" style={{ width: '100%', textDecoration: 'none' }}>
+                                    {({ isActive }) => (
+                                        <SidebarMenuButton isActive={isActive} title={isCollapsed ? "Customers" : ""}>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                                <Icons.Users size={18} />
+                                                {!isCollapsed && <span>Customers</span>}
+                                            </div>
+                                        </SidebarMenuButton>
+                                    )}
+                                </NavLink>
+                            </SidebarMenuItem>
+                        )}
+
+                        {canAccess('purchase') && (
+                            <SidebarMenuItem>
+                                <NavLink to="/purchase" style={{ width: '100%', textDecoration: 'none' }}>
+                                    {({ isActive }) => (
+                                        <SidebarMenuButton isActive={isActive} title={isCollapsed ? "Purchases" : ""}>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                                <Icons.FileText size={18} />
+                                                {!isCollapsed && <span>Purchases & Vendors</span>}
+                                            </div>
+                                        </SidebarMenuButton>
+                                    )}
+                                </NavLink>
+                            </SidebarMenuItem>
+                        )}
+                    </SidebarMenu>
+                </SidebarGroup>
+
+                {/* Group 2: Operations & Workforce */}
+                <SidebarGroup>
+                    <SidebarGroupLabel>Operations</SidebarGroupLabel>
+                    <SidebarMenu>
+                        {canAccess('hr') && (
+                            <SidebarMenuItem>
+                                <NavLink to="/hr-payroll" style={{ width: '100%', textDecoration: 'none' }}>
+                                    {({ isActive }) => (
+                                        <SidebarMenuButton isActive={isActive} title={isCollapsed ? "HR & Payroll" : ""}>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                                <Icons.Briefcase size={18} />
+                                                {!isCollapsed && <span>HR & Payroll</span>}
+                                            </div>
+                                        </SidebarMenuButton>
+                                    )}
+                                </NavLink>
+                            </SidebarMenuItem>
+                        )}
+
+                        {canAccess('automation') && (
+                            <SidebarMenuItem>
+                                <NavLink to="/automation" style={{ width: '100%', textDecoration: 'none' }}>
+                                    {({ isActive }) => (
+                                        <SidebarMenuButton isActive={isActive} title={isCollapsed ? "Automation" : ""}>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                                <Icons.Cpu size={18} />
+                                                {!isCollapsed && <span>AI Workflows</span>}
+                                            </div>
+                                        </SidebarMenuButton>
+                                    )}
+                                </NavLink>
+                            </SidebarMenuItem>
+                        )}
+
+                        {canAccess('billing') && (
+                            <SidebarMenuItem>
+                                <NavLink to="/billing" style={{ width: '100%', textDecoration: 'none' }}>
+                                    {({ isActive }) => (
+                                        <SidebarMenuButton isActive={isActive} title={isCollapsed ? "Billing" : ""}>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                                <Icons.CreditCard size={18} />
+                                                {!isCollapsed && <span>Subscription & Usage</span>}
+                                            </div>
+                                        </SidebarMenuButton>
+                                    )}
+                                </NavLink>
+                            </SidebarMenuItem>
+                        )}
+                    </SidebarMenu>
+                </SidebarGroup>
+
+                {/* Group 3: System & Preferences */}
+                {canAccess('settings') && (
+                    <SidebarGroup>
+                        <SidebarGroupLabel>System</SidebarGroupLabel>
+                        <SidebarMenu>
+                            <SidebarMenuItem>
+                                <NavLink to="/settings" style={{ width: '100%', textDecoration: 'none' }}>
+                                    {({ isActive }) => (
+                                        <SidebarMenuButton isActive={isActive} title={isCollapsed ? "Settings" : ""}>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                                <Icons.Settings size={18} />
+                                                {!isCollapsed && <span>Settings</span>}
+                                            </div>
+                                        </SidebarMenuButton>
+                                    )}
+                                </NavLink>
+                            </SidebarMenuItem>
+                        </SidebarMenu>
+                    </SidebarGroup>
+                )}
+            </SidebarContent>
+
+            {/* Sidebar Bottom Footer (User Staff Card & Popover Menu) */}
+            <SidebarFooter ref={profilePopoverRef} style={{ position: 'relative' }}>
+                <button 
+                    className="sidebar-footer-button"
+                    onClick={() => setShowProfilePopover(!showProfilePopover)}
+                    title="User Profile & Account Settings"
+                >
+                    <div style={{ display: 'flex', alignItems: 'center' }}>
+                        <div className="footer-user-avatar" style={{ overflow: 'hidden', padding: 0 }}>
+                            {userAvatar ? (
+                                <img src={userAvatar} alt="Google Avatar" onError={() => setUserAvatar('')} style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '6px' }} />
+                            ) : (
+                                userInitials
+                            )}
+                        </div>
+                        {!isCollapsed && (
+                            <div className="footer-user-info">
+                                <span className="footer-user-name" style={{ fontWeight: 600 }}>{userRoleTitle}</span>
+                                <span className="footer-user-email">{userDisplayEmail}</span>
+                            </div>
+                        )}
+                    </div>
+                    {!isCollapsed && (
+                        <Icons.ChevronsUpDown size={16} className="footer-chevrons" />
+                    )}
+                </button>
+
+                {showProfilePopover && !isCollapsed && (
+                    <div className="sidebar-profile-popover">
+                        <div className="popover-user-header">
+                            <div className="popover-avatar" style={{ overflow: 'hidden', padding: 0 }}>
                                 {userAvatar ? (
-                                    <img src={userAvatar} alt="Profile" className="user-avatar-img" />
+                                    <img src={userAvatar} alt="Google Avatar" onError={() => setUserAvatar('')} style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '6px' }} />
                                 ) : (
-                                    <div className="user-avatar-placeholder">
-                                        <Icons.User size={20} strokeWidth={2} />
-                                    </div>
+                                    userInitials
                                 )}
                             </div>
-                            <span className="user-name" style={{ fontWeight: 600, fontSize: '13px', color: 'var(--text-primary)' }}>{userName}</span>
+                            <div>
+                                <div className="popover-user-name">{userRoleTitle}</div>
+                                <div className="popover-user-email">{userDisplayEmail}</div>
+                            </div>
                         </div>
-                        <span className="app-version" style={{ fontSize: '11px', color: 'var(--text-secondary)', fontWeight: 500 }}>v{APP_VERSION}</span>
+                        <div className="popover-divider"></div>
+                        <div 
+                            className="popover-menu-item" 
+                            style={{ cursor: 'pointer', color: '#ef4444' }} 
+                            onClick={handleSwitchAccount}
+                        >
+                            <Icons.LogOut size={16} />
+                            <span>Switch Account / Logout</span>
+                        </div>
                     </div>
-                </div>
-            </div>
-        </aside>
+                )}
+            </SidebarFooter>
+
+            <SidebarRail onClick={() => setIsCollapsed(!isCollapsed)} />
+        </RadixSidebar>
     );
 }

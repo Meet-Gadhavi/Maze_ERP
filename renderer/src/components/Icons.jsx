@@ -12,7 +12,8 @@ import {
     Zap, Pause, Play, Database, Archive, ShieldCheck, Lock, ArrowUp,
     PieChart, CloudLightning, BarChart2, ShoppingBag, UserPlus, ArrowUpDown, Tag,
     Phone, Mail, List, KeyRound, Award, CornerDownRight, ArrowUpRight, PlusCircle, MinusCircle,
-    Wallet, RefreshCw, UserX
+    Wallet, RefreshCw, UserX, MapPin, DollarSign, ChevronsUpDown, SquareTerminal, Bot, BookOpen, Folder,
+    Globe, Building, Building2, Store, PartyPopper, UserCheck, Briefcase, UserCog, Contact
 } from 'lucide-react';
 
 // ─────────────────────────────────────────────────────────────
@@ -208,6 +209,28 @@ export const Icons = {
     Wallet:         withMotion(Wallet),
     RefreshCw:      withMotion(RefreshCw),
     UserX:          withMotion(UserX),
+    MapPin:         withMotion(MapPin),
+    DollarSign:     withMotion(DollarSign),
+    ChevronsUpDown: withMotion(ChevronsUpDown),
+    SquareTerminal: withMotion(SquareTerminal),
+    Bot:            withMotion(Bot),
+    BookOpen:       withMotion(BookOpen),
+    Folder:         withMotion(Folder),
+    Globe:          withMotion(Globe),
+    Building:       withMotion(Building),
+    Building2:      withMotion(Building2),
+    Store:          withMotion(Store),
+    PartyPopper:    withMotion(PartyPopper),
+    UserCheck:      withMotion(UserCheck),
+    Briefcase:      withMotion(Briefcase),
+    UserCog:        withMotion(UserCog),
+    Contact:        withMotion(Contact),
+    QuantroLogo:    withMotion(({ size = 20, ...props }) => (
+        <svg width={size} height={size} viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg" {...props}>
+            <path d="M16 5L26 10.77V21.23L16 27L6 21.23V10.77L16 5Z" stroke="currentColor" strokeWidth="2.5" strokeLinejoin="round" />
+            <path d="M16 5V16M16 16L26 10.77M16 16L6 10.77M16 16V27" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" />
+        </svg>
+    )),
 };
 
 export default Icons;

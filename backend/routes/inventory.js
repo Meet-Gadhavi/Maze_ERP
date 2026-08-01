@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const db = require('../db');
+const cloudSyncManager = require('../services/cloudSyncManager');
 
 // M050: Ensure search indexes exist for product lookup performance
 db.ready.then(() => {
@@ -764,6 +765,7 @@ router.post('/', async (req, res, next) => {
         }
 
         const product = db.get('SELECT * FROM products WHERE id = ?', [result.lastInsertRowid]);
+        cloudSyncManager.syncProduct(product);
         res.status(201).json(product);
     } catch (err) {
         next(err);
@@ -856,6 +858,7 @@ router.put('/:id', async (req, res, next) => {
             }
         }
         }); // End transaction
+        if (product) cloudSyncManager.syncProduct(product);
         res.json(product);
         } catch (txnErr) {
             if (txnErr.apiResponse) return;

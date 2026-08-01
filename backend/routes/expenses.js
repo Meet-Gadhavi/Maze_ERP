@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const db = require('../db');
+const cloudSyncManager = require('../services/cloudSyncManager');
 
 // GET /api/expenses - List with optional filters
 router.get('/', async (req, res, next) => {
@@ -69,6 +70,9 @@ router.post('/', async (req, res, next) => {
              VALUES (?, ?, ?, ?, ?, ?)`,
             [category_id || null, Number(amount), date || null, description || '', payment_mode || 'Cash', reference || '']
         );
+
+        const exp = db.get('SELECT * FROM expenses WHERE id = ?', [result.lastInsertRowid]);
+        if (exp) cloudSyncManager.syncExpense(exp);
 
         res.status(201).json({ id: result.lastInsertRowid, message: 'Expense recorded successfully' });
     } catch (err) {

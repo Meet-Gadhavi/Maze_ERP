@@ -199,6 +199,7 @@ const api = {
         }
         return settings;
     },
+    saveSettings: async (data) => api.updateSettings(data),
 
     // Suppliers
     getSuppliers: (params = {}) => {
@@ -544,6 +545,24 @@ const api = {
     getQuotationShareLink: (quotationId) => request(`/quotations/${quotationId}/share-link`),
     createQuotation: (data) => request('/quotations', { method: 'POST', body: data }),
     deleteQuotation: (id) => request(`/quotations/${id}`, { method: 'DELETE' }),
+
+    // --- HR & Payroll ---
+    getEmployees: (storeId) => request(`/hr/employees${storeId ? `?store_id=${storeId}` : ''}`),
+    createEmployee: (data) => request('/hr/employees', { method: 'POST', body: data }),
+    updateEmployee: (id, data) => request(`/hr/employees/${id}`, { method: 'PUT', body: data }),
+    loginStaff: (data) => request('/hr/auth/login', { method: 'POST', body: data }),
+    clockIn: (data) => request('/hr/attendance/clock-in', { method: 'POST', body: data }),
+    clockOut: (data) => request('/hr/attendance/clock-out', { method: 'POST', body: data }),
+    getPayrollHistory: () => request('/hr/payroll'),
+    disbursePayroll: (data) => request('/hr/payroll/disburse', { method: 'POST', body: data }),
+
+    // --- Stores & Branch Profiles ---
+    getStores: () => request('/stores'),
+    createStore: (data) => request('/stores', { method: 'POST', body: data }),
+    pairStoreTerminal: (pair_key) => request('/stores/pair', { method: 'POST', body: { pair_key } }),
+    updateStore: (id, data) => request(`/stores/${id}`, { method: 'PUT', body: data }),
+    deleteStore: (id) => request(`/stores/${id}`, { method: 'DELETE' }),
+    getConsolidatedAnalytics: () => request('/stores/consolidated-analytics'),
 };
 
 export default api;

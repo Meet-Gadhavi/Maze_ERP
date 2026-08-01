@@ -738,6 +738,191 @@ ready = (async () => {
     }
   } catch (err) { }
 
+  // ----------------------------------------------------
+  // Multi-Store & HR-Payroll Database Schema Extensions
+  // ----------------------------------------------------
+
+  // 1. Stores Table
+  db.run(`
+    CREATE TABLE IF NOT EXISTS stores (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      cloud_store_id TEXT UNIQUE,
+      store_code TEXT UNIQUE NOT NULL,
+      parent_store_id INTEGER REFERENCES stores(id),
+      name TEXT NOT NULL,
+      address TEXT,
+      phone TEXT,
+      email TEXT,
+      gstin TEXT,
+      place_of_supply TEXT,
+      invoice_prefix TEXT DEFAULT 'INV-',
+      terms_and_conditions TEXT,
+      bank_details TEXT,
+      upi_vpa TEXT,
+      logo_url TEXT,
+      is_hq INTEGER DEFAULT 0,
+      pair_key_hash TEXT,
+      status TEXT DEFAULT 'ACTIVE',
+      created_at TEXT NOT NULL DEFAULT (datetime('now','localtime')),
+      updated_at TEXT NOT NULL DEFAULT (datetime('now','localtime'))
+    )
+  `);
+
+  // Seed Default HQ Store if empty
+  try {
+    const storeCount = get('SELECT COUNT(*) as count FROM stores').count;
+    if (storeCount === 0) {
+      db.run(`
+        INSERT INTO stores (cloud_store_id, store_code, parent_store_id, name, address, phone, email, is_hq, status)
+        VALUES ('store_hq_001', 'STR-001', NULL, 'Main Warehouse HQ', 'Primary Business Outlet', '+91 8866115898', 'Quantro.Support.63@gmail.com', 1, 'ACTIVE')
+      `);
+    }
+  } catch (err) {
+    console.error('Failed to seed default HQ store:', err);
+  }
+
+  // 2. Employees & Credentials Table
+  db.run(`
+    CREATE TABLE IF NOT EXISTS employees (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      employee_code TEXT UNIQUE NOT NULL,
+      full_name TEXT NOT NULL,
+      email TEXT UNIQUE NOT NULL,
+      phone TEXT,
+      password_hash TEXT NOT NULL,
+      pos_pin_hash TEXT,
+      role TEXT NOT NULL DEFAULT 'CASHIER',
+      assigned_store_ids TEXT DEFAULT '[]',
+      department TEXT,
+      designation TEXT,
+      base_salary REAL DEFAULT 0,
+      allowances REAL DEFAULT 0,
+      deductions REAL DEFAULT 0,
+      status TEXT DEFAULT 'ACTIVE',
+      created_at TEXT NOT NULL DEFAULT (datetime('now','localtime')),
+      updated_at TEXT NOT NULL DEFAULT (datetime('now','localtime'))
+    )
+  `);
+
+  // Seed Default Primary Admin / Owner Employee if empty
+  try {
+    const empCount = get('SELECT COUNT(*) as count FROM employees').count;
+    if (empCount === 0) {
+      const crypto = require('crypto');
+      const defaultHash = crypto.createHash('sha256').update('admin123').digest('hex');
+      const defaultPin = crypto.createHash('sha256').update('1234').digest('hex');
+      db.run(`
+        INSERT INTO employees (employee_code, full_name, email, phone, password_hash, pos_pin_hash, role, assigned_store_ids, department, designation, base_salary, status)
+        VALUES ('EMP-001', 'Primary Admin', 'admin@quantro.app', '+91 8866115898', ?, ?, 'OWNER', '["*"]', 'Executive', 'Business Owner', 100000, 'ACTIVE')
+      `, [defaultHash, defaultPin]);
+    }
+  } catch (err) {
+    console.error('Failed to seed default admin employee:', err);
+  }
+
+  // 3. Employee Attendance & Shifts Table
+  db.run(`
+    CREATE TABLE IF NOT EXISTS employee_attendance (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      employee_id INTEGER NOT NULL REFERENCES employees(id),
+      store_id INTEGER NOT NULL REFERENCES stores(id),
+      clock_in_time TEXT NOT NULL DEFAULT (datetime('now','localtime')),
+      clock_out_time TEXT,
+      starting_cash_drawer REAL DEFAULT 0,
+      ending_cash_drawer REAL DEFAULT 0,
+      notes TEXT
+    )
+  `);
+
+  // 4. Payroll Disbursements Table
+  db.run(`
+    CREATE TABLE IF NOT EXISTS payroll_disbursements (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      payroll_month TEXT NOT NULL,
+      employee_id INTEGER NOT NULL REFERENCES employees(id),
+      store_id INTEGER NOT NULL REFERENCES stores(id),
+      gross_salary REAL NOT NULL,
+      net_salary REAL NOT NULL,
+      status TEXT DEFAULT 'PAID',
+      disbursed_at TEXT NOT NULL DEFAULT (datetime('now','localtime'))
+    )
+  `);
+
+  // 5. Stock Transfers Table
+  db.run(`
+    CREATE TABLE IF NOT EXISTS stock_transfers (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      transfer_number TEXT UNIQUE NOT NULL,
+      from_store_id INTEGER NOT NULL REFERENCES stores(id),
+      to_store_id INTEGER NOT NULL REFERENCES stores(id),
+      requested_by TEXT,
+      approved_by TEXT,
+      status TEXT DEFAULT 'REQUESTED',
+      notes TEXT,
+      created_at TEXT NOT NULL DEFAULT (datetime('now','localtime')),
+      updated_at TEXT NOT NULL DEFAULT (datetime('now','localtime'))
+    )
+  `);
+
+  // 6. Stock Transfer Items Table
+  db.run(`
+    CREATE TABLE IF NOT EXISTS stock_transfer_items (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      transfer_id INTEGER NOT NULL REFERENCES stock_transfers(id) ON DELETE CASCADE,
+      product_id INTEGER NOT NULL,
+      variant_id INTEGER,
+      requested_qty REAL NOT NULL,
+      shipped_qty REAL DEFAULT 0,
+      received_qty REAL DEFAULT 0,
+      unit_cost REAL DEFAULT 0
+    )
+  `);
+
+  // 7. Store Inventory Table
+  db.run(`
+    CREATE TABLE IF NOT EXISTS store_inventory (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      store_id INTEGER NOT NULL REFERENCES stores(id),
+      product_id INTEGER NOT NULL REFERENCES products(id),
+      variant_id INTEGER REFERENCES product_variants(id),
+      stock_quantity REAL DEFAULT 0,
+      min_stock_level REAL DEFAULT 0,
+      max_stock_level REAL DEFAULT 0,
+      rack_location TEXT,
+      updated_at TEXT NOT NULL DEFAULT (datetime('now','localtime')),
+      UNIQUE(store_id, product_id, variant_id)
+    )
+  `);
+
+  // Add store_id column to core tables if missing
+  try {
+    const invCols = db.exec('PRAGMA table_info(invoices)')[0].values.map(v => v[1]);
+    if (!invCols.includes('store_id')) {
+      db.run('ALTER TABLE invoices ADD COLUMN store_id INTEGER DEFAULT 1 REFERENCES stores(id)');
+    }
+  } catch (e) { }
+
+  try {
+    const purCols = db.exec('PRAGMA table_info(purchases)')[0].values.map(v => v[1]);
+    if (!purCols.includes('store_id')) {
+      db.run('ALTER TABLE purchases ADD COLUMN store_id INTEGER DEFAULT 1 REFERENCES stores(id)');
+    }
+  } catch (e) { }
+
+  try {
+    const expCols = db.exec('PRAGMA table_info(expenses)')[0].values.map(v => v[1]);
+    if (!expCols.includes('store_id')) {
+      db.run('ALTER TABLE expenses ADD COLUMN store_id INTEGER DEFAULT 1 REFERENCES stores(id)');
+    }
+  } catch (e) { }
+
+  try {
+    const custCols = db.exec('PRAGMA table_info(customers)')[0].values.map(v => v[1]);
+    if (!custCols.includes('store_id')) {
+      db.run('ALTER TABLE customers ADD COLUMN store_id INTEGER DEFAULT 1 REFERENCES stores(id)');
+    }
+  } catch (e) { }
+
   // Migration: Add invoice_item_id to invoice_returns (for precise variant tracking)
   try {
     const res = db.exec('PRAGMA table_info(invoice_returns)');

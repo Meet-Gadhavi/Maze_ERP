@@ -3,6 +3,58 @@ const router = express.Router();
 const db = require('../db');
 const { z } = require('zod');
 const campaignSyncService = require('../services/email/campaignSyncService');
+const { createClient } = require('@supabase/supabase-js');
+
+const supabaseUrl = 'https://waywrispbgbtnppusikg.supabase.co';
+const supabaseAnonKey = 'sb_publishable_J4ZoFCETv9sy_gh6m9hZlg_qrTElZDV';
+const supabase = createClient(supabaseUrl, supabaseAnonKey);
+
+async function syncCustomerToSupabase(customerRecord) {
+    if (!customerRecord) return;
+    try {
+        await supabase.from('customers').upsert({
+            id: customerRecord.id,
+            store_id: 1,
+            name: customerRecord.name,
+            phone: customerRecord.phone || '',
+            email: customerRecord.email || '',
+            gstin: customerRecord.gstin || '',
+            address: customerRecord.address || '',
+            outstanding_balance: Number(customerRecord.p_credit_balance || customerRecord.outstanding_balance || 0),
+            loyalty_points: Number(customerRecord.loyalty_points || 0)
+        });
+        console.log(`[Supabase Sync] Customer #${customerRecord.id} (${customerRecord.name}) pushed to cloud.`);
+    } catch (e) {
+        console.error('[Supabase Sync] Customer push error:', e.message);
+    }
+}
+
+async function syncAllCustomersToSupabase() {
+    try {
+        await db.ready;
+        const customers = db.all('SELECT * FROM customers');
+        if (customers && customers.length > 0) {
+            const rows = customers.map(c => ({
+                id: c.id,
+                store_id: 1,
+                name: c.name,
+                phone: c.phone || '',
+                email: c.email || '',
+                gstin: c.gstin || '',
+                address: c.address || '',
+                outstanding_balance: Number(c.p_credit_balance || c.outstanding_balance || 0),
+                loyalty_points: Number(c.loyalty_points || 0)
+            }));
+            await supabase.from('customers').upsert(rows);
+            console.log(`[Supabase Sync] Bulk pushed ${rows.length} customers to cloud.`);
+        }
+    } catch (e) {
+        console.error('[Supabase Sync] Bulk customer push error:', e.message);
+    }
+}
+
+// Trigger initial bulk sync
+setTimeout(syncAllCustomersToSupabase, 3000);
 
 // C005: Zod validation schema for customer data
 const customerSchema = z.object({
@@ -102,7 +154,8 @@ router.post('/', async (req, res, next) => {
         const customer = db.get('SELECT * FROM customers WHERE id = ?', [result.lastInsertRowid]);
         res.status(201).json(customer);
 
-        // Sync customer metadata to cloud
+        // Direct push to Supabase customers table & metadata
+        syncCustomerToSupabase(customer);
         campaignSyncService.pushMetadata().catch(err => console.error('[Sync] Failed to push metadata on customer create:', err.message));
     } catch (err) {
         if (err instanceof z.ZodError) {
@@ -130,7 +183,8 @@ router.put('/:id', async (req, res, next) => {
         const customer = db.get('SELECT * FROM customers WHERE id = ?', [Number(req.params.id)]);
         res.json(customer);
 
-        // Sync customer metadata to cloud
+        // Direct push to Supabase customers table & metadata
+        syncCustomerToSupabase(customer);
         campaignSyncService.pushMetadata().catch(err => console.error('[Sync] Failed to push metadata on customer update:', err.message));
     } catch (err) {
         if (err instanceof z.ZodError) {

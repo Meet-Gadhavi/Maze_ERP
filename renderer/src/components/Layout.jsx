@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Sidebar from './Sidebar';
 import KeyboardShortcutsModal from './KeyboardShortcutsModal';
+import { SidebarProvider, SidebarInset } from './ui/sidebar';
 import './Layout.css';
 
 export default function Layout({ children }) {
@@ -22,6 +23,7 @@ export default function Layout({ children }) {
                     case 's': navigate('/sales'); break;
                     case 'c': navigate('/customers'); break;
                     case 'p': navigate('/purchase'); break;
+                    case 'h': navigate('/hr-payroll'); break;
                     case 'e': navigate('/settings'); break;
                     case 'k': setIsShortcutsOpen(prev => !prev); break;
                     default: break;
@@ -46,16 +48,16 @@ export default function Layout({ children }) {
     }, [navigate]);
 
     return (
-        <div className={`layout ${isCollapsed ? 'sidebar-collapsed' : ''}`}>
+        <SidebarProvider defaultOpen={!isCollapsed}>
             <Sidebar isCollapsed={isCollapsed} setIsCollapsed={setIsCollapsed} />
-            <main className="layout-content">
+            <SidebarInset className="layout-content">
                 {children}
-            </main>
+            </SidebarInset>
 
             <KeyboardShortcutsModal 
                 isOpen={isShortcutsOpen} 
                 onClose={() => setIsShortcutsOpen(false)} 
             />
-        </div>
+        </SidebarProvider>
     );
 }

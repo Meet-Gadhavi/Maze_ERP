@@ -1,0 +1,323 @@
+.profile-switcher-container {
+    min-height: 100vh;
+    width: 100vw;
+    background: #f8fafc;
+    color: #0f172a;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 40px 20px;
+    box-sizing: border-box;
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+}
+
+.profile-switcher-header {
+    text-align: center;
+    margin-bottom: 40px;
+    max-width: 600px;
+}
+
+.quantro-brand-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    background: #eff6ff;
+    padding: 6px 18px;
+    border-radius: 20px;
+    margin-bottom: 20px;
+    border: 1px solid #dbeafe;
+}
+
+.quantro-logo-img {
+    width: 24px;
+    height: 24px;
+    object-fit: contain;
+}
+
+.quantro-brand-badge h2 {
+    font-size: 15px;
+    font-weight: 600;
+    margin: 0;
+    color: #2563eb;
+    letter-spacing: 0.5px;
+}
+
+.profile-switcher-title {
+    font-size: 32px;
+    font-weight: 800;
+    margin: 0 0 10px 0;
+    color: #0f172a;
+    letter-spacing: -0.5px;
+}
+
+.profile-switcher-subtitle {
+    font-size: 14px;
+    color: #64748b;
+    line-height: 1.5;
+    margin: 0;
+}
+
+.profile-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 24px;
+    justify-content: center;
+    max-width: 1000px;
+}
+
+.profile-card {
+    position: relative;
+    width: 180px;
+    height: 210px;
+    background: #ffffff;
+    border-radius: 16px;
+    border: 1px solid #e2e8f0;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.04);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 20px 14px;
+    cursor: pointer;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    box-sizing: border-box;
+}
+
+.profile-card:hover {
+    transform: translateY(-6px);
+    background: #ffffff;
+    border-color: #2563eb;
+    box-shadow: 0 12px 24px -4px rgba(37, 99, 235, 0.18);
+}
+
+.profile-remove-btn {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    background: #f1f5f9;
+    border: none;
+    color: #94a3b8;
+    border-radius: 50%;
+    width: 24px;
+    height: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    opacity: 0;
+    transition: opacity 0.2s ease, background 0.2s ease;
+}
+
+.profile-card:hover .profile-remove-btn {
+    opacity: 1;
+}
+
+.profile-remove-btn:hover {
+    background: #ef4444;
+    color: #ffffff;
+}
+
+.profile-avatar-box {
+    width: 72px;
+    height: 72px;
+    border-radius: 50%;
+    overflow: hidden;
+    background: #2563eb;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 14px;
+    border: 3px solid #f8fafc;
+    box-shadow: 0 4px 10px rgba(37, 99, 235, 0.2);
+}
+
+.profile-avatar-img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.profile-avatar-initials {
+    font-size: 24px;
+    font-weight: 700;
+    color: #ffffff;
+}
+
+.profile-name {
+    font-size: 15px;
+    font-weight: 700;
+    color: #0f172a;
+    margin-bottom: 4px;
+    text-align: center;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    width: 100%;
+}
+
+.profile-role-badge {
+    font-size: 11px;
+    font-weight: 600;
+    color: #2563eb;
+    background: #eff6ff;
+    padding: 2px 10px;
+    border-radius: 12px;
+    margin-bottom: 6px;
+    border: 1px solid #dbeafe;
+}
+
+.profile-email {
+    font-size: 11px;
+    color: #64748b;
+    text-align: center;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    width: 100%;
+}
+
+/* Add Profile Card */
+.add-profile-card {
+    background: #ffffff;
+    border: 2px dashed #cbd5e1;
+    box-shadow: none;
+}
+
+.add-profile-card:hover {
+    border-color: #2563eb;
+    background: #eff6ff;
+}
+
+.add-avatar-box {
+    width: 64px;
+    height: 64px;
+    border-radius: 50%;
+    background: #f1f5f9;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #64748b;
+    transition: all 0.2s ease;
+}
+
+.add-profile-card:hover .add-avatar-box {
+    background: #2563eb;
+    color: #ffffff;
+}
+
+/* PIN Modal Styles */
+.pin-modal-content {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 10px 0;
+}
+
+.pin-profile-preview {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    margin-bottom: 20px;
+}
+
+.pin-avatar {
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    background: #2563eb;
+    color: #ffffff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 20px;
+    font-weight: 700;
+    overflow: hidden;
+    margin-bottom: 8px;
+    box-shadow: 0 4px 10px rgba(37, 99, 235, 0.2);
+}
+
+.pin-avatar img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.pin-role {
+    font-size: 12px;
+    font-weight: 600;
+    color: #2563eb;
+    margin-bottom: 2px;
+}
+
+.pin-email {
+    font-size: 12px;
+    color: #64748b;
+}
+
+.pin-dots-display {
+    display: flex;
+    gap: 16px;
+    margin-bottom: 20px;
+}
+
+.pin-dot {
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    border: 2px solid #cbd5e1;
+    transition: all 0.15s ease;
+}
+
+.pin-dot.filled {
+    background: #2563eb;
+    border-color: #2563eb;
+}
+
+.pin-dot.error {
+    border-color: #ef4444;
+    background: #ef4444;
+}
+
+.pin-error-text {
+    font-size: 12px;
+    color: #ef4444;
+    margin-bottom: 14px;
+}
+
+.pin-keypad {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+    width: 240px;
+}
+
+.pin-key {
+    height: 52px;
+    border-radius: 12px;
+    border: 1px solid #e2e8f0;
+    background: #ffffff;
+    font-size: 20px;
+    font-weight: 600;
+    color: #0f172a;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.1s ease;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.03);
+}
+
+.pin-key:hover {
+    background: #f1f5f9;
+}
+
+.pin-key:active {
+    transform: scale(0.95);
+}
+
+.pin-key.secondary {
+    background: #f8fafc;
+    color: #64748b;
+    font-size: 16px;
+}

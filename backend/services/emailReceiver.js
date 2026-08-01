@@ -229,13 +229,17 @@ async function checkUnreadEmails(connection) {
 }
 
 async function markAsRead(gmail, messageId) {
-    await gmail.users.messages.batchModify({
-        userId: 'me',
-        ids: [messageId],
-        resource: {
-            removeLabelIds: ['UNREAD']
-        }
-    });
+    try {
+        await gmail.users.messages.batchModify({
+            userId: 'me',
+            ids: [messageId],
+            resource: {
+                removeLabelIds: ['UNREAD']
+            }
+        });
+    } catch (err) {
+        console.warn(`[Email Receiver] Could not mark message ${messageId} as read: ${err.message}`);
+    }
 }
 
 const emailReceiver = {

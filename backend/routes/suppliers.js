@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const db = require('../db');
+const cloudSyncManager = require('../services/cloudSyncManager');
 
 // GET /api/suppliers
 router.get('/', async (req, res, next) => {
@@ -49,6 +50,7 @@ router.post('/', async (req, res, next) => {
         );
 
         const supplier = db.get('SELECT * FROM suppliers WHERE id = ?', [result.lastInsertRowid]);
+        if (supplier) cloudSyncManager.syncSupplier(supplier);
         res.status(201).json(supplier);
     } catch (err) {
         next(err);
@@ -76,6 +78,7 @@ router.put('/:id', async (req, res, next) => {
         );
 
         const supplier = db.get('SELECT * FROM suppliers WHERE id = ?', [Number(req.params.id)]);
+        if (supplier) cloudSyncManager.syncSupplier(supplier);
         res.json(supplier);
     } catch (err) {
         next(err);

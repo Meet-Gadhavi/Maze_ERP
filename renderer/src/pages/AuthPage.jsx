@@ -7,7 +7,11 @@ import authIllustration from '../assets/images/auth-illustration.png';
 import './AuthPage.css';
 import SButton from '../components/SButton';
 
+import ProfileSwitcherScreen from '../components/ProfileSwitcherScreen';
+import { useAuth } from '../context/AuthContext';
+
 export default function AuthPage() {
+    const [showSwitcher, setShowSwitcher] = useState(true);
     const [isLogin, setIsLogin] = useState(true);
     const [loading, setLoading] = useState(false);
     const [email, setEmail] = useState('');
@@ -15,6 +19,16 @@ export default function AuthPage() {
     const [captchaCode, setCaptchaCode] = useState('');
     const [captchaInput, setCaptchaInput] = useState('');
     const canvasRef = useRef(null);
+
+    const { setCurrentUser } = useAuth();
+
+    const handleProfileSelect = (userObj) => {
+        if (setCurrentUser) {
+            setCurrentUser(userObj);
+        }
+        window.location.hash = '#/';
+        window.location.reload();
+    };
 
     // Function to generate random captcha code
     const generateCaptcha = () => {
@@ -81,8 +95,36 @@ export default function AuthPage() {
 
     // Auto-generate captcha on load and when switching tabs
     useEffect(() => {
-        generateCaptcha();
-    }, [isLogin]);
+        if (!showSwitcher) {
+            generateCaptcha();
+        }
+    }, [isLogin, showSwitcher]);
+
+    if (showSwitcher) {
+        return (
+            <ProfileSwitcherScreen 
+                onSelectProfile={handleProfileSelect}
+                onAddNewAccount={() => setShowSwitcher(false)}
+            />
+        );
+    }
+
+    const saveToProfiles = (userEmail) => {
+        try {
+            const saved = JSON.parse(localStorage.getItem('quantro_saved_profiles') || '[]');
+            const filtered = saved.filter(p => p.email !== userEmail);
+            filtered.unshift({
+                email: userEmail,
+                full_name: userEmail.split('@')[0],
+                role: 'OWNER',
+                avatar_url: '',
+                last_login: new Date().toISOString()
+            });
+            localStorage.setItem('quantro_saved_profiles', JSON.stringify(filtered));
+        } catch (e) {
+            console.error('Save to profiles error:', e);
+        }
+    };
 
     const handleAuth = async (e) => {
         e.preventDefault();
@@ -97,8 +139,9 @@ export default function AuthPage() {
 
         try {
             if (isLogin) {
-                const { error } = await supabase.auth.signInWithPassword({ email, password });
+                const { data, error } = await supabase.auth.signInWithPassword({ email, password });
                 if (error) throw error;
+                saveToProfiles(email);
                 toast.success('Welcome back!');
             } else {
                 const isLocal = window.location.origin.includes('localhost');
@@ -113,6 +156,7 @@ export default function AuthPage() {
                     }
                 });
                 if (error) throw error;
+                saveToProfiles(email);
                 toast.success('Check your email for confirmation link!');
             }
         } catch (error) {
@@ -156,6 +200,24 @@ export default function AuthPage() {
 
             <div className="auth-form-section">
                 <div className={`auth-card auth-fade-active`} key={isLogin ? 'login' : 'signup'}>
+                    <button 
+                        onClick={() => setShowSwitcher(true)}
+                        style={{
+                            background: 'none',
+                            border: 'none',
+                            color: '#2563eb',
+                            fontWeight: 600,
+                            fontSize: '13px',
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '6px',
+                            marginBottom: '16px',
+                            padding: 0
+                        }}
+                    >
+                        <Icons.ArrowLeft size={16} /> Back to Staff Profiles
+                    </button>
                     <div className="auth-header">
                         <h2>{isLogin ? 'Sign In' : 'Create Account'}</h2>
                         <p>{isLogin ? 'Enter your credentials to access your workspace' : `Join ${APP_NAME} and transform your business today`}</p>

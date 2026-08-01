@@ -2,6 +2,55 @@
 
 All notable changes to the Quantro ERP application will be documented here.
 
+## [2.15.0] - 2026-08-01
+### Added
+- ☁️ **Universal Real-Time Supabase Cloud Sync (`cloudSyncManager.js`)**: Built an automated cloud sync manager that syncs all core ERP modules directly to Supabase PostgreSQL cloud tables.
+- 📦 **Inventory Catalog Cloud Sync (`inventory.js`)**: Real-time upserting of products, SKUs, selling/purchase prices, tax rates, and stock levels to `public.products`.
+- 🧾 **Sales & Billing Invoices Cloud Sync (`sales.js`)**: Instant cloud sync for all sales invoices, itemized line items (`public.invoice_items`), payment modes, and financial statuses.
+- 🛒 **Purchases & Suppliers Cloud Sync (`purchases.js` & `suppliers.js`)**: Live synchronization of purchase orders, vendor profiles, and outstanding balances to `public.purchases` and `public.suppliers`.
+- 💰 **Expenses & Staff Profiles Cloud Sync (`expenses.js` & `hrPayroll.js`)**: Automated cloud backup for operational expenses and staff profiles/POS PINs to `public.expenses` and `public.staff_profiles`.
+- 🔄 **Startup Bulk Sync Engine**: Automatic background process that checks and uploads any missing local SQLite records to Supabase 5 seconds after application startup.
+
+---
+
+## [2.14.0] - 2026-08-01
+### Added
+- 👤 **Google Chrome-Style Light Theme Staff Profile Switcher (`ProfileSwitcherScreen.jsx`)**: Designed a clean, modern light-themed profile selection screen (`Who's using Quantro?`) featuring visual profile cards, real Google account profile pictures with initial fallbacks (**GA**), role badges, and an **"+ Add Account"** option.
+- 🔑 **1-Second POS PIN Login**: Staff cards trigger a quick 4-digit PIN modal for 1-second instant profile switching on terminal devices.
+- 🛡️ **Remote Change Inspection & Conflict Resolution (`RemoteChangesModal.jsx`)**: Added a multi-device remote change review modal to inspect laptop or external device modifications with IP address tracking, detailed summary of changes, and **[ Apply & Merge ]** or **[ Discard ]** options.
+- ⚡ **Supabase Delta Cloud Sync Schema (`store_cloud_deltas`)**: Added PostgreSQL tables and indexes to log pending remote updates and active terminal device sessions.
+
+---
+
+## [2.13.0] - 2026-08-01
+### Added
+- 🚪 **Working Switch Account & Real Supabase Signout**: Fixed profile card logout button to execute real `supabase.auth.signOut()`, clear local staff session state, and navigate straight to the Staff Login screen (`/#/auth`).
+- 📧 **Logged-In Email & Role Display**: Sidebar footer profile badge dynamically displays the authenticated user's actual email address and role designation (e.g. `Child Branch Staff` vs `Primary Admin`).
+- 🔒 **Role-Based Tab Access Control**: Enforced strict tab access rules across Cashiers (`Sales`), Inventory Clerks (`Inventory`), Store Managers, Accountants, and Owners.
+- 🖼️ **Quantro Brand Header Logo**: Left brand box in the top store switcher automatically uses uploaded business logo or official Quantro logo; purged text/icon emojis from `All Outlets`.
+- ⚡ **Supabase PostgreSQL Cloud Store Handshake**: Real cloud synchronization and 16-character token verification between Parent HQ and Child Terminals using `public.stores` and `public.store_pairing_tokens`.
+
+---
+
+## [2.12.0] - 2026-08-01
+### Added
+- 🚀 **Interactive Business Onboarding Wizard (`OnboardingModal.jsx`)**: 5-step onboarding flow with a broken/segmented progress bar for initial store setup immediately after login.
+- 🏢 **Parent HQ vs Child Branch Setup**: Step 1 choice between setting up a new primary HQ business account or connecting to a Parent HQ network via a 16-character Branch Pairing Token.
+- 🖼️ **Logo Upload & Branding**: Interactive drag-and-drop Logo Upload Dropzone with instant image preview in Step 5.
+- ⚙️ **Auto-Population of Settings**: All onboarding details (Business Name, GSTIN, Place of Supply, Phone, Email, Logo) automatically populate into SQLite DB settings.
+- 🔌 **Child Branch Disconnect**: Added "Disconnect Branch" button in `Settings > Store Profiles` tab so HQ admins can disconnect or remove child branch terminals at any time.
+- 🎨 **Light Theme Animate UI Radix Sidebar**: Authentic Radix sidebar implementation with clean light palette, top store switcher, distinct Lucide icons, and bottom profile card.
+
+---
+
+## [2.11.0] - 2026-07-31
+### Added
+- 👥 **Dedicated HR & Workforce Payroll Module (`/hr-payroll`)**: Full workforce management suite for employee profiles, credentials, 6-role permission assignments, POS clock-in/out attendance, base salary structures, and 1-click monthly salary disbursements.
+- 🔑 **Staff Email & 4-Digit POS PIN Authentication**: Staff members log in with their work email and password or 4-digit PIN; Quantro automatically opens the exact feature scope permitted for their role.
+- 🏢 **Multi-Store Cloud Sync & Parent-Child System**: 16-character Branch Pairing Tokens to pair child ERP terminals with Parent HQ.
+- ⚙️ **Universal Multi-Branch Stacked Settings UI**: Every settings tab automatically appends stacked configuration cards for each added/paired branch (`Company 1 Parent HQ`, `Branch 2 Child`, etc.).
+- 📍 **Top Header Store Switcher & User Profile Badge**: Quick store branch selector (`STR-001 Main HQ`, `STR-002 Downtown Outlet`, `ALL STORES CONSOLIDATED`) and active staff user profile badge with quick logout.
+
 ---
 
 ## [2.10.68] - 2026-07-26

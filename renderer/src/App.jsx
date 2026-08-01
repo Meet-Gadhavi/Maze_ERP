@@ -15,6 +15,10 @@ import AutomationPage from './pages/AutomationPage';
 import BillingPage from './pages/BillingPage';
 import AuthPage from './pages/AuthPage';
 import CustomerDisplayPage from './pages/CustomerDisplayPage';
+import HRPayrollPage from './pages/HRPayrollPage';
+import OnboardingModal from './components/OnboardingModal';
+import RemoteChangesModal from './components/RemoteChangesModal';
+import { AuthProvider } from './context/AuthContext';
 import api from './api';
 import SButton from './components/SButton';
 
@@ -388,6 +392,36 @@ export default function App() {
 
     const [showRestoreModal, setShowRestoreModal] = useState(false);
     const [restorePath, setRestorePath] = useState(null);
+    const [showOnboarding, setShowOnboarding] = useState(false);
+    const [showRemoteModal, setShowRemoteModal] = useState(false);
+    const [remoteChangeData, setRemoteChangeData] = useState(null);
+
+    useEffect(() => {
+        if (session && isActivated) {
+            const localDone = localStorage.getItem('quantro_onboarding_completed') === '1';
+            if (!localDone) {
+                api.getSettings().then(s => {
+                    if (!s.onboarding_completed || s.onboarding_completed !== '1') {
+                        setShowOnboarding(true);
+                    } else {
+                        localStorage.setItem('quantro_onboarding_completed', '1');
+                        setShowOnboarding(false);
+                    }
+                }).catch(console.error);
+            }
+
+            // Check for remote sync changes from laptop or other terminals
+            const pendingRemote = localStorage.getItem('quantro_pending_remote_changes');
+            if (pendingRemote) {
+                try {
+                    setRemoteChangeData(JSON.parse(pendingRemote));
+                    setShowRemoteModal(true);
+                } catch (e) {
+                    console.error('Remote change parse error:', e);
+                }
+            }
+        }
+    }, [session, isActivated]);
 
     useEffect(() => {
         // Check if previous session was open (crashed/sudden shutdown)
@@ -817,58 +851,76 @@ export default function App() {
                 </div>
             )}
             <HashRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
-                <Toaster 
-                    position="bottom-right" 
-                    expand={true} 
-                    richColors 
-                    closeButton 
-                    theme="light"
-                    toastOptions={{
-                        style: {
-                            borderRadius: '12px',
-                            border: '1px solid #EAECF0',
-                            boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
-                        },
-                    }}
-                />
-                <SessionRecoveryTracker />
-                <RestoreNavigationHelper 
-                    triggerPath={restorePath} 
-                    onNavigated={() => setRestorePath(null)} 
-                />
-                {showRestoreModal && (
-                    <SessionRestoreModal onResolve={handleRestoreAction} />
-                )}
-                {!session ? (
-                    <Routes>
-                        <Route path="/customer-display" element={<CustomerDisplayPage />} />
-                        <Route path="*" element={<AuthPage />} />
-                    </Routes>
-                ) : !isActivated ? (
-                    <ActivationGate 
-                        session={session} 
-                        onActivated={() => setIsActivated(true)} 
+                <AuthProvider>
+                    <Toaster 
+                        position="bottom-right" 
+                        expand={true} 
+                        richColors 
+                        closeButton 
+                        theme="light"
+                        toastOptions={{
+                            style: {
+                                borderRadius: '12px',
+                                border: '1px solid #EAECF0',
+                                boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
+                            },
+                        }}
                     />
-                ) : (
-                    <Routes>
-                        <Route path="/customer-display" element={<CustomerDisplayPage />} />
-                        <Route path="*" element={
-                            <Layout>
-                                <Routes>
-                                    <Route path="/" element={<DashboardPage />} />
-                                    <Route path="/inventory" element={<InventoryPage />} />
-                                    <Route path="/sales" element={<SalesPage />} />
-                                    <Route path="/customers" element={<CustomersPage />} />
-                                    <Route path="/purchase" element={<PurchasePage />} />
-                                    <Route path="/automation" element={<AutomationPage />} />
-                                    <Route path="/billing" element={<BillingPage />} />
-                                    <Route path="/settings" element={<SettingsPage />} />
-                                    <Route path="*" element={<Navigate to="/" replace />} />
-                                </Routes>
-                            </Layout>
-                        } />
-                    </Routes>
-                )}
+                    <SessionRecoveryTracker />
+                    <RestoreNavigationHelper 
+                        triggerPath={restorePath} 
+                        onNavigated={() => setRestorePath(null)} 
+                    />
+                    {showRestoreModal && (
+                        <SessionRestoreModal onResolve={handleRestoreAction} />
+                    )}
+                    {showOnboarding && (
+                        <OnboardingModal isOpen={showOnboarding} onComplete={() => setShowOnboarding(false)} />
+                    )}
+                    <RemoteChangesModal 
+                        open={showRemoteModal} 
+                        onClose={() => setShowRemoteModal(false)}
+                        remoteChangeData={remoteChangeData}
+                        onApplyChanges={() => {
+                            localStorage.removeItem('quantro_pending_remote_changes');
+                            window.location.reload();
+                        }}
+                        onDiscardChanges={() => {
+                            localStorage.removeItem('quantro_pending_remote_changes');
+                        }}
+                    />
+                    {!session ? (
+                        <Routes>
+                            <Route path="/customer-display" element={<CustomerDisplayPage />} />
+                            <Route path="*" element={<AuthPage />} />
+                        </Routes>
+                    ) : !isActivated ? (
+                        <ActivationGate 
+                            session={session} 
+                            onActivated={() => setIsActivated(true)} 
+                        />
+                    ) : (
+                        <Routes>
+                            <Route path="/customer-display" element={<CustomerDisplayPage />} />
+                            <Route path="*" element={
+                                <Layout>
+                                    <Routes>
+                                        <Route path="/" element={<DashboardPage />} />
+                                        <Route path="/inventory" element={<InventoryPage />} />
+                                        <Route path="/sales" element={<SalesPage />} />
+                                        <Route path="/customers" element={<CustomersPage />} />
+                                        <Route path="/purchase" element={<PurchasePage />} />
+                                        <Route path="/hr-payroll" element={<HRPayrollPage />} />
+                                        <Route path="/automation" element={<AutomationPage />} />
+                                        <Route path="/billing" element={<BillingPage />} />
+                                        <Route path="/settings" element={<SettingsPage />} />
+                                        <Route path="*" element={<Navigate to="/" replace />} />
+                                    </Routes>
+                                </Layout>
+                            } />
+                        </Routes>
+                    )}
+                </AuthProvider>
             </HashRouter>
         </AppErrorBoundary>
     );

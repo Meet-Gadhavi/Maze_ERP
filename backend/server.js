@@ -63,6 +63,8 @@ app.use('/api/mazeway', require('./routes/mazeway'));
 app.use('/api/data', dataRoutes);
 app.use('/api/billing', require('./routes/billing'));
 app.use('/api/loyalty', require('./routes/loyalty'));
+app.use('/api/hr', require('./routes/hrPayroll'));
+app.use('/api/stores', require('./routes/stores'));
 app.use('/auth/google', require('./routes/googleAuth'));
 app.use('/auth/whatsapp', require('./routes/whatsappAuth'));
 

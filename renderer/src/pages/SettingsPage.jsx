@@ -10,8 +10,22 @@ import "./SettingsPage.css";
 import Modal from '../components/Modal';
 import SButton from '../components/SButton';
 import Skeleton from '../components/Skeleton';
+import { useAuth } from '../context/AuthContext';
 
 export default function SettingsPage() {
+    const { stores, setStores, isOwner, canManageStores } = useAuth();
+    const [showStoreModal, setShowStoreModal] = useState(false);
+    const [showPairModal, setShowPairModal] = useState(false);
+    const [pairKeyInput, setPairKeyInput] = useState('');
+    const [newBranchForm, setNewBranchForm] = useState({
+        name: '',
+        phone: '',
+        email: '',
+        address: '',
+        gstin: '',
+        place_of_supply: ''
+    });
+    const [createdPairKey, setCreatedPairKey] = useState('');
     const [settings, setSettings] = useState({
         company_name: '',
         address: '',
@@ -751,6 +765,9 @@ export default function SettingsPage() {
                     <button className={`tab-btn ${activeTab === 'profile' ? 'active' : ''}`} onClick={() => setActiveTab('profile')} role="tab" aria-selected={activeTab === 'profile'}>
                         Profile
                     </button>
+                    <button className={`tab-btn ${activeTab === 'store_profiles' ? 'active' : ''}`} onClick={() => setActiveTab('store_profiles')} role="tab" aria-selected={activeTab === 'store_profiles'}>
+                        Store Profiles & Branch Pairing
+                    </button>
                     <button className={`tab-btn ${activeTab === 'business' ? 'active' : ''}`} onClick={() => setActiveTab('business')} role="tab" aria-selected={activeTab === 'business'}>
                         Business & Invoice
                     </button>
@@ -855,35 +872,131 @@ export default function SettingsPage() {
                                     </div>
                                 </div>
 
-                                <div className="settings-divider" style={{ margin: '30px 0 20px 0', borderTop: '1px solid var(--border-light)' }}></div>
-                                
-                                <h3>Account & Session</h3>
-                                <div className="settings-section-card" style={{ border: '1px solid var(--danger-light)', background: 'rgba(255, 59, 48, 0.02)' }}>
-                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                        <div>
-                                            <div style={{ fontWeight: 600, color: 'var(--text-primary)' }}>Sign Out</div>
-                                            <div style={{ fontSize: '13px', color: 'var(--text-tertiary)', marginTop: '4px' }}>Securely log out of your {APP_NAME} account on this device.</div>
-                                        </div>
-                                        <SButton 
-                                            variant="primary" 
-                                            tone="critical"
-                                            style={{ padding: '10px 24px' }}
-                                            onClick={async () => {
-                                                if (confirm('Are you sure you want to log out?')) {
-                                                    document.body.classList.add('logout-transition');
-                                                    setTimeout(async () => {
-                                                        await supabase.auth.signOut();
-                                                        document.body.classList.remove('logout-transition');
-                                                    }, 500);
-                                                }
-                                            }}
-                                        >
-                                            <Icons.LogOut size={16} style={{ marginRight: '8px' }} />
-                                            Logout
-                                        </SButton>
-                                    </div>
-                                </div>
-                            </div>
+                                 {/* Stacked Branch Profiles */}
+                                 {stores.filter(s => !s.is_hq).map(st => (
+                                     <div key={st.id} style={{ marginTop: '24px', paddingTop: '24px', borderTop: '1px dashed #cbd5e1' }}>
+                                         <h4 style={{ fontSize: '14px', color: 'var(--accent)', marginBottom: '12px' }}>
+                                             🏬 Profile & Contact ({st.name} - Child Branch {st.store_code})
+                                         </h4>
+                                         <div className="settings-grid">
+                                             <div className="form-group">
+                                                 <label>Branch Name</label>
+                                                 <input value={st.name} readOnly style={{ background: '#f8fafc' }} />
+                                             </div>
+                                             <div className="form-group">
+                                                 <label>GSTIN</label>
+                                                 <input value={st.gstin || settings.gstin} readOnly style={{ background: '#f8fafc' }} />
+                                             </div>
+                                             <div className="form-group">
+                                                 <label>Branch Phone</label>
+                                                 <input value={st.phone || settings.phone} readOnly style={{ background: '#f8fafc' }} />
+                                             </div>
+                                             <div className="form-group">
+                                                 <label>Branch Email</label>
+                                                 <input value={st.email || settings.email} readOnly style={{ background: '#f8fafc' }} />
+                                             </div>
+                                         </div>
+                                     </div>
+                                 ))}
+
+                                 <div className="settings-divider" style={{ margin: '30px 0 20px 0', borderTop: '1px solid var(--border-light)' }}></div>
+                                 
+                                 <h3>Account & Session</h3>
+                                 <div className="settings-section-card" style={{ border: '1px solid var(--danger-light)', background: 'rgba(255, 59, 48, 0.02)' }}>
+                                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                         <div>
+                                             <div style={{ fontWeight: 600, color: 'var(--text-primary)' }}>Sign Out</div>
+                                             <div style={{ fontSize: '13px', color: 'var(--text-tertiary)', marginTop: '4px' }}>Securely log out of your {APP_NAME} account on this device.</div>
+                                         </div>
+                                         <SButton 
+                                             variant="primary" 
+                                             tone="critical"
+                                             style={{ padding: '10px 24px' }}
+                                             onClick={async () => {
+                                                 if (confirm('Are you sure you want to log out?')) {
+                                                     document.body.classList.add('logout-transition');
+                                                     setTimeout(async () => {
+                                                         await supabase.auth.signOut();
+                                                         document.body.classList.remove('logout-transition');
+                                                     }, 500);
+                                                 }
+                                             }}
+                                         >
+                                             <Icons.LogOut size={16} style={{ marginRight: '8px' }} />
+                                             Logout
+                                         </SButton>
+                                     </div>
+                                 </div>
+                             </div>
+                        )}
+
+                        {activeTab === 'store_profiles' && (
+                             <div className="settings-section-card">
+                                 <h3>Store Profiles & Branch Pairing Tokens</h3>
+                                 <p style={{ color: '#64748b', fontSize: '13px', marginBottom: '20px' }}>
+                                     Manage child outlets, generate 16-character pairing tokens, or connect this terminal to a Parent HQ system.
+                                 </p>
+
+                                 <div style={{ display: 'flex', gap: '12px', marginBottom: '24px' }}>
+                                     {canManageStores && (
+                                         <SButton variant="primary" type="button" onClick={() => setShowStoreModal(true)}>
+                                             <Icons.Plus size={16} /> Add & Pair New Child Branch
+                                         </SButton>
+                                     )}
+                                     <SButton variant="secondary" type="button" onClick={() => setShowPairModal(true)}>
+                                         Connect This Terminal to Parent HQ
+                                     </SButton>
+                                 </div>
+
+                                 <div className="store-list-grid" style={{ display: 'grid', gap: '16px' }}>
+                                     {stores.map(st => (
+                                         <div key={st.id} style={{ background: '#ffffff', padding: '16px', borderRadius: '10px', border: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                             <div>
+                                                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                     <strong style={{ fontSize: '15px' }}>{st.name}</strong>
+                                                     <span style={{ fontSize: '11px', background: st.is_hq ? '#dbeafe' : '#f1f5f9', color: st.is_hq ? '#1d4ed8' : '#475569', padding: '2px 8px', borderRadius: '12px', fontWeight: 700 }}>
+                                                         {st.is_hq ? 'Parent HQ' : `Child Branch (${st.store_code})`}
+                                                     </span>
+                                                 </div>
+                                                 <div style={{ fontSize: '12px', color: '#64748b', marginTop: '4px' }}>
+                                                     {st.address || 'Primary Location'} | Phone: {st.phone || 'N/A'} | GSTIN: {st.gstin || 'Default'}
+                                                 </div>
+                                                 {st.pair_key_hash && (
+                                                     <div style={{ fontSize: '12px', color: '#2563eb', marginTop: '6px', fontWeight: 'bold' }}>
+                                                         Pair Key Token: <code style={{ background: '#eff6ff', padding: '2px 6px', borderRadius: '4px' }}>{st.pair_key_hash}</code>
+                                                     </div>
+                                                 )}
+                                             </div>
+                                             <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                                  <span style={{ fontSize: '11px', background: '#dcfce7', color: '#15803d', padding: '4px 10px', borderRadius: '12px', fontWeight: 'bold' }}>
+                                                      {st.status}
+                                                  </span>
+                                                  {!st.is_hq && canManageStores && (
+                                                      <button 
+                                                          type="button"
+                                                          className="hr-action-btn delete" 
+                                                          style={{ background: '#fef2f2', color: '#ef4444', border: '1px solid #fca5a5', padding: '6px 12px', borderRadius: '8px', cursor: 'pointer', fontSize: '12px', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: '4px' }}
+                                                          onClick={async () => {
+                                                              if (window.confirm(`Are you sure you want to disconnect branch ${st.name}?`)) {
+                                                                  try {
+                                                                      await api.deleteStore(st.id);
+                                                                      toast.success(`Branch ${st.name} disconnected!`);
+                                                                      const storesRes = await api.getStores();
+                                                                      if (storesRes.stores) setStores(storesRes.stores);
+                                                                  } catch (err) {
+                                                                      toast.error(err.message || 'Failed to disconnect branch');
+                                                                  }
+                                                              }
+                                                          }}
+                                                      >
+                                                          <Icons.Trash2 size={13} /> Disconnect Branch
+                                                      </button>
+                                                  )}
+                                              </div>
+                                         </div>
+                                     ))}
+                                 </div>
+                             </div>
                         )}
 
                         {activeTab === 'business' && (
@@ -1946,17 +2059,52 @@ export default function SettingsPage() {
                                         </div>
                                     )}
 
-                                     {/* Timeline Item: v2.10.70 — Full Stateful Session Recovery & Quotations UI */}
+                                     {/* Timeline Item: v2.13.0 — Real Supabase Store Handshake & Google Profile Picture */}
                                      <div style={{ position: 'relative' }}>
                                          <div style={{ position: 'absolute', left: '-22px', top: '4px', width: '12px', height: '12px', borderRadius: '50%', background: 'var(--accent)', border: '2px solid var(--bg-primary)' }}></div>
                                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                             <strong style={{ fontSize: '15px' }}>Version 2.10.70 {updateState.status !== 'available' && '(Latest)'}</strong>
+                                             <strong style={{ fontSize: '15px' }}>Version 2.13.0 {updateState.status !== 'available' && '(Latest)'}</strong>
+                                             <span style={{ fontSize: '11px', color: 'var(--text-tertiary)', background: 'var(--bg-secondary)', padding: '2px 8px', borderRadius: '12px' }}>August 1, 2026</span>
+                                         </div>
+                                         <div style={{ fontSize: '13px', color: 'var(--text-secondary)', marginTop: '8px', lineHeight: 1.6 }}>
+                                              <ul style={{ margin: 0, paddingLeft: '16px' }}>
+                                                  <li><strong>Working Switch Account & Supabase Signout</strong>: Fixed profile card logout button to execute real Supabase signout, clear local staff state, and navigate to the Login screen.</li>
+                                                  <li><strong>Google Profile Picture & Initials Fallback</strong>: Sidebar footer profile badge dynamically displays Google account profile avatars with automatic fallback to computed initials (GA).</li>
+                                                  <li><strong>Role Title & Role-Based Tab Access</strong>: Formatted top profile title to display staff roles (Primary Admin, Store Manager, Cashier) and enforced strict tab locking by role.</li>
+                                                  <li><strong>Quantro Brand Header Logo</strong>: Left brand box in top store switcher automatically uses uploaded business logo or official Quantro logo; purged text/icon emojis from All Outlets.</li>
+                                                  <li><strong>Supabase Cloud Store Handshake</strong>: Real cloud synchronization and 16-character token verification between Parent HQ and Child Terminals using public.stores and public.store_pairing_tokens.</li>
+                                              </ul>
+                                         </div>
+                                     </div>
+
+                                     {/* Timeline Item: v2.12.0 — Business Onboarding Wizard */}
+                                     <div style={{ position: 'relative' }}>
+                                         <div style={{ position: 'absolute', left: '-22px', top: '4px', width: '12px', height: '12px', borderRadius: '50%', background: 'var(--accent)', border: '2px solid var(--bg-primary)' }}></div>
+                                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                             <strong style={{ fontSize: '15px' }}>Version 2.12.0</strong>
+                                             <span style={{ fontSize: '11px', color: 'var(--text-tertiary)', background: 'var(--bg-secondary)', padding: '2px 8px', borderRadius: '12px' }}>August 1, 2026</span>
+                                         </div>
+                                         <div style={{ fontSize: '13px', color: 'var(--text-secondary)', marginTop: '8px', lineHeight: 1.6 }}>
+                                              <ul style={{ margin: 0, paddingLeft: '16px' }}>
+                                                  <li><strong>Interactive Business Onboarding Wizard</strong>: 5-step onboarding flow with progress bar for initial store setup immediately after login.</li>
+                                                  <li><strong>Parent HQ vs Child Branch Setup</strong>: Choice between setting up a primary HQ business account or connecting to a Parent HQ network via 16-character token.</li>
+                                                  <li><strong>Logo Upload & Auto-Population of Settings</strong>: Drag-and-drop Logo Upload with auto-population of all business details into settings.</li>
+                                                  <li><strong>Child Branch Disconnect</strong>: Added Disconnect Branch button in Settings to disconnect or remove child branch terminals at any time.</li>
+                                              </ul>
+                                         </div>
+                                     </div>
+
+                                     {/* Timeline Item: v2.10.70 — Full Stateful Session Recovery & Quotations UI */}
+                                     <div style={{ position: 'relative' }}>
+                                         <div style={{ position: 'absolute', left: '-22px', top: '4px', width: '12px', height: '12px', borderRadius: '50%', background: 'var(--text-tertiary)', border: '2px solid var(--bg-primary)' }}></div>
+                                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                             <strong style={{ fontSize: '15px' }}>Version 2.10.70</strong>
                                              <span style={{ fontSize: '11px', color: 'var(--text-tertiary)', background: 'var(--bg-secondary)', padding: '2px 8px', borderRadius: '12px' }}>July 31, 2026</span>
                                          </div>
                                          <div style={{ fontSize: '13px', color: 'var(--text-secondary)', marginTop: '8px', lineHeight: 1.6 }}>
                                               <ul style={{ margin: 0, paddingLeft: '16px' }}>
-                                                  <li><strong>Full Stateful Session Recovery</strong>: Comprehensive session auto-save & recovery across all ERP pages (Sales, Inventory, Purchase, Customers, Billing, Automation). If power loss or a crash occurs, restoring your session instantly recovers cart items, active steps, customer selections, search inputs, and page states.</li>
-                                                  <li><strong>Quotation Template Real-Time Search</strong>: Added dedicated search bar inside Quotation Templates to quickly filter templates by title or QTN number.</li>
+                                                  <li><strong>Full Stateful Session Recovery</strong>: Comprehensive session auto-save & recovery across all ERP pages (Sales, Inventory, Purchase, Customers, Billing, Automation).</li>
+                                                  <li><strong>Quotation Template Real-Time Search</strong>: Added dedicated search bar inside Quotation Templates to filter templates by title or QTN number.</li>
                                                   <li><strong>Instant Template Auto-Load</strong>: Quotation templates load immediately on initial page mount without requiring tab switches.</li>
                                                   <li><strong>Improved Template Grid Layout</strong>: Quotation templates list updated with pricing on a second line under the title, centered item count badges, and right-aligned Client/Global tags.</li>
                                               </ul>
@@ -1973,8 +2121,8 @@ export default function SettingsPage() {
                                          <div style={{ fontSize: '13px', color: 'var(--text-secondary)', marginTop: '8px', lineHeight: 1.6 }}>
                                               <ul style={{ margin: 0, paddingLeft: '16px' }}>
                                                   <li><strong>Quotation Share Links & Messaging</strong>: Generate secure hosted URLs for quotations with one-click Copy Link, along with editable recipient email and phone fields for Gmail and WhatsApp PDF sending.</li>
-                                                  <li><strong>Quotation Templates Interaction & Layout</strong>: Updated quotation templates to double-click loading, displaying item counts next to titles, and moving `CLIENT` / `GLOBAL` tags to the right end.</li>
-                                                  <li><strong>Automatic Cart & Template Reset</strong>: Going back to the customer list or changing customers automatically deselects active templates and resets cart items to prevent accidental cross-customer data carryover.</li>
+                                                  <li><strong>Quotation Templates Interaction & Layout</strong>: Updated quotation templates to double-click loading, displaying item counts next to titles, and moving CLIENT / GLOBAL tags to the right end.</li>
+                                                  <li><strong>Automatic Cart & Template Reset</strong>: Going back to the customer list or changing customers automatically deselects active templates and resets cart items.</li>
                                                   <li><strong>High-Contrast Quotation Layout</strong>: Enhanced PDF & preview headers with green contrast background, crisp white table headers, centered signature blocks, and company contact details.</li>
                                               </ul>
                                          </div>
@@ -1982,29 +2130,29 @@ export default function SettingsPage() {
 
                                      {/* Timeline Item: v2.10.67 — Wallet Seeding Reset & Warnings */}
                                      <div style={{ position: 'relative' }}>
-                                         <div style={{ position: 'absolute', left: '-22px', top: '4px', width: '12px', height: '12px', borderRadius: '50%', background: 'var(--accent)', border: '2px solid var(--bg-primary)' }}></div>
+                                         <div style={{ position: 'absolute', left: '-22px', top: '4px', width: '12px', height: '12px', borderRadius: '50%', background: 'var(--text-tertiary)', border: '2px solid var(--bg-primary)' }}></div>
                                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                              <strong style={{ fontSize: '15px' }}>Version 2.10.67</strong>
                                              <span style={{ fontSize: '11px', color: 'var(--text-tertiary)', background: 'var(--bg-secondary)', padding: '2px 8px', borderRadius: '12px' }}>July 25, 2026</span>
                                          </div>
                                          <div style={{ fontSize: '13px', color: 'var(--text-secondary)', marginTop: '8px', lineHeight: 1.6 }}>
                                               <ul style={{ margin: 0, paddingLeft: '16px' }}>
-                                                  <li><strong>Forced Legacy Credit Clean-Up</strong>: Automatically resets older free seeded ₹500.00 wallet balances to ₹0.00 in the SQLite database to require manual Razorpay top-ups.</li>
-                                                  <li><strong>Low Credit Warning Banners</strong>: Added visual alerts prompting users to top up early when their prepaid balance drops below ₹50.00.</li>
+                                                  <li><strong>Forced Legacy Credit Clean-Up</strong>: Automatically resets older free seeded wallet balances to zero in SQLite database.</li>
+                                                  <li><strong>Low Credit Warning Banners</strong>: Added visual alerts prompting users to top up early when prepaid balance drops.</li>
                                               </ul>
                                          </div>
                                      </div>
 
                                      {/* Timeline Item: v2.10.66 — Robust Offline Fallback */}
                                      <div style={{ position: 'relative' }}>
-                                         <div style={{ position: 'absolute', left: '-22px', top: '4px', width: '12px', height: '12px', borderRadius: '50%', background: 'var(--accent)', border: '2px solid var(--bg-primary)' }}></div>
+                                         <div style={{ position: 'absolute', left: '-22px', top: '4px', width: '12px', height: '12px', borderRadius: '50%', background: 'var(--text-tertiary)', border: '2px solid var(--bg-primary)' }}></div>
                                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                              <strong style={{ fontSize: '15px' }}>Version 2.10.66</strong>
                                              <span style={{ fontSize: '11px', color: 'var(--text-tertiary)', background: 'var(--bg-secondary)', padding: '2px 8px', borderRadius: '12px' }}>July 25, 2026</span>
                                          </div>
                                          <div style={{ fontSize: '13px', color: 'var(--text-secondary)', marginTop: '8px', lineHeight: 1.6 }}>
                                               <ul style={{ margin: 0, paddingLeft: '16px' }}>
-                                                  <li><strong>Robust Offline Support</strong>: Implemented fallback custom elements for \`s-button\` and \`s-modal\` custom elements, preventing white screen crashes when the app runs without an active internet connection.</li>
+                                                  <li><strong>Robust Offline Support</strong>: Implemented fallback custom elements for buttons and modals, preventing white screen crashes when the app runs offline.</li>
                                               </ul>
                                          </div>
                                      </div>
@@ -3954,6 +4102,117 @@ export default function SettingsPage() {
                     </div>
                 </div>
             </Modal>
+
+            {/* Modal: Add & Pair New Child Branch */}
+            {showStoreModal && (
+                <Modal isOpen={showStoreModal} onClose={() => { setShowStoreModal(false); setCreatedPairKey(''); }} title="Add & Pair New Child Store Branch">
+                    <div style={{ padding: '16px' }}>
+                        {createdPairKey ? (
+                            <div style={{ textAlign: 'center', padding: '20px', background: '#f0fdf4', borderRadius: '12px', border: '1px solid #bbf7d0' }}>
+                                <div style={{ margin: '0 auto 8px auto', width: '48px', height: '48px', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#dcfce7', color: '#16a34a', borderRadius: '50%' }}>
+                                    <Icons.PartyPopper size={24} />
+                                </div>
+                                <h3 style={{ color: '#166534', margin: 0 }}>Child Branch Created!</h3>
+                                <p style={{ fontSize: '13px', color: '#15803d', margin: '8px 0 16px 0' }}>
+                                    Enter this 16-character Pairing Token on the Child ERP terminal to pair it with Parent HQ:
+                                </p>
+                                <div style={{ fontSize: '24px', fontWeight: 'bold', fontFamily: 'monospace', letterSpacing: '2px', background: '#ffffff', padding: '12px 20px', borderRadius: '8px', border: '2px dashed #22c55e', color: '#15803d', display: 'inline-block' }}>
+                                    {createdPairKey}
+                                </div>
+                                <div style={{ marginTop: '20px' }}>
+                                    <SButton variant="primary" onClick={() => { setShowStoreModal(false); setCreatedPairKey(''); }}>Done</SButton>
+                                </div>
+                            </div>
+                        ) : (
+                            <form onSubmit={async (e) => {
+                                e.preventDefault();
+                                try {
+                                    const res = await api.createStore(newBranchForm);
+                                    if (res.pair_key) {
+                                        setCreatedPairKey(res.pair_key);
+                                        toast.success(`Child branch ${newBranchForm.name} created!`);
+                                        const storesRes = await api.getStores();
+                                        if (storesRes.stores) setStores(storesRes.stores);
+                                    }
+                                } catch (err) {
+                                    toast.error(err.message || 'Failed to create branch');
+                                }
+                            }}>
+                                <div className="form-group" style={{ marginBottom: '12px' }}>
+                                    <label>Branch Name *</label>
+                                    <input type="text" required value={newBranchForm.name} onChange={e => setNewBranchForm({ ...newBranchForm, name: e.target.value })} placeholder="e.g. Quantro Outlet - Downtown" />
+                                </div>
+                                <div className="form-group" style={{ marginBottom: '12px' }}>
+                                    <label>Address</label>
+                                    <input type="text" value={newBranchForm.address} onChange={e => setNewBranchForm({ ...newBranchForm, address: e.target.value })} placeholder="45 MG Road, Bangalore" />
+                                </div>
+                                <div style={{ display: 'flex', gap: '12px', marginBottom: '12px' }}>
+                                    <div className="form-group" style={{ flex: 1 }}>
+                                        <label>Branch Phone</label>
+                                        <input type="text" value={newBranchForm.phone} onChange={e => setNewBranchForm({ ...newBranchForm, phone: e.target.value })} placeholder="+91 98765 43210" />
+                                    </div>
+                                    <div className="form-group" style={{ flex: 1 }}>
+                                        <label>Branch Email</label>
+                                        <input type="email" value={newBranchForm.email} onChange={e => setNewBranchForm({ ...newBranchForm, email: e.target.value })} placeholder="downtown@quantro.app" />
+                                    </div>
+                                </div>
+                                <div style={{ display: 'flex', gap: '12px', marginBottom: '20px' }}>
+                                    <div className="form-group" style={{ flex: 1 }}>
+                                        <label>Branch GSTIN</label>
+                                        <input type="text" value={newBranchForm.gstin} onChange={e => setNewBranchForm({ ...newBranchForm, gstin: e.target.value })} placeholder="24AAAAA0000A1Z5" />
+                                    </div>
+                                    <div className="form-group" style={{ flex: 1 }}>
+                                        <label>Place of Supply</label>
+                                        <input type="text" value={newBranchForm.place_of_supply} onChange={e => setNewBranchForm({ ...newBranchForm, place_of_supply: e.target.value })} placeholder="09-Uttar Pradesh" />
+                                    </div>
+                                </div>
+                                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px' }}>
+                                    <SButton variant="secondary" type="button" onClick={() => setShowStoreModal(false)}>Cancel</SButton>
+                                    <SButton variant="primary" type="submit">Generate 16-Char Pair Token</SButton>
+                                </div>
+                            </form>
+                        )}
+                    </div>
+                </Modal>
+            )}
+
+            {/* Modal: Connect Terminal via 16-Char Pair Key */}
+            {showPairModal && (
+                <Modal isOpen={showPairModal} onClose={() => setShowPairModal(false)} title="Connect Terminal to Parent HQ System">
+                    <form onSubmit={async (e) => {
+                        e.preventDefault();
+                        try {
+                            const res = await api.pairStoreTerminal(pairKeyInput);
+                            if (res.store) {
+                                localStorage.setItem('quantro_is_child_terminal', 'true');
+                                toast.success(`Terminal paired with ${res.store.name}!`);
+                                setShowPairModal(false);
+                            }
+                        } catch (err) {
+                            toast.error(err.message || 'Pairing failed');
+                        }
+                    }} style={{ padding: '16px' }}>
+                        <p style={{ color: '#64748b', fontSize: '13px', marginBottom: '16px' }}>
+                            Enter the 16-character Branch Pairing Token generated by Parent HQ Admin to align this terminal as a Child ERP instance.
+                        </p>
+                        <div className="form-group" style={{ marginBottom: '20px' }}>
+                            <label>16-Character Pairing Token *</label>
+                            <input 
+                                type="text" 
+                                required 
+                                value={pairKeyInput}
+                                onChange={e => setPairKeyInput(e.target.value)}
+                                placeholder="e.g. STR-98F1-44A2-KL89"
+                                style={{ fontFamily: 'monospace', fontSize: '16px', letterSpacing: '1px', textAlign: 'center' }}
+                            />
+                        </div>
+                        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px' }}>
+                            <SButton variant="secondary" type="button" onClick={() => setShowPairModal(false)}>Cancel</SButton>
+                            <SButton variant="primary" type="submit">Verify & Align Terminal</SButton>
+                        </div>
+                    </form>
+                </Modal>
+            )}
 
         </div>
     );
