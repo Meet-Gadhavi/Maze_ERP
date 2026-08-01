@@ -100,6 +100,9 @@ export default function OnboardingModal({ isOpen, onComplete }) {
         setLoading(true);
         try {
             localStorage.setItem('quantro_onboarding_completed', '1');
+            if (form.email) {
+                localStorage.setItem(`quantro_onboarding_completed_${form.email.trim().toLowerCase()}`, '1');
+            }
 
             // 1. Save business profile settings
             await api.updateSettings({

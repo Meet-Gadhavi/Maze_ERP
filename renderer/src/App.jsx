@@ -397,17 +397,24 @@ export default function App() {
     const [remoteChangeData, setRemoteChangeData] = useState(null);
 
     useEffect(() => {
-        if (session && isActivated) {
-            const localDone = localStorage.getItem('quantro_onboarding_completed') === '1';
-            if (!localDone) {
+        if (isActivated) {
+            const currentEmail = session?.user?.email || JSON.parse(localStorage.getItem('quantro_auth_user') || '{}')?.email || '';
+            const userOnboardingKey = currentEmail ? `quantro_onboarding_completed_${currentEmail.toLowerCase()}` : 'quantro_onboarding_completed';
+            const isUserDone = localStorage.getItem(userOnboardingKey) === '1';
+
+            if (!isUserDone) {
                 api.getSettings().then(s => {
-                    if (!s.onboarding_completed || s.onboarding_completed !== '1') {
+                    if (!s || !s.onboarding_completed || s.onboarding_completed !== '1') {
                         setShowOnboarding(true);
                     } else {
-                        localStorage.setItem('quantro_onboarding_completed', '1');
+                        if (currentEmail) localStorage.setItem(userOnboardingKey, '1');
                         setShowOnboarding(false);
                     }
-                }).catch(console.error);
+                }).catch(() => {
+                    setShowOnboarding(true);
+                });
+            } else {
+                setShowOnboarding(false);
             }
 
             // Check for remote sync changes from laptop or other terminals

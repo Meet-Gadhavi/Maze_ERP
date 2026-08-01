@@ -2,6 +2,12 @@
 
 All notable changes to the Quantro ERP application will be documented here.
 
+## [2.15.5] - 2026-08-01
+### Added
+- 🚀 **Per-Account Onboarding Evaluation (`App.jsx` & `OnboardingModal.jsx`)**: Updated onboarding trigger logic to evaluate onboarding per user account email (`quantro_onboarding_completed_${userEmail}`), ensuring the business onboarding modal pops up for every newly registered email account.
+
+---
+
 ## [2.15.4] - 2026-08-01
 ### Added
 - 🔓 **Admin Direct PIN Bypass (`ProfileSwitcherScreen.jsx`)**: Admin / Owner profiles now log directly back into the Dashboard without entering a PIN, reserving 4-digit PIN access strictly for staff/employee profiles.
