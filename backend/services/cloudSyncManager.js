@@ -76,7 +76,28 @@ async function syncInvoice(invoice, items = []) {
     }
 }
 
-// 3. SUPPLIERS & VENDORS
+// 3. CUSTOMERS
+async function syncCustomer(cust) {
+    if (!cust) return;
+    try {
+        await supabase.from('customers').upsert({
+            id: cust.id,
+            store_id: 1,
+            name: cust.name,
+            phone: cust.phone || '',
+            email: cust.email || '',
+            gstin: cust.gstin || '',
+            address: cust.address || '',
+            outstanding_balance: Number(cust.p_credit_balance || cust.outstanding_balance || 0),
+            loyalty_points: Number(cust.loyalty_points || 0)
+        });
+        console.log(`[Cloud Sync] Customer #${cust.id} (${cust.name}) synced.`);
+    } catch (err) {
+        console.error('[Cloud Sync] Customer sync failed:', err.message);
+    }
+}
+
+// 4. SUPPLIERS & VENDORS
 async function syncSupplier(supp) {
     if (!supp) return;
     try {
@@ -95,7 +116,7 @@ async function syncSupplier(supp) {
     }
 }
 
-// 4. PURCHASES
+// 5. PURCHASES
 async function syncPurchase(pur) {
     if (!pur) return;
     try {
@@ -116,7 +137,7 @@ async function syncPurchase(pur) {
     }
 }
 
-// 5. EXPENSES
+// 6. EXPENSES
 async function syncExpense(exp) {
     if (!exp) return;
     try {
@@ -135,7 +156,7 @@ async function syncExpense(exp) {
     }
 }
 
-// 6. STAFF & PROFILES
+// 7. STAFF & PROFILES
 async function syncStaff(staff) {
     if (!staff || !staff.email) return;
     try {
@@ -155,7 +176,7 @@ async function syncStaff(staff) {
     }
 }
 
-// 7. APP & BUSINESS SETTINGS
+// 8. APP & BUSINESS SETTINGS
 async function syncSettings(settingsObj) {
     if (!settingsObj) return;
     try {
@@ -179,11 +200,12 @@ async function syncSettings(settingsObj) {
 
 /**
  * Full Bulk Sync across all local SQLite tables to Supabase Cloud
+ * Automatically runs on app startup for existing users with local data.
  */
 async function fullBulkSyncAllEntities() {
     try {
         await db.ready;
-        console.log('[Cloud Sync] Starting Full System Cloud Synchronization...');
+        console.log('[Cloud Sync] Starting Full System Cloud Synchronization for Local Data...');
 
         // Products
         const products = db.all('SELECT * FROM products');
@@ -191,8 +213,14 @@ async function fullBulkSyncAllEntities() {
             for (const p of products) await syncProduct(p);
         }
 
+        // Customers
+        const customers = db.all('SELECT * FROM customers');
+        if (customers && customers.length > 0) {
+            for (const c of customers) await syncCustomer(c);
+        }
+
         // Invoices
-        const invoices = db.all('SELECT * FROM invoices LIMIT 500');
+        const invoices = db.all('SELECT * FROM invoices');
         if (invoices && invoices.length > 0) {
             for (const inv of invoices) {
                 const items = db.all('SELECT * FROM invoice_items WHERE invoice_id = ?', [inv.id]);
@@ -207,13 +235,13 @@ async function fullBulkSyncAllEntities() {
         }
 
         // Purchases
-        const purchases = db.all('SELECT * FROM purchases LIMIT 500');
+        const purchases = db.all('SELECT * FROM purchases');
         if (purchases && purchases.length > 0) {
             for (const pur of purchases) await syncPurchase(pur);
         }
 
         // Expenses
-        const expenses = db.all('SELECT * FROM expenses LIMIT 500');
+        const expenses = db.all('SELECT * FROM expenses');
         if (expenses && expenses.length > 0) {
             for (const exp of expenses) await syncExpense(exp);
         }
@@ -223,6 +251,16 @@ async function fullBulkSyncAllEntities() {
             const staffList = db.all('SELECT * FROM employees');
             if (staffList && staffList.length > 0) {
                 for (const st of staffList) await syncStaff(st);
+            }
+        } catch (_) {}
+
+        // App Settings
+        try {
+            const settingsRows = db.all('SELECT key, value FROM settings');
+            if (settingsRows && settingsRows.length > 0) {
+                const settingsMap = {};
+                settingsRows.forEach(r => { settingsMap[r.key] = r.value; });
+                await syncSettings(settingsMap);
             }
         } catch (_) {}
 
@@ -239,6 +277,7 @@ module.exports = {
     supabase,
     syncProduct,
     syncInvoice,
+    syncCustomer,
     syncSupplier,
     syncPurchase,
     syncExpense,

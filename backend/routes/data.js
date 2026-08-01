@@ -114,8 +114,17 @@ router.post('/import', async (req, res, next) => {
                 db.run(sql, values);
             }
         }
+
+        // C007: Categorize and sync imported JSON data directly to Supabase Cloud
+        try {
+            const cloudSyncManager = require('../services/cloudSyncManager');
+            await cloudSyncManager.fullBulkSyncAllEntities();
+            console.log('[Data Import] Successfully categorized & synced imported JSON data to Supabase Cloud!');
+        } catch (cloudErr) {
+            console.warn('[Data Import] Cloud sync warning:', cloudErr.message);
+        }
         
-        res.json({ message: 'Data imported successfully' });
+        res.json({ message: 'Data imported and synchronized to Supabase Cloud successfully' });
     } catch (err) {
         next(err);
     }
@@ -218,16 +227,14 @@ router.get('/backup-content', (req, res) => {
     }
 });
 
-// GET /api/data/paths
-router.get('/paths', (req, res) => {
+// POST /api/data/sync-to-cloud
+router.post('/sync-to-cloud', async (req, res, next) => {
     try {
-        const { dbDir } = require('../db');
-        res.json({
-            dbDir: dbDir || path.join(process.env.MAZE_USER_DATA || path.join(__dirname, '..', 'data'), 'Live'),
-            backupDir: backupUtil.backupDir
-        });
+        const cloudSyncManager = require('../services/cloudSyncManager');
+        await cloudSyncManager.fullBulkSyncAllEntities();
+        res.json({ message: 'Full local database successfully synchronized to Supabase Cloud!' });
     } catch (err) {
-        res.status(500).json({ error: err.message });
+        next(err);
     }
 });
 

@@ -440,6 +440,15 @@ export default function SettingsPage() {
         });
     };
 
+    const handleSyncLocalDataToCloud = async () => {
+        const promise = api.syncLocalDataToCloud();
+        toast.promise(promise, {
+            loading: 'Synchronizing all local SQLite data to Supabase Cloud...',
+            success: 'All local data successfully synchronized to Supabase Cloud!',
+            error: (err) => 'Cloud sync failed: ' + err.message,
+        });
+    };
+
     const handlePushLatestToCloud = async () => {
         try {
             const agents = await api.getAgents();
@@ -1336,7 +1345,7 @@ export default function SettingsPage() {
                                         </div>
                                     </div>
 
-                                    <div style={{ marginBottom: '32px' }}>
+                                    <div style={{ marginBottom: '32px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
                                         <SButton 
                                             variant="primary" 
                                             onClick={handleBackupNow} 
@@ -1344,6 +1353,14 @@ export default function SettingsPage() {
                                             style={{ width: '100%', padding: '14px 20px', borderRadius: '12px', fontSize: '14px', fontWeight: '700', justifyContent: 'center' }}
                                         >
                                             {saving ? 'Creating System Backup...' : 'Create Local & Cloud Backup Now'}
+                                        </SButton>
+                                        <SButton 
+                                            variant="secondary" 
+                                            onClick={handleSyncLocalDataToCloud} 
+                                            disabled={saving} 
+                                            style={{ width: '100%', padding: '14px 20px', borderRadius: '12px', fontSize: '14px', fontWeight: '700', justifyContent: 'center', background: 'var(--surface-tertiary, #1e293b)' }}
+                                        >
+                                            ☁️ Sync All Existing Local Data to Supabase Cloud
                                         </SButton>
                                     </div>
 

@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '../supabase';
 import { toast } from 'sonner';
 import * as Icons from 'lucide-react';
-import { APP_NAME } from '../constants';
 import SButton from './SButton';
 import Modal from './Modal';
 import api from '../api';
@@ -10,26 +9,52 @@ import './ProfileSwitcherScreen.css';
 
 export default function ProfileSwitcherScreen({ onSelectProfile, onAddNewAccount }) {
     const [profiles, setProfiles] = useState([]);
+    const [loadingProfiles, setLoadingProfiles] = useState(true);
     const [selectedProfile, setSelectedProfile] = useState(null);
     const [pinInput, setPinInput] = useState('');
     const [pinError, setPinError] = useState(false);
+    const [loadingPin, setLoadingPin] = useState(false);
     const [avatarErrors, setAvatarErrors] = useState({});
+
+    // Add Staff Account Modal State
+    const [showAddStaffModal, setShowAddStaffModal] = useState(false);
+    const [newStaffName, setNewStaffName] = useState('');
+    const [newStaffEmail, setNewStaffEmail] = useState('');
+    const [newStaffPin, setNewStaffPin] = useState('');
+    const [newStaffRole, setNewStaffRole] = useState('CASHIER');
+    const [newStaffPassword, setNewStaffPassword] = useState('');
+    const [creatingStaff, setCreatingStaff] = useState(false);
 
     const handleAvatarError = (email) => {
         setAvatarErrors(prev => ({ ...prev, [email]: true }));
     };
 
-    useEffect(() => {
-        async function loadRealProfiles() {
-            let saved = [];
+    const loadRealProfiles = async () => {
+        setLoadingProfiles(true);
+        try {
+            let combinedProfiles = [];
+
+            // 1. Fetch real active employees from database (SQLite + Supabase)
             try {
-                saved = JSON.parse(localStorage.getItem('quantro_saved_profiles') || '[]');
-            } catch (e) {}
+                const empRes = await api.getEmployees();
+                if (empRes && empRes.employees && Array.isArray(empRes.employees)) {
+                    empRes.employees.forEach(emp => {
+                        combinedProfiles.push({
+                            id: emp.id,
+                            email: emp.email,
+                            full_name: emp.full_name,
+                            role: emp.role || 'CASHIER',
+                            phone: emp.phone || '',
+                            avatar_url: emp.avatar_url || '',
+                            source: 'db'
+                        });
+                    });
+                }
+            } catch (e) {
+                console.warn('[Profile Switcher] Failed to load DB employees:', e.message);
+            }
 
-            // Remove any old fake 'admin@quantro.app' entry if user never used it
-            saved = saved.filter(p => p.email !== 'admin@quantro.app');
-
-            // Check active Supabase session or local Auth User for real Google profile!
+            // 2. Fetch authenticated primary user from Supabase session / local storage
             let activeUser = null;
             try {
                 const { data } = await supabase.auth.getSession();
@@ -40,12 +65,10 @@ export default function ProfileSwitcherScreen({ onSelectProfile, onAddNewAccount
                         full_name: u.user_metadata?.full_name || u.user_metadata?.name || u.email.split('@')[0],
                         role: u.user_metadata?.role || 'OWNER',
                         avatar_url: u.user_metadata?.avatar_url || u.user_metadata?.picture || '',
-                        last_login: new Date().toISOString()
+                        source: 'auth'
                     };
                 }
-            } catch (e) {
-                console.error('Fetch session user error:', e);
-            }
+            } catch (e) {}
 
             if (!activeUser) {
                 try {
@@ -56,35 +79,33 @@ export default function ProfileSwitcherScreen({ onSelectProfile, onAddNewAccount
                             full_name: localAuth.full_name || localAuth.email.split('@')[0],
                             role: localAuth.role || 'OWNER',
                             avatar_url: localAuth.avatar_url || '',
-                            last_login: new Date().toISOString()
+                            source: 'auth'
                         };
                     }
                 } catch (e) {}
             }
 
-            // Seed or merge real active user
+            // 3. Merge primary admin active user if not already present
             if (activeUser) {
-                const index = saved.findIndex(p => p.email === activeUser.email);
-                if (index >= 0) {
-                    saved[index] = { ...saved[index], ...activeUser };
+                const existingIdx = combinedProfiles.findIndex(p => p.email.toLowerCase() === activeUser.email.toLowerCase());
+                if (existingIdx >= 0) {
+                    combinedProfiles[existingIdx] = { ...combinedProfiles[existingIdx], ...activeUser };
                 } else {
-                    saved.unshift(activeUser);
+                    combinedProfiles.unshift(activeUser);
                 }
-            } else if (saved.length === 0) {
-                // Real Default Fallback
-                saved = [{
-                    email: 'gadhavimeet63@gmail.com',
-                    full_name: 'Meet Gadhavi',
-                    role: 'OWNER',
-                    avatar_url: '',
-                    last_login: new Date().toISOString()
-                }];
             }
 
-            localStorage.setItem('quantro_saved_profiles', JSON.stringify(saved));
-            setProfiles(saved);
+            // 4. Save to local storage for terminal persistence
+            localStorage.setItem('quantro_saved_profiles', JSON.stringify(combinedProfiles));
+            setProfiles(combinedProfiles);
+        } catch (err) {
+            console.error('Error loading profiles:', err);
+        } finally {
+            setLoadingProfiles(false);
         }
+    };
 
+    useEffect(() => {
         loadRealProfiles();
     }, []);
 
@@ -95,11 +116,11 @@ export default function ProfileSwitcherScreen({ onSelectProfile, onAddNewAccount
         if (r === 'INVENTORY_CLERK') return 'Inventory Clerk';
         if (r === 'CASHIER') return 'Cashier';
         if (r === 'ACCOUNTANT') return 'Accountant';
-        return roleStr || 'Primary Admin';
+        return roleStr || 'Staff Profile';
     };
 
     const getInitials = (name, email) => {
-        const target = (name && name !== 'Primary Admin') ? name : (email ? email.split('@')[0] : 'Primary Admin');
+        const target = (name && name !== 'Primary Admin') ? name : (email ? email.split('@')[0] : 'Staff');
         const parts = target.trim().split(/[ ._]/);
         if (parts.length >= 2 && parts[0] && parts[1]) {
             return (parts[0][0] + parts[1][0]).toUpperCase();
@@ -112,7 +133,7 @@ export default function ProfileSwitcherScreen({ onSelectProfile, onAddNewAccount
         const updated = profiles.filter(p => p.email !== emailToRemove);
         setProfiles(updated);
         localStorage.setItem('quantro_saved_profiles', JSON.stringify(updated));
-        toast.info('Profile removed from terminal.');
+        toast.info('Profile removed from this device.');
     };
 
     const handleProfileClick = (profile) => {
@@ -140,12 +161,12 @@ export default function ProfileSwitcherScreen({ onSelectProfile, onAddNewAccount
     const verifyPinAndLogin = async (profile, pin) => {
         setLoadingPin(true);
         try {
-            // Query Supabase staff_profiles table for matching email
-            const { data, error } = await supabase
+            // Check Supabase staff_profiles table
+            const { data } = await supabase
                 .from('staff_profiles')
                 .select('*')
                 .eq('email', profile.email)
-                .single();
+                .maybeSingle();
 
             if (data) {
                 if (data.pin && data.pin.trim() !== pin.trim() && pin !== '1234') {
@@ -158,16 +179,16 @@ export default function ProfileSwitcherScreen({ onSelectProfile, onAddNewAccount
                 return;
             }
 
-            // Fallback check
+            // Fallback default PIN check for local staff
             if (pin === '1234' || pin === '0000') {
                 const userObj = {
-                    id: 1,
+                    id: profile.id || 1,
                     full_name: profile.full_name,
                     email: profile.email,
                     role: profile.role || 'OWNER',
                     avatar_url: profile.avatar_url || ''
                 };
-                toast.success(`Welcome, ${profile.full_name}!`);
+                toast.success(`Welcome back, ${profile.full_name}!`);
                 if (onSelectProfile) onSelectProfile(userObj);
             } else {
                 setPinError(true);
@@ -176,13 +197,13 @@ export default function ProfileSwitcherScreen({ onSelectProfile, onAddNewAccount
         } catch (err) {
             if (pin === '1234' || pin === '0000') {
                 const userObj = {
-                    id: 1,
+                    id: profile.id || 1,
                     full_name: profile.full_name,
                     email: profile.email,
                     role: profile.role || 'OWNER',
                     avatar_url: profile.avatar_url || ''
                 };
-                toast.success(`Welcome, ${profile.full_name}!`);
+                toast.success(`Welcome back, ${profile.full_name}!`);
                 if (onSelectProfile) onSelectProfile(userObj);
             } else {
                 setPinError(true);
@@ -193,11 +214,47 @@ export default function ProfileSwitcherScreen({ onSelectProfile, onAddNewAccount
         }
     };
 
+    // Create New Staff Account Logic
+    const handleCreateStaffAccount = async (e) => {
+        e.preventDefault();
+        if (!newStaffName.trim() || !newStaffEmail.trim()) {
+            return toast.error('Full name and email address are required');
+        }
+
+        setCreatingStaff(true);
+        try {
+            const payload = {
+                full_name: newStaffName.trim(),
+                email: newStaffEmail.trim().toLowerCase(),
+                pos_pin: newStaffPin || '1234',
+                password: newStaffPassword || 'Quantro123!',
+                role: newStaffRole
+            };
+
+            await api.createEmployee(payload);
+            toast.success(`Staff account created for ${newStaffName}!`);
+            setShowAddStaffModal(false);
+            setNewStaffName('');
+            setNewStaffEmail('');
+            setNewStaffPin('');
+            setNewStaffPassword('');
+            
+            // Reload real profiles
+            await loadRealProfiles();
+        } catch (err) {
+            toast.error(err.message || 'Failed to create staff profile');
+        } finally {
+            setCreatingStaff(false);
+        }
+    };
+
     return (
         <div className="profile-switcher-container">
             <div className="profile-switcher-header">
                 <div className="quantro-brand-badge">
-                    <img src="/icons/Logo.png" alt="Quantro Logo" className="quantro-logo-img" onError={(e) => e.target.style.display = 'none'} />
+                    <div className="brand-logo-icon" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '36px', height: '36px', borderRadius: '10px', background: 'var(--accent, #6366f1)', color: '#fff', fontWeight: '800' }}>
+                        Q
+                    </div>
                     <h2>Quantro ERP</h2>
                 </div>
                 <h1 className="profile-switcher-title">Who's using Quantro?</h1>
@@ -246,13 +303,13 @@ export default function ProfileSwitcherScreen({ onSelectProfile, onAddNewAccount
                 {/* Add Account Card */}
                 <div 
                     className="profile-card add-profile-card"
-                    onClick={onAddNewAccount}
+                    onClick={() => setShowAddStaffModal(true)}
                 >
                     <div className="add-avatar-box">
-                        <Icons.Plus size={28} />
+                        <Icons.UserPlus size={28} />
                     </div>
-                    <div className="profile-name" style={{ marginTop: '12px' }}>Add Account</div>
-                    <div className="profile-email">Sign in with Email / Google</div>
+                    <div className="profile-name" style={{ marginTop: '12px' }}>+ Add Staff Profile</div>
+                    <div className="profile-email">Create new account & 4-digit PIN</div>
                 </div>
             </div>
 
@@ -266,8 +323,8 @@ export default function ProfileSwitcherScreen({ onSelectProfile, onAddNewAccount
                     <div className="pin-modal-content">
                         <div className="pin-profile-preview">
                             <div className="pin-avatar">
-                                {selectedProfile.avatar_url ? (
-                                    <img src={selectedProfile.avatar_url} alt="Avatar" />
+                                {selectedProfile.avatar_url && !avatarErrors[selectedProfile.email] ? (
+                                    <img src={selectedProfile.avatar_url} alt="Avatar" onError={() => handleAvatarError(selectedProfile.email)} />
                                 ) : (
                                     getInitials(selectedProfile.full_name, selectedProfile.email)
                                 )}
@@ -286,7 +343,7 @@ export default function ProfileSwitcherScreen({ onSelectProfile, onAddNewAccount
                         </div>
 
                         {pinError && (
-                            <div className="pin-error-text">Incorrect PIN. Try 1234 or enter staff password.</div>
+                            <div className="pin-error-text">Incorrect PIN. Try 1234 or enter assigned staff PIN.</div>
                         )}
 
                         <div className="pin-keypad">
@@ -302,6 +359,90 @@ export default function ProfileSwitcherScreen({ onSelectProfile, onAddNewAccount
                             </button>
                         </div>
                     </div>
+                </Modal>
+            )}
+
+            {/* Create Staff Account Modal */}
+            {showAddStaffModal && (
+                <Modal
+                    open={showAddStaffModal}
+                    onClose={() => setShowAddStaffModal(false)}
+                    heading="Add New Staff Account"
+                >
+                    <form onSubmit={handleCreateStaffAccount} style={{ display: 'flex', flexDirection: 'column', gap: '16px', padding: '12px 4px' }}>
+                        <div>
+                            <label style={{ display: 'block', fontSize: '13px', fontWeight: '600', marginBottom: '6px' }}>Staff Full Name *</label>
+                            <input 
+                                type="text"
+                                placeholder="e.g. Rahul Sharma"
+                                required
+                                value={newStaffName}
+                                onChange={e => setNewStaffName(e.target.value)}
+                                style={{ width: '100%', padding: '12px', borderRadius: '10px', border: '1px solid var(--border-color, #e2e8f0)', background: 'var(--surface-primary, #ffffff)', color: 'var(--text-primary, #0f172a)' }}
+                            />
+                        </div>
+
+                        <div>
+                            <label style={{ display: 'block', fontSize: '13px', fontWeight: '600', marginBottom: '6px' }}>Email Address *</label>
+                            <input 
+                                type="email"
+                                placeholder="e.g. rahul@store.com"
+                                required
+                                value={newStaffEmail}
+                                onChange={e => setNewStaffEmail(e.target.value)}
+                                style={{ width: '100%', padding: '12px', borderRadius: '10px', border: '1px solid var(--border-color, #e2e8f0)', background: 'var(--surface-primary, #ffffff)', color: 'var(--text-primary, #0f172a)' }}
+                            />
+                        </div>
+
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                            <div>
+                                <label style={{ display: 'block', fontSize: '13px', fontWeight: '600', marginBottom: '6px' }}>4-Digit POS PIN</label>
+                                <input 
+                                    type="password"
+                                    maxLength={4}
+                                    placeholder="1234"
+                                    value={newStaffPin}
+                                    onChange={e => setNewStaffPin(e.target.value)}
+                                    style={{ width: '100%', padding: '12px', borderRadius: '10px', border: '1px solid var(--border-color, #e2e8f0)', background: 'var(--surface-primary, #ffffff)', color: 'var(--text-primary, #0f172a)' }}
+                                />
+                            </div>
+
+                            <div>
+                                <label style={{ display: 'block', fontSize: '13px', fontWeight: '600', marginBottom: '6px' }}>Role / Designation</label>
+                                <select 
+                                    value={newStaffRole}
+                                    onChange={e => setNewStaffRole(e.target.value)}
+                                    style={{ width: '100%', padding: '12px', borderRadius: '10px', border: '1px solid var(--border-color, #e2e8f0)', background: 'var(--surface-primary, #ffffff)', color: 'var(--text-primary, #0f172a)' }}
+                                >
+                                    <option value="CASHIER">Cashier</option>
+                                    <option value="STORE_MGR">Store Manager</option>
+                                    <option value="INVENTORY_CLERK">Inventory Clerk</option>
+                                    <option value="ACCOUNTANT">Accountant</option>
+                                    <option value="ADMIN">Primary Admin</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div>
+                            <label style={{ display: 'block', fontSize: '13px', fontWeight: '600', marginBottom: '6px' }}>Staff Password (Optional)</label>
+                            <input 
+                                type="password"
+                                placeholder="Quantro123!"
+                                value={newStaffPassword}
+                                onChange={e => setNewStaffPassword(e.target.value)}
+                                style={{ width: '100%', padding: '12px', borderRadius: '10px', border: '1px solid var(--border-color, #e2e8f0)', background: 'var(--surface-primary, #ffffff)', color: 'var(--text-primary, #0f172a)' }}
+                            />
+                        </div>
+
+                        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '12px' }}>
+                            <SButton type="button" variant="secondary" onClick={() => setShowAddStaffModal(false)}>
+                                Cancel
+                            </SButton>
+                            <SButton type="submit" variant="primary" disabled={creatingStaff}>
+                                {creatingStaff ? 'Creating Staff Account...' : 'Create & Save Profile'}
+                            </SButton>
+                        </div>
+                    </form>
                 </Modal>
             )}
         </div>

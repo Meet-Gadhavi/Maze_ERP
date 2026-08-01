@@ -2,6 +2,14 @@
 
 All notable changes to the Quantro ERP application will be documented here.
 
+## [2.15.1] - 2026-08-01
+### Added
+- 📥 **Automatic JSON Backup Import Categorization & Supabase Cloud Sync (`data.js`)**: When users import data JSON files in Settings Data Management, all imported tables (`products`, `customers`, `invoices`, `suppliers`, `purchases`, `expenses`, `employees`, `settings`) are automatically categorized and inserted directly into their respective Supabase cloud tables.
+- 👤 **Dynamic Staff Profile Loading & In-Screen Staff Creator (`ProfileSwitcherScreen.jsx`)**: Fixed Profile Switcher screen to query real DB staff profiles, removed static default fallbacks, and added an in-screen "+ Add Staff Profile" modal for 1-second PIN setup.
+- 🖼️ **Robust Avatar & Logo Image Fallbacks**: Built initial badge fallbacks (`GA`, `MG`, `JD`) with rich glassmorphism styling to prevent any broken image placeholders.
+
+---
+
 ## [2.15.0] - 2026-08-01
 ### Added
 - ☁️ **Universal Real-Time Supabase Cloud Sync (`cloudSyncManager.js`)**: Built an automated cloud sync manager that syncs all core ERP modules directly to Supabase PostgreSQL cloud tables.

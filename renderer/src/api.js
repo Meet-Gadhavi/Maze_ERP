@@ -255,6 +255,7 @@ const api = {
     getDataPaths: () => request('/data/paths'),
     updateBackupCycle: (cycle) => request('/data/backup-cycle', { method: 'POST', body: { cycle } }),
     backupNow: () => request('/data/backup-now', { method: 'POST' }),
+    syncLocalDataToCloud: () => request('/data/sync-to-cloud', { method: 'POST' }),
     restoreBackup: (filename) => request('/data/restore-backup', { method: 'POST', body: { filename } }),
     deleteBackup: async (filename) => {
         // 1. Delete Local Backup
