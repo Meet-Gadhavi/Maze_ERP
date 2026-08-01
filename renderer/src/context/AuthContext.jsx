@@ -10,7 +10,7 @@ const DEFAULT_OWNER = {
     id: 1,
     employee_code: 'EMP-001',
     full_name: 'Primary Admin',
-    email: 'admin@quantro.app',
+    email: '',
     role: 'OWNER',
     assigned_store_ids: ['*'],
     department: 'Executive',
@@ -21,7 +21,12 @@ export function AuthProvider({ children }) {
     const [currentUser, setCurrentUser] = useState(() => {
         try {
             const saved = localStorage.getItem('quantro_current_user');
-            return saved ? JSON.parse(saved) : DEFAULT_OWNER;
+            if (saved) {
+                const parsed = JSON.parse(saved);
+                if (parsed.email === 'admin@quantro.app') parsed.email = '';
+                return parsed;
+            }
+            return DEFAULT_OWNER;
         } catch (e) {
             return DEFAULT_OWNER;
         }
@@ -49,7 +54,7 @@ export function AuthProvider({ children }) {
                 const googleAvatar = session.user.user_metadata?.avatar_url || session.user.user_metadata?.picture || '';
                 setCurrentUser(prev => ({
                     ...(prev || DEFAULT_OWNER),
-                    email: userEmail || prev?.email || 'admin@quantro.app',
+                    email: userEmail || (prev?.email !== 'admin@quantro.app' ? prev?.email : '') || '',
                     avatar_url: googleAvatar || prev?.avatar_url || '',
                     full_name: prev?.full_name && prev.full_name !== 'Primary Admin' ? prev.full_name : (session.user.user_metadata?.full_name || userEmail.split('@')[0])
                 }));
@@ -62,7 +67,7 @@ export function AuthProvider({ children }) {
                 const googleAvatar = session.user.user_metadata?.avatar_url || session.user.user_metadata?.picture || '';
                 setCurrentUser(prev => ({
                     ...(prev || DEFAULT_OWNER),
-                    email: userEmail || prev?.email || 'admin@quantro.app',
+                    email: userEmail || (prev?.email !== 'admin@quantro.app' ? prev?.email : '') || '',
                     avatar_url: googleAvatar || prev?.avatar_url || '',
                     full_name: prev?.full_name && prev.full_name !== 'Primary Admin' ? prev.full_name : (session.user.user_metadata?.full_name || userEmail.split('@')[0])
                 }));

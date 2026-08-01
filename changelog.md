@@ -2,6 +2,13 @@
 
 All notable changes to the Quantro ERP application will be documented here.
 
+## [2.15.3] - 2026-08-01
+### Added
+- 🔒 **Purged Legacy Hardcoded Email (`admin@quantro.app`)**: Completely removed `admin@quantro.app` string fallbacks from `db.js`, `AuthContext.jsx`, `Sidebar.jsx`, and `ProfileSwitcherScreen.jsx` so only real authenticated user emails are displayed.
+- 🔁 **Restored "+ Add Account" Auth Page Redirect**: Reverted "+ Add Account" card click behavior in `ProfileSwitcherScreen.jsx` to redirect directly to the Auth sign-in screen as originally designed.
+
+---
+
 ## [2.15.2] - 2026-08-01
 ### Added
 - 🔑 **4-Digit POS Security PIN Setup in Onboarding Wizard (`OnboardingModal.jsx`)**: Integrated mandatory 4-digit PIN setup during business account onboarding (Step 4) for instant 1-second terminal profile login.

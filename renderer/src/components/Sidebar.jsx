@@ -60,7 +60,7 @@ export default function Sidebar({ isCollapsed, setIsCollapsed }) {
     };
 
     const userRoleTitle = formatRoleTitle(currentUser?.role || userRole);
-    const userDisplayEmail = currentUser?.email || 'admin@quantro.app';
+    const userDisplayEmail = (currentUser?.email !== 'admin@quantro.app' ? currentUser?.email : '') || '';
 
     useEffect(() => {
         api.getSettings().then(s => {

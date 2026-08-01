@@ -805,20 +805,10 @@ ready = (async () => {
   `);
 
   // Seed Default Primary Admin / Owner Employee if empty
+  // Purge any legacy fake admin@quantro.app profile
   try {
-    const empCount = get('SELECT COUNT(*) as count FROM employees').count;
-    if (empCount === 0) {
-      const crypto = require('crypto');
-      const defaultHash = crypto.createHash('sha256').update('admin123').digest('hex');
-      const defaultPin = crypto.createHash('sha256').update('1234').digest('hex');
-      db.run(`
-        INSERT INTO employees (employee_code, full_name, email, phone, password_hash, pos_pin_hash, role, assigned_store_ids, department, designation, base_salary, status)
-        VALUES ('EMP-001', 'Primary Admin', 'admin@quantro.app', '+91 8866115898', ?, ?, 'OWNER', '["*"]', 'Executive', 'Business Owner', 100000, 'ACTIVE')
-      `, [defaultHash, defaultPin]);
-    }
-  } catch (err) {
-    console.error('Failed to seed default admin employee:', err);
-  }
+    db.run("DELETE FROM employees WHERE email = 'admin@quantro.app'");
+  } catch (err) {}
 
   // 3. Employee Attendance & Shifts Table
   db.run(`
