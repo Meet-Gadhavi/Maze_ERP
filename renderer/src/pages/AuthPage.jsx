@@ -27,6 +27,10 @@ export default function AuthPage() {
     const { setCurrentUser } = useAuth();
 
     const handleProfileSelect = (userObj) => {
+        try {
+            localStorage.setItem('quantro_current_user', JSON.stringify(userObj));
+            localStorage.setItem('quantro_local_session', 'true');
+        } catch (e) {}
         if (setCurrentUser) {
             setCurrentUser(userObj);
         }

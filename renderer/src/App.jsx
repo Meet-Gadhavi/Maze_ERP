@@ -119,6 +119,11 @@ function ActivationGate({ session, onActivated }) {
     const handleVerify = async (e) => {
         e.preventDefault();
         setErrorMsg('');
+        if (!session?.user) {
+            setErrorMsg('No active authentication session found.');
+            toast.error('No active authentication session found.');
+            return;
+        }
         if (!keyInput.trim()) {
             setErrorMsg('Please enter your license activation key.');
             toast.error('Please enter your license activation key.');
@@ -465,6 +470,12 @@ export default function App() {
     };
 
     const checkActivation = async (currSession) => {
+        if (!currSession) {
+            setIsActivated(true);
+            setLoading(false);
+            setCheckingActivation(false);
+            return;
+        }
         setCheckingActivation(true);
         try {
             const settings = await api.getSettings();
@@ -896,7 +907,7 @@ export default function App() {
                             localStorage.removeItem('quantro_pending_remote_changes');
                         }}
                     />
-                    {!session ? (
+                    {!(session || localStorage.getItem('quantro_local_session') === 'true' || localStorage.getItem('quantro_current_user')) ? (
                         <Routes>
                             <Route path="/customer-display" element={<CustomerDisplayPage />} />
                             <Route path="*" element={<AuthPage />} />

@@ -2,6 +2,18 @@
 
 All notable changes to the Quantro ERP application will be documented here.
 
+## [2.17.4] - 2026-08-02
+### Fixed
+- 🐛 **Null Session User Property Access Fix (`App.jsx`)**: Guarded `checkActivation` and `handleVerify` inside `ActivationGate` to check if `session` or `session.user` is null/undefined before checking license details, eliminating the `"Cannot read properties of null (reading 'user')"` runtime crash when loading profile-switched sessions.
+
+---
+
+## [2.17.3] - 2026-08-02
+### Fixed
+- 🔓 **Profile Switcher Dashboard Navigation Fix (`AuthPage.jsx` & `App.jsx`)**: Persisted `quantro_local_session` and `quantro_current_user` in `localStorage` upon profile tile selection, resolving an issue where clicking a profile tile on the "Who's using Quantro?" screen refreshed the page without navigating into the main Dashboard.
+
+---
+
 ## [2.17.2] - 2026-08-02
 ### Fixed
 - 🐛 **Backend Syntax Error Fix (`cloudSyncManager.js`)**: Resolved a missing function closing bracket in `cloudSyncManager.js` that caused Node.js to fail on startup with `SyntaxError: Unexpected end of input`, restoring backend availability and resolving the `"Backend server is not running"` message.

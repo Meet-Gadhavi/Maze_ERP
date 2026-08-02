@@ -122,6 +122,7 @@ export function AuthProvider({ children }) {
         }
         setCurrentUser(null);
         localStorage.removeItem('quantro_current_user');
+        localStorage.removeItem('quantro_local_session');
         toast.info('Logged out successfully.');
     };
 
