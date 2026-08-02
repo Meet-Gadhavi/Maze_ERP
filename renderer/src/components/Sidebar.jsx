@@ -139,8 +139,12 @@ export default function Sidebar({ isCollapsed, setIsCollapsed }) {
                         background: 'transparent'
                     }}
                 >
-                    <div className="header-brand-icon" style={{ background: '#6366f1', width: '36px', height: '36px', borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#ffffff', fontWeight: 'bold', flexShrink: 0 }}>
-                        <img src="/icons/Logo.png" alt="Quantro Logo" onError={(e) => { e.target.style.display = 'none'; }} style={{ width: '100%', height: '100%', objectFit: 'contain', borderRadius: '6px' }} />
+                    <div className="header-brand-icon" style={{ background: 'linear-gradient(135deg, #6366f1 0%, #4f46e5 100%)', width: '38px', height: '38px', borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#ffffff', fontWeight: 'bold', flexShrink: 0, boxShadow: '0 4px 12px rgba(99, 102, 241, 0.35)' }}>
+                        {settingsLogo ? (
+                            <img src={settingsLogo} alt="Logo" style={{ width: '100%', height: '100%', objectFit: 'contain', borderRadius: '6px' }} />
+                        ) : (
+                            <span style={{ fontSize: '20px', fontWeight: '900', color: '#ffffff', fontFamily: 'system-ui, sans-serif' }}>Q</span>
+                        )}
                     </div>
                     {!isCollapsed && (
                         <div className="header-brand-info" style={{ display: 'flex', flexDirection: 'column', textAlign: 'left' }}>

@@ -2,6 +2,13 @@
 
 All notable changes to the Quantro ERP application will be documented here.
 
+## [2.17.1] - 2026-08-02
+### Added
+- 🔄 **Real-Time Supabase Cloud Sync & Pull Engine (`cloudSyncManager.js`)**: Implemented `pullFromCloudAndSyncLocal()` with a continuous 15-second background interval to sync live cloud data across all pages (Dashboard, Inventory, Customers, Purchases, Expenses, HR/Payroll, Settings).
+- 🎨 **Sidebar Branding Icon Fallback (`Sidebar.jsx`)**: Updated top sidebar header to display a gradient brand icon box with fallback `Q` logo if custom business logo is not present.
+
+---
+
 ## [2.17.0] - 2026-08-02
 ### Added
 - 🖥️ **Full-Page Onboarding Screen (`OnboardingModal.jsx` & `OnboardingModal.css`)**: Expanded the onboarding wizard to full-page, purged all emojis from step cards, and made 16-character terminal key validation mandatory for Store Terminal and Remote Access modes.
