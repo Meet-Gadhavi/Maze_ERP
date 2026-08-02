@@ -2,6 +2,12 @@
 
 All notable changes to the Quantro ERP application will be documented here.
 
+## [2.17.2] - 2026-08-02
+### Fixed
+- 🐛 **Backend Syntax Error Fix (`cloudSyncManager.js`)**: Resolved a missing function closing bracket in `cloudSyncManager.js` that caused Node.js to fail on startup with `SyntaxError: Unexpected end of input`, restoring backend availability and resolving the `"Backend server is not running"` message.
+
+---
+
 ## [2.17.1] - 2026-08-02
 ### Added
 - 🔄 **Real-Time Supabase Cloud Sync & Pull Engine (`cloudSyncManager.js`)**: Implemented `pullFromCloudAndSyncLocal()` with a continuous 15-second background interval to sync live cloud data across all pages (Dashboard, Inventory, Customers, Purchases, Expenses, HR/Payroll, Settings).

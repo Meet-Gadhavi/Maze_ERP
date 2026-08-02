@@ -267,6 +267,9 @@ async function fullBulkSyncAllEntities() {
         console.log('[Cloud Sync] Full System Cloud Synchronization Completed Successfully.');
     } catch (err) {
         console.error('[Cloud Sync] Full Sync encountered an error:', err.message);
+    }
+}
+
 /**
  * Pull Live Data from Supabase PostgreSQL Cloud DB and Sync to Local Engine
  * Guarantees that multi-store & multi-device updates appear in real time on all pages.

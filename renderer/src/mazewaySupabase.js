@@ -5,6 +5,7 @@ const supabaseAnonKey = 'sb_publishable_J4ZoFCETv9sy_gh6m9hZlg_qrTElZDV';
 
 export const mazewaySupabase = createClient(supabaseUrl, supabaseAnonKey, {
     auth: {
+        storageKey: 'mazeway-agents-auth-token',
         persistSession: false,
         autoRefreshToken: false,
         detectSessionInUrl: false
