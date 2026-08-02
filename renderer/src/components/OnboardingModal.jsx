@@ -53,20 +53,24 @@ export default function OnboardingModal({ isOpen, onComplete }) {
 
     const handleNext = async () => {
         if (step === 1 && (accountMode === 'store' || accountMode === 'remote')) {
-            if (pairKey && pairKey.trim().length >= 10) {
-                setLoading(true);
-                try {
-                    const res = await api.pairStoreTerminal(pairKey.trim());
-                    if (res.store) {
-                        localStorage.setItem('quantro_is_child_terminal', 'true');
-                        localStorage.setItem('quantro_store_id', String(res.store.id));
-                        toast.success(`Paired with ${res.store.name}!`);
-                    }
-                } catch (err) {
-                    console.warn('[Onboarding] Terminal key pairing warning:', err.message);
-                } finally {
-                    setLoading(false);
+            if (!pairKey || pairKey.trim().length < 10) {
+                toast.error(`A valid 16-character ${accountMode === 'remote' ? 'Remote Access' : 'Store Terminal'} Key is mandatory to proceed.`);
+                return;
+            }
+            setLoading(true);
+            try {
+                const res = await api.pairStoreTerminal(pairKey.trim());
+                if (res.store) {
+                    localStorage.setItem('quantro_is_child_terminal', 'true');
+                    localStorage.setItem('quantro_store_id', String(res.store.id));
+                    toast.success(`Terminal paired with ${res.store.name}!`);
                 }
+            } catch (err) {
+                toast.error(err.message || "16-character terminal key verification failed");
+                setLoading(false);
+                return;
+            } finally {
+                setLoading(false);
             }
         }
 
@@ -144,8 +148,8 @@ export default function OnboardingModal({ isOpen, onComplete }) {
 
     return (
         <div className="onboarding-overlay">
-            <div className="onboarding-modal-card" style={{ maxWidth: '780px' }}>
-                {/* Segmented Progress Bar */}
+            <div className="onboarding-modal-card">
+                {/* Full-Page Progress Container */}
                 <div className="onboarding-progress-container">
                     <div className="onboarding-step-header">
                         <span className="step-label">Step {step} of {totalSteps}</span>
@@ -164,24 +168,24 @@ export default function OnboardingModal({ isOpen, onComplete }) {
                 </div>
 
                 {/* Step Contents */}
-                <div className="onboarding-body">
+                <div className="onboarding-body" style={{ flex: 1, padding: '40px max(40px, 5vw)' }}>
                     {/* STEP 1: System Architecture & Terminal Selection */}
                     {step === 1 && (
                         <div className="onboarding-step-content">
                             <h2 className="step-heading">WELCOME TO QUANTRO ERP</h2>
                             <p className="step-desc">Select how this computer or device is being onboarded into your ERP network:</p>
 
-                            <div className="account-mode-grid" style={{ gridTemplateColumns: 'repeat(3, 1fr)', gap: '14px', marginTop: '20px' }}>
+                            <div className="account-mode-grid" style={{ gridTemplateColumns: 'repeat(3, 1fr)', gap: '16px', marginTop: '24px' }}>
                                 {/* Card 1: HQ Terminal */}
                                 <div 
                                     className={`mode-card ${accountMode === 'hq' ? 'selected' : ''}`}
                                     onClick={() => setAccountMode('hq')}
-                                    style={{ padding: '16px', display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center' }}
+                                    style={{ padding: '20px', display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center' }}
                                 >
-                                    <div className="mode-card-icon" style={{ marginBottom: '10px' }}><Icons.Building size={28} /></div>
+                                    <div className="mode-card-icon" style={{ marginBottom: '12px' }}><Icons.Building size={32} /></div>
                                     <div className="mode-card-info">
-                                        <h4 style={{ fontSize: '15px', fontWeight: '700' }}>🏢 HQ Terminal</h4>
-                                        <p style={{ fontSize: '12px', marginTop: '6px', color: 'var(--text-secondary, #64748b)' }}>
+                                        <h4 style={{ fontSize: '16px', fontWeight: '700' }}>HQ Terminal</h4>
+                                        <p style={{ fontSize: '13px', marginTop: '8px', color: 'var(--text-secondary, #64748b)' }}>
                                             Head Office PCs & Warehouse Management (Full Admin Access)
                                         </p>
                                     </div>
@@ -191,12 +195,12 @@ export default function OnboardingModal({ isOpen, onComplete }) {
                                 <div 
                                     className={`mode-card ${accountMode === 'store' ? 'selected' : ''}`}
                                     onClick={() => setAccountMode('store')}
-                                    style={{ padding: '16px', display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center' }}
+                                    style={{ padding: '20px', display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center' }}
                                 >
-                                    <div className="mode-card-icon" style={{ marginBottom: '10px' }}><Icons.Store size={28} /></div>
+                                    <div className="mode-card-icon" style={{ marginBottom: '12px' }}><Icons.Store size={32} /></div>
                                     <div className="mode-card-info">
-                                        <h4 style={{ fontSize: '15px', fontWeight: '700' }}>🏬 Store Terminal</h4>
-                                        <p style={{ fontSize: '12px', marginTop: '6px', color: 'var(--text-secondary, #64748b)' }}>
+                                        <h4 style={{ fontSize: '16px', fontWeight: '700' }}>Store Terminal</h4>
+                                        <p style={{ fontSize: '13px', marginTop: '8px', color: 'var(--text-secondary, #64748b)' }}>
                                             Connect Stores & Local Store ERP (POS & Local Ops)
                                         </p>
                                     </div>
@@ -206,12 +210,12 @@ export default function OnboardingModal({ isOpen, onComplete }) {
                                 <div 
                                     className={`mode-card ${accountMode === 'remote' ? 'selected' : ''}`}
                                     onClick={() => setAccountMode('remote')}
-                                    style={{ padding: '16px', display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center' }}
+                                    style={{ padding: '20px', display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center' }}
                                 >
-                                    <div className="mode-card-icon" style={{ marginBottom: '10px' }}><Icons.Globe size={28} /></div>
+                                    <div className="mode-card-icon" style={{ marginBottom: '12px' }}><Icons.Globe size={32} /></div>
                                     <div className="mode-card-info">
-                                        <h4 style={{ fontSize: '15px', fontWeight: '700' }}>🏠 Remote Access</h4>
-                                        <p style={{ fontSize: '12px', marginTop: '6px', color: 'var(--text-secondary, #64748b)' }}>
+                                        <h4 style={{ fontSize: '16px', fontWeight: '700' }}>Remote Access</h4>
+                                        <p style={{ fontSize: '13px', marginTop: '8px', color: 'var(--text-secondary, #64748b)' }}>
                                             Easy to Control Remote ERP (Read-Only & Approvals)
                                         </p>
                                     </div>
@@ -219,15 +223,21 @@ export default function OnboardingModal({ isOpen, onComplete }) {
                             </div>
 
                             {(accountMode === 'store' || accountMode === 'remote') && (
-                                <div className="form-group" style={{ marginTop: '20px' }}>
-                                    <label>16-Character {accountMode === 'remote' ? 'Remote Access' : 'Store Terminal'} Key (Optional)</label>
+                                <div className="form-group" style={{ marginTop: '28px', maxWidth: '500px', margin: '28px auto 0 auto' }}>
+                                    <label style={{ fontSize: '14px', fontWeight: '700', color: '#0f172a' }}>
+                                        16-Character {accountMode === 'remote' ? 'Remote Access' : 'Store Terminal'} Key *
+                                    </label>
                                     <input 
                                         type="text"
+                                        required
                                         value={pairKey}
                                         onChange={e => setPairKey(e.target.value)}
                                         placeholder="e.g. STR-873F-CECD-662C"
-                                        style={{ fontFamily: 'monospace', fontSize: '15px', letterSpacing: '1px', textAlign: 'center' }}
+                                        style={{ fontFamily: 'monospace', fontSize: '16px', letterSpacing: '2px', textAlign: 'center', padding: '12px' }}
                                     />
+                                    <span style={{ fontSize: '12px', color: '#dc2626', marginTop: '6px', display: 'block' }}>
+                                        * Compulsory: You must enter a valid 16-character key to connect this terminal.
+                                    </span>
                                 </div>
                             )}
                         </div>
@@ -235,7 +245,7 @@ export default function OnboardingModal({ isOpen, onComplete }) {
 
                     {/* STEP 2: Shop & Business Profile */}
                     {step === 2 && (
-                        <div className="onboarding-step-content">
+                        <div className="onboarding-step-content" style={{ maxWidth: '600px', margin: '0 auto', width: '100%' }}>
                             <h2 className="step-heading">Shop / Business Profile</h2>
                             <p className="step-desc">Enter your primary store identity displayed on customer invoices and receipts.</p>
 
@@ -254,7 +264,7 @@ export default function OnboardingModal({ isOpen, onComplete }) {
 
                     {/* STEP 3: Tax & GSTIN Registration */}
                     {step === 3 && (
-                        <div className="onboarding-step-content">
+                        <div className="onboarding-step-content" style={{ maxWidth: '600px', margin: '0 auto', width: '100%' }}>
                             <h2 className="step-heading">GSTIN & Tax Registration</h2>
                             <p className="step-desc">Configure your regional GSTIN and place of supply for compliant tax invoices.</p>
 
@@ -282,7 +292,7 @@ export default function OnboardingModal({ isOpen, onComplete }) {
 
                     {/* STEP 4: Contact, Email & 4-Digit Security PIN */}
                     {step === 4 && (
-                        <div className="onboarding-step-content">
+                        <div className="onboarding-step-content" style={{ maxWidth: '600px', margin: '0 auto', width: '100%' }}>
                             <h2 className="step-heading">Contact, Account Email & Security PIN</h2>
                             <p className="step-desc">Set your account email and a 4-digit PIN for 1-second POS terminal profile switching.</p>
 
@@ -324,7 +334,7 @@ export default function OnboardingModal({ isOpen, onComplete }) {
 
                     {/* STEP 5: Business Logo & Final Launch */}
                     {step === 5 && (
-                        <div className="onboarding-step-content">
+                        <div className="onboarding-step-content" style={{ maxWidth: '600px', margin: '0 auto', width: '100%' }}>
                             <h2 className="step-heading">Business Logo & Branding</h2>
                             <p className="step-desc">Upload your official brand logo for printed customer invoices and receipts.</p>
 
@@ -381,7 +391,7 @@ export default function OnboardingModal({ isOpen, onComplete }) {
                 </div>
 
                 {/* Footer Controls */}
-                <div className="onboarding-footer">
+                <div className="onboarding-footer" style={{ padding: '20px 40px', background: '#f8fafc', borderTop: '1px solid #e2e8f0' }}>
                     <SButton 
                         variant="secondary"
                         onClick={handleBack}

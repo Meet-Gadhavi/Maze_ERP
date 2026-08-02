@@ -104,7 +104,7 @@ export default function AuthPage() {
         }
     }, [isLogin, showSwitcher]);
 
-    if (showSwitcher) {
+    if (showSwitcher && !isHqTerminal) {
         return (
             <ProfileSwitcherScreen 
                 onSelectProfile={handleProfileSelect}

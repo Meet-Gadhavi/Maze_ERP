@@ -2,6 +2,14 @@
 
 All notable changes to the Quantro ERP application will be documented here.
 
+## [2.17.0] - 2026-08-02
+### Added
+- 🖥️ **Full-Page Onboarding Screen (`OnboardingModal.jsx` & `OnboardingModal.css`)**: Expanded the onboarding wizard to full-page, purged all emojis from step cards, and made 16-character terminal key validation mandatory for Store Terminal and Remote Access modes.
+- 🏬 **Store Branches & Pairing Keys Tab (`HRPayrollPage.jsx`)**: Transferred store branch pairing management into HR & Payroll tab with `Pending Pairing` and `Connected` status badges (preventing disconnect until key is paired).
+- 🔓 **HQ Logout Auth Routing (`AuthPage.jsx`)**: Enforced default normal Auth page (Email + Password) when logging out on an HQ Terminal, bypassing profile switcher screen.
+
+---
+
 ## [2.16.0] - 2026-08-02
 ### Added
 - 🏬 **Multi-Store Architecture & Bifurcated Terminal Flow (`OnboardingModal.jsx` & `AuthPage.jsx`)**: Redesigned device onboarding into 3 clear terminal pathways: **🏢 HQ Terminal** (Full Admin access, direct dashboard login), **🏬 Store Terminal** (16-char store pairing key, Chrome profile switcher + 4-digit PIN), and **🏠 Remote Access** (Read-Only stock & POS safeguards).

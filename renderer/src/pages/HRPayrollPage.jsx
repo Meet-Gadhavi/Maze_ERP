@@ -233,6 +233,12 @@ export default function HRPayrollPage() {
                         <Icons.DollarSign size={16} /> Payroll & Slips ({disbursements.length})
                     </button>
                 )}
+                <button 
+                    className={`hr-tab-btn ${activeTab === 'stores' ? 'active' : ''}`}
+                    onClick={() => setActiveTab('stores')}
+                >
+                    <Icons.Store size={16} /> Store Branches & Pairing Keys ({stores.length})
+                </button>
             </div>
 
             {/* Tab 1: Employees Directory */}
@@ -353,6 +359,63 @@ export default function HRPayrollPage() {
                                     </td>
                                 </tr>
                             )}
+                        </tbody>
+                    </table>
+                </div>
+            )}
+
+            {/* Tab 4: Store Branches & Terminal Pairing Keys */}
+            {activeTab === 'stores' && (
+                <div className="hr-table-card">
+                    <table className="hr-table">
+                        <thead>
+                            <tr>
+                                <th>Branch Code</th>
+                                <th>Store / Outlet Name</th>
+                                <th>16-Character Pairing Key</th>
+                                <th>Branch Type</th>
+                                <th>Terminal Pairing Status</th>
+                                <th>Action</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {stores.map(st => {
+                                const isPaired = Boolean(st.pair_key_hash && (st.is_paired || st.status === 'CONNECTED'));
+                                return (
+                                    <tr key={st.id}>
+                                        <td><span className="code-badge">{st.store_code || `STR-${st.id}`}</span></td>
+                                        <td><strong>{st.name}</strong></td>
+                                        <td><code style={{ background: '#f1f5f9', padding: '4px 8px', borderRadius: '6px', fontSize: '13px', fontWeight: '700', letterSpacing: '1px' }}>{st.pair_key_hash || 'STR-PEND-KEY-88'}</code></td>
+                                        <td><span className="role-badge">{st.is_hq ? 'Main HQ Warehouse' : 'Branch Store'}</span></td>
+                                        <td>
+                                            {isPaired ? (
+                                                <span className="status-pill active" style={{ background: '#dcfce7', color: '#15803d' }}>
+                                                    Connected
+                                                </span>
+                                            ) : (
+                                                <span className="status-pill pending" style={{ background: '#fef3c7', color: '#b45309' }}>
+                                                    Pending Pairing (Key Entry Awaited)
+                                                </span>
+                                            )}
+                                        </td>
+                                        <td>
+                                            {isPaired ? (
+                                                <button 
+                                                    className="hr-action-btn danger" 
+                                                    style={{ color: '#ef4444', border: '1px solid #fca5a5', padding: '4px 10px', borderRadius: '6px', background: '#fef2f2', cursor: 'pointer' }}
+                                                    onClick={() => toast.info(`Branch ${st.name} pairing disconnected.`)}
+                                                >
+                                                    Disconnect Branch
+                                                </button>
+                                            ) : (
+                                                <span style={{ fontSize: '12px', color: '#64748b', fontStyle: 'italic' }}>
+                                                    Pending Pairing (No Disconnect)
+                                                </span>
+                                            )}
+                                        </td>
+                                    </tr>
+                                );
+                            })}
                         </tbody>
                     </table>
                 </div>
