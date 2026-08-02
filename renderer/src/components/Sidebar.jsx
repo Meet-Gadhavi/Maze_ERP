@@ -125,58 +125,34 @@ export default function Sidebar({ isCollapsed, setIsCollapsed }) {
 
     return (
         <RadixSidebar className={isCollapsed ? 'collapsed' : ''}>
-            {/* Top Sidebar Header (Store / Company Switcher) */}
-            <SidebarHeader ref={storePopoverRef} style={{ position: 'relative' }}>
-                <button 
-                    className="sidebar-header-button"
-                    onClick={() => setShowStorePopover(!showStorePopover)}
-                    title="Switch Store Branch Outlet"
+            {/* Top Sidebar Header (Quantro / Mazelab ERP Branding - No Dropdown) */}
+            <SidebarHeader style={{ position: 'relative' }}>
+                <div 
+                    className="sidebar-header-button-static"
+                    style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '12px',
+                        padding: '12px 14px',
+                        width: '100%',
+                        borderRadius: '12px',
+                        background: 'transparent'
+                    }}
                 >
-                    <div style={{ display: 'flex', alignItems: 'center' }}>
-                        <div className="header-brand-icon" style={{ background: displayLogo ? '#ffffff' : '#2563eb', border: displayLogo ? '1px solid #e2e8f0' : 'none', padding: '2px' }}>
-                            {displayLogo ? (
-                                <img src={displayLogo} alt="Business Logo" style={{ width: '100%', height: '100%', objectFit: 'contain', borderRadius: '6px' }} />
-                            ) : (
-                                <img src="/icons/Logo.png" alt="Quantro Logo" onError={(e) => { e.target.style.display = 'none'; }} style={{ width: '100%', height: '100%', objectFit: 'contain', borderRadius: '6px' }} />
-                            )}
-                        </div>
-                        {!isCollapsed && (
-                            <div className="header-brand-info">
-                                <span className="header-brand-title">
-                                    {activeStoreId === '*' ? 'All Outlets' : (activeStore?.name || APP_NAME)}
-                                </span>
-                                <span className="header-brand-sub">
-                                    {activeStoreId === '*' ? 'Consolidated HQ View' : (activeStore?.is_hq ? 'Main Warehouse HQ' : `Branch ${activeStore?.store_code || ''}`)}
-                                </span>
-                            </div>
-                        )}
+                    <div className="header-brand-icon" style={{ background: '#6366f1', width: '36px', height: '36px', borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#ffffff', fontWeight: 'bold', flexShrink: 0 }}>
+                        <img src="/icons/Logo.png" alt="Quantro Logo" onError={(e) => { e.target.style.display = 'none'; }} style={{ width: '100%', height: '100%', objectFit: 'contain', borderRadius: '6px' }} />
                     </div>
                     {!isCollapsed && (
-                        <Icons.ChevronsUpDown size={16} className="header-chevrons" />
+                        <div className="header-brand-info" style={{ display: 'flex', flexDirection: 'column', textAlign: 'left' }}>
+                            <span className="header-brand-title" style={{ fontSize: '16px', fontWeight: '800', color: 'var(--text-primary, #0f172a)', letterSpacing: '-0.3px', lineHeight: '1.2' }}>
+                                Quantro
+                            </span>
+                            <span className="header-brand-sub" style={{ fontSize: '11px', fontWeight: '600', color: '#64748b', textTransform: 'none', lineHeight: '1.2' }}>
+                                Mazelab ERP
+                            </span>
+                        </div>
                     )}
-                </button>
-
-                {showStorePopover && !isCollapsed && (
-                    <div className="store-switcher-popover">
-                        {canViewAllStores && (
-                            <div 
-                                className={`popover-store-item ${activeStoreId === '*' ? 'active' : ''}`}
-                                onClick={() => { setActiveStoreId('*'); setShowStorePopover(false); }}
-                            >
-                                ALL STORES CONSOLIDATED (HQ View)
-                            </div>
-                        )}
-                        {stores.map(st => (
-                            <div 
-                                key={st.id}
-                                className={`popover-store-item ${String(activeStoreId) === String(st.id) ? 'active' : ''}`}
-                                onClick={() => { setActiveStoreId(String(st.id)); setShowStorePopover(false); }}
-                            >
-                                {st.is_hq ? <Icons.Building size={14} /> : <Icons.Store size={14} />} {st.name} ({st.store_code})
-                            </div>
-                        ))}
-                    </div>
-                )}
+                </div>
             </SidebarHeader>
 
             {/* Sidebar Main Content & Collapsible Groups */}

@@ -7,7 +7,7 @@ import './OnboardingModal.css';
 
 export default function OnboardingModal({ isOpen, onComplete }) {
     const [step, setStep] = useState(1);
-    const [accountMode, setAccountMode] = useState('hq'); // 'hq' or 'child'
+    const [accountMode, setAccountMode] = useState('hq'); // 'hq', 'store', 'remote'
     const [pairKey, setPairKey] = useState('');
     const [loading, setLoading] = useState(false);
 
@@ -27,7 +27,7 @@ export default function OnboardingModal({ isOpen, onComplete }) {
     const progressPercentage = (step / totalSteps) * 100;
 
     const stepTitles = [
-        "Store & Terminal Alignment",
+        "Select Device Architecture & Terminal Type",
         "Shop & Business Profile",
         "GSTIN & Tax Registration",
         "Contact, Email & 4-Digit Security PIN",
@@ -52,25 +52,22 @@ export default function OnboardingModal({ isOpen, onComplete }) {
     };
 
     const handleNext = async () => {
-        if (step === 1 && accountMode === 'child') {
-            if (!pairKey || pairKey.trim().length < 10) {
-                toast.error("Please enter a valid 16-character Branch Pairing Token");
-                return;
-            }
-            // Pair terminal with Parent HQ
-            setLoading(true);
-            try {
-                const res = await api.pairStoreTerminal(pairKey.trim());
-                if (res.store) {
-                    localStorage.setItem('quantro_is_child_terminal', 'true');
-                    toast.success(`Paired with ${res.store.name}!`);
+        if (step === 1 && (accountMode === 'store' || accountMode === 'remote')) {
+            if (pairKey && pairKey.trim().length >= 10) {
+                setLoading(true);
+                try {
+                    const res = await api.pairStoreTerminal(pairKey.trim());
+                    if (res.store) {
+                        localStorage.setItem('quantro_is_child_terminal', 'true');
+                        localStorage.setItem('quantro_store_id', String(res.store.id));
+                        toast.success(`Paired with ${res.store.name}!`);
+                    }
+                } catch (err) {
+                    console.warn('[Onboarding] Terminal key pairing warning:', err.message);
+                } finally {
+                    setLoading(false);
                 }
-            } catch (err) {
-                toast.error(err.message || "Pairing token verification failed");
-                setLoading(false);
-                return;
             }
-            setLoading(false);
         }
 
         if (step === 2 && !form.shop_name.trim()) {
@@ -99,7 +96,12 @@ export default function OnboardingModal({ isOpen, onComplete }) {
     const handleFinish = async () => {
         setLoading(true);
         try {
+            // Save device context
+            localStorage.setItem('quantro_device_type', accountMode);
+            localStorage.setItem('quantro_is_hq', accountMode === 'hq' ? 'true' : 'false');
+            localStorage.setItem('quantro_is_remote', accountMode === 'remote' ? 'true' : 'false');
             localStorage.setItem('quantro_onboarding_completed', '1');
+
             if (form.email) {
                 localStorage.setItem(`quantro_onboarding_completed_${form.email.trim().toLowerCase()}`, '1');
             }
@@ -123,14 +125,14 @@ export default function OnboardingModal({ isOpen, onComplete }) {
                         email: form.email.trim().toLowerCase(),
                         pos_pin: form.pos_pin || '1234',
                         password: 'Quantro123!',
-                        role: 'ADMIN'
+                        role: accountMode === 'hq' ? 'OWNER' : 'STORE_MGR'
                     });
                 } catch (empErr) {
                     console.warn('[Onboarding] Staff profile creation notice:', empErr.message);
                 }
             }
 
-            toast.success("Onboarding Completed! Welcome to Quantro ERP.");
+            toast.success(`Quantro ERP Onboarding Completed (${accountMode.toUpperCase()} Mode)!`);
             if (onComplete) onComplete();
         } catch (err) {
             console.error('[Onboarding] Save settings error:', err);
@@ -142,8 +144,8 @@ export default function OnboardingModal({ isOpen, onComplete }) {
 
     return (
         <div className="onboarding-overlay">
-            <div className="onboarding-modal-card">
-                {/* Segmented Broken Progress Bar */}
+            <div className="onboarding-modal-card" style={{ maxWidth: '780px' }}>
+                {/* Segmented Progress Bar */}
                 <div className="onboarding-progress-container">
                     <div className="onboarding-step-header">
                         <span className="step-label">Step {step} of {totalSteps}</span>
@@ -163,39 +165,62 @@ export default function OnboardingModal({ isOpen, onComplete }) {
 
                 {/* Step Contents */}
                 <div className="onboarding-body">
-                    {/* STEP 1: Store & Terminal Alignment */}
+                    {/* STEP 1: System Architecture & Terminal Selection */}
                     {step === 1 && (
                         <div className="onboarding-step-content">
-                            <h2 className="step-heading">Welcome to Quantro ERP</h2>
-                            <p className="step-desc">Choose how this computer terminal connects to your retail business network.</p>
+                            <h2 className="step-heading">WELCOME TO QUANTRO ERP</h2>
+                            <p className="step-desc">Select how this computer or device is being onboarded into your ERP network:</p>
 
-                            <div className="account-mode-grid">
+                            <div className="account-mode-grid" style={{ gridTemplateColumns: 'repeat(3, 1fr)', gap: '14px', marginTop: '20px' }}>
+                                {/* Card 1: HQ Terminal */}
                                 <div 
                                     className={`mode-card ${accountMode === 'hq' ? 'selected' : ''}`}
                                     onClick={() => setAccountMode('hq')}
+                                    style={{ padding: '16px', display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center' }}
                                 >
-                                    <div className="mode-card-icon"><Icons.Building size={24} /></div>
+                                    <div className="mode-card-icon" style={{ marginBottom: '10px' }}><Icons.Building size={28} /></div>
                                     <div className="mode-card-info">
-                                        <h4>Create Primary HQ Account</h4>
-                                        <p>Set up an independent main store warehouse & HQ management hub.</p>
+                                        <h4 style={{ fontSize: '15px', fontWeight: '700' }}>🏢 HQ Terminal</h4>
+                                        <p style={{ fontSize: '12px', marginTop: '6px', color: 'var(--text-secondary, #64748b)' }}>
+                                            Head Office PCs & Warehouse Management (Full Admin Access)
+                                        </p>
                                     </div>
                                 </div>
 
+                                {/* Card 2: Store Terminal */}
                                 <div 
-                                    className={`mode-card ${accountMode === 'child' ? 'selected' : ''}`}
-                                    onClick={() => setAccountMode('child')}
+                                    className={`mode-card ${accountMode === 'store' ? 'selected' : ''}`}
+                                    onClick={() => setAccountMode('store')}
+                                    style={{ padding: '16px', display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center' }}
                                 >
-                                    <div className="mode-card-icon"><Icons.Store size={24} /></div>
+                                    <div className="mode-card-icon" style={{ marginBottom: '10px' }}><Icons.Store size={28} /></div>
                                     <div className="mode-card-info">
-                                        <h4>Connect to Parent HQ Network</h4>
-                                        <p>Align this terminal as a Child Branch using a 16-character Pairing Token.</p>
+                                        <h4 style={{ fontSize: '15px', fontWeight: '700' }}>🏬 Store Terminal</h4>
+                                        <p style={{ fontSize: '12px', marginTop: '6px', color: 'var(--text-secondary, #64748b)' }}>
+                                            Connect Stores & Local Store ERP (POS & Local Ops)
+                                        </p>
+                                    </div>
+                                </div>
+
+                                {/* Card 3: Remote Access */}
+                                <div 
+                                    className={`mode-card ${accountMode === 'remote' ? 'selected' : ''}`}
+                                    onClick={() => setAccountMode('remote')}
+                                    style={{ padding: '16px', display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center' }}
+                                >
+                                    <div className="mode-card-icon" style={{ marginBottom: '10px' }}><Icons.Globe size={28} /></div>
+                                    <div className="mode-card-info">
+                                        <h4 style={{ fontSize: '15px', fontWeight: '700' }}>🏠 Remote Access</h4>
+                                        <p style={{ fontSize: '12px', marginTop: '6px', color: 'var(--text-secondary, #64748b)' }}>
+                                            Easy to Control Remote ERP (Read-Only & Approvals)
+                                        </p>
                                     </div>
                                 </div>
                             </div>
 
-                            {accountMode === 'child' && (
+                            {(accountMode === 'store' || accountMode === 'remote') && (
                                 <div className="form-group" style={{ marginTop: '20px' }}>
-                                    <label>16-Character Branch Pairing Token *</label>
+                                    <label>16-Character {accountMode === 'remote' ? 'Remote Access' : 'Store Terminal'} Key (Optional)</label>
                                     <input 
                                         type="text"
                                         value={pairKey}
@@ -283,7 +308,7 @@ export default function OnboardingModal({ isOpen, onComplete }) {
                             </div>
 
                             <div className="form-group" style={{ marginTop: '16px' }}>
-                                <label>Create 4-Digit Security POS PIN * (for 1-second Profile Login)</label>
+                                <label>Create 4-Digit Security POS PIN * (for Store Terminal Login)</label>
                                 <input 
                                     type="password"
                                     maxLength={4}
@@ -331,6 +356,10 @@ export default function OnboardingModal({ isOpen, onComplete }) {
 
                             <div className="summary-preview-card" style={{ marginTop: '16px' }}>
                                 <div className="summary-row">
+                                    <span>Selected Architecture:</span>
+                                    <strong style={{ color: 'var(--accent, #6366f1)' }}>{accountMode.toUpperCase()} TERMINAL</strong>
+                                </div>
+                                <div className="summary-row">
                                     <span>Business Name:</span>
                                     <strong>{form.shop_name}</strong>
                                 </div>
@@ -345,14 +374,6 @@ export default function OnboardingModal({ isOpen, onComplete }) {
                                 <div className="summary-row">
                                     <span>GSTIN:</span>
                                     <strong>{form.gstin || 'Not Provided'}</strong>
-                                </div>
-                                <div className="summary-row">
-                                    <span>Place of Supply:</span>
-                                    <strong>{form.place_of_supply || 'Default'}</strong>
-                                </div>
-                                <div className="summary-row">
-                                    <span>Contact Phone:</span>
-                                    <strong>{form.phone || 'N/A'}</strong>
                                 </div>
                             </div>
                         </div>

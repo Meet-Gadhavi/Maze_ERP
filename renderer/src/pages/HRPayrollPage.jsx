@@ -467,6 +467,57 @@ export default function HRPayrollPage() {
                             </div>
                         )}
 
+                        {/* Granular Sub-Tab Scopes Matrix Selector */}
+                        <div className="scopes-matrix-section" style={{ marginTop: '16px', padding: '16px', borderRadius: '12px', background: 'var(--surface-secondary, #f8fafc)', border: '1px solid var(--border-color, #e2e8f0)' }}>
+                            <h4 style={{ margin: '0 0 12px 0', fontSize: '14px', fontWeight: '700' }}>Tab & Sub-Tab Permissions & Scopes Matrix</h4>
+                            
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                                {[
+                                    { key: 'dashboard', label: 'Dashboard Page' },
+                                    { key: 'inventory_products', label: 'Inventory (All Products)' },
+                                    { key: 'inventory_transfers', label: 'Inventory (Stock Transfers)' },
+                                    { key: 'sales_invoices', label: 'Sales (All Invoices)' },
+                                    { key: 'sales_pos', label: 'Sales (Quick POS Billing)' },
+                                    { key: 'customers', label: 'Customers Management' },
+                                    { key: 'purchases', label: 'Purchases & Suppliers' },
+                                    { key: 'hr_payroll', label: 'HR & Payroll Management' },
+                                    { key: 'settings', label: 'System Settings' }
+                                ].map(item => (
+                                    <div key={item.key} style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                        <label style={{ fontSize: '12px', fontWeight: '600' }}>{item.label}</label>
+                                        <select 
+                                            value={empForm.scopes?.[item.key] || 'edit'}
+                                            onChange={e => setEmpForm({
+                                                ...empForm,
+                                                scopes: { ...(empForm.scopes || {}), [item.key]: e.target.value }
+                                            })}
+                                            style={{ padding: '8px', borderRadius: '8px', fontSize: '12px', border: '1px solid var(--border-color, #cbd5e1)' }}
+                                        >
+                                            <option value="edit">Read & Edit (Full Write Access)</option>
+                                            <option value="read">Read-Only (View Only)</option>
+                                            <option value="hseen">Hseen (Header Summary Only)</option>
+                                            <option value="unseen">Unseen (Hidden Completely)</option>
+                                        </select>
+                                    </div>
+                                ))}
+                            </div>
+
+                            <div style={{ marginTop: '14px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                <input 
+                                    type="checkbox"
+                                    id="allow_remote_access"
+                                    checked={Boolean(empForm.scopes?.allow_remote_access)}
+                                    onChange={e => setEmpForm({
+                                        ...empForm,
+                                        scopes: { ...(empForm.scopes || {}), allow_remote_access: e.target.checked }
+                                    })}
+                                />
+                                <label htmlFor="allow_remote_access" style={{ fontSize: '13px', fontWeight: '600', cursor: 'pointer' }}>
+                                    Allow Remote / Home Access (Enforces Read-Only & POS Restrictions)
+                                </label>
+                            </div>
+                        </div>
+
                         <div className="modal-actions" style={{ marginTop: '20px', display: 'flex', justifyContent: 'flex-end', gap: '12px' }}>
                             <SButton variant="secondary" type="button" onClick={() => setShowEmpModal(false)}>
                                 Cancel

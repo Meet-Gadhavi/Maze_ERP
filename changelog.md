@@ -2,6 +2,14 @@
 
 All notable changes to the Quantro ERP application will be documented here.
 
+## [2.16.0] - 2026-08-02
+### Added
+- 🏬 **Multi-Store Architecture & Bifurcated Terminal Flow (`OnboardingModal.jsx` & `AuthPage.jsx`)**: Redesigned device onboarding into 3 clear terminal pathways: **🏢 HQ Terminal** (Full Admin access, direct dashboard login), **🏬 Store Terminal** (16-char store pairing key, Chrome profile switcher + 4-digit PIN), and **🏠 Remote Access** (Read-Only stock & POS safeguards).
+- 🏷️ **Quantro / Mazelab ERP Branding (`Sidebar.jsx`)**: Reverted top sidebar branding to "Quantro" logo with primary title "Quantro" and sub-text "Mazelab ERP", and removed top store-selection dropdown.
+- 🔐 **Granular Tab & Sub-Tab Scopes Matrix (`HRPayrollPage.jsx`)**: Integrated granular scope configuration (`unseen`, `hseen`, `read`, `edit`) across all tabs/sub-tabs (Dashboard, Inventory, Sales, Customers, Purchases, HR/Payroll, Settings).
+
+---
+
 ## [2.15.6] - 2026-08-01
 ### Added
 - 👥 **Real-Time Customer Cloud Sync (`customers.js`)**: Wired customer creation and updates directly to `cloudSyncManager.syncCustomer()` to guarantee instant upsert into Supabase `public.customers` table.

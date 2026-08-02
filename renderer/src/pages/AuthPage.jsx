@@ -11,7 +11,11 @@ import ProfileSwitcherScreen from '../components/ProfileSwitcherScreen';
 import { useAuth } from '../context/AuthContext';
 
 export default function AuthPage() {
-    const [showSwitcher, setShowSwitcher] = useState(true);
+    const deviceType = localStorage.getItem('quantro_device_type') || 'store';
+    const isHqTerminal = deviceType === 'hq' || localStorage.getItem('quantro_is_hq') === 'true';
+
+    // HQ Admin Terminal bypasses "Who is using Quantro?" profile selection screen completely
+    const [showSwitcher, setShowSwitcher] = useState(() => !isHqTerminal);
     const [isLogin, setIsLogin] = useState(true);
     const [loading, setLoading] = useState(false);
     const [email, setEmail] = useState('');
