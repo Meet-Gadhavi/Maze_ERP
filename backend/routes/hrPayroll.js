@@ -18,14 +18,31 @@ function verifySecret(secret, hash) {
 router.get('/employees', (req, res) => {
     try {
         const storeId = req.query.store_id;
-        let query = 'SELECT id, employee_code, full_name, email, phone, role, assigned_store_ids, department, designation, base_salary, allowances, deductions, status, created_at FROM employees ORDER BY id DESC';
+        let query = 'SELECT id, employee_code, full_name, email, phone, role, assigned_store_ids, department, designation, base_salary, allowances, deductions, status, restrict_to_terminals, scopes, created_at FROM employees ORDER BY id DESC';
         const employees = db.all(query);
         
-        // Parse assigned_store_ids JSON array for each employee
-        const parsed = employees.map(emp => ({
-            ...emp,
-            assigned_store_ids: emp.assigned_store_ids ? JSON.parse(emp.assigned_store_ids) : []
-        }));
+        // Parse assigned_store_ids and scopes JSON for each employee safely
+        const parsed = employees.map(emp => {
+            let storeIds = ['*'];
+            if (emp.assigned_store_ids) {
+                try {
+                    storeIds = typeof emp.assigned_store_ids === 'string' ? JSON.parse(emp.assigned_store_ids) : emp.assigned_store_ids;
+                } catch (e) { storeIds = ['*']; }
+            }
+
+            let empScopes = {};
+            if (emp.scopes) {
+                try {
+                    empScopes = typeof emp.scopes === 'string' ? JSON.parse(emp.scopes) : emp.scopes;
+                } catch (e) { empScopes = {}; }
+            }
+
+            return {
+                ...emp,
+                assigned_store_ids: Array.isArray(storeIds) ? storeIds : ['*'],
+                scopes: (empScopes && typeof empScopes === 'object' && !Array.isArray(empScopes)) ? empScopes : {}
+            };
+        });
 
         // Filter by storeId if provided and not '*'
         let result = parsed;
@@ -46,7 +63,7 @@ router.get('/employees', (req, res) => {
 // POST /api/hr/employees - Create new employee with hashed credentials
 router.post('/employees', (req, res) => {
     try {
-        const { full_name, email, phone, password, pos_pin, role, assigned_store_ids, department, designation, base_salary, allowances, deductions } = req.body;
+        const { full_name, email, phone, password, pos_pin, role, assigned_store_ids, department, designation, base_salary, allowances, deductions, restrict_to_terminals, scopes } = req.body;
 
         if (!full_name || !email || !password) {
             return res.status(400).json({ error: 'Full name, email, and password are required' });
@@ -66,10 +83,12 @@ router.post('/employees', (req, res) => {
         const password_hash = hashSecret(password);
         const pos_pin_hash = pos_pin ? hashSecret(pos_pin) : null;
         const store_ids_json = JSON.stringify(assigned_store_ids || ['*']);
+        const restrictVal = restrict_to_terminals !== undefined ? Number(restrict_to_terminals) : (role === 'OWNER' ? 0 : 1);
+        const scopes_json = JSON.stringify(scopes || {});
 
         const stmt = db.run(`
-            INSERT INTO employees (employee_code, full_name, email, phone, password_hash, pos_pin_hash, role, assigned_store_ids, department, designation, base_salary, allowances, deductions, status)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'ACTIVE')
+            INSERT INTO employees (employee_code, full_name, email, phone, password_hash, pos_pin_hash, role, assigned_store_ids, department, designation, base_salary, allowances, deductions, status, restrict_to_terminals, scopes)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'ACTIVE', ?, ?)
         `, [
             employee_code,
             full_name.trim(),
@@ -83,12 +102,14 @@ router.post('/employees', (req, res) => {
             designation || 'Staff',
             Number(base_salary || 0),
             Number(allowances || 0),
-            Number(deductions || 0)
+            Number(deductions || 0),
+            restrictVal,
+            scopes_json
         ]);
 
         db.persist();
 
-        const created = db.get('SELECT id, employee_code, full_name, email, phone, role, assigned_store_ids, department, designation, base_salary, status FROM employees WHERE id = ?', [stmt.lastInsertRowid]);
+        const created = db.get('SELECT id, employee_code, full_name, email, phone, role, assigned_store_ids, department, designation, base_salary, status, restrict_to_terminals, scopes FROM employees WHERE id = ?', [stmt.lastInsertRowid]);
 
         if (created) {
             cloudSyncManager.syncStaff({
@@ -96,11 +117,19 @@ router.post('/employees', (req, res) => {
                 full_name: created.full_name,
                 role: created.role,
                 pin: pos_pin || '1234',
-                phone: created.phone
+                phone: created.phone,
+                scopes: scopes || {}
             });
         }
 
-        res.json({ success: true, employee: { ...created, assigned_store_ids: JSON.parse(created.assigned_store_ids) } });
+        res.json({
+            success: true,
+            employee: {
+                ...created,
+                assigned_store_ids: JSON.parse(created.assigned_store_ids),
+                scopes: JSON.parse(created.scopes || '{}')
+            }
+        });
     } catch (err) {
         console.error('[HR] Error creating employee:', err);
         res.status(500).json({ error: err.message || 'Failed to create employee' });
@@ -111,7 +140,7 @@ router.post('/employees', (req, res) => {
 router.put('/employees/:id', (req, res) => {
     try {
         const { id } = req.params;
-        const { full_name, email, phone, password, pos_pin, role, assigned_store_ids, department, designation, base_salary, allowances, deductions, status } = req.body;
+        const { full_name, email, phone, password, pos_pin, role, assigned_store_ids, department, designation, base_salary, allowances, deductions, status, restrict_to_terminals, scopes } = req.body;
 
         const existing = db.get('SELECT * FROM employees WHERE id = ?', [id]);
         if (!existing) {
@@ -129,6 +158,7 @@ router.put('/employees/:id', (req, res) => {
         }
 
         const store_ids_json = assigned_store_ids ? JSON.stringify(assigned_store_ids) : existing.assigned_store_ids;
+        const scopes_json = scopes !== undefined ? JSON.stringify(scopes) : existing.scopes;
 
         db.run(`
             UPDATE employees SET 
@@ -145,6 +175,8 @@ router.put('/employees/:id', (req, res) => {
                 allowances = ?,
                 deductions = ?,
                 status = ?,
+                restrict_to_terminals = ?,
+                scopes = ?,
                 updated_at = datetime('now','localtime')
             WHERE id = ?
         `, [
@@ -161,17 +193,60 @@ router.put('/employees/:id', (req, res) => {
             allowances !== undefined ? Number(allowances) : existing.allowances,
             deductions !== undefined ? Number(deductions) : existing.deductions,
             status || existing.status,
+            restrict_to_terminals !== undefined ? Number(restrict_to_terminals) : existing.restrict_to_terminals,
+            scopes_json,
             id
         ]);
 
         db.persist();
 
-        const updated = db.get('SELECT id, employee_code, full_name, email, phone, role, assigned_store_ids, department, designation, base_salary, allowances, deductions, status FROM employees WHERE id = ?', [id]);
+        const updated = db.get('SELECT id, employee_code, full_name, email, phone, role, assigned_store_ids, department, designation, base_salary, allowances, deductions, status, restrict_to_terminals, scopes FROM employees WHERE id = ?', [id]);
 
-        res.json({ success: true, employee: { ...updated, assigned_store_ids: JSON.parse(updated.assigned_store_ids) } });
+        if (updated) {
+            cloudSyncManager.syncStaff({
+                email: updated.email,
+                full_name: updated.full_name,
+                role: updated.role,
+                pin: pos_pin || '1234',
+                phone: updated.phone,
+                scopes: updated.scopes ? JSON.parse(updated.scopes) : {}
+            });
+        }
+
+        res.json({
+            success: true,
+            employee: {
+                ...updated,
+                assigned_store_ids: JSON.parse(updated.assigned_store_ids),
+                scopes: JSON.parse(updated.scopes || '{}')
+            }
+        });
     } catch (err) {
         console.error('[HR] Error updating employee:', err);
         res.status(500).json({ error: err.message || 'Failed to update employee' });
+    }
+});
+
+// DELETE /api/hr/employees/:id - Delete employee profile
+router.delete('/employees/:id', (req, res) => {
+    try {
+        const { id } = req.params;
+        const existing = db.get('SELECT * FROM employees WHERE id = ?', [id]);
+        if (!existing) {
+            return res.status(404).json({ error: 'Employee not found' });
+        }
+
+        if (existing.role === 'OWNER' && existing.id === 1) {
+            return res.status(400).json({ error: 'Cannot delete the Primary Owner profile.' });
+        }
+
+        db.run('DELETE FROM employees WHERE id = ?', [id]);
+        db.persist();
+
+        res.json({ success: true, message: `Employee ${existing.full_name} deleted successfully.` });
+    } catch (err) {
+        console.error('[HR] Error deleting employee:', err);
+        res.status(500).json({ error: err.message || 'Failed to delete employee' });
     }
 });
 
@@ -196,7 +271,12 @@ router.post('/auth/login', (req, res) => {
             return res.status(400).json({ error: 'Provide either email/password or 4-digit PIN' });
         }
 
+        if (req.body.is_hq && emp.restrict_to_terminals === 1) {
+            return res.status(403).json({ error: 'Access Denied: This employee profile is restricted to paired store terminals and remote access only.' });
+        }
+
         const assignedStoreIds = emp.assigned_store_ids ? JSON.parse(emp.assigned_store_ids) : [];
+        const parsedScopes = emp.scopes ? JSON.parse(emp.scopes) : {};
 
         res.json({
             success: true,
@@ -208,7 +288,9 @@ router.post('/auth/login', (req, res) => {
                 role: emp.role,
                 assigned_store_ids: assignedStoreIds,
                 department: emp.department,
-                designation: emp.designation
+                designation: emp.designation,
+                restrict_to_terminals: emp.restrict_to_terminals,
+                scopes: parsedScopes
             }
         });
     } catch (err) {

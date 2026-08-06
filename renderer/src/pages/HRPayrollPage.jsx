@@ -7,9 +7,105 @@ import { Icons } from '../components/Icons';
 import { useAuth } from '../context/AuthContext';
 import './HRPayrollPage.css';
 
+const DEFAULT_SCOPES = {
+    dashboard: 'edit',
+    inventory_products: 'edit',
+    inventory_transfers: 'edit',
+    sales_invoices: 'edit',
+    sales_pos: 'edit',
+    customers: 'edit',
+    purchases: 'edit',
+    hr_payroll: 'edit',
+    settings: 'edit'
+};
+
+const SCOPE_OPTIONS = [
+    { value: 'edit', label: 'Read & Edit', icon: <Icons.Edit2 size={13} />, desc: 'Full write, update and create access' },
+    { value: 'read', label: 'Read-Only', icon: <Icons.Eye size={13} />, desc: 'View records only (no editing)' },
+    { value: 'hseen', label: 'Hseen (Header Summary)', icon: <Icons.Maximize size={13} />, desc: 'Header summary metrics only' },
+    { value: 'unseen', label: 'Unseen (Hidden)', icon: <Icons.EyeOff size={13} />, desc: 'Completely hide module from sidebar' }
+];
+
+const MODULE_SCOPE_ITEMS = [
+    { key: 'dashboard', label: 'Dashboard & Business Overview', desc: 'KPI metrics, revenue graphs, and sales summaries', icon: <Icons.LayoutDashboard size={18} /> },
+    { key: 'inventory_products', label: 'Inventory (Products Directory)', desc: 'Product catalog, pricing, variants, and stock adjustments', icon: <Icons.Package size={18} /> },
+    { key: 'inventory_transfers', label: 'Inventory (Stock Transfers)', desc: 'Inter-branch stock dispatch & GRN receipts', icon: <Icons.Truck size={18} /> },
+    { key: 'sales_invoices', label: 'Sales (Tax Invoices & Billing)', desc: 'Historical customer invoices, credit notes, and returns', icon: <Icons.FileText size={18} /> },
+    { key: 'sales_pos', label: 'Sales (Quick POS Billing Terminal)', desc: '1-second barcode billing, cash drawer & receipts', icon: <Icons.ShoppingCart size={18} /> },
+    { key: 'customers', label: 'Customers & CRM Ledger', desc: 'Customer profiles, credit balances, and loyalty points', icon: <Icons.Users size={18} /> },
+    { key: 'purchases', label: 'Purchases & Vendor Management', desc: 'Purchase orders, supplier bills, and landed costs', icon: <Icons.Briefcase size={18} /> },
+    { key: 'hr_payroll', label: 'HR & Payroll Management', desc: 'Employee directory, attendance, PINs, and salary disbursements', icon: <Icons.Shield size={18} /> },
+    { key: 'settings', label: 'System & Branch Settings', desc: 'Store profile, GSTIN, invoice templates, and pairing keys', icon: <Icons.Settings size={18} /> }
+];
+
+function QuantroScopeDropdown({ value = 'edit', onChange }) {
+    const [open, setOpen] = useState(false);
+    const dropdownRef = React.useRef(null);
+
+    useEffect(() => {
+        const handleClickOutside = (e) => {
+            if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
+                setOpen(false);
+            }
+        };
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, []);
+
+    const selected = SCOPE_OPTIONS.find(o => o.value === value) || SCOPE_OPTIONS[0] || { value: 'edit', label: 'Read & Edit', icon: <Icons.Edit2 size={13} />, desc: 'Full write access' };
+
+    return (
+        <div className="quantro-custom-select-container" ref={dropdownRef}>
+            <button 
+                type="button"
+                className={`quantro-custom-select-trigger ${open ? 'open' : ''}`}
+                onClick={() => setOpen(!open)}
+            >
+                <span className={`quantro-scope-badge ${selected.value}`}>
+                    {selected.icon} {selected.label}
+                </span>
+                <Icons.ChevronDown size={14} className={`quantro-select-arrow ${open ? 'rotated' : ''}`} />
+            </button>
+
+            {open && (
+                <div className="quantro-custom-select-menu">
+                    {SCOPE_OPTIONS.map(opt => (
+                        <div 
+                            key={opt.value} 
+                            className={`quantro-custom-select-item ${opt.value === value ? 'selected' : ''}`}
+                            onClick={() => {
+                                onChange(opt.value);
+                                setOpen(false);
+                            }}
+                        >
+                            <span className={`quantro-scope-badge ${opt.value}`}>
+                                {opt.icon} {opt.label}
+                            </span>
+                            <span className="quantro-scope-desc">{opt.desc}</span>
+                        </div>
+                    ))}
+                </div>
+            )}
+        </div>
+    );
+}
+
 export default function HRPayrollPage() {
-    const { currentUser, userRole, isOwner, activeStoreId, stores, canManageEmployees, canManagePayroll } = useAuth();
+    const { currentUser, userRole, isOwner, activeStoreId, stores, setStores, canManageEmployees, canManagePayroll, canManageStores } = useAuth();
     const [activeTab, setActiveTab] = useState('employees'); // 'employees', 'attendance', 'payroll'
+
+    const [showStoreModal, setShowStoreModal] = useState(false);
+    const [showPairModal, setShowPairModal] = useState(false);
+    const [pairKeyInput, setPairKeyInput] = useState('');
+    const [newBranchForm, setNewBranchForm] = useState({
+        name: '',
+        phone: '',
+        email: '',
+        address: '',
+        gstin: '',
+        place_of_supply: ''
+    });
+    const [createdPairKey, setCreatedPairKey] = useState('');
     const [employees, setEmployees] = useState([]);
     const [disbursements, setDisbursements] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -30,7 +126,9 @@ export default function HRPayrollPage() {
         base_salary: 20000,
         allowances: 2000,
         deductions: 500,
-        status: 'ACTIVE'
+        status: 'ACTIVE',
+        restrict_to_terminals: 1,
+        scopes: { ...DEFAULT_SCOPES }
     });
     const [savingEmp, setSavingEmp] = useState(false);
 
@@ -56,6 +154,9 @@ export default function HRPayrollPage() {
 
             const payRes = await api.getPayrollHistory();
             if (payRes.disbursements) setDisbursements(payRes.disbursements);
+
+            const storesRes = await api.getStores();
+            if (storesRes.stores) setStores(storesRes.stores);
         } catch (err) {
             console.error('[HR Page] Load error:', err);
             toast.error(err.message || 'Failed to load HR data');
@@ -79,29 +180,65 @@ export default function HRPayrollPage() {
             base_salary: 20000,
             allowances: 2000,
             deductions: 500,
-            status: 'ACTIVE'
+            status: 'ACTIVE',
+            restrict_to_terminals: 1,
+            scopes: { ...DEFAULT_SCOPES, dashboard: 'read', sales_pos: 'edit', hr_payroll: 'unseen', settings: 'unseen' }
         });
         setShowEmpModal(true);
     };
 
     const handleOpenEditEmp = (emp) => {
         setEditingEmp(emp);
+
+        let parsedScopes = { ...DEFAULT_SCOPES };
+        if (emp && emp.scopes) {
+            if (typeof emp.scopes === 'string') {
+                try {
+                    const obj = JSON.parse(emp.scopes);
+                    if (obj && typeof obj === 'object' && !Array.isArray(obj)) {
+                        parsedScopes = { ...DEFAULT_SCOPES, ...obj };
+                    }
+                } catch (e) {}
+            } else if (typeof emp.scopes === 'object' && !Array.isArray(emp.scopes)) {
+                parsedScopes = { ...DEFAULT_SCOPES, ...emp.scopes };
+            }
+        }
+
         setEmpForm({
-            full_name: emp.full_name,
-            email: emp.email,
+            full_name: emp.full_name || '',
+            email: emp.email || '',
             phone: emp.phone || '',
             password: '',
             pos_pin: '',
-            role: emp.role,
-            assigned_store_ids: emp.assigned_store_ids || ['*'],
+            role: emp.role || 'CASHIER',
+            assigned_store_ids: Array.isArray(emp.assigned_store_ids) ? emp.assigned_store_ids : ['*'],
             department: emp.department || 'Sales',
             designation: emp.designation || 'Staff',
             base_salary: emp.base_salary || 0,
             allowances: emp.allowances || 0,
             deductions: emp.deductions || 0,
-            status: emp.status || 'ACTIVE'
+            status: emp.status || 'ACTIVE',
+            restrict_to_terminals: emp.restrict_to_terminals !== undefined ? Number(emp.restrict_to_terminals) : (emp.role === 'OWNER' ? 0 : 1),
+            scopes: parsedScopes
         });
         setShowEmpModal(true);
+    };
+
+    const handleDeleteEmployee = async (emp) => {
+        if (emp.id === 1 || emp.role === 'OWNER') {
+            toast.error('Primary Owner profile cannot be deleted.');
+            return;
+        }
+        if (!window.confirm(`Are you sure you want to permanently delete employee profile for ${emp.full_name}?`)) {
+            return;
+        }
+        try {
+            await api.deleteEmployee(emp.id);
+            toast.success(`Employee ${emp.full_name} deleted successfully.`);
+            loadData();
+        } catch (err) {
+            toast.error(err.message || 'Failed to delete employee profile');
+        }
     };
 
     const handleSaveEmployee = async (e) => {
@@ -212,29 +349,29 @@ export default function HRPayrollPage() {
             </div>
 
             {/* Tabs Header */}
-            <div className="hr-tabs-bar">
+            <div className="tabs">
                 <button 
-                    className={`hr-tab-btn ${activeTab === 'employees' ? 'active' : ''}`}
+                    className={`tab-item ${activeTab === 'employees' ? 'active' : ''}`}
                     onClick={() => setActiveTab('employees')}
                 >
                     <Icons.Users size={16} /> Employees & Credentials ({employees.length})
                 </button>
                 <button 
-                    className={`hr-tab-btn ${activeTab === 'attendance' ? 'active' : ''}`}
+                    className={`tab-item ${activeTab === 'attendance' ? 'active' : ''}`}
                     onClick={() => setActiveTab('attendance')}
                 >
                     <Icons.Clock size={16} /> Attendance & Shifts
                 </button>
                 {canManagePayroll && (
                     <button 
-                        className={`hr-tab-btn ${activeTab === 'payroll' ? 'active' : ''}`}
+                        className={`tab-item ${activeTab === 'payroll' ? 'active' : ''}`}
                         onClick={() => setActiveTab('payroll')}
                     >
                         <Icons.DollarSign size={16} /> Payroll & Slips ({disbursements.length})
                     </button>
                 )}
                 <button 
-                    className={`hr-tab-btn ${activeTab === 'stores' ? 'active' : ''}`}
+                    className={`tab-item ${activeTab === 'stores' ? 'active' : ''}`}
                     onClick={() => setActiveTab('stores')}
                 >
                     <Icons.Store size={16} /> Store Branches & Pairing Keys ({stores.length})
@@ -276,16 +413,41 @@ export default function HRPayrollPage() {
                                         <span className={`status-pill ${emp.status.toLowerCase()}`}>{emp.status}</span>
                                     </td>
                                     <td>
-                                        <div style={{ display: 'flex', gap: '8px' }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                                             {canManageEmployees && (
-                                                <button className="hr-action-btn edit" onClick={() => handleOpenEditEmp(emp)}>
-                                                    <Icons.Edit2 size={14} /> Edit
-                                                </button>
+                                                <SButton 
+                                                    variant="secondary"
+                                                    title="View & Edit Profile / Scopes"
+                                                    onClick={() => handleOpenEditEmp(emp)}
+                                                >
+                                                    <Icons.Eye size={14} />
+                                                </SButton>
                                             )}
+                                            <SButton 
+                                                variant="secondary"
+                                                title="POS Shift & Clock-In Log"
+                                                onClick={() => setShowClockModal(true)}
+                                            >
+                                                <Icons.Clock size={14} />
+                                            </SButton>
                                             {canManagePayroll && (
-                                                <button className="hr-action-btn pay" onClick={() => handleDisburseSalary(emp)}>
-                                                    <Icons.DollarSign size={14} /> Disburse
-                                                </button>
+                                                <SButton 
+                                                    variant="secondary"
+                                                    title="Disburse Monthly Salary Payout"
+                                                    onClick={() => handleDisburseSalary(emp)}
+                                                >
+                                                    <Icons.RotateCcw size={14} />
+                                                </SButton>
+                                            )}
+                                            {canManageEmployees && emp.id !== 1 && emp.role !== 'OWNER' && (
+                                                <SButton 
+                                                    variant="secondary"
+                                                    tone="critical"
+                                                    title="Delete Employee Profile"
+                                                    onClick={() => handleDeleteEmployee(emp)}
+                                                >
+                                                    <Icons.Trash2 size={14} />
+                                                </SButton>
                                             )}
                                         </div>
                                     </td>
@@ -366,7 +528,25 @@ export default function HRPayrollPage() {
 
             {/* Tab 4: Store Branches & Terminal Pairing Keys */}
             {activeTab === 'stores' && (
-                <div className="hr-table-card">
+                <div className="hr-table-card" style={{ padding: '24px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', flexWrap: 'wrap', gap: '16px' }}>
+                        <div>
+                            <h3 style={{ margin: 0 }}>Store Branches & Pairing Keys</h3>
+                            <p style={{ color: '#64748b', fontSize: '13px', margin: '4px 0 0 0' }}>
+                                Manage child outlets, generate 16-character pairing tokens, or connect this terminal to a Parent HQ system.
+                            </p>
+                        </div>
+                        <div style={{ display: 'flex', gap: '12px' }}>
+                            {canManageStores && (
+                                <SButton variant="primary" type="button" onClick={() => setShowStoreModal(true)}>
+                                    <Icons.Plus size={16} /> Add & Pair New Child Branch
+                                </SButton>
+                            )}
+                            <SButton variant="secondary" type="button" onClick={() => setShowPairModal(true)}>
+                                Connect This Terminal to Parent HQ
+                            </SButton>
+                        </div>
+                    </div>
                     <table className="hr-table">
                         <thead>
                             <tr>
@@ -388,7 +568,11 @@ export default function HRPayrollPage() {
                                         <td><code style={{ background: '#f1f5f9', padding: '4px 8px', borderRadius: '6px', fontSize: '13px', fontWeight: '700', letterSpacing: '1px' }}>{st.pair_key_hash || 'STR-PEND-KEY-88'}</code></td>
                                         <td><span className="role-badge">{st.is_hq ? 'Main HQ Warehouse' : 'Branch Store'}</span></td>
                                         <td>
-                                            {isPaired ? (
+                                            {st.is_hq ? (
+                                                <span className="status-pill active" style={{ background: '#dcfce7', color: '#15803d' }}>
+                                                    Live
+                                                </span>
+                                            ) : isPaired ? (
                                                 <span className="status-pill active" style={{ background: '#dcfce7', color: '#15803d' }}>
                                                     Connected
                                                 </span>
@@ -399,14 +583,18 @@ export default function HRPayrollPage() {
                                             )}
                                         </td>
                                         <td>
-                                            {isPaired ? (
-                                                <button 
-                                                    className="hr-action-btn danger" 
-                                                    style={{ color: '#ef4444', border: '1px solid #fca5a5', padding: '4px 10px', borderRadius: '6px', background: '#fef2f2', cursor: 'pointer' }}
+                                            {st.is_hq ? (
+                                                <span style={{ fontSize: '12px', color: '#64748b', fontStyle: 'italic' }}>
+                                                    Primary Admin (No Disconnect)
+                                                </span>
+                                            ) : isPaired ? (
+                                                <SButton 
+                                                    variant="secondary"
+                                                    tone="critical"
                                                     onClick={() => toast.info(`Branch ${st.name} pairing disconnected.`)}
                                                 >
                                                     Disconnect Branch
-                                                </button>
+                                                </SButton>
                                             ) : (
                                                 <span style={{ fontSize: '12px', color: '#64748b', fontStyle: 'italic' }}>
                                                     Pending Pairing (No Disconnect)
@@ -480,7 +668,14 @@ export default function HRPayrollPage() {
                                 <label>Job Role Profile *</label>
                                 <select 
                                     value={empForm.role}
-                                    onChange={e => setEmpForm({ ...empForm, role: e.target.value })}
+                                    onChange={e => {
+                                        const nextRole = e.target.value;
+                                        setEmpForm({ 
+                                            ...empForm, 
+                                            role: nextRole,
+                                            restrict_to_terminals: nextRole === 'OWNER' ? 0 : 1
+                                        });
+                                    }}
                                 >
                                     <option value="CASHIER">Cashier (POS Billing Only)</option>
                                     <option value="STORE_MGR">Store Manager (Local Outlet View)</option>
@@ -532,52 +727,66 @@ export default function HRPayrollPage() {
 
                         {/* Granular Sub-Tab Scopes Matrix Selector */}
                         <div className="scopes-matrix-section" style={{ marginTop: '16px', padding: '16px', borderRadius: '12px', background: 'var(--surface-secondary, #f8fafc)', border: '1px solid var(--border-color, #e2e8f0)' }}>
-                            <h4 style={{ margin: '0 0 12px 0', fontSize: '14px', fontWeight: '700' }}>Tab & Sub-Tab Permissions & Scopes Matrix</h4>
+                            <h4 style={{ margin: '0 0 4px 0', fontSize: '14px', fontWeight: '700' }}>Tab & Sub-Tab Permissions & Scopes Matrix</h4>
+                            <p style={{ fontSize: '12px', color: '#64748b', margin: '0 0 14px 0' }}>
+                                Configure vertical module scopes. Scopes dictate what tabs and features this employee can access across HQ and paired store terminals.
+                            </p>
                             
-                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-                                {[
-                                    { key: 'dashboard', label: 'Dashboard Page' },
-                                    { key: 'inventory_products', label: 'Inventory (All Products)' },
-                                    { key: 'inventory_transfers', label: 'Inventory (Stock Transfers)' },
-                                    { key: 'sales_invoices', label: 'Sales (All Invoices)' },
-                                    { key: 'sales_pos', label: 'Sales (Quick POS Billing)' },
-                                    { key: 'customers', label: 'Customers Management' },
-                                    { key: 'purchases', label: 'Purchases & Suppliers' },
-                                    { key: 'hr_payroll', label: 'HR & Payroll Management' },
-                                    { key: 'settings', label: 'System Settings' }
-                                ].map(item => (
-                                    <div key={item.key} style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                                        <label style={{ fontSize: '12px', fontWeight: '600' }}>{item.label}</label>
-                                        <select 
-                                            value={empForm.scopes?.[item.key] || 'edit'}
-                                            onChange={e => setEmpForm({
-                                                ...empForm,
-                                                scopes: { ...(empForm.scopes || {}), [item.key]: e.target.value }
+                            <div className="scopes-vertical-list">
+                                {MODULE_SCOPE_ITEMS.map(item => (
+                                    <div key={item.key} className="scope-vertical-item">
+                                        <div className="scope-item-left">
+                                            <div className="scope-item-icon">{item.icon}</div>
+                                            <div>
+                                                <div className="scope-item-title">{item.label}</div>
+                                                <div className="scope-item-sub">{item.desc}</div>
+                                            </div>
+                                        </div>
+                                        <QuantroScopeDropdown 
+                                            value={(empForm.scopes && typeof empForm.scopes === 'object' && !Array.isArray(empForm.scopes) && empForm.scopes[item.key]) || 'edit'}
+                                            onChange={(newLevel) => setEmpForm(prev => {
+                                                const currentScopes = (prev.scopes && typeof prev.scopes === 'object' && !Array.isArray(prev.scopes))
+                                                    ? prev.scopes 
+                                                    : { ...DEFAULT_SCOPES };
+                                                return {
+                                                    ...prev,
+                                                    scopes: { ...currentScopes, [item.key]: newLevel }
+                                                };
                                             })}
-                                            style={{ padding: '8px', borderRadius: '8px', fontSize: '12px', border: '1px solid var(--border-color, #cbd5e1)' }}
-                                        >
-                                            <option value="edit">Read & Edit (Full Write Access)</option>
-                                            <option value="read">Read-Only (View Only)</option>
-                                            <option value="hseen">Hseen (Header Summary Only)</option>
-                                            <option value="unseen">Unseen (Hidden Completely)</option>
-                                        </select>
+                                        />
                                     </div>
                                 ))}
                             </div>
 
-                            <div style={{ marginTop: '14px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                <input 
-                                    type="checkbox"
-                                    id="allow_remote_access"
-                                    checked={Boolean(empForm.scopes?.allow_remote_access)}
-                                    onChange={e => setEmpForm({
-                                        ...empForm,
-                                        scopes: { ...(empForm.scopes || {}), allow_remote_access: e.target.checked }
-                                    })}
-                                />
-                                <label htmlFor="allow_remote_access" style={{ fontSize: '13px', fontWeight: '600', cursor: 'pointer' }}>
-                                    Allow Remote / Home Access (Enforces Read-Only & POS Restrictions)
-                                </label>
+                            <div style={{ marginTop: '16px', display: 'flex', flexDirection: 'column', gap: '10px', paddingTop: '12px', borderTop: '1px solid #e2e8f0' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                    <input 
+                                        type="checkbox"
+                                        id="allow_remote_access"
+                                        checked={Boolean(empForm.scopes?.allow_remote_access)}
+                                        onChange={e => setEmpForm({
+                                            ...empForm,
+                                            scopes: { ...(empForm.scopes || {}), allow_remote_access: e.target.checked }
+                                        })}
+                                    />
+                                    <label htmlFor="allow_remote_access" style={{ fontSize: '13px', fontWeight: '600', cursor: 'pointer' }}>
+                                        Allow Remote / Home Access (Enforces Read-Only & POS Restrictions)
+                                    </label>
+                                </div>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                    <input 
+                                        type="checkbox"
+                                        id="restrict_to_terminals"
+                                        checked={Boolean(empForm.restrict_to_terminals)}
+                                        onChange={e => setEmpForm({
+                                            ...empForm,
+                                            restrict_to_terminals: e.target.checked ? 1 : 0
+                                        })}
+                                    />
+                                    <label htmlFor="restrict_to_terminals" style={{ fontSize: '13px', fontWeight: '600', cursor: 'pointer' }}>
+                                        Restrict login to paired child terminals and remote access sessions only (No HQ login)
+                                    </label>
+                                </div>
                             </div>
                         </div>
 
@@ -654,6 +863,118 @@ export default function HRPayrollPage() {
                             </SButton>
                         </div>
                     </div>
+                </Modal>
+            )}
+
+            {/* Modal: Add & Pair New Child Branch */}
+            {showStoreModal && (
+                <Modal isOpen={showStoreModal} onClose={() => { setShowStoreModal(false); setCreatedPairKey(''); }} title="Add & Pair New Child Store Branch">
+                    <div style={{ padding: '16px' }}>
+                        {createdPairKey ? (
+                            <div style={{ textAlign: 'center', padding: '20px', background: '#f0fdf4', borderRadius: '12px', border: '1px solid #bbf7d0' }}>
+                                <div style={{ margin: '0 auto 8px auto', width: '48px', height: '48px', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#dcfce7', color: '#16a34a', borderRadius: '50%' }}>
+                                    <Icons.PartyPopper size={24} />
+                                </div>
+                                <h3 style={{ color: '#166534', margin: 0 }}>Child Branch Created!</h3>
+                                <p style={{ fontSize: '13px', color: '#15803d', margin: '8px 0 16px 0' }}>
+                                    Enter this 16-character Pairing Token on the Child ERP terminal to pair it with Parent HQ:
+                                </p>
+                                <div style={{ fontSize: '24px', fontWeight: 'bold', fontFamily: 'monospace', letterSpacing: '2px', background: '#ffffff', padding: '12px 20px', borderRadius: '8px', border: '2px dashed #22c55e', color: '#15803d', display: 'inline-block' }}>
+                                    {createdPairKey}
+                                </div>
+                                <div style={{ marginTop: '20px' }}>
+                                    <SButton variant="primary" onClick={() => { setShowStoreModal(false); setCreatedPairKey(''); }}>Done</SButton>
+                                </div>
+                            </div>
+                        ) : (
+                            <form onSubmit={async (e) => {
+                                e.preventDefault();
+                                try {
+                                    const res = await api.createStore(newBranchForm);
+                                    if (res.pair_key) {
+                                        setCreatedPairKey(res.pair_key);
+                                        toast.success(`Child branch ${newBranchForm.name} created!`);
+                                        const storesRes = await api.getStores();
+                                        if (storesRes.stores) setStores(storesRes.stores);
+                                    }
+                                } catch (err) {
+                                    toast.error(err.message || 'Failed to create branch');
+                                }
+                            }}>
+                                <div className="form-group" style={{ marginBottom: '12px' }}>
+                                    <label>Branch Name *</label>
+                                    <input type="text" required value={newBranchForm.name} onChange={e => setNewBranchForm({ ...newBranchForm, name: e.target.value })} placeholder="e.g. Quantro Outlet - Downtown" />
+                                </div>
+                                <div className="form-group" style={{ marginBottom: '12px' }}>
+                                    <label>Address</label>
+                                    <input type="text" value={newBranchForm.address} onChange={e => setNewBranchForm({ ...newBranchForm, address: e.target.value })} placeholder="45 MG Road, Bangalore" />
+                                </div>
+                                <div style={{ display: 'flex', gap: '12px', marginBottom: '12px' }}>
+                                    <div className="form-group" style={{ flex: 1 }}>
+                                        <label>Branch Phone</label>
+                                        <input type="text" value={newBranchForm.phone} onChange={e => setNewBranchForm({ ...newBranchForm, phone: e.target.value })} placeholder="+91 98765 43210" />
+                                    </div>
+                                    <div className="form-group" style={{ flex: 1 }}>
+                                        <label>Branch Email</label>
+                                        <input type="email" value={newBranchForm.email} onChange={e => setNewBranchForm({ ...newBranchForm, email: e.target.value })} placeholder="downtown@quantro.app" />
+                                    </div>
+                                </div>
+                                <div style={{ display: 'flex', gap: '12px', marginBottom: '20px' }}>
+                                    <div className="form-group" style={{ flex: 1 }}>
+                                        <label>Branch GSTIN</label>
+                                        <input type="text" value={newBranchForm.gstin} onChange={e => setNewBranchForm({ ...newBranchForm, gstin: e.target.value })} placeholder="24AAAAA0000A1Z5" />
+                                    </div>
+                                    <div className="form-group" style={{ flex: 1 }}>
+                                        <label>Place of Supply</label>
+                                        <input type="text" value={newBranchForm.place_of_supply} onChange={e => setNewBranchForm({ ...newBranchForm, place_of_supply: e.target.value })} placeholder="09-Uttar Pradesh" />
+                                    </div>
+                                </div>
+                                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px' }}>
+                                    <SButton variant="secondary" type="button" onClick={() => setShowStoreModal(false)}>Cancel</SButton>
+                                    <SButton variant="primary" type="submit">Generate 16-Char Pair Token</SButton>
+                                </div>
+                            </form>
+                        )}
+                    </div>
+                </Modal>
+            )}
+
+            {/* Modal: Connect Terminal via 16-Char Pair Key */}
+            {showPairModal && (
+                <Modal isOpen={showPairModal} onClose={() => setShowPairModal(false)} title="Connect Terminal to Parent HQ System">
+                    <form onSubmit={async (e) => {
+                        e.preventDefault();
+                        try {
+                            const res = await api.pairStoreTerminal(pairKeyInput);
+                            if (res.store) {
+                                toast.success(`Terminal paired with ${res.store.name}!`);
+                                setShowPairModal(false);
+                                const storesRes = await api.getStores();
+                                if (storesRes.stores) setStores(storesRes.stores);
+                            }
+                        } catch (err) {
+                            toast.error(err.message || 'Pairing failed');
+                        }
+                    }} style={{ padding: '16px' }}>
+                        <p style={{ color: '#64748b', fontSize: '13px', marginBottom: '16px' }}>
+                            Enter the 16-character Branch Pairing Token generated by Parent HQ Admin to align this terminal as a Child ERP instance.
+                        </p>
+                        <div className="form-group" style={{ marginBottom: '20px' }}>
+                            <label>16-Character Pairing Token *</label>
+                            <input 
+                                type="text" 
+                                required 
+                                value={pairKeyInput}
+                                onChange={e => setPairKeyInput(e.target.value)}
+                                placeholder="e.g. STR-98F1-44A2-KL89"
+                                style={{ fontFamily: 'monospace', fontSize: '16px', letterSpacing: '1px', textAlign: 'center' }}
+                            />
+                        </div>
+                        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px' }}>
+                            <SButton variant="secondary" type="button" onClick={() => setShowPairModal(false)}>Cancel</SButton>
+                            <SButton variant="primary" type="submit">Verify & Align Terminal</SButton>
+                        </div>
+                    </form>
                 </Modal>
             )}
         </div>

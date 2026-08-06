@@ -600,11 +600,7 @@ export default function App() {
         // Initial check
         supabase.auth.getSession().then(({ data: { session } }) => {
             setSession(session);
-            if (session) {
-                checkActivation(session);
-            } else {
-                setLoading(false);
-            }
+            checkActivation(session);
         });
 
         // Listen for changes
@@ -613,7 +609,8 @@ export default function App() {
             if (session) {
                 checkActivation(session);
             } else {
-                setIsActivated(false);
+                const isLocalSession = localStorage.getItem('quantro_local_session') === 'true' || !!localStorage.getItem('quantro_current_user');
+                setIsActivated(isLocalSession);
                 setLoading(false);
                 try {
                     // Clear local settings on sign out

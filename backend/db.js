@@ -799,10 +799,23 @@ ready = (async () => {
       allowances REAL DEFAULT 0,
       deductions REAL DEFAULT 0,
       status TEXT DEFAULT 'ACTIVE',
+      restrict_to_terminals INTEGER DEFAULT 1,
       created_at TEXT NOT NULL DEFAULT (datetime('now','localtime')),
       updated_at TEXT NOT NULL DEFAULT (datetime('now','localtime'))
     )
   `);
+
+  try {
+    db.run("ALTER TABLE stores ADD COLUMN is_paired INTEGER DEFAULT 0");
+  } catch (err) {}
+
+  try {
+    db.run("ALTER TABLE employees ADD COLUMN restrict_to_terminals INTEGER DEFAULT 1");
+  } catch (err) {}
+
+  try {
+    db.run("ALTER TABLE employees ADD COLUMN scopes TEXT DEFAULT NULL");
+  } catch (err) {}
 
   // Seed Default Primary Admin / Owner Employee if empty
   // Purge any legacy fake admin@quantro.app profile

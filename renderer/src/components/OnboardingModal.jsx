@@ -30,7 +30,9 @@ export default function OnboardingModal({ isOpen, onComplete }) {
         "Select Device Architecture & Terminal Type",
         "Shop & Business Profile",
         "GSTIN & Tax Registration",
-        "Contact, Email & 4-Digit Security PIN",
+        accountMode === 'hq'
+            ? "Contact, Email & 4-Digit Security PIN"
+            : "Contact & Account Email",
         "Business Logo & Final Launch"
     ];
 
@@ -79,7 +81,7 @@ export default function OnboardingModal({ isOpen, onComplete }) {
             return;
         }
 
-        if (step === 4) {
+        if (step === 4 && accountMode === 'hq') {
             if (form.pos_pin && form.pos_pin.length !== 4) {
                 toast.error("Security POS PIN must be exactly 4 digits");
                 return;
@@ -121,15 +123,18 @@ export default function OnboardingModal({ isOpen, onComplete }) {
                 onboarding_completed: '1'
             });
 
-            // 2. Create/update primary staff profile with 4-digit PIN in SQLite & Supabase
-            if (form.email) {
+            // 2. Create primary staff profile only for HQ mode.
+            // For Store/Remote terminals, the employee profile & PIN already
+            // exist in Supabase (created by the HR Admin). Don't overwrite.
+            if (form.email && accountMode === 'hq') {
                 try {
                     await api.createEmployee({
                         full_name: form.shop_name || 'Primary Admin',
                         email: form.email.trim().toLowerCase(),
                         pos_pin: form.pos_pin || '1234',
                         password: 'Quantro123!',
-                        role: accountMode === 'hq' ? 'OWNER' : 'STORE_MGR'
+                        role: 'OWNER',
+                        restrict_to_terminals: 0
                     });
                 } catch (empErr) {
                     console.warn('[Onboarding] Staff profile creation notice:', empErr.message);
@@ -290,11 +295,17 @@ export default function OnboardingModal({ isOpen, onComplete }) {
                         </div>
                     )}
 
-                    {/* STEP 4: Contact, Email & 4-Digit Security PIN */}
+                    {/* STEP 4: Contact & Email (+ PIN only for HQ mode) */}
                     {step === 4 && (
                         <div className="onboarding-step-content" style={{ maxWidth: '600px', margin: '0 auto', width: '100%' }}>
-                            <h2 className="step-heading">Contact, Account Email & Security PIN</h2>
-                            <p className="step-desc">Set your account email and a 4-digit PIN for 1-second POS terminal profile switching.</p>
+                            <h2 className="step-heading">
+                                {accountMode === 'hq' ? 'Contact, Account Email & Security PIN' : 'Contact & Account Email'}
+                            </h2>
+                            <p className="step-desc">
+                                {accountMode === 'hq'
+                                    ? 'Set your owner account email and a 4-digit PIN for instant POS terminal profile switching.'
+                                    : 'Enter your work email address. Your 4-digit POS PIN was already set by your HR Admin — no need to re-create it here.'}
+                            </p>
 
                             <div className="form-group" style={{ marginTop: '16px' }}>
                                 <label>Helpline Phone Number</label>
@@ -317,18 +328,42 @@ export default function OnboardingModal({ isOpen, onComplete }) {
                                 />
                             </div>
 
-                            <div className="form-group" style={{ marginTop: '16px' }}>
-                                <label>Create 4-Digit Security POS PIN * (for Store Terminal Login)</label>
-                                <input 
-                                    type="password"
-                                    maxLength={4}
-                                    required
-                                    value={form.pos_pin}
-                                    onChange={e => setForm({ ...form, pos_pin: e.target.value.replace(/\D/g, '') })}
-                                    placeholder="1234"
-                                    style={{ fontSize: '18px', letterSpacing: '4px', fontWeight: 'bold' }}
-                                />
-                            </div>
+                            {/* 🔒 PIN field only shown for HQ Owner setup */}
+                            {accountMode === 'hq' && (
+                                <div className="form-group" style={{ marginTop: '16px' }}>
+                                    <label>Create 4-Digit Security POS PIN * (for Profile Switching)</label>
+                                    <input 
+                                        type="password"
+                                        maxLength={4}
+                                        required
+                                        value={form.pos_pin}
+                                        onChange={e => setForm({ ...form, pos_pin: e.target.value.replace(/\D/g, '') })}
+                                        placeholder="1234"
+                                        style={{ fontSize: '18px', letterSpacing: '4px', fontWeight: 'bold' }}
+                                    />
+                                    <span style={{ fontSize: '12px', color: '#64748b', marginTop: '6px', display: 'block' }}>
+                                        ℹ️ This PIN is used to switch between staff profiles on this terminal.
+                                    </span>
+                                </div>
+                            )}
+
+                            {/* ℹ️ Info notice for store/remote — PIN already assigned by admin */}
+                            {accountMode !== 'hq' && (
+                                <div style={{
+                                    marginTop: '20px', padding: '14px 16px',
+                                    background: 'rgba(99,102,241,0.08)', borderRadius: '10px',
+                                    border: '1px solid rgba(99,102,241,0.2)',
+                                    display: 'flex', alignItems: 'flex-start', gap: '10px'
+                                }}>
+                                    <span style={{ fontSize: '18px' }}>🔐</span>
+                                    <div>
+                                        <div style={{ fontWeight: '700', fontSize: '13px', color: '#6366f1' }}>POS PIN Already Configured</div>
+                                        <div style={{ fontSize: '12px', color: '#475569', marginTop: '4px' }}>
+                                            Your 4-digit POS PIN was securely set by your HR Administrator when your employee profile was created. You do not need to create a new PIN here — it will work automatically once you log in on this terminal.
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
                         </div>
                     )}
 
@@ -377,10 +412,18 @@ export default function OnboardingModal({ isOpen, onComplete }) {
                                     <span>Account Email:</span>
                                     <strong>{form.email || 'N/A'}</strong>
                                 </div>
-                                <div className="summary-row">
-                                    <span>4-Digit Security PIN:</span>
-                                    <strong>•••• ({form.pos_pin || '1234'})</strong>
-                                </div>
+                                {accountMode === 'hq' && (
+                                    <div className="summary-row">
+                                        <span>4-Digit Security PIN:</span>
+                                        <strong>•••• ({form.pos_pin || '1234'})</strong>
+                                    </div>
+                                )}
+                                {accountMode !== 'hq' && (
+                                    <div className="summary-row">
+                                        <span>POS PIN:</span>
+                                        <strong style={{ color: '#6366f1' }}>✓ Pre-configured by HR Admin</strong>
+                                    </div>
+                                )}
                                 <div className="summary-row">
                                     <span>GSTIN:</span>
                                     <strong>{form.gstin || 'Not Provided'}</strong>

@@ -13,7 +13,8 @@ import {
     PieChart, CloudLightning, BarChart2, ShoppingBag, UserPlus, ArrowUpDown, Tag,
     Phone, Mail, List, KeyRound, Award, CornerDownRight, ArrowUpRight, PlusCircle, MinusCircle,
     Wallet, RefreshCw, UserX, MapPin, DollarSign, ChevronsUpDown, SquareTerminal, Bot, BookOpen, Folder,
-    Globe, Building, Building2, Store, PartyPopper, UserCheck, Briefcase, UserCog, Contact
+    Globe, Building, Building2, Store, PartyPopper, UserCheck, Briefcase, UserCog, Contact,
+    Maximize, EyeOff, LayoutDashboard, Truck
 } from 'lucide-react';
 
 // ─────────────────────────────────────────────────────────────
@@ -225,6 +226,10 @@ export const Icons = {
     Briefcase:      withMotion(Briefcase),
     UserCog:        withMotion(UserCog),
     Contact:        withMotion(Contact),
+    Maximize:       withMotion(Maximize),
+    EyeOff:         withMotion(EyeOff),
+    LayoutDashboard: withMotion(LayoutDashboard),
+    Truck:          withMotion(Truck),
     QuantroLogo:    withMotion(({ size = 20, ...props }) => (
         <svg width={size} height={size} viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg" {...props}>
             <path d="M16 5L26 10.77V21.23L16 27L6 21.23V10.77L16 5Z" stroke="currentColor" strokeWidth="2.5" strokeLinejoin="round" />

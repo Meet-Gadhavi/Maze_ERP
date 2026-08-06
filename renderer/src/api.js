@@ -551,6 +551,7 @@ const api = {
     getEmployees: (storeId) => request(`/hr/employees${storeId ? `?store_id=${storeId}` : ''}`),
     createEmployee: (data) => request('/hr/employees', { method: 'POST', body: data }),
     updateEmployee: (id, data) => request(`/hr/employees/${id}`, { method: 'PUT', body: data }),
+    deleteEmployee: (id) => request(`/hr/employees/${id}`, { method: 'DELETE' }),
     loginStaff: (data) => request('/hr/auth/login', { method: 'POST', body: data }),
     clockIn: (data) => request('/hr/attendance/clock-in', { method: 'POST', body: data }),
     clockOut: (data) => request('/hr/attendance/clock-out', { method: 'POST', body: data }),

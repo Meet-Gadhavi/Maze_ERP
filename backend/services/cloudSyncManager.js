@@ -162,12 +162,22 @@ async function syncStaff(staff) {
     try {
         await supabase.from('staff_profiles').upsert({
             store_id: 1,
-            email: staff.email,
+            email: staff.email.toLowerCase().trim(),
+            employee_code: staff.employee_code || '',
             full_name: staff.name || staff.full_name || 'Staff',
             role: staff.role || 'CASHIER',
-            pin: String(staff.pin || '1234'),
+            pin: String(staff.pin || staff.pos_pin || '1234'),
             phone: staff.phone || '',
             avatar_url: staff.avatar_url || '',
+            department: staff.department || 'Sales',
+            designation: staff.designation || 'Staff',
+            base_salary: Number(staff.base_salary || 0),
+            allowances: Number(staff.allowances || 0),
+            deductions: Number(staff.deductions || 0),
+            status: staff.status || 'ACTIVE',
+            restrict_to_terminals: staff.restrict_to_terminals !== undefined ? Number(staff.restrict_to_terminals) : 1,
+            assigned_store_ids: typeof staff.assigned_store_ids === 'object' ? JSON.stringify(staff.assigned_store_ids) : (staff.assigned_store_ids || '["*"]'),
+            scopes: typeof staff.scopes === 'object' ? JSON.stringify(staff.scopes) : (staff.scopes || '{}'),
             is_active: staff.is_active !== undefined ? Boolean(staff.is_active) : true
         }, { onConflict: 'email' });
         console.log(`[Cloud Sync] Staff Profile (${staff.email}) synced.`);
@@ -429,14 +439,22 @@ async function pullFromCloudAndSyncLocal() {
                 for (const st of cloudStaff) {
                     try {
                         db.run(`
-                            INSERT INTO employees (full_name, email, role, phone, avatar_url, status)
-                            VALUES (?, ?, ?, ?, ?, 'ACTIVE')
+                            INSERT INTO employees (full_name, email, role, phone, avatar_url, status, pos_pin_hash, restrict_to_terminals, scopes, assigned_store_ids, department, designation, base_salary, allowances, deductions)
+                            VALUES (?, ?, ?, ?, ?, 'ACTIVE', ?, ?, ?, ?, ?, ?, ?, ?, ?)
                             ON CONFLICT(email) DO UPDATE SET
                                 full_name = excluded.full_name,
                                 role = excluded.role,
                                 phone = excluded.phone,
-                                avatar_url = excluded.avatar_url
-                        `, [st.full_name, st.email.toLowerCase(), st.role || 'CASHIER', st.phone || '', st.avatar_url || '']);
+                                avatar_url = excluded.avatar_url,
+                                restrict_to_terminals = excluded.restrict_to_terminals,
+                                scopes = excluded.scopes,
+                                assigned_store_ids = excluded.assigned_store_ids,
+                                department = excluded.department,
+                                designation = excluded.designation,
+                                base_salary = excluded.base_salary,
+                                allowances = excluded.allowances,
+                                deductions = excluded.deductions
+                        `, [st.full_name, st.email.toLowerCase(), st.role || 'CASHIER', st.phone || '', st.avatar_url || '', st.pin || '1234', st.restrict_to_terminals !== undefined ? Number(st.restrict_to_terminals) : 1, st.scopes || '{}', st.assigned_store_ids || '["*"]', st.department || 'Sales', st.designation || 'Staff', Number(st.base_salary || 0), Number(st.allowances || 0), Number(st.deductions || 0)]);
                     } catch (_) {}
                 }
             }
@@ -444,7 +462,35 @@ async function pullFromCloudAndSyncLocal() {
             console.warn('[Cloud Pull] Staff pull notice:', e.message);
         }
 
-        // 8. APP SETTINGS
+        // 8. STORE BRANCHES
+        try {
+            const { data: cloudStores, error } = await supabase.from('stores').select('*');
+            if (cloudStores && Array.isArray(cloudStores) && !error) {
+                for (const st of cloudStores) {
+                    try {
+                        db.run(`
+                            INSERT INTO stores (name, store_code, phone, email, address, gstin, place_of_supply, pair_key_hash, is_hq, is_paired, status)
+                            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                            ON CONFLICT(pair_key_hash) DO UPDATE SET
+                                name = excluded.name,
+                                store_code = excluded.store_code,
+                                phone = excluded.phone,
+                                email = excluded.email,
+                                address = excluded.address,
+                                gstin = excluded.gstin,
+                                place_of_supply = excluded.place_of_supply,
+                                is_hq = excluded.is_hq,
+                                is_paired = excluded.is_paired,
+                                status = excluded.status
+                        `, [st.name, st.store_code || `STR-${st.id}`, st.phone || '', st.email || '', st.address || '', st.gstin || '', st.place_of_supply || '', st.pair_key_hash || '', st.is_hq ? 1 : 0, st.is_paired ? 1 : 0, st.status || 'CONNECTED']);
+                    } catch (_) {}
+                }
+            }
+        } catch (e) {
+            console.warn('[Cloud Pull] Stores pull notice:', e.message);
+        }
+
+        // 9. APP SETTINGS
         try {
             const { data: cloudSettings, error } = await supabase.from('app_settings').select('*').maybeSingle();
             if (cloudSettings && !error) {

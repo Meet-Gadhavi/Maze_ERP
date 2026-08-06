@@ -93,7 +93,25 @@ export default function Sidebar({ isCollapsed, setIsCollapsed }) {
     const effectiveRole = (userRole || currentUser?.role || 'OWNER').toUpperCase();
 
     const canAccess = (feature) => {
-        if (effectiveRole === 'OWNER' || effectiveRole === 'REGIONAL_MGR' || effectiveRole === 'HQ' || effectiveRole === 'ADMIN') return true;
+        if (effectiveRole === 'OWNER' || effectiveRole === 'HQ' || effectiveRole === 'ADMIN') return true;
+        
+        // Scope override check
+        const scopeMap = {
+            dashboard: 'dashboard',
+            inventory: 'inventory_products',
+            sales: 'sales_pos',
+            customers: 'customers',
+            purchase: 'purchases',
+            hr: 'hr_payroll',
+            billing: 'sales_invoices',
+            settings: 'settings'
+        };
+        const scopeKey = scopeMap[feature];
+        if (scopeKey && currentUser?.scopes?.[scopeKey] === 'unseen') {
+            return false;
+        }
+
+        if (effectiveRole === 'REGIONAL_MGR') return true;
         if (effectiveRole === 'CASHIER') return feature === 'sales';
         if (effectiveRole === 'INVENTORY_CLERK') return feature === 'dashboard' || feature === 'inventory';
         if (effectiveRole === 'STORE_MGR') return ['dashboard', 'inventory', 'sales', 'customers', 'purchase'].includes(feature);
@@ -143,7 +161,7 @@ export default function Sidebar({ isCollapsed, setIsCollapsed }) {
                         {settingsLogo ? (
                             <img src={settingsLogo} alt="Logo" style={{ width: '100%', height: '100%', objectFit: 'contain', borderRadius: '6px' }} />
                         ) : (
-                            <span style={{ fontSize: '20px', fontWeight: '900', color: '#ffffff', fontFamily: 'system-ui, sans-serif' }}>Q</span>
+                            <img src="./icons/Logo.png" alt="Logo" style={{ width: '100%', height: '100%', objectFit: 'contain', borderRadius: '6px' }} />
                         )}
                     </div>
                     {!isCollapsed && (

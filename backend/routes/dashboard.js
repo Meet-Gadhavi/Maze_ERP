@@ -53,6 +53,80 @@ router.get('/', async (req, res, next) => {
         })();
 
         // ─────────────────────────────────────────────
+        // MULTI-TERMINAL & CHILD BRANCH ANALYTICS
+        // ─────────────────────────────────────────────
+        const STORE_COLORS = ['#6366f1', '#ec4899', '#10b981', '#f59e0b', '#3b82f6', '#8b5cf6', '#06b6d4', '#14b8a6'];
+        let storeList = [];
+        try {
+            storeList = db.all('SELECT * FROM stores ORDER BY is_hq DESC, id ASC');
+        } catch (_) {}
+
+        if (!storeList || storeList.length === 0) {
+            storeList = [{ id: 1, name: 'Main HQ Terminal', is_hq: 1, is_paired: 1, status: 'CONNECTED' }];
+        }
+
+        const safeStoreGet = (sql, params = [], fallback = { total: 0, count: 0 }) => {
+            try {
+                return db.get(sql, params) || fallback;
+            } catch (_) {
+                try {
+                    const fallbackSql = sql.replace(/\s*AND\s*\([^)]*store_id[^)]*\)/gi, '').replace(/\s*WHERE\s*\([^)]*store_id[^)]*\)/gi, '');
+                    return db.get(fallbackSql, params) || fallback;
+                } catch (e) {
+                    return fallback;
+                }
+            }
+        };
+
+        const terminalAnalytics = storeList.map((st, index) => {
+            const isHQ = Boolean(st.is_hq);
+            const storeFilter = isHQ ? '(store_id = 1 OR store_id IS NULL)' : `store_id = ${st.id}`;
+            
+            // Sales
+            const todaySales = Number(safeStoreGet(`SELECT COALESCE(SUM(total), 0) AS total FROM invoices WHERE date = ? AND (${storeFilter})`, [today]).total || 0);
+            const monthlySales = Number(safeStoreGet(`SELECT COALESCE(SUM(total), 0) AS total FROM invoices WHERE date >= ? AND (${storeFilter})`, [monthStr]).total || 0);
+            const ordersCount = Number(safeStoreGet(`SELECT COUNT(*) AS count FROM invoices WHERE date >= date('now', 'localtime', ${rangeSql}) AND (${storeFilter})`).count || 0);
+
+            // Inventory
+            const invVal = Number(safeStoreGet(`SELECT COALESCE(SUM(cost_price * stock_quantity), 0) AS total FROM products WHERE (${storeFilter})`).total || 0);
+            const lowStock = Number(safeStoreGet(`SELECT COUNT(*) AS count FROM products WHERE stock_quantity <= min_stock_level AND min_stock_level > 0 AND (${storeFilter})`).count || 0);
+
+            // Customers & Dues
+            const custCount = Number(safeStoreGet(`SELECT COUNT(*) AS count FROM customers WHERE (${storeFilter})`).count || 0);
+            const duesTotal = Number(safeStoreGet(`SELECT COALESCE(SUM(total - paid_amount), 0) AS total FROM invoices WHERE payment_status NOT IN ('Paid','PAID','Returned') AND (${storeFilter})`).total || 0);
+
+            // Payments
+            const cashTotal = Number(safeStoreGet(`SELECT COALESCE(SUM(total), 0) AS total FROM invoices WHERE LOWER(payment_mode) = 'cash' AND date >= date('now', 'localtime', ${rangeSql}) AND (${storeFilter})`).total || 0);
+            const onlineTotal = Number(safeStoreGet(`SELECT COALESCE(SUM(total), 0) AS total FROM invoices WHERE LOWER(payment_mode) != 'cash' AND date >= date('now', 'localtime', ${rangeSql}) AND (${storeFilter})`).total || 0);
+
+            // AI Automation
+            const aiOrders = Number(safeStoreGet(`SELECT COUNT(*) AS count FROM mazeway_orders WHERE (${storeFilter})`).count || 0);
+
+            // Financials
+            const expTotal = Number(safeStoreGet(`SELECT COALESCE(SUM(amount), 0) AS total FROM expenses WHERE date >= date('now', 'localtime', ${rangeSql}) AND (${storeFilter})`).total || 0);
+
+            return {
+                id: st.id,
+                name: st.name,
+                code: st.store_code || `STR-${st.id}`,
+                is_hq: isHQ,
+                is_paired: Boolean(st.is_paired || st.status === 'CONNECTED'),
+                today_sales: todaySales,
+                monthly_sales: monthlySales,
+                orders_count: ordersCount,
+                inventory_value: invVal,
+                low_stock_count: lowStock,
+                customer_count: custCount,
+                dues_total: duesTotal,
+                cash_total: cashTotal,
+                online_total: onlineTotal,
+                ai_orders: aiOrders,
+                expenses_total: expTotal,
+                color: STORE_COLORS[index % STORE_COLORS.length]
+            };
+        });
+
+        // ─────────────────────────────────────────────
         // SALES ANALYTICS
         // ─────────────────────────────────────────────
 
@@ -69,6 +143,21 @@ router.get('/', async (req, res, next) => {
             GROUP BY d.date
             ORDER BY d.date ASC
         `);
+
+        // Multi-terminal sales trend over time
+        const multiTerminalSales = salesOverTime.map(row => {
+            const dateStr = row.date;
+            const entry = { date: dateStr, Combined: Number(row.total || 0) };
+            
+            storeList.forEach((st) => {
+                const isHQ = Boolean(st.is_hq);
+                const storeFilter = isHQ ? '(store_id = 1 OR store_id IS NULL)' : `store_id = ${st.id}`;
+                const stSales = safeStoreGet(`SELECT COALESCE(SUM(total), 0) AS total FROM invoices WHERE date = ? AND (${storeFilter})`, [dateStr]).total;
+                entry[st.name] = Number(stSales || 0);
+            });
+
+            return entry;
+        });
 
         // 2. Orders vs Revenue (bar chart dual axis)
         const ordersVsRevenue = db.all(`
@@ -594,6 +683,11 @@ router.get('/', async (req, res, next) => {
             totalOrders,
             outstandingDues,
             aiOrdersCount,
+
+            // Multi-Terminal & Child Branch Analytics
+            terminalAnalytics,
+            multiTerminalSales,
+            storeList,
 
             // Sales
             salesOverTime,

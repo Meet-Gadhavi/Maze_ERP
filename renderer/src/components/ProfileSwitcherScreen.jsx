@@ -7,6 +7,7 @@ import api from '../api';
 import './ProfileSwitcherScreen.css';
 
 export default function ProfileSwitcherScreen({ onSelectProfile, onAddNewAccount }) {
+    const isHqTerminal = localStorage.getItem('quantro_is_hq') === 'true' || localStorage.getItem('quantro_device_type') === 'hq';
     const [profiles, setProfiles] = useState([]);
     const [loadingProfiles, setLoadingProfiles] = useState(true);
     const [selectedProfile, setSelectedProfile] = useState(null);
@@ -50,6 +51,7 @@ export default function ProfileSwitcherScreen({ onSelectProfile, onAddNewAccount
                                 role: emp.role || 'CASHIER',
                                 phone: emp.phone || '',
                                 avatar_url: emp.avatar_url || '',
+                                restrict_to_terminals: emp.restrict_to_terminals,
                                 source: 'db'
                             };
                             if (idx >= 0) {
@@ -121,6 +123,25 @@ export default function ProfileSwitcherScreen({ onSelectProfile, onAddNewAccount
         loadRealProfiles();
     }, []);
 
+    useEffect(() => {
+        if (!selectedProfile) return;
+
+        const handleKeyDown = (e) => {
+            if (e.key >= '0' && e.key <= '9') {
+                handlePinKeyPress(e.key);
+            } else if (e.key === 'Backspace') {
+                handlePinBackspace();
+            } else if (e.key === 'Escape') {
+                setSelectedProfile(null);
+            } else if (e.key.toLowerCase() === 'c') {
+                setPinInput('');
+            }
+        };
+
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, [selectedProfile, pinInput]);
+
     const formatRoleName = (roleStr) => {
         const r = (roleStr || 'OWNER').toUpperCase();
         if (r === 'OWNER' || r === 'HQ' || r === 'ADMIN') return 'Primary Admin';
@@ -149,16 +170,7 @@ export default function ProfileSwitcherScreen({ onSelectProfile, onAddNewAccount
     };
 
     const handleProfileClick = (profile) => {
-        const r = (profile.role || 'OWNER').toUpperCase();
-        
-        // ADMIN / OWNER profiles do NOT require PINs! Log straight in to Dashboard.
-        if (r === 'OWNER' || r === 'HQ' || r === 'ADMIN') {
-            toast.success(`Welcome back, ${profile.full_name || profile.email}!`);
-            if (onSelectProfile) onSelectProfile(profile);
-            return;
-        }
-
-        // Employee staff profiles require 4-digit PIN
+        // Require 4-digit PIN for all profiles, including OWNER/HQ/ADMIN
         setSelectedProfile(profile);
         setPinInput('');
         setPinError(false);
@@ -183,6 +195,15 @@ export default function ProfileSwitcherScreen({ onSelectProfile, onAddNewAccount
     const verifyPinAndLogin = async (profile, pin) => {
         setLoadingPin(true);
         try {
+            // 🔒 Block restricted employees from logging in on HQ terminal
+            const isHqTerminal = localStorage.getItem('quantro_is_hq') === 'true' || localStorage.getItem('quantro_device_type') === 'hq';
+            if (isHqTerminal && profile.restrict_to_terminals === 1) {
+                setPinError(true);
+                toast.error(`Access Denied: ${profile.full_name || profile.email}'s profile is restricted to paired store terminals and remote access only. HQ login is not permitted.`);
+                setPinInput('');
+                return;
+            }
+
             // Query Supabase staff_profiles table for assigned PIN
             const { data } = await supabase
                 .from('staff_profiles')
@@ -191,46 +212,27 @@ export default function ProfileSwitcherScreen({ onSelectProfile, onAddNewAccount
                 .maybeSingle();
 
             if (data) {
-                if (data.pin && data.pin.trim() !== pin.trim() && pin !== '1234') {
+                const dbPin = (data.pin || '').trim();
+                const inputPin = pin.trim();
+
+                if (dbPin !== inputPin) {
                     setPinError(true);
-                    toast.error(`Incorrect PIN for ${profile.full_name || profile.email}. Try 1234 or your assigned PIN.`);
+                    toast.error(`Incorrect PIN for ${profile.full_name || profile.email}.`);
+                    setPinInput('');
                     return;
                 }
                 toast.success(`Welcome back, ${data.full_name || profile.full_name}!`);
                 if (onSelectProfile) onSelectProfile(data);
                 return;
-            }
-
-            // Fallback default PIN check for local staff
-            if (pin === '1234' || pin === '0000') {
-                const userObj = {
-                    id: profile.id || 1,
-                    full_name: profile.full_name,
-                    email: profile.email,
-                    role: profile.role || 'CASHIER',
-                    avatar_url: profile.avatar_url || ''
-                };
-                toast.success(`Welcome back, ${profile.full_name}!`);
-                if (onSelectProfile) onSelectProfile(userObj);
             } else {
                 setPinError(true);
-                toast.error('Incorrect PIN. Default PIN is 1234.');
+                toast.error(`Profile not found in database.`);
+                setPinInput('');
             }
         } catch (err) {
-            if (pin === '1234' || pin === '0000') {
-                const userObj = {
-                    id: profile.id || 1,
-                    full_name: profile.full_name,
-                    email: profile.email,
-                    role: profile.role || 'CASHIER',
-                    avatar_url: profile.avatar_url || ''
-                };
-                toast.success(`Welcome back, ${profile.full_name}!`);
-                if (onSelectProfile) onSelectProfile(userObj);
-            } else {
-                setPinError(true);
-                toast.error('Incorrect PIN. Default PIN is 1234.');
-            }
+            setPinError(true);
+            toast.error(err.message || 'PIN verification failed.');
+            setPinInput('');
         } finally {
             setLoadingPin(false);
         }
@@ -256,8 +258,10 @@ export default function ProfileSwitcherScreen({ onSelectProfile, onAddNewAccount
                 {profiles.map((p, idx) => (
                     <div 
                         key={idx} 
-                        className="profile-card"
+                        className={`profile-card ${isHqTerminal && p.restrict_to_terminals === 1 ? 'profile-card-restricted' : ''}`}
                         onClick={() => handleProfileClick(p)}
+                        title={isHqTerminal && p.restrict_to_terminals === 1 ? 'This account is restricted to child terminals only' : ''}
+                        style={isHqTerminal && p.restrict_to_terminals === 1 ? { opacity: 0.55, cursor: 'not-allowed' } : {}}
                     >
                         <button 
                             className="profile-remove-btn" 
@@ -266,6 +270,18 @@ export default function ProfileSwitcherScreen({ onSelectProfile, onAddNewAccount
                         >
                             <Icons.X size={14} />
                         </button>
+
+                        {/* 🔒 Lock badge for terminal-restricted profiles on HQ */}
+                        {isHqTerminal && p.restrict_to_terminals === 1 && (
+                            <div style={{
+                                position: 'absolute', top: '8px', left: '8px',
+                                background: '#ef4444', borderRadius: '6px',
+                                padding: '2px 6px', display: 'flex', alignItems: 'center', gap: '3px',
+                                fontSize: '10px', fontWeight: '700', color: '#fff', zIndex: 2
+                            }}>
+                                <Icons.Lock size={9} /> Terminal Only
+                            </div>
+                        )}
                         
                         <div className="profile-avatar-box">
                             {p.avatar_url && !avatarErrors[p.email] ? (

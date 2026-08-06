@@ -102,7 +102,8 @@ export function AuthProvider({ children }) {
 
     const login = async (email, password, pin) => {
         try {
-            const res = await api.loginStaff({ email, password, pin });
+            const isHq = localStorage.getItem('quantro_is_hq') === 'true' || localStorage.getItem('quantro_device_type') === 'hq';
+            const res = await api.loginStaff({ email, password, pin, is_hq: isHq });
             if (res.user) {
                 setCurrentUser(res.user);
                 toast.success(`Welcome back, ${res.user.full_name} (${res.user.role})!`);
@@ -135,14 +136,27 @@ export function AuthProvider({ children }) {
     const isInventoryClerk = userRole === 'INVENTORY_CLERK';
     const isAccountant = userRole === 'ACCOUNTANT';
 
+    // Granular Scope Permission Evaluation
+    const hasScope = (scopeKey, requiredLevel = 'read') => {
+        if (isOwner) return true;
+        const empScopes = currentUser?.scopes || {};
+        const level = empScopes[scopeKey];
+        if (!level) return true; // Default fallback if scope not explicitly configured
+        if (level === 'unseen') return false;
+        if (requiredLevel === 'edit') return level === 'edit';
+        if (requiredLevel === 'read') return level === 'edit' || level === 'read' || level === 'hseen';
+        if (requiredLevel === 'hseen') return level === 'edit' || level === 'read' || level === 'hseen';
+        return true;
+    };
+
     // Feature Permission Guards
-    const canViewNetProfit = isOwner || isAccountant;
-    const canViewWholesaleCost = isOwner || isAccountant;
-    const canManagePayroll = isOwner;
-    const canManageEmployees = isOwner;
-    const canManageStores = isOwner;
-    const canEditInventory = isOwner || isRegionalMgr || isStoreMgr || isInventoryClerk;
-    const canProcessSales = isOwner || isRegionalMgr || isStoreMgr || isCashier;
+    const canViewNetProfit = (isOwner || isAccountant) && hasScope('hr_payroll', 'read');
+    const canViewWholesaleCost = (isOwner || isAccountant) && hasScope('purchases', 'read');
+    const canManagePayroll = isOwner && hasScope('hr_payroll', 'edit');
+    const canManageEmployees = isOwner && hasScope('hr_payroll', 'edit');
+    const canManageStores = isOwner && hasScope('settings', 'edit');
+    const canEditInventory = (isOwner || isRegionalMgr || isStoreMgr || isInventoryClerk) && hasScope('inventory_products', 'edit');
+    const canProcessSales = (isOwner || isRegionalMgr || isStoreMgr || isCashier) && hasScope('sales_pos', 'edit');
     const canViewAllStores = isOwner;
 
     return (
@@ -163,6 +177,7 @@ export function AuthProvider({ children }) {
             isCashier,
             isInventoryClerk,
             isAccountant,
+            hasScope,
             canViewNetProfit,
             canViewWholesaleCost,
             canManagePayroll,

@@ -2,6 +2,68 @@
 
 All notable changes to the Quantro ERP application will be documented here.
 
+## [2.18.2] - 2026-08-06
+### Added
+- 📐 **Shopify Polaris Style SButton Action Alignment (`HRPayrollPage.jsx`, `HRPayrollPage.css`)**: Replaced all raw HTML `<button className="polaris-icon-btn">` inside the employee directory directory with the standard React `<SButton>` component. Converted the disconnect branch button in the Store Branches tab to `<SButton>` with critical styling.
+- 🎨 **Shopify Polaris Style Tab Alignment (`HRPayrollPage.jsx`, `HRPayrollPage.css`)**: Refactored the HR & Payroll sub-tabs to use class names `tabs` and `tab-item` with scoped Polaris-like bottom borders and highlight animations.
+- 🛡️ **Framer Motion Animated Icon Support (`Icons.jsx`)**: Added missing animated Lucide components (`Maximize`, `EyeOff`, `LayoutDashboard`, `Truck`) inside the bundle wrapper, fixing console warnings and broken layouts in the employee scope permission dropdown.
+
+---
+
+## [2.18.1] - 2026-08-05
+### Added
+- 🟢 **Live Terminal Pairing Status Sync (`stores.js`, `db.js`, `HRPayrollPage.jsx`)**: Resolved terminal pairing status persistence. When a child terminal pairs with a 16-character token, both local SQLite and Supabase cloud store records are updated to `is_paired = 1` and `status = 'CONNECTED'`. Parent HQ fetches live pairing status from cloud/local DB so terminals instantly transition from "Pending Pairing" to **Live / Connected**.
+- 📐 **Vertical Custom Scope Matrix & Quantro Select (`HRPayrollPage.jsx`, `HRPayrollPage.css`)**: Redesigned the employee permissions scope matrix into a vertical stacked list with module icons, titles, and descriptions. Replaced standard native HTML `<select>` elements with a custom Quantro styled dropdown component (`QuantroScopeDropdown`) for smooth, styled scope selection (`Read & Edit`, `Read-Only`, `Hseen`, `Unseen`).
+- 🎨 **Shopify Polaris Style Icon Buttons (`HRPayrollPage.jsx`, `HRPayrollPage.css`)**: Redesigned employee directory action buttons to match the exact Shopify Polaris spec (white container with subtle border `#d3d4d7`, inset bottom shadow, and clean outline icons: Eye `Icons.Eye`, Clock `Icons.Clock`, Rotate Payout `Icons.RotateCcw`, and Crimson Trashcan `Icons.Trash2`).
+- 🗑️ **Employee Profile Deletion (`HRPayrollPage.jsx`, `api.js`, `backend/routes/hrPayroll.js`)**: Added `DELETE /api/hr/employees/:id` backend route and frontend `handleDeleteEmployee` function with confirmation prompts. Primary Owner profiles are protected from deletion.
+- 📊 **Universal Multi-Terminal Branch Analytics Across All Dashboard Tabs (`dashboard.js`, `DashboardPage.jsx`)**: Extended the multi-terminal comparison system to **ALL 6 Dashboard Tabs** (Sales, Inventory, Customers, Payment, AI Automation, Financial). When any new child branch is paired (`stores`), the dashboard dynamically calculates its metrics, assigns a distinct color code (`#6366f1` HQ Indigo, `#ec4899` Child 1 Pink, `#10b981` Child 2 Emerald, `#f59e0b` Child 3 Amber), and renders live branch breakdown cards and multi-series comparison charts across all modules.
+
+---
+
+## [2.18.0] - 2026-08-04
+### Added
+- 🔒 **Employee Terminal Access Restriction (`HRPayrollPage.jsx`, `ProfileSwitcherScreen.jsx`, `AuthContext.jsx`, `backend/routes/hrPayroll.js`, `backend/db.js`)**: Introduced a new security boundary between the Parent HQ Terminal and Child Store Terminals. Admins can now mark any employee profile with **"Restrict login to paired child terminals and remote access sessions only (No HQ login)"**. When enabled, the employee's profile card shows a red **Terminal Only** lock badge on the HQ device, PIN login is blocked with a clear error message, and the backend `/hr/auth/login` endpoint enforces the same check via the `restrict_to_terminals` database flag. OWNER-role accounts are always unrestricted by default.
+- 🏗️ **Automatic Terminal Restriction by Role (`HRPayrollPage.jsx`)**: When creating or editing an employee profile, changing the Job Role automatically toggles the terminal restriction — non-owner roles (Cashier, Store Manager, etc.) default to restricted, while OWNER automatically disables the restriction.
+- 🔐 **Backend HQ Guard (`backend/routes/hrPayroll.js`)**: The `POST /api/hr/auth/login` endpoint now accepts an `is_hq` flag from the frontend. If a restricted employee attempts to log in from an HQ terminal, a `403 Access Denied` response is returned immediately.
+- 📋 **Onboarding Primary Admin Unrestricted (`OnboardingModal.jsx`)**: During first-time ERP setup, the primary admin account created in onboarding is explicitly set as unrestricted (`restrict_to_terminals: 0`), ensuring the owner always has full HQ access.
+- 🛡️ **Database Migration (`backend/db.js`)**: Added `restrict_to_terminals INTEGER DEFAULT 1` column to the `employees` table with an automatic `ALTER TABLE` migration for existing installations.
+
+---
+
+## [2.17.9] - 2026-08-03
+### Changed
+- 🔐 **Strict Supabase PIN Verification (`ProfileSwitcherScreen.jsx`)**: Enforced strict PIN checking in `verifyPinAndLogin` against the `pin` column in the Supabase `staff_profiles` table. Removed the fallback default PIN values (`1234`/`0000`) for logins.
+
+---
+
+## [2.17.8] - 2026-08-03
+### Added
+- ⌨️ **Physical Keyboard/Numpad Support (`ProfileSwitcherScreen.jsx`)**: Added global keyboard event listeners when the PIN overlay is active. Users can now type numbers using their physical keyboard or POS numeric pad (with Num Lock active), use Backspace to delete, 'C' to clear, and Escape to dismiss the modal.
+
+---
+
+## [2.17.7] - 2026-08-03
+### Changed
+- 🔐 **Enforced Security PIN for Admin Profiles (`ProfileSwitcherScreen.jsx`)**: Removed the direct dashboard login bypass for OWNER/HQ/ADMIN profiles. Now, all profiles (including the Primary Admin) are prompted for their 4-digit POS security PIN set during onboarding/creation.
+
+---
+
+## [2.17.6] - 2026-08-03
+### Changed
+- 🏬 **Migrated Branch Pairing UI to HR & Payroll Tab (`SettingsPage.jsx` & `HRPayrollPage.jsx`)**: Moved store pairing options and modals (`Add & Pair New Child Branch` and `Connect This Terminal to Parent HQ`) from Settings tab to HR & Payroll tab. Removed the redundant `Store Profiles & Branch Pairing` tab in Settings.
+### Fixed
+- 🟢 **HQ Branch Status Display (`HRPayrollPage.jsx`)**: Fixed status display for the Main HQ branch to show "Live" status (instead of "Pending Pairing") and marked as "Primary Admin (No Disconnect)" to prevent accidental disconnection.
+- 🐛 **ReferenceError Fix for Settings (`SettingsPage.jsx`)**: Restored `stores` in the `useAuth()` destructuring hook, resolving the crash when loading the Profile settings tab (which displays stacked branch details).
+
+---
+
+## [2.17.5] - 2026-08-03
+### Fixed
+- 🔓 **Offline / Local Session License Activation Bypass Fix (`App.jsx`)**: Updated initial session loader and auth state change listener to mark license activation status as active if a valid local-only profile session is running, resolving the `"No active authentication session found."` lockout error when local-only profile-switched users boot the app.
+- 🎨 **Sidebar Quantro Logo Fallback Fix (`Sidebar.jsx`)**: Replaced the plain text "Q" brand fallback icon in the sidebar header with the actual Quantro brand logo image asset (`./icons/Logo.png`) when no custom business settings logo is uploaded.
+
+---
+
 ## [2.17.4] - 2026-08-02
 ### Fixed
 - 🐛 **Null Session User Property Access Fix (`App.jsx`)**: Guarded `checkActivation` and `handleVerify` inside `ActivationGate` to check if `session` or `session.user` is null/undefined before checking license details, eliminating the `"Cannot read properties of null (reading 'user')"` runtime crash when loading profile-switched sessions.

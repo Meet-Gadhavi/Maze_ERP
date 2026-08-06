@@ -15,9 +15,33 @@ function generatePairKey() {
 }
 
 // GET /api/stores - List all connected store branches
-router.get('/', (req, res) => {
+router.get('/', async (req, res) => {
     try {
-        const stores = db.all('SELECT * FROM stores ORDER BY is_hq DESC, id ASC');
+        let stores = db.all('SELECT * FROM stores ORDER BY is_hq DESC, id ASC');
+
+        // Check Supabase for updated cloud pairing statuses if online
+        try {
+            const { data: cloudStores } = await supabase.from('stores').select('id, pair_key_hash, is_paired, status');
+            if (cloudStores && cloudStores.length > 0) {
+                let updatedAny = false;
+                for (const cs of cloudStores) {
+                    if (cs.pair_key_hash) {
+                        const local = stores.find(s => s.pair_key_hash === cs.pair_key_hash);
+                        if (local && (cs.is_paired || cs.status === 'CONNECTED') && (!local.is_paired || local.status !== 'CONNECTED')) {
+                            db.run("UPDATE stores SET is_paired = 1, status = 'CONNECTED' WHERE id = ?", [local.id]);
+                            updatedAny = true;
+                        }
+                    }
+                }
+                if (updatedAny) {
+                    db.persist();
+                    stores = db.all('SELECT * FROM stores ORDER BY is_hq DESC, id ASC');
+                }
+            }
+        } catch (cloudCheckErr) {
+            // Silently ignore offline error
+        }
+
         res.json({ success: true, stores });
     } catch (err) {
         console.error('[Stores] Fetch error:', err);
@@ -44,8 +68,8 @@ router.post('/', (req, res) => {
         const stmt = db.run(`
             INSERT INTO stores (
                 cloud_store_id, store_code, parent_store_id, name, address, phone, email, gstin, place_of_supply,
-                invoice_prefix, terms_and_conditions, bank_details, upi_vpa, logo_url, is_hq, pair_key_hash, status
-            ) VALUES (?, ?, 1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, 'ACTIVE')
+                invoice_prefix, terms_and_conditions, bank_details, upi_vpa, logo_url, is_hq, pair_key_hash, is_paired, status
+            ) VALUES (?, ?, 1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, 0, 'ACTIVE')
         `, [
             cloud_store_id,
             store_code,
@@ -80,6 +104,7 @@ router.post('/', (req, res) => {
             invoice_prefix: createdStore.invoice_prefix,
             is_hq: false,
             pair_key_hash: createdStore.pair_key_hash,
+            is_paired: false,
             status: 'ACTIVE'
         }).then(({ data, error }) => {
             if (error) console.error('[Supabase Store Sync] Error syncing branch:', error);
@@ -108,7 +133,7 @@ router.post('/pair', async (req, res) => {
         }
 
         const targetKey = pair_key.trim().toUpperCase();
-        let store = db.get('SELECT * FROM stores WHERE pair_key_hash = ? AND status = "ACTIVE"', [targetKey]);
+        let store = db.get('SELECT * FROM stores WHERE pair_key_hash = ?', [targetKey]);
 
         // Fallback: Check Supabase PostgreSQL Cloud DB if not found in local SQLite DB
         if (!store) {
@@ -117,15 +142,14 @@ router.post('/pair', async (req, res) => {
                     .from('stores')
                     .select('*')
                     .eq('pair_key_hash', targetKey)
-                    .eq('status', 'ACTIVE')
                     .maybeSingle();
 
                 if (cloudStore && !cloudErr) {
                     // Sync cloud store into local SQLite DB
                     db.run(`
                         INSERT OR REPLACE INTO stores (
-                            cloud_store_id, store_code, name, address, phone, email, gstin, place_of_supply, is_hq, pair_key_hash, status
-                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, ?, 'ACTIVE')
+                            cloud_store_id, store_code, name, address, phone, email, gstin, place_of_supply, is_hq, pair_key_hash, is_paired, status
+                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, ?, 1, 'CONNECTED')
                     `, [
                         cloudStore.cloud_store_id || `store_${crypto.randomBytes(4).toString('hex')}`,
                         cloudStore.store_code || 'STR-CHILD',
@@ -148,6 +172,17 @@ router.post('/pair', async (req, res) => {
         if (!store) {
             return res.status(404).json({ error: 'Invalid or expired Branch Pairing Token' });
         }
+
+        // Mark store as paired and connected in local SQLite DB
+        db.run("UPDATE stores SET is_paired = 1, status = 'CONNECTED', updated_at = datetime('now','localtime') WHERE id = ?", [store.id]);
+        db.persist();
+        store = db.get('SELECT * FROM stores WHERE id = ?', [store.id]);
+
+        // Update pairing status on Supabase
+        supabase.from('stores').update({
+            is_paired: true,
+            status: 'CONNECTED'
+        }).eq('pair_key_hash', targetKey).then(() => console.log('[Supabase Store Pair] Marked store as paired & connected.')).catch(e => console.error(e));
 
         // Record terminal handshake connection on Supabase
         supabase.from('store_terminal_connections').insert({

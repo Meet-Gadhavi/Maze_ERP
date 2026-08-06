@@ -79,6 +79,123 @@ function KpiCard({ label, value, sub, color = 'blue', icon, onClick }) {
     );
 }
 
+function MultiTerminalBranchBreakdown({ data, type = 'sales' }) {
+    if (!data?.terminalAnalytics || data.terminalAnalytics.length <= 1) return null;
+
+    return (
+        <div style={{ marginBottom: '24px' }}>
+            <ChartCard 
+                title={`Multi-Terminal Branch ${type.charAt(0).toUpperCase() + type.slice(1)} Analytics`}
+                subtitle={`Live branch comparison across HQ and ${data.terminalAnalytics.length - 1} connected child POS terminals`}
+                action={
+                    <span style={{ background: '#dcfce7', color: '#15803d', padding: '4px 12px', borderRadius: '20px', fontSize: '11.5px', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#16a34a' }}></span>
+                        {data.terminalAnalytics.length} Outlets Connected
+                    </span>
+                }
+            >
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '14px' }}>
+                    {data.terminalAnalytics.map(t => (
+                        <div 
+                            key={t.id}
+                            style={{
+                                padding: '16px',
+                                borderRadius: '12px',
+                                background: '#ffffff',
+                                border: `1px solid ${t.color}`,
+                                borderLeft: `6px solid ${t.color}`,
+                                boxShadow: '0 2px 6px rgba(0,0,0,0.04)',
+                                display: 'flex',
+                                flexDirection: 'column',
+                                gap: '8px'
+                            }}
+                        >
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                <span style={{ fontSize: '13.5px', fontWeight: 700, color: '#0f172a' }}>{t.name}</span>
+                                <span style={{ fontSize: '11px', fontWeight: 700, padding: '2px 8px', borderRadius: '6px', background: t.is_hq ? '#eff6ff' : '#f0fdf4', color: t.is_hq ? '#2563eb' : '#16a34a' }}>
+                                    {t.is_hq ? 'Main HQ' : 'Child Branch'}
+                                </span>
+                            </div>
+
+                            {type === 'sales' && (
+                                <>
+                                    <div style={{ fontSize: '20px', fontWeight: 800, color: t.color }}>
+                                        ₹{Number(t.today_sales || 0).toLocaleString('en-IN')} <span style={{ fontSize: '12px', color: '#64748b', fontWeight: 500 }}>today</span>
+                                    </div>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', color: '#64748b', paddingTop: '6px', borderTop: '1px solid #f1f5f9' }}>
+                                        <span>Month: ₹{Number(t.monthly_sales || 0).toLocaleString('en-IN')}</span>
+                                        <span>{t.orders_count} Orders</span>
+                                    </div>
+                                </>
+                            )}
+
+                            {type === 'inventory' && (
+                                <>
+                                    <div style={{ fontSize: '20px', fontWeight: 800, color: t.color }}>
+                                        ₹{Number(t.inventory_value || 0).toLocaleString('en-IN')} <span style={{ fontSize: '12px', color: '#64748b', fontWeight: 500 }}>stock value</span>
+                                    </div>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', color: '#64748b', paddingTop: '6px', borderTop: '1px solid #f1f5f9' }}>
+                                        <span>Low Stock: {t.low_stock_count} items</span>
+                                        <span>Active Outlet</span>
+                                    </div>
+                                </>
+                            )}
+
+                            {type === 'customers' && (
+                                <>
+                                    <div style={{ fontSize: '20px', fontWeight: 800, color: t.color }}>
+                                        {t.customer_count} <span style={{ fontSize: '12px', color: '#64748b', fontWeight: 500 }}>customers</span>
+                                    </div>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', color: '#64748b', paddingTop: '6px', borderTop: '1px solid #f1f5f9' }}>
+                                        <span>Dues: ₹{Number(t.dues_total || 0).toLocaleString('en-IN')}</span>
+                                        <span>Ledger Active</span>
+                                    </div>
+                                </>
+                            )}
+
+                            {type === 'payment' && (
+                                <>
+                                    <div style={{ fontSize: '20px', fontWeight: 800, color: t.color }}>
+                                        ₹{Number((t.cash_total || 0) + (t.online_total || 0)).toLocaleString('en-IN')} <span style={{ fontSize: '12px', color: '#64748b', fontWeight: 500 }}>collected</span>
+                                    </div>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', color: '#64748b', paddingTop: '6px', borderTop: '1px solid #f1f5f9' }}>
+                                        <span>Cash: ₹{Number(t.cash_total || 0).toLocaleString('en-IN')}</span>
+                                        <span>Online: ₹{Number(t.online_total || 0).toLocaleString('en-IN')}</span>
+                                    </div>
+                                </>
+                            )}
+
+                            {type === 'ai' && (
+                                <>
+                                    <div style={{ fontSize: '20px', fontWeight: 800, color: t.color }}>
+                                        {t.ai_orders} <span style={{ fontSize: '12px', color: '#64748b', fontWeight: 500 }}>AI Voice/WhatsApp</span>
+                                    </div>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', color: '#64748b', paddingTop: '6px', borderTop: '1px solid #f1f5f9' }}>
+                                        <span>Mazeway Bot</span>
+                                        <span>Active</span>
+                                    </div>
+                                </>
+                            )}
+
+                            {type === 'financial' && (
+                                <>
+                                    <div style={{ fontSize: '20px', fontWeight: 800, color: t.color }}>
+                                        ₹{Number(t.expenses_total || 0).toLocaleString('en-IN')} <span style={{ fontSize: '12px', color: '#64748b', fontWeight: 500 }}>expenses</span>
+                                    </div>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', color: '#64748b', paddingTop: '6px', borderTop: '1px solid #f1f5f9' }}>
+                                        <span>Revenue: ₹{Number(t.monthly_sales || 0).toLocaleString('en-IN')}</span>
+                                        <span>Tracked</span>
+                                    </div>
+                                </>
+                            )}
+                        </div>
+                    ))}
+                </div>
+            </ChartCard>
+        </div>
+    );
+}
+
 export default function DashboardPage() {
     const [data, setData] = useState(null);
     const [loading, setLoading] = useState(true);
@@ -479,6 +596,80 @@ export default function DashboardPage() {
             ══════════════════════════════════════════════════ */}
             {activeTab === 'sales' && (
                 <div className="analytics-panel">
+                    {/* ── Multi-Terminal & Child Branch Sales Breakdown (HQ View) ───────── */}
+                    {data.terminalAnalytics && data.terminalAnalytics.length > 1 && (
+                        <div style={{ marginBottom: '24px' }}>
+                            <ChartCard 
+                                title="Multi-Terminal & Child Branch Analytics" 
+                                subtitle="Live revenue performance comparison across HQ and connected child POS terminals"
+                                action={
+                                    <span style={{ background: '#dcfce7', color: '#15803d', padding: '4px 12px', borderRadius: '20px', fontSize: '11.5px', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                        <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#16a34a' }}></span>
+                                        {data.terminalAnalytics.length} Terminals Connected
+                                    </span>
+                                }
+                            >
+                                {/* Terminal Cards Grid */}
+                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '14px', marginBottom: '20px' }}>
+                                    {data.terminalAnalytics.map(t => (
+                                        <div 
+                                            key={t.id}
+                                            style={{
+                                                padding: '16px',
+                                                borderRadius: '12px',
+                                                background: '#ffffff',
+                                                border: `1px solid ${t.color}`,
+                                                borderLeft: `6px solid ${t.color}`,
+                                                boxShadow: '0 2px 6px rgba(0,0,0,0.04)',
+                                                display: 'flex',
+                                                flexDirection: 'column',
+                                                gap: '8px'
+                                            }}
+                                        >
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                                <span style={{ fontSize: '13.5px', fontWeight: 700, color: '#0f172a' }}>{t.name}</span>
+                                                <span style={{ fontSize: '11px', fontWeight: 700, padding: '2px 8px', borderRadius: '6px', background: t.is_hq ? '#eff6ff' : '#f0fdf4', color: t.is_hq ? '#2563eb' : '#16a34a' }}>
+                                                    {t.is_hq ? 'Main HQ' : 'Child Terminal'}
+                                                </span>
+                                            </div>
+                                            <div style={{ fontSize: '20px', fontWeight: 800, color: t.color }}>
+                                                ₹{Number(t.today_sales || 0).toLocaleString('en-IN')} <span style={{ fontSize: '12px', color: '#64748b', fontWeight: 500 }}>today</span>
+                                            </div>
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', color: '#64748b', paddingTop: '6px', borderTop: '1px solid #f1f5f9' }}>
+                                                <span>Month: ₹{Number(t.monthly_sales || 0).toLocaleString('en-IN')}</span>
+                                                <span>{t.orders_count} Orders</span>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+
+                                {/* Multi-Line Chart comparing HQ vs Child Terminals */}
+                                {data.multiTerminalSales && data.multiTerminalSales.length > 0 && (
+                                    <div>
+                                        <h4 style={{ fontSize: '13px', fontWeight: 700, margin: '0 0 12px 0', color: '#334155' }}>
+                                            Daily Terminal Revenue Breakdown Comparison (Multi-Line Chart)
+                                        </h4>
+                                        <LineChart
+                                            xAxis={[{
+                                                data: data.multiTerminalSales.map(d => new Date(d.date)),
+                                                scaleType: 'time',
+                                                valueFormatter: (value) => formatDateShort(value)
+                                            }]}
+                                            series={data.terminalAnalytics.map(t => ({
+                                                data: data.multiTerminalSales.map(d => Number(d[t.name] || 0)),
+                                                label: t.name,
+                                                color: t.color,
+                                                showMark: true,
+                                                valueFormatter: (v) => `₹${Number(v || 0).toLocaleString('en-IN')}`
+                                            }))}
+                                            height={280}
+                                        />
+                                    </div>
+                                )}
+                            </ChartCard>
+                        </div>
+                    )}
+
                     {/* Sales Trend + Orders vs Revenue */}
                     <div className="analytics-grid-2">
                         <ChartCard title="Sales Trend" subtitle={`Revenue over ${TIMEFRAME_LABELS[timeframe].toLowerCase()}`}>
@@ -736,6 +927,7 @@ export default function DashboardPage() {
             ══════════════════════════════════════════════════ */}
             {activeTab === 'inventory' && (
                 <div className="analytics-panel">
+                    <MultiTerminalBranchBreakdown data={data} type="inventory" />
                     {/* Inventory KPIs */}
                     <div className="analytics-mini-kpi-row">
                         <div className="mini-kpi-card">
@@ -1010,6 +1202,7 @@ export default function DashboardPage() {
             ══════════════════════════════════════════════════ */}
             {activeTab === 'customers' && (
                 <div className="analytics-panel">
+                    <MultiTerminalBranchBreakdown data={data} type="customers" />
                     <div className="analytics-grid-2">
                         {/* Top Customers Leaderboard */}
                         <ChartCard title="Top Customers" subtitle={`By revenue · ${TIMEFRAME_LABELS[timeframe]}`}>
@@ -1112,6 +1305,7 @@ export default function DashboardPage() {
             ══════════════════════════════════════════════════ */}
             {activeTab === 'payment' && (
                 <div className="analytics-panel">
+                    <MultiTerminalBranchBreakdown data={data} type="payment" />
                     <div className="analytics-mini-kpi-row">
                         <div className="mini-kpi-card danger">
                             <span className="mini-kpi-label">Total Outstanding</span>
@@ -1211,6 +1405,7 @@ export default function DashboardPage() {
             ══════════════════════════════════════════════════ */}
             {activeTab === 'ai' && (
                 <div className="analytics-panel">
+                    <MultiTerminalBranchBreakdown data={data} type="ai" />
                     {/* AI KPI Cards */}
                     <div className="analytics-mini-kpi-row">
                         <div className="mini-kpi-card ai">
@@ -1486,6 +1681,7 @@ export default function DashboardPage() {
             ══════════════════════════════════════════════════ */}
             {activeTab === 'financial' && (
                 <div className="analytics-panel">
+                    <MultiTerminalBranchBreakdown data={data} type="financial" />
                     {/* Financial KPIs */}
                     <div className="analytics-mini-kpi-row">
                         <div className="mini-kpi-card green">
