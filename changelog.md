@@ -2,6 +2,13 @@
 
 All notable changes to the Quantro ERP application will be documented here.
 
+## [2.18.3] - 2026-08-06
+### Added
+- 🔌 **Store Branch Disconnect Action (`HRPayrollPage.jsx`, `api.js`)**: Linked the "Disconnect Branch" button in the Store Branches tab to trigger `api.deleteStore()`, allowing administrators to sever terminal pairing sessions and delete child branches.
+- 🛠️ **Ref Forwarding on SidebarFooter (`ui/sidebar.jsx`)**: Wrapped `SidebarFooter` in `React.forwardRef` to properly forward refs to the underlying div element, fixing the React console warning: `"Function components cannot be given refs. Attempts to access this ref will fail."`
+
+---
+
 ## [2.18.2] - 2026-08-06
 ### Added
 - 📐 **Shopify Polaris Style SButton Action Alignment (`HRPayrollPage.jsx`, `HRPayrollPage.css`)**: Replaced all raw HTML `<button className="polaris-icon-btn">` inside the employee directory directory with the standard React `<SButton>` component. Converted the disconnect branch button in the Store Branches tab to `<SButton>` with critical styling.

@@ -165,6 +165,19 @@ export default function HRPayrollPage() {
         }
     };
 
+    const handleDisconnectStore = async (store) => {
+        if (!window.confirm(`Are you sure you want to disconnect branch "${store.name}"? This will sever its terminal access and cloud synchronization.`)) return;
+        const loadingId = toast.loading(`Disconnecting ${store.name}...`);
+        try {
+            await api.deleteStore(store.id);
+            toast.success(`Branch ${store.name} disconnected successfully`, { id: loadingId });
+            loadData();
+        } catch (err) {
+            console.error('Failed to disconnect store:', err);
+            toast.error(err.message || 'Failed to disconnect store branch', { id: loadingId });
+        }
+    };
+
     const handleOpenCreateEmp = () => {
         setEditingEmp(null);
         setEmpForm({
@@ -591,7 +604,7 @@ export default function HRPayrollPage() {
                                                 <SButton 
                                                     variant="secondary"
                                                     tone="critical"
-                                                    onClick={() => toast.info(`Branch ${st.name} pairing disconnected.`)}
+                                                    onClick={() => handleDisconnectStore(st)}
                                                 >
                                                     Disconnect Branch
                                                 </SButton>

@@ -88,13 +88,14 @@ export function SidebarContent({ className = '', children, ...props }) {
     );
 }
 
-export function SidebarFooter({ className = '', children, ...props }) {
+export const SidebarFooter = React.forwardRef(({ className = '', children, ...props }, ref) => {
     return (
-        <div className={`radix-sidebar-footer ${className}`} {...props}>
+        <div ref={ref} className={`radix-sidebar-footer ${className}`} {...props}>
             {children}
         </div>
     );
-}
+});
+SidebarFooter.displayName = 'SidebarFooter';
 
 export function SidebarGroup({ className = '', children, ...props }) {
     return (
