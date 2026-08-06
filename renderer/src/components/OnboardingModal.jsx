@@ -5,7 +5,7 @@ import { Icons } from './Icons';
 import SButton from './SButton';
 import './OnboardingModal.css';
 
-export default function OnboardingModal({ isOpen, onComplete }) {
+export default function OnboardingModal({ isOpen, session, onComplete }) {
     const [step, setStep] = useState(1);
     const [accountMode, setAccountMode] = useState('hq'); // 'hq', 'store', 'remote'
     const [pairKey, setPairKey] = useState('');
@@ -59,9 +59,10 @@ export default function OnboardingModal({ isOpen, onComplete }) {
                 toast.error(`A valid 16-character ${accountMode === 'remote' ? 'Remote Access' : 'Store Terminal'} Key is mandatory to proceed.`);
                 return;
             }
+            const userEmail = session?.user?.email || JSON.parse(localStorage.getItem('quantro_auth_user') || '{}')?.email || '';
             setLoading(true);
             try {
-                const res = await api.pairStoreTerminal(pairKey.trim());
+                const res = await api.pairStoreTerminal(pairKey.trim(), userEmail);
                 if (res.store) {
                     localStorage.setItem('quantro_is_child_terminal', 'true');
                     localStorage.setItem('quantro_store_id', String(res.store.id));

@@ -126,10 +126,45 @@ router.post('/', (req, res) => {
 // POST /api/stores/pair - Pair child terminal with 16-character token
 router.post('/pair', async (req, res) => {
     try {
-        const { pair_key } = req.body;
+        const { pair_key, email } = req.body;
 
         if (!pair_key) {
             return res.status(400).json({ error: '16-character Pairing Key token is required' });
+        }
+        if (!email) {
+            return res.status(400).json({ error: 'User email is required for terminal pairing authorization' });
+        }
+
+        let isAuthorized = false;
+        try {
+            // Check if registered as an employee in staff_profiles on Supabase
+            const { data: staffMember } = await supabase
+                .from('staff_profiles')
+                .select('id')
+                .eq('email', email.trim().toLowerCase())
+                .maybeSingle();
+
+            if (staffMember) {
+                isAuthorized = true;
+            } else {
+                // Check if registered as the active license owner on Supabase
+                const { data: licenseRecord } = await supabase
+                    .from('licenses')
+                    .select('id')
+                    .eq('email', email.trim().toLowerCase())
+                    .eq('status', 'Active')
+                    .maybeSingle();
+
+                if (licenseRecord) {
+                    isAuthorized = true;
+                }
+            }
+        } catch (authChkErr) {
+            console.error('[Stores Pair] Authority check failed:', authChkErr);
+        }
+
+        if (!isAuthorized) {
+            return res.status(403).json({ error: `Authorization Failed: The email "${email}" is not registered as an employee or owner in the HQ system.` });
         }
 
         const targetKey = pair_key.trim().toUpperCase();

@@ -402,7 +402,9 @@ export default function App() {
     const [remoteChangeData, setRemoteChangeData] = useState(null);
 
     useEffect(() => {
-        if (isActivated) {
+        const isAuthenticated = !!session || localStorage.getItem('quantro_local_session') === 'true' || !!localStorage.getItem('quantro_current_user');
+        
+        if (isAuthenticated) {
             const currentEmail = session?.user?.email || JSON.parse(localStorage.getItem('quantro_auth_user') || '{}')?.email || '';
             const userOnboardingKey = currentEmail ? `quantro_onboarding_completed_${currentEmail.toLowerCase()}` : 'quantro_onboarding_completed';
             const isUserDone = localStorage.getItem(userOnboardingKey) === '1';
@@ -432,6 +434,8 @@ export default function App() {
                     console.error('Remote change parse error:', e);
                 }
             }
+        } else {
+            setShowOnboarding(false);
         }
     }, [session, isActivated]);
 
@@ -470,15 +474,26 @@ export default function App() {
     };
 
     const checkActivation = async (currSession) => {
-        if (!currSession) {
-            setIsActivated(true);
-            setLoading(false);
-            setCheckingActivation(false);
-            return;
-        }
         setCheckingActivation(true);
         try {
             const settings = await api.getSettings();
+            const isOnboarded = settings.onboarding_completed === '1';
+            const isChild = settings.terminal_type === 'store' || settings.terminal_type === 'remote' || localStorage.getItem('quantro_is_child_terminal') === 'true';
+
+            // If not onboarded yet or is a paired child terminal, we bypass activation check
+            if (!isOnboarded || isChild) {
+                setIsActivated(true);
+                setLoading(false);
+                setCheckingActivation(false);
+                return;
+            }
+
+            if (!currSession) {
+                setIsActivated(false);
+                setLoading(false);
+                setCheckingActivation(false);
+                return;
+            }
             const localKey = settings.license_key;
             const localStatus = settings.license_status || '';
 
@@ -586,10 +601,19 @@ export default function App() {
                     }
                 }
             } catch (netErr) {
-                setIsActivated(localStatus === 'Active');
+                const settings = await api.getSettings();
+                const isChild = settings.terminal_type === 'store' || settings.terminal_type === 'remote' || localStorage.getItem('quantro_is_child_terminal') === 'true';
+                setIsActivated(settings.license_status === 'Active' || settings.onboarding_completed !== '1' || isChild);
             }
         } catch (err) {
             console.error('Check activation error:', err);
+            try {
+                const settings = await api.getSettings();
+                const isChild = settings.terminal_type === 'store' || settings.terminal_type === 'remote' || localStorage.getItem('quantro_is_child_terminal') === 'true';
+                setIsActivated(settings.license_status === 'Active' || settings.onboarding_completed !== '1' || isChild);
+            } catch (e) {
+                setIsActivated(false);
+            }
         } finally {
             setCheckingActivation(false);
             setLoading(false);
@@ -889,8 +913,8 @@ export default function App() {
                     {showRestoreModal && (
                         <SessionRestoreModal onResolve={handleRestoreAction} />
                     )}
-                    {showOnboarding && (
-                        <OnboardingModal isOpen={showOnboarding} onComplete={() => setShowOnboarding(false)} />
+                    {showOnboarding && (session || localStorage.getItem('quantro_local_session') === 'true') && (
+                        <OnboardingModal isOpen={showOnboarding} session={session} onComplete={() => setShowOnboarding(false)} />
                     )}
                     <RemoteChangesModal 
                         open={showRemoteModal} 

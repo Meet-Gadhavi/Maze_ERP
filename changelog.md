@@ -2,6 +2,13 @@
 
 All notable changes to the Quantro ERP application will be documented here.
 
+## [2.18.4] - 2026-08-06
+### Added
+- 🛡️ **Onboarding Authentication & Key Verification Guard (`App.jsx`, `OnboardingModal.jsx`)**: Enforced user authentication checks prior to rendering the onboarding setup modal, preventing new installations from bypassing license activation or login screens.
+- 🔑 **Pairing User Authorization Guard (`stores.js`, `OnboardingModal.jsx`)**: Updated `POST /api/stores/pair` endpoint to verify that the pairing requester's email exists as either a valid employee in the HQ `staff_profiles` or the active license owner in Supabase, preventing unregistered clients from pairing devices.
+
+---
+
 ## [2.18.3] - 2026-08-06
 ### Added
 - 🔌 **Store Branch Disconnect Action (`HRPayrollPage.jsx`, `api.js`)**: Linked the "Disconnect Branch" button in the Store Branches tab to trigger `api.deleteStore()`, allowing administrators to sever terminal pairing sessions and delete child branches.

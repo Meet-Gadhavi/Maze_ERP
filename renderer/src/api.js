@@ -561,7 +561,7 @@ const api = {
     // --- Stores & Branch Profiles ---
     getStores: () => request('/stores'),
     createStore: (data) => request('/stores', { method: 'POST', body: data }),
-    pairStoreTerminal: (pair_key) => request('/stores/pair', { method: 'POST', body: { pair_key } }),
+    pairStoreTerminal: (pair_key, email) => request('/stores/pair', { method: 'POST', body: { pair_key, email } }),
     updateStore: (id, data) => request(`/stores/${id}`, { method: 'PUT', body: data }),
     deleteStore: (id) => request(`/stores/${id}`, { method: 'DELETE' }),
     getConsolidatedAnalytics: () => request('/stores/consolidated-analytics'),
