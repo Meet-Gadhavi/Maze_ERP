@@ -4,12 +4,10 @@ All notable changes to the Quantro ERP application will be documented here.
 
 ## [2.18.5] - 2026-08-08
 ### Added
-- 🔄 **Supabase-to-Local SQLite Deletion Synchronization (`cloudSyncManager.js`)**: Configured the cloud pull service to automatically clean up and delete local records of products, customers, stores (excluding HQ), and employee profiles if they have been deleted from the cloud database on Supabase.
-- 📐 **Dynamic Multi-Terminal Onboarding Workflows (`OnboardingModal.jsx`, `settings.js`)**: Redesigned onboarding modal flow dynamically based on selected terminal mode:
-  - **HQ Terminal**: Standard 5-step detailed configuration.
-  - **Store Terminal**: 2-step simplified onboarding verifying the HQ paired connection, linked company name, and logo.
-  - **Remote Access**: 3-step remote onboarding prompting for access reasons and rendering a custom verified "Welcome Back" screen.
-- ⚙️ **Settings Whitelist Expansion (`settings.js`)**: Added `onboarding_completed` and `terminal_type` to `ALLOWED_SETTINGS_KEYS` to allow persistence of onboarding meta-state.
+- 🔄 **Cloud Deletion Synchronization (`cloudSyncManager.js`)**: Configured the background sync pull engine to automatically detect and delete local SQLite products, customers, store branches, and employee profiles that have been removed from Supabase.
+- 🎨 **Dynamic Terminal Onboarding (`OnboardingModal.jsx`, `settings.js`)**: Implemented specialized onboarding flows for HQ, Store, and Remote terminals:
+  - **Store Terminal**: A 2-step onboarding that skips business profiling/branding, displaying connected HQ info (logo, name, supply, GSTIN) and green status indicators.
+  - **Remote Access**: A 3-step onboarding that collects the access purpose, and presents a customized "Welcome Back, {User} ({Role})" launch portal.
 
 ---
 

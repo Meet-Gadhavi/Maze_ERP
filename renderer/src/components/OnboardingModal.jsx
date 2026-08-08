@@ -10,8 +10,8 @@ export default function OnboardingModal({ isOpen, session, onComplete }) {
     const [accountMode, setAccountMode] = useState('hq'); // 'hq', 'store', 'remote'
     const [pairKey, setPairKey] = useState('');
     const [loading, setLoading] = useState(false);
-    const [remoteReason, setRemoteReason] = useState('Work from Home');
-    const [customReason, setCustomReason] = useState('');
+    const [remoteReasonOption, setRemoteReasonOption] = useState('Work from Home');
+    const [customRemoteReason, setCustomRemoteReason] = useState('');
 
     const [form, setForm] = useState({
         shop_name: 'Quantro',
@@ -25,7 +25,6 @@ export default function OnboardingModal({ isOpen, session, onComplete }) {
 
     if (!isOpen) return null;
 
-    // Calculate total steps based on selected terminal type
     let totalSteps = 5;
     if (accountMode === 'store') totalSteps = 2;
     if (accountMode === 'remote') totalSteps = 3;
@@ -85,18 +84,18 @@ export default function OnboardingModal({ isOpen, session, onComplete }) {
                     localStorage.setItem('quantro_is_child_terminal', 'true');
                     localStorage.setItem('quantro_store_id', String(res.store.id));
                     
-                    // Pre-fill the form with paired Store details
-                    setForm(prev => ({
-                        ...prev,
+                    // Pre-fill the form with the paired store details
+                    setForm({
                         shop_name: res.store.name || 'Quantro Store',
                         gstin: res.store.gstin || '',
                         place_of_supply: res.store.place_of_supply || '',
                         phone: res.store.phone || '',
                         email: res.store.email || userEmail,
+                        pos_pin: '1234',
                         logo_url: res.store.logo_url || ''
-                    }));
+                    });
                     
-                    toast.success(`Terminal paired with ${res.store.name}!`);
+                    toast.success(`Terminal paired with ${res.store.name || 'Branch'}!`);
                 }
             } catch (err) {
                 toast.error(err.message || "16-character terminal key verification failed");
@@ -120,9 +119,9 @@ export default function OnboardingModal({ isOpen, session, onComplete }) {
             }
         } else if (accountMode === 'remote') {
             if (step === 2) {
-                const actualReason = remoteReason === 'Other' ? customReason : remoteReason;
-                if (!actualReason || !actualReason.trim()) {
-                    toast.error("Please specify your reason for Remote Access");
+                const actualReason = remoteReasonOption === 'Other' ? customRemoteReason : remoteReasonOption;
+                if (!actualReason.trim()) {
+                    toast.error("Please provide a reason for remote access.");
                     return;
                 }
             }
@@ -151,14 +150,15 @@ export default function OnboardingModal({ isOpen, session, onComplete }) {
             if (form.email) {
                 localStorage.setItem(`quantro_onboarding_completed_${form.email.trim().toLowerCase()}`, '1');
             }
+
             if (accountMode === 'remote') {
-                const actualReason = remoteReason === 'Other' ? customReason : remoteReason;
+                const actualReason = remoteReasonOption === 'Other' ? customRemoteReason : remoteReasonOption;
                 localStorage.setItem('quantro_remote_reason', actualReason);
             }
 
             // 1. Save business profile settings
             await api.updateSettings({
-                shop_name: form.shop_name || 'Quantro',
+                company_name: form.shop_name || 'Quantro',
                 gstin: form.gstin,
                 place_of_supply: form.place_of_supply,
                 phone: form.phone,
@@ -310,104 +310,166 @@ export default function OnboardingModal({ isOpen, session, onComplete }) {
                         </div>
                     )}
 
-                    {/* STORE STEP 2: Connected Status & Connected HQ */}
+                    {/* STORE STEP 2: Connected HQ Company Details */}
                     {step === 2 && accountMode === 'store' && (
-                        <div className="onboarding-step-content" style={{ maxWidth: '600px', margin: '0 auto', width: '100%', textAlign: 'center' }}>
-                            <div style={{ fontSize: '56px', marginBottom: '16px' }}>⚡</div>
-                            <h2 className="step-heading">Terminal Connected Successfully!</h2>
-                            <p className="step-desc" style={{ marginBottom: '24px' }}>
-                                This terminal has been paired and linked to your corporate Head Office.
-                            </p>
-                            
-                            <div style={{
-                                background: 'var(--bg-secondary, #f8fafc)',
-                                border: '1px solid var(--border, #e2e8f0)',
-                                borderRadius: '12px',
-                                padding: '24px',
-                                textAlign: 'left',
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: '20px',
-                                boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05)'
-                            }}>
+                        <div className="onboarding-step-content" style={{ maxWidth: '600px', margin: '0 auto', width: '100%' }}>
+                            <div style={{ textAlign: 'center', marginBottom: '24px' }}>
                                 <div style={{
-                                    width: '72px',
-                                    height: '72px',
-                                    borderRadius: '8px',
-                                    background: '#e2e8f0',
-                                    display: 'flex',
+                                    display: 'inline-flex',
                                     alignItems: 'center',
                                     justifyContent: 'center',
-                                    overflow: 'hidden',
-                                    flexShrink: 0
+                                    width: '72px',
+                                    height: '72px',
+                                    borderRadius: '50%',
+                                    background: '#ecfdf5',
+                                    color: '#059669',
+                                    fontSize: '32px',
+                                    marginBottom: '16px',
+                                    boxShadow: '0 0 0 8px #f0fdf4'
                                 }}>
-                                    {form.logo_url ? (
-                                        <img src={form.logo_url} alt="HQ Logo" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
-                                    ) : (
-                                        <Icons.Building size={32} style={{ color: '#64748b' }} />
-                                    )}
+                                    ✓
                                 </div>
-                                <div>
-                                    <h3 style={{ fontSize: '18px', fontWeight: '700', color: '#0f172a' }}>{form.shop_name}</h3>
-                                    <p style={{ fontSize: '14px', color: '#64748b', marginTop: '4px' }}><strong>GSTIN:</strong> {form.gstin || 'N/A'}</p>
-                                    <p style={{ fontSize: '14px', color: '#64748b', marginTop: '2px' }}><strong>Place of Supply:</strong> {form.place_of_supply || 'N/A'}</p>
-                                    <p style={{ fontSize: '14px', color: '#64748b', marginTop: '2px' }}><strong>Linked Phone:</strong> {form.phone || 'N/A'}</p>
+                                <h2 className="step-heading">Terminal Paired Successfully!</h2>
+                                <p className="step-desc">This child terminal is now linked to the company HQ registry.</p>
+                            </div>
+
+                            <div style={{
+                                border: '1px solid #e2e8f0',
+                                borderRadius: '12px',
+                                background: '#f8fafc',
+                                padding: '24px',
+                                marginBottom: '20px'
+                            }}>
+                                <h4 style={{ fontSize: '15px', fontWeight: '800', color: '#0f172a', marginBottom: '16px', borderBottom: '1px solid #e2e8f0', paddingBottom: '8px' }}>
+                                    Linked Business Profile
+                                </h4>
+
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '16px' }}>
+                                    {form.logo_url ? (
+                                        <img src={form.logo_url} alt="HQ Logo" style={{ height: '60px', width: '60px', objectFit: 'contain', borderRadius: '8px', border: '1px solid #e2e8f0', padding: '4px', background: '#fff' }} />
+                                    ) : (
+                                        <div style={{ height: '60px', width: '60px', borderRadius: '8px', background: '#dbeafe', color: '#2563eb', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '24px', fontWeight: 'bold' }}>🏢</div>
+                                    )}
+                                    <div>
+                                        <div style={{ fontWeight: '800', fontSize: '16px', color: '#0f172a' }}>{form.shop_name}</div>
+                                        <div style={{ fontSize: '13px', color: '#64748b', marginTop: '2px' }}>HQ Connected Company</div>
+                                    </div>
+                                </div>
+
+                                <div className="summary-row" style={{ marginTop: '8px' }}>
+                                    <span>GSTIN Number:</span>
+                                    <strong>{form.gstin || 'N/A (Standard Tax)'}</strong>
+                                </div>
+                                <div className="summary-row">
+                                    <span>Place of Supply:</span>
+                                    <strong>{form.place_of_supply || 'Default'}</strong>
+                                </div>
+                                <div className="summary-row">
+                                    <span>HQ Helpline Phone:</span>
+                                    <strong>{form.phone || 'N/A'}</strong>
+                                </div>
+                                <div className="summary-row">
+                                    <span>HQ Account Email:</span>
+                                    <strong>{form.email || 'N/A'}</strong>
                                 </div>
                             </div>
 
                             <div style={{
-                                marginTop: '24px',
-                                padding: '12px 16px',
-                                background: 'rgba(34,197,94,0.1)',
-                                borderRadius: '8px',
-                                color: '#16a34a',
-                                fontWeight: '600',
-                                display: 'inline-flex',
+                                padding: '14px 16px',
+                                background: '#f0fdf4',
+                                borderRadius: '10px',
+                                border: '1px solid #bbf7d0',
+                                display: 'flex',
                                 alignItems: 'center',
-                                gap: '8px'
+                                gap: '12px',
+                                color: '#166534',
+                                fontSize: '13px',
+                                fontWeight: '600'
                             }}>
-                                <span>●</span> Connected to HQ Company Profile
+                                <span style={{
+                                    display: 'inline-block',
+                                    width: '10px',
+                                    height: '10px',
+                                    borderRadius: '50%',
+                                    background: '#22c55e'
+                                }} />
+                                Connected to HQ Sync Engine
                             </div>
                         </div>
                     )}
 
-                    {/* REMOTE STEP 2: Remote Access Purpose */}
+                    {/* REMOTE STEP 2: Reason for Remote Access */}
                     {step === 2 && accountMode === 'remote' && (
                         <div className="onboarding-step-content" style={{ maxWidth: '600px', margin: '0 auto', width: '100%' }}>
-                            <h2 className="step-heading">Why do you need to use Remote Access?</h2>
-                            <p className="step-desc">Specify your main operations purpose for this remote access terminal session.</p>
+                            <h2 className="step-heading">Reason for Remote Access</h2>
+                            <p className="step-desc">Please specify your primary purpose for establishing a remote connection to the ERP network.</p>
 
                             <div className="form-group" style={{ marginTop: '20px' }}>
-                                <label>Access Purpose *</label>
-                                <select 
-                                    value={remoteReason}
-                                    onChange={e => setRemoteReason(e.target.value)}
-                                    style={{
-                                        width: '100%',
-                                        padding: '12px',
-                                        borderRadius: '8px',
-                                        border: '1px solid var(--border, #e2e8f0)',
-                                        background: '#fff',
-                                        fontSize: '15px'
-                                    }}
-                                >
-                                    <option value="Work from Home">Work from Home / Offsite Operations</option>
-                                    <option value="Mobile Management">Mobile Management & Quick Audit</option>
-                                    <option value="Offsite Auditing">External Auditing & Tax Preparation</option>
-                                    <option value="Emergency Access">Emergency Troubleshooting & Support</option>
-                                    <option value="Other">Other (Specify Custom Reason)</option>
-                                </select>
+                                <label style={{ fontWeight: '700', marginBottom: '10px', display: 'block' }}>Select Remote Purpose</label>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                                    {[
+                                        'Work from Home',
+                                        'Field Sales & Mobile billing',
+                                        'Offsite Operations Audit',
+                                        'Emergency Out-of-Office Management',
+                                        'Other'
+                                    ].map((opt) => (
+                                        <label 
+                                            key={opt}
+                                            style={{
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                gap: '12px',
+                                                padding: '12px 16px',
+                                                border: `2px solid ${remoteReasonOption === opt ? '#2563eb' : '#e2e8f0'}`,
+                                                borderRadius: '10px',
+                                                background: remoteReasonOption === opt ? '#eff6ff' : '#ffffff',
+                                                cursor: 'pointer',
+                                                transition: 'all 0.2s ease',
+                                                fontWeight: '600',
+                                                fontSize: '14px',
+                                                color: '#0f172a'
+                                            }}
+                                        >
+                                            <input 
+                                                type="radio" 
+                                                name="remote_reason" 
+                                                value={opt} 
+                                                checked={remoteReasonOption === opt}
+                                                onChange={() => setRemoteReasonOption(opt)}
+                                                style={{ display: 'none' }}
+                                            />
+                                            <span style={{
+                                                width: '18px',
+                                                height: '18px',
+                                                borderRadius: '50%',
+                                                border: '2px solid #cbd5e1',
+                                                display: 'inline-flex',
+                                                alignItems: 'center',
+                                                justifyContent: 'center',
+                                                borderColor: remoteReasonOption === opt ? '#2563eb' : '#cbd5e1',
+                                                background: '#fff'
+                                            }}>
+                                                {remoteReasonOption === opt && (
+                                                    <span style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#2563eb' }} />
+                                                )}
+                                            </span>
+                                            {opt === 'Other' ? 'Other Purpose (Specify Below)' : opt}
+                                        </label>
+                                    ))}
+                                </div>
                             </div>
 
-                            {remoteReason === 'Other' && (
+                            {remoteReasonOption === 'Other' && (
                                 <div className="form-group" style={{ marginTop: '16px' }}>
-                                    <label>Specify Custom Reason *</label>
-                                    <input 
-                                        type="text"
+                                    <label>Specify Reason / Purpose *</label>
+                                    <textarea 
                                         required
-                                        value={customReason}
-                                        onChange={e => setCustomReason(e.target.value)}
-                                        placeholder="e.g. Monitoring stock levels while travelling"
+                                        rows={3}
+                                        value={customRemoteReason}
+                                        onChange={e => setCustomRemoteReason(e.target.value)}
+                                        placeholder="Enter details of why remote access is required..."
+                                        style={{ width: '100%', borderRadius: '10px', padding: '12px', border: '1px solid #cbd5e1', fontSize: '14px' }}
                                     />
                                 </div>
                             )}
@@ -444,81 +506,90 @@ export default function OnboardingModal({ isOpen, session, onComplete }) {
 
                     {/* REMOTE STEP 3: Welcome Back & Session Launch */}
                     {step === 3 && accountMode === 'remote' && (
-                        <div className="onboarding-step-content" style={{ maxWidth: '600px', margin: '0 auto', width: '100%', textAlign: 'center' }}>
-                            <div style={{ fontSize: '56px', marginBottom: '16px' }}>👤</div>
-                            <h2 className="step-heading">
-                                Welcome Back, {
+                        <div className="onboarding-step-content" style={{ maxWidth: '600px', margin: '0 auto', width: '100%' }}>
+                            <div style={{ textAlign: 'center', marginBottom: '24px' }}>
+                                <div style={{
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    width: '72px',
+                                    height: '72px',
+                                    borderRadius: '50%',
+                                    background: '#eff6ff',
+                                    color: '#2563eb',
+                                    fontSize: '32px',
+                                    marginBottom: '16px',
+                                    boxShadow: '0 0 0 8px #f8fafc'
+                                }}>
+                                    👋
+                                </div>
+                                <h2 className="step-heading">Welcome Back, {
                                     (() => {
                                         const authUser = JSON.parse(localStorage.getItem('quantro_auth_user') || 'null');
                                         return authUser?.full_name || session?.user?.email?.split('@')[0] || 'User';
                                     })()
-                                }!
-                            </h2>
-                            <p className="step-desc" style={{ marginBottom: '24px' }}>
-                                Remote authorization completed. Launching your workspace.
-                            </p>
+                                }!</h2>
+                                <p className="step-desc">Your remote session is verified and ready for deployment.</p>
+                            </div>
 
                             <div style={{
-                                background: 'var(--bg-secondary, #f8fafc)',
-                                border: '1px solid var(--border, #e2e8f0)',
+                                border: '1px solid #e2e8f0',
                                 borderRadius: '12px',
+                                background: '#f8fafc',
                                 padding: '24px',
-                                textAlign: 'left',
-                                boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05)',
-                                maxWidth: '440px',
-                                margin: '0 auto'
+                                marginBottom: '20px'
                             }}>
-                                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '12px' }}>
-                                    <span style={{ color: '#64748b' }}>Account Email:</span>
-                                    <strong style={{ marginLeft: 'auto' }}>{
+                                <h4 style={{ fontSize: '15px', fontWeight: '800', color: '#0f172a', marginBottom: '16px', borderBottom: '1px solid #e2e8f0', paddingBottom: '8px' }}>
+                                    Remote Session Authorized
+                                </h4>
+
+                                <div className="summary-row">
+                                    <span>Authorized User:</span>
+                                    <strong>{
                                         (() => {
                                             const authUser = JSON.parse(localStorage.getItem('quantro_auth_user') || 'null');
-                                            return authUser?.email || session?.user?.email || 'N/A';
+                                            return authUser?.full_name || session?.user?.email?.split('@')[0] || 'User';
                                         })()
                                     }</strong>
                                 </div>
-                                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '12px' }}>
-                                    <span style={{ color: '#64748b' }}>Authorized Role:</span>
-                                    <strong style={{
-                                        marginLeft: 'auto',
-                                        background: '#eff6ff',
-                                        color: '#2563eb',
-                                        padding: '2px 8px',
-                                        borderRadius: '4px',
-                                        fontSize: '12px',
-                                        fontWeight: '700'
-                                    }}>{
+                                <div className="summary-row">
+                                    <span>Assigned Role:</span>
+                                    <strong style={{ color: '#2563eb' }}>{
                                         (() => {
                                             const authUser = JSON.parse(localStorage.getItem('quantro_auth_user') || 'null');
-                                            return authUser?.role || 'STAFF';
+                                            return (authUser?.role || 'Staff').toUpperCase();
                                         })()
                                     }</strong>
                                 </div>
-                                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                                    <span style={{ color: '#64748b' }}>Access Purpose:</span>
-                                    <strong style={{ marginLeft: 'auto', color: '#475569', fontSize: '13px' }}>
-                                        {remoteReason === 'Other' ? customReason : remoteReason}
-                                    </strong>
+                                <div className="summary-row">
+                                    <span>Access Purpose:</span>
+                                    <strong>{remoteReasonOption === 'Other' ? customRemoteReason : remoteReasonOption}</strong>
+                                </div>
+                                <div className="summary-row">
+                                    <span>Connected Company:</span>
+                                    <strong>{form.shop_name}</strong>
                                 </div>
                             </div>
 
                             <div style={{
-                                marginTop: '24px',
-                                padding: '12px 16px',
-                                background: 'rgba(34,197,94,0.1)',
-                                borderRadius: '8px',
-                                color: '#16a34a',
-                                fontWeight: '600',
-                                display: 'inline-flex',
+                                padding: '14px 16px',
+                                background: '#eff6ff',
+                                borderRadius: '10px',
+                                border: '1px solid #bfdbfe',
+                                display: 'flex',
                                 alignItems: 'center',
-                                gap: '8px'
+                                gap: '12px',
+                                color: '#1e40af',
+                                fontSize: '13px',
+                                fontWeight: '600'
                             }}>
-                                <span>●</span> Remote Session Authenticated
+                                <span>🔒</span>
+                                Securely authenticated & verified on cloud
                             </div>
                         </div>
                     )}
 
-                    {/* HQ STEP 4: Contact & Email (+ PIN only for HQ mode) */}
+                    {/* HQ STEP 4: Contact & Email + Security PIN */}
                     {step === 4 && accountMode === 'hq' && (
                         <div className="onboarding-step-content" style={{ maxWidth: '600px', margin: '0 auto', width: '100%' }}>
                             <h2 className="step-heading">Contact, Account Email & Security PIN</h2>
@@ -598,7 +669,7 @@ export default function OnboardingModal({ isOpen, session, onComplete }) {
                             <div className="summary-preview-card" style={{ marginTop: '16px' }}>
                                 <div className="summary-row">
                                     <span>Selected Architecture:</span>
-                                    <strong style={{ color: 'var(--accent, #6366f1)' }}>{accountMode.toUpperCase()} TERMINAL</strong>
+                                    <strong style={{ color: 'var(--accent, #6366f1)' }}>HQ TERMINAL</strong>
                                 </div>
                                 <div className="summary-row">
                                     <span>Business Name:</span>

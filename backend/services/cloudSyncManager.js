@@ -309,6 +309,7 @@ async function pullFromCloudAndSyncLocal() {
                         `, [p.id, p.name, p.sku || '', p.category || 'General', Number(p.selling_price || 0), Number(p.cost_price || 0), Number(p.stock_quantity || 0), p.unit || 'Pcs', Number(p.gst_rate || 0)]);
                     } catch (_) {}
                 }
+                // Cleanup deleted products
                 const cloudIds = cloudProducts.map(p => p.id);
                 if (cloudIds.length > 0) {
                     db.run(`DELETE FROM products WHERE id NOT IN (${cloudIds.map(() => '?').join(',')})`, cloudIds);
@@ -340,6 +341,7 @@ async function pullFromCloudAndSyncLocal() {
                         `, [c.id, c.name, c.phone || '', c.email || '', c.gstin || '', c.address || '', Number(c.outstanding_balance || c.p_credit_balance || 0), Number(c.loyalty_points || 0)]);
                     } catch (_) {}
                 }
+                // Cleanup deleted customers
                 const cloudIds = cloudCust.map(c => c.id);
                 if (cloudIds.length > 0) {
                     db.run(`DELETE FROM customers WHERE id NOT IN (${cloudIds.map(() => '?').join(',')})`, cloudIds);
@@ -469,7 +471,8 @@ async function pullFromCloudAndSyncLocal() {
                         `, [st.full_name, st.email.toLowerCase(), st.role || 'CASHIER', st.phone || '', st.avatar_url || '', st.pin || '1234', st.restrict_to_terminals !== undefined ? Number(st.restrict_to_terminals) : 1, st.scopes || '{}', st.assigned_store_ids || '["*"]', st.department || 'Sales', st.designation || 'Staff', Number(st.base_salary || 0), Number(st.allowances || 0), Number(st.deductions || 0)]);
                     } catch (_) {}
                 }
-                const cloudEmails = cloudStaff.map(st => st.email.toLowerCase().trim()).filter(Boolean);
+                // Cleanup deleted employees
+                const cloudEmails = cloudStaff.map(st => st.email.toLowerCase().trim());
                 if (cloudEmails.length > 0) {
                     db.run(`DELETE FROM employees WHERE email NOT IN (${cloudEmails.map(() => '?').join(',')})`, cloudEmails);
                 } else {
@@ -503,6 +506,7 @@ async function pullFromCloudAndSyncLocal() {
                         `, [st.name, st.store_code || `STR-${st.id}`, st.phone || '', st.email || '', st.address || '', st.gstin || '', st.place_of_supply || '', st.pair_key_hash || '', st.is_hq ? 1 : 0, st.is_paired ? 1 : 0, st.status || 'CONNECTED']);
                     } catch (_) {}
                 }
+                // Cleanup deleted store branches (exclude the primary HQ Store with is_hq = 1)
                 const cloudHashes = cloudStores.map(st => st.pair_key_hash).filter(Boolean);
                 if (cloudHashes.length > 0) {
                     db.run(`DELETE FROM stores WHERE is_hq = 0 AND pair_key_hash NOT IN (${cloudHashes.map(() => '?').join(',')})`, cloudHashes);
