@@ -2,7 +2,7 @@
 
 All notable changes to the Quantro ERP application will be documented here.
 
-## [2.18.5] - 2026-08-08
+## [2.18.6] - 2026-08-08
 ### Added
 - 🔄 **Cloud Deletion Synchronization (`cloudSyncManager.js`)**: Configured the background sync pull engine to automatically detect and delete local SQLite products, customers, store branches, and employee profiles that have been removed from Supabase.
 - 🎨 **Dynamic Terminal Onboarding (`OnboardingModal.jsx`, `settings.js`)**: Implemented specialized onboarding flows for HQ, Store, and Remote terminals:
