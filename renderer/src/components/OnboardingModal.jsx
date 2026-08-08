@@ -10,6 +10,8 @@ export default function OnboardingModal({ isOpen, session, onComplete }) {
     const [accountMode, setAccountMode] = useState('hq'); // 'hq', 'store', 'remote'
     const [pairKey, setPairKey] = useState('');
     const [loading, setLoading] = useState(false);
+    const [remoteReason, setRemoteReason] = useState('Work from Home');
+    const [customReason, setCustomReason] = useState('');
 
     const [form, setForm] = useState({
         shop_name: 'Quantro',
@@ -23,18 +25,34 @@ export default function OnboardingModal({ isOpen, session, onComplete }) {
 
     if (!isOpen) return null;
 
-    const totalSteps = 5;
-    const progressPercentage = (step / totalSteps) * 100;
+    // Calculate total steps based on selected terminal type
+    let totalSteps = 5;
+    if (accountMode === 'store') totalSteps = 2;
+    if (accountMode === 'remote') totalSteps = 3;
 
-    const stepTitles = [
-        "Select Device Architecture & Terminal Type",
-        "Shop & Business Profile",
-        "GSTIN & Tax Registration",
-        accountMode === 'hq'
-            ? "Contact, Email & 4-Digit Security PIN"
-            : "Contact & Account Email",
-        "Business Logo & Final Launch"
-    ];
+    const progressPercentage = Math.round((step / totalSteps) * 100);
+
+    let stepTitles = [];
+    if (accountMode === 'hq') {
+        stepTitles = [
+            "Select Device Architecture & Terminal Type",
+            "Shop & Business Profile",
+            "GSTIN & Tax Registration",
+            "Contact, Email & 4-Digit Security PIN",
+            "Business Logo & Final Launch"
+        ];
+    } else if (accountMode === 'store') {
+        stepTitles = [
+            "Select Device Architecture & Terminal Type",
+            "Connection Status & Linked Business"
+        ];
+    } else if (accountMode === 'remote') {
+        stepTitles = [
+            "Select Device Architecture & Terminal Type",
+            "Remote Access Purpose",
+            "Welcome Back & Session Launch"
+        ];
+    }
 
     const handleLogoUpload = (e) => {
         const file = e.target.files[0];
@@ -66,6 +84,18 @@ export default function OnboardingModal({ isOpen, session, onComplete }) {
                 if (res.store) {
                     localStorage.setItem('quantro_is_child_terminal', 'true');
                     localStorage.setItem('quantro_store_id', String(res.store.id));
+                    
+                    // Pre-fill the form with paired Store details
+                    setForm(prev => ({
+                        ...prev,
+                        shop_name: res.store.name || 'Quantro Store',
+                        gstin: res.store.gstin || '',
+                        place_of_supply: res.store.place_of_supply || '',
+                        phone: res.store.phone || '',
+                        email: res.store.email || userEmail,
+                        logo_url: res.store.logo_url || ''
+                    }));
+                    
                     toast.success(`Terminal paired with ${res.store.name}!`);
                 }
             } catch (err) {
@@ -77,15 +107,24 @@ export default function OnboardingModal({ isOpen, session, onComplete }) {
             }
         }
 
-        if (step === 2 && !form.shop_name.trim()) {
-            toast.error("Shop / Business Name is required");
-            return;
-        }
-
-        if (step === 4 && accountMode === 'hq') {
-            if (form.pos_pin && form.pos_pin.length !== 4) {
-                toast.error("Security POS PIN must be exactly 4 digits");
+        if (accountMode === 'hq') {
+            if (step === 2 && !form.shop_name.trim()) {
+                toast.error("Shop / Business Name is required");
                 return;
+            }
+            if (step === 4) {
+                if (form.pos_pin && form.pos_pin.length !== 4) {
+                    toast.error("Security POS PIN must be exactly 4 digits");
+                    return;
+                }
+            }
+        } else if (accountMode === 'remote') {
+            if (step === 2) {
+                const actualReason = remoteReason === 'Other' ? customReason : remoteReason;
+                if (!actualReason || !actualReason.trim()) {
+                    toast.error("Please specify your reason for Remote Access");
+                    return;
+                }
             }
         }
 
@@ -112,6 +151,10 @@ export default function OnboardingModal({ isOpen, session, onComplete }) {
             if (form.email) {
                 localStorage.setItem(`quantro_onboarding_completed_${form.email.trim().toLowerCase()}`, '1');
             }
+            if (accountMode === 'remote') {
+                const actualReason = remoteReason === 'Other' ? customReason : remoteReason;
+                localStorage.setItem('quantro_remote_reason', actualReason);
+            }
 
             // 1. Save business profile settings
             await api.updateSettings({
@@ -121,12 +164,11 @@ export default function OnboardingModal({ isOpen, session, onComplete }) {
                 phone: form.phone,
                 email: form.email,
                 logo_url: form.logo_url,
-                onboarding_completed: '1'
+                onboarding_completed: '1',
+                terminal_type: accountMode
             });
 
             // 2. Create primary staff profile only for HQ mode.
-            // For Store/Remote terminals, the employee profile & PIN already
-            // exist in Supabase (created by the HR Admin). Don't overwrite.
             if (form.email && accountMode === 'hq') {
                 try {
                     await api.createEmployee({
@@ -164,7 +206,7 @@ export default function OnboardingModal({ isOpen, session, onComplete }) {
                     </div>
 
                     <div className="segmented-progress-bar">
-                        {[1, 2, 3, 4, 5].map((s) => (
+                        {Array.from({ length: totalSteps }, (_, i) => i + 1).map((s) => (
                             <div 
                                 key={s} 
                                 className={`progress-segment ${s <= step ? 'active' : ''}`} 
@@ -249,8 +291,8 @@ export default function OnboardingModal({ isOpen, session, onComplete }) {
                         </div>
                     )}
 
-                    {/* STEP 2: Shop & Business Profile */}
-                    {step === 2 && (
+                    {/* HQ STEP 2: Shop & Business Profile */}
+                    {step === 2 && accountMode === 'hq' && (
                         <div className="onboarding-step-content" style={{ maxWidth: '600px', margin: '0 auto', width: '100%' }}>
                             <h2 className="step-heading">Shop / Business Profile</h2>
                             <p className="step-desc">Enter your primary store identity displayed on customer invoices and receipts.</p>
@@ -268,8 +310,112 @@ export default function OnboardingModal({ isOpen, session, onComplete }) {
                         </div>
                     )}
 
-                    {/* STEP 3: Tax & GSTIN Registration */}
-                    {step === 3 && (
+                    {/* STORE STEP 2: Connected Status & Connected HQ */}
+                    {step === 2 && accountMode === 'store' && (
+                        <div className="onboarding-step-content" style={{ maxWidth: '600px', margin: '0 auto', width: '100%', textAlign: 'center' }}>
+                            <div style={{ fontSize: '56px', marginBottom: '16px' }}>⚡</div>
+                            <h2 className="step-heading">Terminal Connected Successfully!</h2>
+                            <p className="step-desc" style={{ marginBottom: '24px' }}>
+                                This terminal has been paired and linked to your corporate Head Office.
+                            </p>
+                            
+                            <div style={{
+                                background: 'var(--bg-secondary, #f8fafc)',
+                                border: '1px solid var(--border, #e2e8f0)',
+                                borderRadius: '12px',
+                                padding: '24px',
+                                textAlign: 'left',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '20px',
+                                boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05)'
+                            }}>
+                                <div style={{
+                                    width: '72px',
+                                    height: '72px',
+                                    borderRadius: '8px',
+                                    background: '#e2e8f0',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    overflow: 'hidden',
+                                    flexShrink: 0
+                                }}>
+                                    {form.logo_url ? (
+                                        <img src={form.logo_url} alt="HQ Logo" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+                                    ) : (
+                                        <Icons.Building size={32} style={{ color: '#64748b' }} />
+                                    )}
+                                </div>
+                                <div>
+                                    <h3 style={{ fontSize: '18px', fontWeight: '700', color: '#0f172a' }}>{form.shop_name}</h3>
+                                    <p style={{ fontSize: '14px', color: '#64748b', marginTop: '4px' }}><strong>GSTIN:</strong> {form.gstin || 'N/A'}</p>
+                                    <p style={{ fontSize: '14px', color: '#64748b', marginTop: '2px' }}><strong>Place of Supply:</strong> {form.place_of_supply || 'N/A'}</p>
+                                    <p style={{ fontSize: '14px', color: '#64748b', marginTop: '2px' }}><strong>Linked Phone:</strong> {form.phone || 'N/A'}</p>
+                                </div>
+                            </div>
+
+                            <div style={{
+                                marginTop: '24px',
+                                padding: '12px 16px',
+                                background: 'rgba(34,197,94,0.1)',
+                                borderRadius: '8px',
+                                color: '#16a34a',
+                                fontWeight: '600',
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '8px'
+                            }}>
+                                <span>●</span> Connected to HQ Company Profile
+                            </div>
+                        </div>
+                    )}
+
+                    {/* REMOTE STEP 2: Remote Access Purpose */}
+                    {step === 2 && accountMode === 'remote' && (
+                        <div className="onboarding-step-content" style={{ maxWidth: '600px', margin: '0 auto', width: '100%' }}>
+                            <h2 className="step-heading">Why do you need to use Remote Access?</h2>
+                            <p className="step-desc">Specify your main operations purpose for this remote access terminal session.</p>
+
+                            <div className="form-group" style={{ marginTop: '20px' }}>
+                                <label>Access Purpose *</label>
+                                <select 
+                                    value={remoteReason}
+                                    onChange={e => setRemoteReason(e.target.value)}
+                                    style={{
+                                        width: '100%',
+                                        padding: '12px',
+                                        borderRadius: '8px',
+                                        border: '1px solid var(--border, #e2e8f0)',
+                                        background: '#fff',
+                                        fontSize: '15px'
+                                    }}
+                                >
+                                    <option value="Work from Home">Work from Home / Offsite Operations</option>
+                                    <option value="Mobile Management">Mobile Management & Quick Audit</option>
+                                    <option value="Offsite Auditing">External Auditing & Tax Preparation</option>
+                                    <option value="Emergency Access">Emergency Troubleshooting & Support</option>
+                                    <option value="Other">Other (Specify Custom Reason)</option>
+                                </select>
+                            </div>
+
+                            {remoteReason === 'Other' && (
+                                <div className="form-group" style={{ marginTop: '16px' }}>
+                                    <label>Specify Custom Reason *</label>
+                                    <input 
+                                        type="text"
+                                        required
+                                        value={customReason}
+                                        onChange={e => setCustomReason(e.target.value)}
+                                        placeholder="e.g. Monitoring stock levels while travelling"
+                                    />
+                                </div>
+                            )}
+                        </div>
+                    )}
+
+                    {/* HQ STEP 3: Tax & GSTIN Registration */}
+                    {step === 3 && accountMode === 'hq' && (
                         <div className="onboarding-step-content" style={{ maxWidth: '600px', margin: '0 auto', width: '100%' }}>
                             <h2 className="step-heading">GSTIN & Tax Registration</h2>
                             <p className="step-desc">Configure your regional GSTIN and place of supply for compliant tax invoices.</p>
@@ -296,17 +442,87 @@ export default function OnboardingModal({ isOpen, session, onComplete }) {
                         </div>
                     )}
 
-                    {/* STEP 4: Contact & Email (+ PIN only for HQ mode) */}
-                    {step === 4 && (
-                        <div className="onboarding-step-content" style={{ maxWidth: '600px', margin: '0 auto', width: '100%' }}>
+                    {/* REMOTE STEP 3: Welcome Back & Session Launch */}
+                    {step === 3 && accountMode === 'remote' && (
+                        <div className="onboarding-step-content" style={{ maxWidth: '600px', margin: '0 auto', width: '100%', textAlign: 'center' }}>
+                            <div style={{ fontSize: '56px', marginBottom: '16px' }}>👤</div>
                             <h2 className="step-heading">
-                                {accountMode === 'hq' ? 'Contact, Account Email & Security PIN' : 'Contact & Account Email'}
+                                Welcome Back, {
+                                    (() => {
+                                        const authUser = JSON.parse(localStorage.getItem('quantro_auth_user') || 'null');
+                                        return authUser?.full_name || session?.user?.email?.split('@')[0] || 'User';
+                                    })()
+                                }!
                             </h2>
-                            <p className="step-desc">
-                                {accountMode === 'hq'
-                                    ? 'Set your owner account email and a 4-digit PIN for instant POS terminal profile switching.'
-                                    : 'Enter your work email address. Your 4-digit POS PIN was already set by your HR Admin — no need to re-create it here.'}
+                            <p className="step-desc" style={{ marginBottom: '24px' }}>
+                                Remote authorization completed. Launching your workspace.
                             </p>
+
+                            <div style={{
+                                background: 'var(--bg-secondary, #f8fafc)',
+                                border: '1px solid var(--border, #e2e8f0)',
+                                borderRadius: '12px',
+                                padding: '24px',
+                                textAlign: 'left',
+                                boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05)',
+                                maxWidth: '440px',
+                                margin: '0 auto'
+                            }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '12px' }}>
+                                    <span style={{ color: '#64748b' }}>Account Email:</span>
+                                    <strong style={{ marginLeft: 'auto' }}>{
+                                        (() => {
+                                            const authUser = JSON.parse(localStorage.getItem('quantro_auth_user') || 'null');
+                                            return authUser?.email || session?.user?.email || 'N/A';
+                                        })()
+                                    }</strong>
+                                </div>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '12px' }}>
+                                    <span style={{ color: '#64748b' }}>Authorized Role:</span>
+                                    <strong style={{
+                                        marginLeft: 'auto',
+                                        background: '#eff6ff',
+                                        color: '#2563eb',
+                                        padding: '2px 8px',
+                                        borderRadius: '4px',
+                                        fontSize: '12px',
+                                        fontWeight: '700'
+                                    }}>{
+                                        (() => {
+                                            const authUser = JSON.parse(localStorage.getItem('quantro_auth_user') || 'null');
+                                            return authUser?.role || 'STAFF';
+                                        })()
+                                    }</strong>
+                                </div>
+                                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                                    <span style={{ color: '#64748b' }}>Access Purpose:</span>
+                                    <strong style={{ marginLeft: 'auto', color: '#475569', fontSize: '13px' }}>
+                                        {remoteReason === 'Other' ? customReason : remoteReason}
+                                    </strong>
+                                </div>
+                            </div>
+
+                            <div style={{
+                                marginTop: '24px',
+                                padding: '12px 16px',
+                                background: 'rgba(34,197,94,0.1)',
+                                borderRadius: '8px',
+                                color: '#16a34a',
+                                fontWeight: '600',
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '8px'
+                            }}>
+                                <span>●</span> Remote Session Authenticated
+                            </div>
+                        </div>
+                    )}
+
+                    {/* HQ STEP 4: Contact & Email (+ PIN only for HQ mode) */}
+                    {step === 4 && accountMode === 'hq' && (
+                        <div className="onboarding-step-content" style={{ maxWidth: '600px', margin: '0 auto', width: '100%' }}>
+                            <h2 className="step-heading">Contact, Account Email & Security PIN</h2>
+                            <p className="step-desc">Set your owner account email and a 4-digit PIN for instant POS terminal profile switching.</p>
 
                             <div className="form-group" style={{ marginTop: '16px' }}>
                                 <label>Helpline Phone Number</label>
@@ -329,47 +545,26 @@ export default function OnboardingModal({ isOpen, session, onComplete }) {
                                 />
                             </div>
 
-                            {/* 🔒 PIN field only shown for HQ Owner setup */}
-                            {accountMode === 'hq' && (
-                                <div className="form-group" style={{ marginTop: '16px' }}>
-                                    <label>Create 4-Digit Security POS PIN * (for Profile Switching)</label>
-                                    <input 
-                                        type="password"
-                                        maxLength={4}
-                                        required
-                                        value={form.pos_pin}
-                                        onChange={e => setForm({ ...form, pos_pin: e.target.value.replace(/\D/g, '') })}
-                                        placeholder="1234"
-                                        style={{ fontSize: '18px', letterSpacing: '4px', fontWeight: 'bold' }}
-                                    />
-                                    <span style={{ fontSize: '12px', color: '#64748b', marginTop: '6px', display: 'block' }}>
-                                        ℹ️ This PIN is used to switch between staff profiles on this terminal.
-                                    </span>
-                                </div>
-                            )}
-
-                            {/* ℹ️ Info notice for store/remote — PIN already assigned by admin */}
-                            {accountMode !== 'hq' && (
-                                <div style={{
-                                    marginTop: '20px', padding: '14px 16px',
-                                    background: 'rgba(99,102,241,0.08)', borderRadius: '10px',
-                                    border: '1px solid rgba(99,102,241,0.2)',
-                                    display: 'flex', alignItems: 'flex-start', gap: '10px'
-                                }}>
-                                    <span style={{ fontSize: '18px' }}>🔐</span>
-                                    <div>
-                                        <div style={{ fontWeight: '700', fontSize: '13px', color: '#6366f1' }}>POS PIN Already Configured</div>
-                                        <div style={{ fontSize: '12px', color: '#475569', marginTop: '4px' }}>
-                                            Your 4-digit POS PIN was securely set by your HR Administrator when your employee profile was created. You do not need to create a new PIN here — it will work automatically once you log in on this terminal.
-                                        </div>
-                                    </div>
-                                </div>
-                            )}
+                            <div className="form-group" style={{ marginTop: '16px' }}>
+                                <label>Create 4-Digit Security POS PIN * (for Profile Switching)</label>
+                                <input 
+                                    type="password"
+                                    maxLength={4}
+                                    required
+                                    value={form.pos_pin}
+                                    onChange={e => setForm({ ...form, pos_pin: e.target.value.replace(/\D/g, '') })}
+                                    placeholder="1234"
+                                    style={{ fontSize: '18px', letterSpacing: '4px', fontWeight: 'bold' }}
+                                />
+                                <span style={{ fontSize: '12px', color: '#64748b', marginTop: '6px', display: 'block' }}>
+                                    ℹ️ This PIN is used to switch between staff profiles on this terminal.
+                                </span>
+                            </div>
                         </div>
                     )}
 
-                    {/* STEP 5: Business Logo & Final Launch */}
-                    {step === 5 && (
+                    {/* HQ STEP 5: Business Logo & Final Launch */}
+                    {step === 5 && accountMode === 'hq' && (
                         <div className="onboarding-step-content" style={{ maxWidth: '600px', margin: '0 auto', width: '100%' }}>
                             <h2 className="step-heading">Business Logo & Branding</h2>
                             <p className="step-desc">Upload your official brand logo for printed customer invoices and receipts.</p>
@@ -413,18 +608,10 @@ export default function OnboardingModal({ isOpen, session, onComplete }) {
                                     <span>Account Email:</span>
                                     <strong>{form.email || 'N/A'}</strong>
                                 </div>
-                                {accountMode === 'hq' && (
-                                    <div className="summary-row">
-                                        <span>4-Digit Security PIN:</span>
-                                        <strong>•••• ({form.pos_pin || '1234'})</strong>
-                                    </div>
-                                )}
-                                {accountMode !== 'hq' && (
-                                    <div className="summary-row">
-                                        <span>POS PIN:</span>
-                                        <strong style={{ color: '#6366f1' }}>✓ Pre-configured by HR Admin</strong>
-                                    </div>
-                                )}
+                                <div className="summary-row">
+                                    <span>4-Digit Security PIN:</span>
+                                    <strong>•••• ({form.pos_pin || '1234'})</strong>
+                                </div>
                                 <div className="summary-row">
                                     <span>GSTIN:</span>
                                     <strong>{form.gstin || 'Not Provided'}</strong>
